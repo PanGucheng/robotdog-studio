@@ -1,0 +1,38 @@
+# Dependencies and generated output
+node_modules/
+dist/
+out/
+release/
+coverage/
+playwright-report/
+test-results/
+
+# Electron and native build caches
+.electron-vite/
+.vite/
+*.tsbuildinfo
+*.node
+
+# Runtime data and bundled private tools
+workspaces/
+resources/tools/*
+!resources/tools/.gitkeep
+*.log
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Editors and local Codex configuration
+.vscode/
+.idea/
+.codex/
+
+# Windows/macOS metadata
+Thumbs.db
+Desktop.ini
+.DS_Store
+
