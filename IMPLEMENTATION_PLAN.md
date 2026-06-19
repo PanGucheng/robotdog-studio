@@ -241,9 +241,10 @@ Reasonix 使用固定版本的 ACP stdio JSON-RPC 接口，不解析 `reasonix r
 
 ### MVP 3：Reasonix
 
-- ACP 会话、流式对话、候选 worktree、Diff 审批、候选编译和快照提交。
+- 按 `docs/ai-workspace-reasonix-plan.md` 实施受管理学生工作区、Git 快照、候选 worktree、Diff 策略、ACP 会话、流式对话、候选编译、应用和撤销。
+- Reasonix 使用固定 1.x Windows 二进制与 ACP v1，不解析 TUI/`reasonix run` 输出；Windows 下禁用 Bash、外部 MCP 和自由工具，并由 Main 对最终 Diff 再次强制校验。
 - AI 默认使用中小学生能理解的中文解释。
-- 验收：禁止文件修改被拦截；取消、Reasonix 崩溃和网络失败不污染正式工作区。
+- 验收：越权修改被拦截；未通过策略和编译的候选不能应用；取消、Reasonix 崩溃和网络失败不污染正式工作区；应用后源码树与候选构建哈希一致且可以 Git 撤销。
 
 ### MVP 4：教学模式与正式发布
 
