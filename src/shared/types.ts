@@ -1,5 +1,31 @@
 export type ConnectionState = 'disconnected' | 'connecting' | 'ready' | 'error'
 
+export type RuntimeLinkState = 'disconnected' | 'discovering' | 'connecting' | 'handshaking' | 'ready' | 'degraded' | 'retrying' | 'error'
+export type UpdatePortState = 'disconnected' | 'connected' | 'bootloader' | 'busy' | 'error'
+
+export interface DeviceIdentity {
+  id: string
+  name: string
+  board: string
+  hardwareVersion: string
+}
+
+export interface DeviceConnectionSnapshot {
+  device: DeviceIdentity
+  runtime: {
+    state: RuntimeLinkState
+    port?: string
+    firmware?: string
+    latencyMs?: number
+  }
+  updatePort: {
+    state: UpdatePortState
+    port?: string
+    bootloaderVersion?: string
+  }
+  updatedAt: string
+}
+
 export type RobotAction =
   | 'walk'
   | 'back'
@@ -106,6 +132,76 @@ export type FirmwareBuildEvent =
   | { type: 'failed'; snapshot: FirmwareBuildSnapshot }
   | { type: 'cancelled'; snapshot: FirmwareBuildSnapshot }
 
+export type FirmwareUpdateState =
+  | 'idle'
+  | 'preflight'
+  | 'stopping'
+  | 'waiting_for_usb'
+  | 'entering_iap'
+  | 'bootloader_handshake'
+  | 'erasing'
+  | 'writing'
+  | 'verifying'
+  | 'rebooting'
+  | 'validating_app'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+
+export interface FirmwareUpdateSnapshot {
+  id?: string
+  state: FirmwareUpdateState
+  artifactName?: string
+  progress: number
+  bytesWritten: number
+  totalBytes: number
+  canCancel: boolean
+  message: string
+  targetVersion?: string
+  error?: string
+  startedAt?: string
+  completedAt?: string
+}
+
+export type FirmwareUpdateEvent = { type: 'snapshot' | 'progress' | 'completed' | 'failed' | 'cancelled'; snapshot: FirmwareUpdateSnapshot }
+
+export interface FirmwarePackageManifest {
+  magic: 'RDSF'
+  formatVersion: 1
+  board: string
+  chip: string
+  hardwareVersion: string
+  firmwareVersion: string
+  protocolVersion: string
+  appStart: number
+  imageLength: number
+  imageCrc32: number
+  imageSha256: string
+  buildId: string
+}
+
+export interface FirmwarePackageInspection {
+  valid: boolean
+  manifest: FirmwarePackageManifest
+  errors: string[]
+  warnings: string[]
+}
+
+export type RecoveryState = 'idle' | 'preflight' | 'erasing' | 'writing_bootloader' | 'writing_app' | 'verifying' | 'resetting' | 'completed' | 'failed' | 'cancelled'
+
+export interface RecoverySnapshot {
+  state: RecoveryState
+  progress: number
+  message: string
+  imageName?: string
+  canCancel: boolean
+  error?: string
+  startedAt?: string
+  completedAt?: string
+}
+
+export type RecoveryEvent = { type: 'snapshot' | 'progress' | 'completed' | 'failed' | 'cancelled'; snapshot: RecoverySnapshot }
+
 export interface RobotDogApi {
   getHealth(): Promise<AppHealth>
   getStatus(): Promise<RobotStatus>
@@ -116,8 +212,19 @@ export interface RobotDogApi {
   getToolchainStatus(): Promise<ToolchainStatus>
   startFirmwareBuild(): Promise<FirmwareBuildSnapshot>
   cancelFirmwareBuild(): Promise<FirmwareBuildSnapshot>
+  getDeviceConnection(): Promise<DeviceConnectionSnapshot>
+  setDemoUsbConnected(connected: boolean): Promise<DeviceConnectionSnapshot>
+  getFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>
+  startFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>
+  cancelFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>
+  getRecovery(): Promise<RecoverySnapshot>
+  startRecovery(): Promise<RecoverySnapshot>
+  cancelRecovery(): Promise<RecoverySnapshot>
   onStatus(listener: (status: RobotStatus) => void): () => void
   onLog(listener: (entry: LogEntry) => void): () => void
   onCcd(listener: (frame: CcdFrame) => void): () => void
   onFirmwareBuild(listener: (event: FirmwareBuildEvent) => void): () => void
+  onDeviceConnection(listener: (snapshot: DeviceConnectionSnapshot) => void): () => void
+  onFirmwareUpdate(listener: (event: FirmwareUpdateEvent) => void): () => void
+  onRecovery(listener: (event: RecoveryEvent) => void): () => void
 }

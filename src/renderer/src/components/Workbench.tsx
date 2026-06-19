@@ -1,7 +1,9 @@
 import { Activity, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, Square, TerminalSquare } from 'lucide-react'
 import { useState } from 'react'
-import type { CcdFrame, FirmwareBuildSnapshot, LogEntry, RobotStatus, ToolchainStatus } from '../../../shared/types'
+import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, ToolchainStatus } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
+import { ConnectionBay } from './ConnectionBay'
+import { RecoveryPanel } from './RecoveryPanel'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -9,9 +11,18 @@ interface WorkbenchProps {
   logs: LogEntry[]
   toolchain?: ToolchainStatus
   build: FirmwareBuildSnapshot
+  connection: DeviceConnectionSnapshot
+  update: FirmwareUpdateSnapshot
+  recovery: RecoverySnapshot
+  teacherMode: boolean
   busy: boolean
   onBuildFirmware: () => void
   onCancelBuild: () => void
+  onToggleUsb: () => void
+  onStartUpdate: () => void
+  onCancelUpdate: () => void
+  onStartRecovery: () => void
+  onCancelRecovery: () => void
 }
 
 const tabs = [
@@ -23,7 +34,7 @@ const tabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, build, busy, onBuildFirmware, onCancelBuild }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
   const error = frame.center - frame.target
   const buildProgress = build.totalFiles > 0 ? Math.round((build.completedFiles / build.totalFiles) * 100) : 0
@@ -42,15 +53,27 @@ export function Workbench({ frame, status, logs, toolchain, build, busy, onBuild
         <div className="workbench-content firmware-workbench">
           <div className="ccd-summary">
             <div>
-              <span className="eyebrow">无硬件固件闭环</span>
-              <h2>{build.state === 'running' ? `正在编译：${build.currentFile ?? '准备中'}` : build.state === 'completed' ? '固件产物已准备好' : '内置工具链待命'}</h2>
-              <p>先在本机完成 GCC12 编译、产物生成和日志解析；等 WCH-Link 回来后再切换到真实烧录。</p>
+              <span className="eyebrow">编译与安全下载</span>
+              <h2>{update.state === 'completed' ? '新固件已在小马上运行' : build.state === 'running' ? `正在编译：${build.currentFile ?? '准备中'}` : build.state === 'completed' ? '固件产物已准备好' : '无线调试，有线下载'}</h2>
+              <p>蓝牙负责地面调试，板载 USB 负责稳定下载；WCH-Link 只在教师恢复时使用。</p>
             </div>
             <div className={`recognition-badge ${toolchainReady ? 'is-ready' : ''}`}>
               <span className={toolchainReady ? 'valid-dot' : 'invalid-dot'} />
               {toolchainReady ? '工具链就绪' : '检查工具链'}
             </div>
           </div>
+
+          <ConnectionBay
+            connection={connection}
+            update={update}
+            buildState={build.state}
+            busy={busy}
+            onToggleUsb={onToggleUsb}
+            onStartUpdate={onStartUpdate}
+            onCancelUpdate={onCancelUpdate}
+          />
+
+          {teacherMode && <RecoveryPanel recovery={recovery} busy={busy} onStart={onStartRecovery} onCancel={onCancelRecovery} />}
 
           <div className="firmware-grid">
             <article className="firmware-card">

@@ -1,4 +1,5 @@
 import { Check, CircleDot, Cpu, Download, Eye, MessageCircle, PencilLine, Wrench } from 'lucide-react'
+import type { FirmwareBuildState, FirmwareUpdateState } from '../../../shared/types'
 
 const steps = [
   { label: '连接', icon: Cpu, state: 'active' },
@@ -11,18 +12,24 @@ const steps = [
 
 interface PipelineRailProps {
   connected: boolean
+  buildState: FirmwareBuildState
+  updateState: FirmwareUpdateState
 }
 
-export function PipelineRail({ connected }: PipelineRailProps): React.JSX.Element {
+export function PipelineRail({ connected, buildState, updateState }: PipelineRailProps): React.JSX.Element {
+  const buildDone = buildState === 'completed'
+  const updateDone = updateState === 'completed'
+  const activeIndex = !connected ? 0 : !buildDone ? 1 : !updateDone ? 4 : 5
   return (
     <div className="pipeline" aria-label="开发闭环进度">
       <div className="pipeline-line" />
-      {steps.map(({ label, icon: Icon, state }, index) => {
-        const done = connected && index === 0
+      {steps.map(({ label, icon: Icon }, index) => {
+        const done = index === 0 ? connected : index === 3 ? buildDone : index === 4 ? updateDone : index < activeIndex
+        const active = index === activeIndex
         return (
-          <div className={`pipeline-step ${done ? 'is-done' : state === 'active' ? 'is-active' : ''}`} key={label}>
+          <div className={`pipeline-step ${done ? 'is-done' : active ? 'is-active' : ''}`} key={label}>
             <span className="pipeline-node">
-              {done ? <Check size={13} strokeWidth={3} /> : state === 'active' ? <CircleDot size={13} /> : <Icon size={13} />}
+              {done ? <Check size={13} strokeWidth={3} /> : active ? <CircleDot size={13} /> : <Icon size={13} />}
             </span>
             <span>{label}</span>
           </div>

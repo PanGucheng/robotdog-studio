@@ -3,9 +3,13 @@ import { IPC_CHANNELS } from '../../shared/channels'
 import type { AppHealth } from '../../shared/types'
 import { FirmwareBuildService } from '../services/firmware-build-service'
 import { MockRobotService } from '../services/mock-robot-service'
+import { MockConnectivityService } from '../services/mock-connectivity-service'
+import { MockRecoveryService } from '../services/mock-recovery-service'
 import { ToolchainService } from '../services/toolchain-service'
 
 export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain)): () => void {
+  const connectivity = new MockConnectivityService(robot)
+  const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(channel, payload)
@@ -16,11 +20,17 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   const logListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.robotLogEvent, payload)
   const ccdListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.robotCcdEvent, payload)
   const buildListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.firmwareBuildEvent, payload)
+  const connectionListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.deviceConnectionEvent, payload)
+  const updateListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.firmwareUpdateEvent, payload)
+  const recoveryListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.recoveryEvent, payload)
 
   robot.on('status', statusListener)
   robot.on('log', logListener)
   robot.on('ccd', ccdListener)
   firmware.on('event', buildListener)
+  connectivity.on('connection', connectionListener)
+  connectivity.on('update', updateListener)
+  recovery.on('event', recoveryListener)
 
   ipcMain.handle(IPC_CHANNELS.healthGet, async (): Promise<AppHealth> => {
     const toolchainStatus = await toolchain.getStatus()
@@ -44,12 +54,36 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   ipcMain.handle(IPC_CHANNELS.firmwareToolchainStatus, () => toolchain.getStatus())
   ipcMain.handle(IPC_CHANNELS.firmwareBuildStart, () => firmware.build())
   ipcMain.handle(IPC_CHANNELS.firmwareBuildCancel, () => firmware.cancel())
+  ipcMain.handle(IPC_CHANNELS.deviceConnectionGet, () => connectivity.getConnection())
+  ipcMain.handle(IPC_CHANNELS.simulationUsbSet, (_event, connected: unknown) => {
+    if (typeof connected !== 'boolean') throw new Error('USB 模拟状态必须是布尔值')
+    return connectivity.setUsbConnected(connected)
+  })
+  ipcMain.handle(IPC_CHANNELS.firmwareUpdateGet, () => connectivity.getUpdate())
+  ipcMain.handle(IPC_CHANNELS.firmwareUpdateStart, () => {
+    if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时下载学生固件')
+    const build = firmware.getSnapshot()
+    if (build.state !== 'completed') throw new Error('请先完成固件编译')
+    const binary = build.artifacts.find((artifact) => artifact.kind === 'bin')
+    if (!binary) throw new Error('编译产物中没有 BIN 固件')
+    return connectivity.startUpdate(binary)
+  })
+  ipcMain.handle(IPC_CHANNELS.firmwareUpdateCancel, () => connectivity.cancelUpdate())
+  ipcMain.handle(IPC_CHANNELS.recoveryGet, () => recovery.getSnapshot())
+  ipcMain.handle(IPC_CHANNELS.recoveryStart, () => {
+    if (!['idle', 'completed', 'failed', 'cancelled'].includes(connectivity.getUpdate().state)) throw new Error('学生固件下载进行中，不能同时执行教师恢复')
+    return recovery.start()
+  })
+  ipcMain.handle(IPC_CHANNELS.recoveryCancel, () => recovery.cancel())
 
   return () => {
     robot.off('status', statusListener)
     robot.off('log', logListener)
     robot.off('ccd', ccdListener)
     firmware.off('event', buildListener)
+    connectivity.off('connection', connectionListener)
+    connectivity.off('update', updateListener)
+    recovery.off('event', recoveryListener)
     for (const channel of Object.values(IPC_CHANNELS)) {
       ipcMain.removeHandler(channel)
     }

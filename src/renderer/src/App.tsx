@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CircleUserRound, GraduationCap, Menu, ShieldAlert } from 'lucide-react'
-import type { CcdFrame, FirmwareBuildSnapshot, LogEntry, RobotAction, RobotStatus, ToolchainStatus } from '../../shared/types'
+import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus } from '../../shared/types'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
 import { PipelineRail } from './components/PipelineRail'
@@ -35,6 +35,20 @@ const initialBuild: FirmwareBuildSnapshot = {
   artifacts: []
 }
 
+const initialConnection: DeviceConnectionSnapshot = {
+  device: { id: 'RDS-SIM-001', name: '一号训练小马', board: 'CH32V203 RobotDog', hardwareVersion: 'SIM-A' },
+  runtime: { state: 'disconnected' },
+  updatePort: { state: 'disconnected' },
+  updatedAt: new Date().toISOString()
+}
+
+const initialUpdate: FirmwareUpdateSnapshot = {
+  state: 'idle', progress: 0, bytesWritten: 0, totalBytes: 0, canCancel: false,
+  message: '编译固件后，可以通过板载 USB 下载到小马。'
+}
+
+const initialRecovery: RecoverySnapshot = { state: 'idle', progress: 0, message: '教师恢复待命', canCancel: false }
+
 export function App(): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const [status, setStatus] = useState(initialStatus)
@@ -42,6 +56,10 @@ export function App(): React.JSX.Element {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [toolchain, setToolchain] = useState<ToolchainStatus>()
   const [build, setBuild] = useState<FirmwareBuildSnapshot>(initialBuild)
+  const [connection, setConnection] = useState<DeviceConnectionSnapshot>(initialConnection)
+  const [firmwareUpdate, setFirmwareUpdate] = useState<FirmwareUpdateSnapshot>(initialUpdate)
+  const [recovery, setRecovery] = useState<RecoverySnapshot>(initialRecovery)
+  const [teacherMode, setTeacherMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
@@ -50,17 +68,26 @@ export function App(): React.JSX.Element {
     void api.getToolchainStatus().then(setToolchain).catch((caught) => {
       setError(caught instanceof Error ? caught.message : String(caught))
     })
+    void api.getDeviceConnection().then(setConnection)
+    void api.getFirmwareUpdate().then(setFirmwareUpdate)
+    void api.getRecovery().then(setRecovery)
     const offStatus = api.onStatus(setStatus)
     const offCcd = api.onCcd(setFrame)
     const offLog = api.onLog((entry) => setLogs((current) => [...current.slice(-49), entry]))
     const offBuild = api.onFirmwareBuild((event) => {
       if ('snapshot' in event) setBuild(event.snapshot)
     })
+    const offConnection = api.onDeviceConnection(setConnection)
+    const offUpdate = api.onFirmwareUpdate((event) => setFirmwareUpdate(event.snapshot))
+    const offRecovery = api.onRecovery((event) => setRecovery(event.snapshot))
     return () => {
       offStatus()
       offCcd()
       offLog()
       offBuild()
+      offConnection()
+      offUpdate()
+      offRecovery()
     }
   }, [api])
 
@@ -93,6 +120,11 @@ export function App(): React.JSX.Element {
   const action = (value: RobotAction): void => { void run(() => api.runAction(value)) }
   const buildFirmware = (): void => { void run(async () => { setBuild(await api.startFirmwareBuild()) }) }
   const cancelBuild = (): void => { void run(async () => { setBuild(await api.cancelFirmwareBuild()) }) }
+  const toggleUsb = (): void => { void run(async () => { setConnection(await api.setDemoUsbConnected(connection.updatePort.state === 'disconnected')) }) }
+  const startUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.startFirmwareUpdate()) }) }
+  const cancelUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.cancelFirmwareUpdate()) }) }
+  const startRecovery = (): void => { void run(async () => { setRecovery(await api.startRecovery()) }) }
+  const cancelRecovery = (): void => { void run(async () => { setRecovery(await api.cancelRecovery()) }) }
 
   return (
     <main className="studio-shell">
@@ -106,13 +138,15 @@ export function App(): React.JSX.Element {
           </div>
         </div>
 
-        <PipelineRail connected={connected} />
+        <PipelineRail connected={connected} buildState={build.state} updateState={firmwareUpdate.state} />
 
         <div className="topbar-actions">
           <div className={`connection-pill ${connected ? 'is-connected' : ''}`}>
             <span /> {statusLabel}
           </div>
-          <button type="button" className="student-pill"><CircleUserRound size={17} /> 林同学</button>
+          <button type="button" className={`student-pill ${teacherMode ? 'is-teacher' : ''}`} onClick={() => setTeacherMode((current) => !current)} title="切换学生/教师演示模式">
+            <CircleUserRound size={17} /> {teacherMode ? '教师模式' : '林同学'}
+          </button>
           <button type="button" className="emergency-button" onClick={() => action('stop')} disabled={!connected}>
             <ShieldAlert size={18} /> 急停
           </button>
@@ -122,7 +156,7 @@ export function App(): React.JSX.Element {
       <div className="context-bar">
         <span><GraduationCap size={15} /> 当前项目：巡线基础训练</span>
         <span>固件：{status.firmware}</span>
-        <span className="simulation-flag">SIMULATION · 阶段 0</span>
+        <span className="simulation-flag">SIMULATION · {teacherMode ? '教师维护' : '学生工作台'}</span>
         {error && <span className="inline-error">{error}</span>}
       </div>
 
@@ -134,9 +168,18 @@ export function App(): React.JSX.Element {
           logs={logs}
           toolchain={toolchain}
           build={build}
+          connection={connection}
+          update={firmwareUpdate}
+          recovery={recovery}
+          teacherMode={teacherMode}
           busy={busy}
           onBuildFirmware={buildFirmware}
           onCancelBuild={cancelBuild}
+          onToggleUsb={toggleUsb}
+          onStartUpdate={startUpdate}
+          onCancelUpdate={cancelUpdate}
+          onStartRecovery={startRecovery}
+          onCancelRecovery={cancelRecovery}
         />
       </div>
 

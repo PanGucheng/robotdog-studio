@@ -1,6 +1,6 @@
 # RobotDog Studio
 
-RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Electron 桌面上位机。项目目前完成阶段 0 工程底座：安全 IPC、模拟机器马、CCD 可视化、动作控制和“比赛维修站”主界面。
+RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Electron 桌面上位机。项目目前完成工程底座与三通道阶段 A：安全 IPC、模拟机器马、CCD 可视化、动作控制、蓝牙/USB 双链路模拟、IAP 下载状态机和“比赛维修站”主界面。
 
 ## 本地开发
 
@@ -60,9 +60,13 @@ npm run firmware:build:ch32v203
 - 浏览器和 Electron 共用的模拟设备体验。
 - CCD 128 点曲线、阈值、中心和偏差展示。
 - 连接、动作、检测黑线和软件急停交互。
+- 无线运行态与有线下载口的独立状态、USB 插拔模拟和完整升级向导。
+- 固件升级预检、停机、IAP 握手、擦写、校验、重启、无线重连及失败可重试模型。
+- IAP 二进制帧、CRC32 流解析、固件 SHA-256/板型/Flash 区域校验和稳定设备身份注册。
+- 教师模式完整恢复模拟；学生下载与教师恢复互斥，关键写入阶段禁止强制取消。
 - 蓝牙运行态协议、板载有线 IAP 与 WCH-Link 教师恢复的三通道方案，以及内置 WCH GCC12/OpenOCD 和命令行构建适配。
 
-真实蓝牙串口、有线 IAP、WCH-Link 恢复和 Reasonix ACP 将按照 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 分阶段接入。三通道设计详见 [连接与固件下载计划](./docs/three-channel-connection-plan.md)。
+真实蓝牙串口、有线 IAP、WCH-Link 恢复和 Reasonix ACP 将按照 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 分阶段接入。三通道设计详见 [连接与固件下载计划](./docs/three-channel-connection-plan.md)，IAP 帧定义见 [IAP 二进制协议](./docs/iap-protocol-v1.md)。
 
 ## 重要安全说明
 

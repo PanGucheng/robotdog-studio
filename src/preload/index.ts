@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/channels'
-import type { CcdFrame, FirmwareBuildEvent, LogEntry, RobotDogApi, RobotStatus } from '../shared/types'
+import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const wrapped = (_event: Electron.IpcRendererEvent, payload: T): void => listener(payload)
@@ -18,10 +18,21 @@ const api: RobotDogApi = {
   getToolchainStatus: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareToolchainStatus),
   startFirmwareBuild: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareBuildStart),
   cancelFirmwareBuild: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareBuildCancel),
+  getDeviceConnection: () => ipcRenderer.invoke(IPC_CHANNELS.deviceConnectionGet),
+  setDemoUsbConnected: (connected) => ipcRenderer.invoke(IPC_CHANNELS.simulationUsbSet, connected),
+  getFirmwareUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareUpdateGet),
+  startFirmwareUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareUpdateStart),
+  cancelFirmwareUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareUpdateCancel),
+  getRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryGet),
+  startRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryStart),
+  cancelRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryCancel),
   onStatus: (listener) => subscribe<RobotStatus>(IPC_CHANNELS.robotStatusEvent, listener),
   onLog: (listener) => subscribe<LogEntry>(IPC_CHANNELS.robotLogEvent, listener),
   onCcd: (listener) => subscribe<CcdFrame>(IPC_CHANNELS.robotCcdEvent, listener),
-  onFirmwareBuild: (listener) => subscribe<FirmwareBuildEvent>(IPC_CHANNELS.firmwareBuildEvent, listener)
+  onFirmwareBuild: (listener) => subscribe<FirmwareBuildEvent>(IPC_CHANNELS.firmwareBuildEvent, listener),
+  onDeviceConnection: (listener) => subscribe<DeviceConnectionSnapshot>(IPC_CHANNELS.deviceConnectionEvent, listener),
+  onFirmwareUpdate: (listener) => subscribe<FirmwareUpdateEvent>(IPC_CHANNELS.firmwareUpdateEvent, listener),
+  onRecovery: (listener) => subscribe<RecoveryEvent>(IPC_CHANNELS.recoveryEvent, listener)
 }
 
 contextBridge.exposeInMainWorld('robotDog', api)
