@@ -60,9 +60,9 @@ npm run firmware:build:ch32v203
 - 浏览器和 Electron 共用的模拟设备体验。
 - CCD 128 点曲线、阈值、中心和偏差展示。
 - 连接、动作、检测黑线和软件急停交互。
-- 固件统一串口协议、内置 WCH GCC12/OpenOCD 资源和命令行构建适配。
+- 蓝牙运行态协议、板载有线 IAP 与 WCH-Link 教师恢复的三通道方案，以及内置 WCH GCC12/OpenOCD 和命令行构建适配。
 
-真实串口、WCH-Link 烧录和 Reasonix ACP 将按照 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 分阶段接入。
+真实蓝牙串口、有线 IAP、WCH-Link 恢复和 Reasonix ACP 将按照 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 分阶段接入。三通道设计详见 [连接与固件下载计划](./docs/three-channel-connection-plan.md)。
 
 ## 重要安全说明
 
