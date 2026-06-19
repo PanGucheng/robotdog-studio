@@ -127,6 +127,32 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .log-line.warning { color: #f2c96f; }
 .empty-log { color: #6f879a; }
 
+.firmware-workbench { grid-template-rows: auto auto auto auto minmax(140px, 1fr); }
+.firmware-grid { display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(300px, 1.1fr); gap: 12px; }
+.firmware-card { padding: 16px; border: 1px solid #dce5eb; border-radius: 12px; background: white; box-shadow: 0 8px 28px rgb(35 67 90 / 5%); }
+.firmware-card h3 { margin: 7px 0 12px; color: var(--navy); font-family: "Bahnschrift", "Microsoft YaHei UI", sans-serif; font-size: 18px; }
+.toolchain-list { display: grid; gap: 8px; }
+.toolchain-list span { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 9px; min-width: 0; color: #687987; font: 10px/1.45 var(--mono); }
+.toolchain-list strong { color: #087d92; font-weight: 800; }
+.build-status-card p { margin: 9px 0 0; color: #6f7f8d; font-size: 10px; word-break: break-all; }
+.build-progress { height: 9px; border-radius: 999px; background: #e8eff4; overflow: hidden; }
+.build-progress span { display: block; height: 100%; min-width: 4px; border-radius: inherit; background: linear-gradient(90deg, var(--sensor), #45d89c); transition: width 180ms ease; }
+.firmware-actions { display: flex; gap: 8px; margin-top: 14px; }
+.firmware-actions button { display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border: 1px solid #cdd9e1; border-radius: 8px; background: #f9fbfc; color: #334d60; font-size: 11px; font-weight: 700; cursor: pointer; }
+.firmware-actions .button-primary { color: white; border-color: var(--navy); background: var(--navy); }
+.artifact-row { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 9px; }
+.artifact-row article { min-height: 78px; padding: 12px; border: 1px solid #dce5eb; border-radius: 10px; background: white; }
+.artifact-row article span, .artifact-row article small { display: block; color: #82909b; font-size: 9px; }
+.artifact-row article strong { display: block; margin: 7px 0 3px; color: var(--navy); font: 13px var(--mono); word-break: break-all; }
+.artifact-row .empty-artifacts { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; color: #6f879a; font-size: 11px; }
+.firmware-size-row strong { font-size: 18px; }
+.firmware-log { display: grid; grid-template-columns: 112px minmax(0, 1fr); min-height: 150px; border: 1px solid #dce5eb; border-radius: 10px; background: var(--navy); overflow: hidden; }
+.firmware-log-lines { display: grid; align-content: start; gap: 4px; padding: 11px 12px; overflow: auto; }
+.firmware-log-lines span { color: #bfd0df; font: 10px/1.45 var(--mono); white-space: pre-wrap; word-break: break-all; }
+.firmware-log-lines span.warning { color: #f2c96f; }
+.firmware-log-lines span.error { color: #ff938d; }
+.recognition-badge.is-ready { color: #08734d; border-color: #b5dfcf; background: #effaf5; }
+
 .control-dock { display: flex; align-items: center; gap: 16px; padding: 0 22px; border-top: 1px solid #ced9e1; background: white; box-shadow: 0 -7px 28px rgb(35 67 90 / 7%); z-index: 4; }
 .dock-group { gap: 8px; }
 .dock-button, .icon-command { display: flex; align-items: center; justify-content: center; gap: 7px; height: 38px; color: #334d60; border: 1px solid #cdd9e1; border-radius: 8px; background: #f9fbfc; font-size: 11px; font-weight: 650; cursor: pointer; }
@@ -146,6 +172,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .studio-grid { grid-template-columns: minmax(350px, 0.68fr) minmax(570px, 1.32fr); }
   .workbench-tabs button { padding-inline: 7px; }
   .metric-row { grid-template-columns: repeat(2, 1fr); }
+  .firmware-grid, .artifact-row { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (prefers-reduced-motion: no-preference) {

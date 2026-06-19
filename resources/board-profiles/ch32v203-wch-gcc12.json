@@ -1,0 +1,26 @@
+{
+  "id": "ch32v203-wch-gcc12",
+  "label": "CH32V203 · WCH GCC12",
+  "chip": "CH32V203",
+  "toolchain": {
+    "provider": "bundled-wch",
+    "gccPrefix": "riscv-wch-elf",
+    "arch": "rv32imac",
+    "abi": "ilp32",
+    "codeModel": "medlow"
+  },
+  "openocd": {
+    "provider": "bundled-wch",
+    "executable": "OpenOCD/OpenOCD/bin/openocd.exe",
+    "configs": [
+      "OpenOCD/OpenOCD/bin/wch-riscv.cfg"
+    ],
+    "flashBaseAddress": "0x08000000"
+  },
+  "artifacts": {
+    "elf": "GPIO_Toggle.elf",
+    "hex": "GPIO_Toggle.hex",
+    "bin": "GPIO_Toggle.bin",
+    "map": "GPIO_Toggle.map"
+  }
+}

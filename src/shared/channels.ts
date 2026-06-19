@@ -5,6 +5,10 @@ export const IPC_CHANNELS = {
   robotDisconnect: 'robot:disconnect',
   robotActionRun: 'robot:action:run',
   robotCcdCapture: 'robot:ccd:capture',
+  firmwareToolchainStatus: 'firmware:toolchain:status',
+  firmwareBuildStart: 'firmware:build:start',
+  firmwareBuildCancel: 'firmware:build:cancel',
+  firmwareBuildEvent: 'firmware:build:event',
   robotStatusEvent: 'robot:status',
   robotLogEvent: 'robot:log',
   robotCcdEvent: 'robot:ccd'

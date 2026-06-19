@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CircleUserRound, GraduationCap, Menu, ShieldAlert } from 'lucide-react'
-import type { CcdFrame, LogEntry, RobotAction, RobotStatus } from '../../shared/types'
+import type { CcdFrame, FirmwareBuildSnapshot, LogEntry, RobotAction, RobotStatus, ToolchainStatus } from '../../shared/types'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
 import { PipelineRail } from './components/PipelineRail'
@@ -26,23 +26,41 @@ const initialFrame: CcdFrame = {
   capturedAt: new Date().toISOString()
 }
 
+const initialBuild: FirmwareBuildSnapshot = {
+  state: 'idle',
+  firmwareRoot: 'D:\\RobotDog\\ch32v203-robot-dog',
+  completedFiles: 0,
+  totalFiles: 29,
+  logs: [],
+  artifacts: []
+}
+
 export function App(): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const [status, setStatus] = useState(initialStatus)
   const [frame, setFrame] = useState(initialFrame)
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [toolchain, setToolchain] = useState<ToolchainStatus>()
+  const [build, setBuild] = useState<FirmwareBuildSnapshot>(initialBuild)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
   useEffect(() => {
     void api.getStatus().then(setStatus)
+    void api.getToolchainStatus().then(setToolchain).catch((caught) => {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    })
     const offStatus = api.onStatus(setStatus)
     const offCcd = api.onCcd(setFrame)
     const offLog = api.onLog((entry) => setLogs((current) => [...current.slice(-49), entry]))
+    const offBuild = api.onFirmwareBuild((event) => {
+      if ('snapshot' in event) setBuild(event.snapshot)
+    })
     return () => {
       offStatus()
       offCcd()
       offLog()
+      offBuild()
     }
   }, [api])
 
@@ -73,6 +91,8 @@ export function App(): React.JSX.Element {
   }
   const capture = (): void => { void run(() => api.captureCcd()) }
   const action = (value: RobotAction): void => { void run(() => api.runAction(value)) }
+  const buildFirmware = (): void => { void run(async () => { setBuild(await api.startFirmwareBuild()) }) }
+  const cancelBuild = (): void => { void run(async () => { setBuild(await api.cancelFirmwareBuild()) }) }
 
   return (
     <main className="studio-shell">
@@ -108,7 +128,16 @@ export function App(): React.JSX.Element {
 
       <div className="studio-grid">
         <ChatPanel />
-        <Workbench frame={frame} status={status} logs={logs} />
+        <Workbench
+          frame={frame}
+          status={status}
+          logs={logs}
+          toolchain={toolchain}
+          build={build}
+          busy={busy}
+          onBuildFirmware={buildFirmware}
+          onCancelBuild={cancelBuild}
+        />
       </div>
 
       <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />

@@ -7,7 +7,11 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        external: ['electron']
+        external: ['electron'],
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs'
+        }
       }
     },
     resolve: {

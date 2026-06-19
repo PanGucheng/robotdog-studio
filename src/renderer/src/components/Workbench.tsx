@@ -1,11 +1,17 @@
-import { Activity, Code2, Cpu, Gauge, ScrollText, Settings2, TerminalSquare } from 'lucide-react'
-import type { CcdFrame, LogEntry, RobotStatus } from '../../../shared/types'
+import { Activity, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, Square, TerminalSquare } from 'lucide-react'
+import { useState } from 'react'
+import type { CcdFrame, FirmwareBuildSnapshot, LogEntry, RobotStatus, ToolchainStatus } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 
 interface WorkbenchProps {
   frame: CcdFrame
   status: RobotStatus
   logs: LogEntry[]
+  toolchain?: ToolchainStatus
+  build: FirmwareBuildSnapshot
+  busy: boolean
+  onBuildFirmware: () => void
+  onCancelBuild: () => void
 }
 
 const tabs = [
@@ -17,18 +23,95 @@ const tabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, build, busy, onBuildFirmware, onCancelBuild }: WorkbenchProps): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
   const error = frame.center - frame.target
+  const buildProgress = build.totalFiles > 0 ? Math.round((build.completedFiles / build.totalFiles) * 100) : 0
+  const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
   return (
     <section className="workbench">
       <nav className="workbench-tabs" aria-label="工作台标签">
         {tabs.map(([label, Icon]) => (
-          <button type="button" className={label === 'CCD 曲线' ? 'active' : ''} key={label}>
+          <button type="button" className={label === activeTab ? 'active' : ''} key={label} onClick={() => setActiveTab(label)}>
             <Icon size={15} /> {label}
           </button>
         ))}
       </nav>
 
+      {activeTab === '编译 / 烧录' ? (
+        <div className="workbench-content firmware-workbench">
+          <div className="ccd-summary">
+            <div>
+              <span className="eyebrow">无硬件固件闭环</span>
+              <h2>{build.state === 'running' ? `正在编译：${build.currentFile ?? '准备中'}` : build.state === 'completed' ? '固件产物已准备好' : '内置工具链待命'}</h2>
+              <p>先在本机完成 GCC12 编译、产物生成和日志解析；等 WCH-Link 回来后再切换到真实烧录。</p>
+            </div>
+            <div className={`recognition-badge ${toolchainReady ? 'is-ready' : ''}`}>
+              <span className={toolchainReady ? 'valid-dot' : 'invalid-dot'} />
+              {toolchainReady ? '工具链就绪' : '检查工具链'}
+            </div>
+          </div>
+
+          <div className="firmware-grid">
+            <article className="firmware-card">
+              <span className="eyebrow">Bundled toolchain</span>
+              <h3>WCH GCC12 / OpenOCD</h3>
+              <div className="toolchain-list">
+                <span><strong>GCC</strong>{toolchain?.gcc.detail ?? '读取中'}</span>
+                <span><strong>OBJCPY</strong>{toolchain?.objcopy.ok ? '已发现' : toolchain?.objcopy.detail ?? '读取中'}</span>
+                <span><strong>OPENOCD</strong>{toolchain?.openocd.detail ?? '读取中'}</span>
+              </div>
+            </article>
+
+            <article className="firmware-card build-status-card">
+              <span className="eyebrow">Build station</span>
+              <h3>{build.state === 'idle' ? '等待编译' : build.state === 'failed' ? '编译失败' : build.state === 'completed' ? '编译完成' : build.state === 'cancelled' ? '已取消' : '正在编译'}</h3>
+              <div className="build-progress">
+                <span style={{ width: `${buildProgress}%` }} />
+              </div>
+              <p>{build.completedFiles}/{build.totalFiles || 29} 个源文件 · {build.outputDir ?? '尚未创建输出目录'}</p>
+              <div className="firmware-actions">
+                <button type="button" className="button-primary" onClick={onBuildFirmware} disabled={busy || build.state === 'running' || !toolchainReady}>
+                  <Play size={15} /> 编译固件
+                </button>
+                <button type="button" onClick={onCancelBuild} disabled={build.state !== 'running'}>
+                  <Square size={14} /> 取消
+                </button>
+              </div>
+            </article>
+          </div>
+
+          <div className="artifact-row">
+            {build.artifacts.length === 0 ? (
+              <article className="empty-artifacts"><FileArchive size={18} /> 编译完成后，这里会出现 ELF / HEX / BIN / MAP。</article>
+            ) : build.artifacts.map((artifact) => (
+              <article key={artifact.path}>
+                <span>{artifact.kind.toUpperCase()}</span>
+                <strong>{artifact.name}</strong>
+                <small>{artifact.bytes ? `${Math.round(artifact.bytes / 1024)} KB` : '已生成'}</small>
+              </article>
+            ))}
+          </div>
+
+          {build.size && (
+            <div className="metric-row firmware-size-row">
+              <article><span>text</span><strong>{build.size.text}</strong><small>程序代码</small></article>
+              <article><span>data</span><strong>{build.size.data}</strong><small>已初始化数据</small></article>
+              <article><span>bss</span><strong>{build.size.bss}</strong><small>未初始化数据</small></article>
+              <article><span>total</span><strong>{build.size.dec}</strong><small>十进制体积</small></article>
+            </div>
+          )}
+
+          <div className="firmware-log">
+            <div className="log-strip-title"><TerminalSquare size={15} /> 编译日志</div>
+            <div className="firmware-log-lines">
+              {build.logs.length === 0 ? <span className="empty-log">点击“编译固件”后，GCC 输出会在这里滚动。</span> : build.logs.slice(-14).map((line, index) => (
+                <span key={`${line}-${index}`} className={/error|错误|failed/i.test(line) ? 'error' : /warning|警告/i.test(line) ? 'warning' : ''}>{line}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="workbench-content">
         <div className="ccd-summary">
           <div>
@@ -63,6 +146,7 @@ export function Workbench({ frame, status, logs }: WorkbenchProps): React.JSX.El
           </div>
         </div>
       </div>
+      )}
     </section>
   )
 }

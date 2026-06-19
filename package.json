@@ -2,7 +2,7 @@
   "name": "robotdog-studio",
   "version": "0.1.0",
   "description": "AI-assisted control and learning studio for the CH32V203 robot dog",
-  "main": "./out/main/index.js",
+  "main": "./out/main/index.cjs",
   "author": "RobotDog Studio contributors",
   "license": "UNLICENSED",
   "type": "module",
