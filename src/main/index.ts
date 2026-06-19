@@ -8,6 +8,7 @@ import { AgentSessionService } from './services/agent-session-service'
 import { ReasonixAcpAdapter } from './services/reasonix-acp-adapter'
 import { ReasonixProcessManager } from './services/reasonix-process-manager'
 import { DeepSeekSecretStore } from './services/deepseek-secret-store'
+import { AgentHistoryService } from './services/agent-history-service'
 
 const robot = new MockRobotService()
 let disposeIpc: (() => void) | undefined
@@ -69,11 +70,14 @@ app.whenReady().then(async () => {
   const processes = new ReasonixProcessManager({
     version: reasonixVersion,
     binarySha256: '6bb152f4bd6362ee441e6ed3f8917aa6350d646b3f7c0097bb0f5cf8ee66acf5',
-    binaryPath: join(app.getAppPath(), 'resources', 'tools', 'reasonix-v1.9.1', 'bin', 'reasonix.exe')
+    binaryPath: join(app.getAppPath(), 'resources', 'tools', 'reasonix-v1.9.1', 'bin', 'reasonix.exe'),
+    sessionDataRoot: join(workspaceRoot, 'reasonix-sessions')
   })
   const secrets = new DeepSeekSecretStore(join(app.getPath('userData'), 'secure', 'deepseek-api-key.bin'))
+  const agentHistory = new AgentHistoryService(join(workspaceRoot, 'conversations'))
+  await agentHistory.initialize()
   const agents = new AgentSessionService(candidates, new ReasonixAcpAdapter(processes, () => secrets.get()))
-  disposeIpc = registerIpc(robot, undefined, undefined, workspaces, candidates, agents, { secrets, processes, version: reasonixVersion })
+  disposeIpc = registerIpc(robot, undefined, undefined, workspaces, candidates, agents, { secrets, processes, version: reasonixVersion }, agentHistory)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

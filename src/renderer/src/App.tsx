@@ -64,10 +64,11 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string>()
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>()
-  const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([])
+  const [agentEventsByWorkspace, setAgentEventsByWorkspace] = useState<Record<string, AgentEvent[]>>({})
   const [agentTurn, setAgentTurn] = useState<AgentTurnSnapshot>()
   const [candidate, setCandidate] = useState<CandidateSnapshot>()
   const seenAgentEvents = useRef(new Set<string>())
+  const turnWorkspaces = useRef(new Map<string, string>())
 
   useEffect(() => {
     void api.getStatus().then(setStatus)
@@ -80,6 +81,21 @@ export function App(): React.JSX.Element {
     void api.listWorkspaces().then((items) => {
       setWorkspaces(items)
       setActiveWorkspaceId((current) => current ?? items[0]?.id)
+      void Promise.all(items.map(async (workspace) => [workspace.id, await api.listAgentHistory(workspace.id)] as const)).then((histories) => {
+        setAgentEventsByWorkspace((current) => {
+          const next = { ...current }
+          for (const [workspaceId, history] of histories) {
+            for (const event of history) {
+              seenAgentEvents.current.add(event.eventId)
+              if (event.type === 'turn_started') turnWorkspaces.current.set(event.turnId, event.workspaceId)
+            }
+            const live = next[workspaceId] ?? []
+            const liveIds = new Set(live.map((event) => event.eventId))
+            next[workspaceId] = [...history.filter((event) => !liveIds.has(event.eventId)), ...live].slice(-2_000)
+          }
+          return next
+        })
+      }).catch(() => undefined)
     }).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
     const offStatus = api.onStatus(setStatus)
     const offCcd = api.onCcd(setFrame)
@@ -97,7 +113,9 @@ export function App(): React.JSX.Element {
     const offAgent = api.onAgentEvent((event) => {
       if (seenAgentEvents.current.has(event.eventId)) return
       seenAgentEvents.current.add(event.eventId)
-      setAgentEvents((current) => [...current.slice(-1999), event])
+      if (event.type === 'turn_started') turnWorkspaces.current.set(event.turnId, event.workspaceId)
+      const workspaceId = event.type === 'turn_started' ? event.workspaceId : turnWorkspaces.current.get(event.turnId)
+      if (workspaceId) setAgentEventsByWorkspace((current) => ({ ...current, [workspaceId]: [...(current[workspaceId] ?? []).slice(-1999), event] }))
       if (event.type === 'candidate_ready') setCandidate(event.candidate)
       if (['completed', 'cancelled', 'failed'].includes(event.type)) setAgentTurn(undefined)
     })
@@ -156,11 +174,10 @@ export function App(): React.JSX.Element {
     })
   }
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+  const agentEvents = activeWorkspaceId ? agentEventsByWorkspace[activeWorkspaceId] ?? [] : []
   const promptAgent = (message: string): void => {
     if (!activeWorkspace) return
-    setAgentEvents([])
     setCandidate(undefined)
-    seenAgentEvents.current.clear()
     void api.promptAgent(activeWorkspace.id, message).then(setAgentTurn).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
   }
   const cancelAgent = (): void => { void api.cancelAgent(agentTurn?.turnId) }
@@ -171,7 +188,6 @@ export function App(): React.JSX.Element {
   const rejectCandidate = (candidateId: string): void => {
     void api.rejectCandidate(candidateId).then(() => {
       setCandidate(undefined)
-      setAgentEvents([])
       void api.listWorkspaces().then(setWorkspaces)
     }).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
   }

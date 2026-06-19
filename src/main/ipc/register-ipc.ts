@@ -11,10 +11,11 @@ import { CandidateService } from '../services/candidate-service'
 import { AgentSessionService } from '../services/agent-session-service'
 import { DeepSeekSecretStore } from '../services/deepseek-secret-store'
 import { ReasonixProcessManager } from '../services/reasonix-process-manager'
+import { AgentHistoryService } from '../services/agent-history-service'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices): () => void {
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -30,7 +31,10 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   const connectionListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.deviceConnectionEvent, payload)
   const updateListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.firmwareUpdateEvent, payload)
   const recoveryListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.recoveryEvent, payload)
-  const agentListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.agentEvent, payload)
+  const agentListener = (payload: unknown): void => {
+    if (agentHistory) void agentHistory.append(payload as import('../../shared/types').AgentEvent)
+    sendToAll(IPC_CHANNELS.agentEvent, payload)
+  }
 
   robot.on('status', statusListener)
   robot.on('log', logListener)
@@ -140,6 +144,12 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     ipcMain.handle(IPC_CHANNELS.agentPermissionRespond, (_event, turnId: unknown, requestId: unknown, optionId: unknown) => {
       if (typeof turnId !== 'string' || typeof requestId !== 'string' || typeof optionId !== 'string') throw new Error('AGENT_PERMISSION_INVALID')
       return agents.respondPermission(turnId, requestId, optionId)
+    })
+  }
+  if (agentHistory) {
+    ipcMain.handle(IPC_CHANNELS.agentHistoryList, (_event, workspaceId: unknown) => {
+      if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
+      return agentHistory.list(workspaceId)
     })
   }
   if (agentRuntime) {

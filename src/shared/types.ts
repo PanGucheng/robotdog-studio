@@ -383,6 +383,7 @@ export interface RobotDogApi {
   promptAgent(workspaceId: string, message: string): Promise<AgentTurnSnapshot>
   cancelAgent(turnId?: string): Promise<boolean>
   respondAgentPermission(turnId: string, requestId: string, optionId: string): Promise<boolean>
+  listAgentHistory(workspaceId: string): Promise<AgentEvent[]>
   getAgentRuntimeStatus(): Promise<AgentRuntimeStatus>
   setAgentApiKey(apiKey: string): Promise<AgentRuntimeStatus>
   clearAgentApiKey(): Promise<AgentRuntimeStatus>

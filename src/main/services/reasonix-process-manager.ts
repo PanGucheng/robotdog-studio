@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,6 +9,7 @@ export interface ReasonixRuntimeManifest {
   version: string
   binarySha256: string
   binaryPath: string
+  sessionDataRoot?: string
 }
 
 export interface ReasonixProcess {
@@ -20,9 +21,12 @@ export interface ReasonixProcess {
 export class ReasonixProcessManager {
   constructor(private readonly runtime: ReasonixRuntimeManifest) {}
 
-  async start(cwd: string, apiKey: string): Promise<ReasonixProcess> {
+  async start(cwd: string, apiKey: string, profileId?: string): Promise<ReasonixProcess> {
     await this.verifyBinary()
-    const isolatedHome = await mkdtemp(join(tmpdir(), 'robotdog-reasonix-'))
+    const persistent = Boolean(profileId && this.runtime.sessionDataRoot)
+    if (profileId && !/^ws_[a-f0-9]{24}$/.test(profileId)) throw new Error('REASONIX_PROFILE_INVALID')
+    const isolatedHome = persistent ? join(this.runtime.sessionDataRoot!, profileId!) : await mkdtemp(join(tmpdir(), 'robotdog-reasonix-'))
+    await mkdir(isolatedHome, { recursive: true })
     let child: ChildProcessWithoutNullStreams
     try {
       child = spawn(this.runtime.binaryPath, ['acp'], {
@@ -34,7 +38,7 @@ export class ReasonixProcessManager {
       })
       await waitForSpawn(child)
     } catch (error) {
-      await rm(isolatedHome, { recursive: true, force: true }).catch(() => undefined)
+      if (!persistent) await rm(isolatedHome, { recursive: true, force: true }).catch(() => undefined)
       throw error
     }
     let stderr = ''
@@ -51,7 +55,7 @@ export class ReasonixProcessManager {
           await Promise.race([waitForExit(child), new Promise<void>((resolve) => setTimeout(resolve, 2_000))])
           if (child.exitCode === null) child.kill('SIGKILL')
         }
-        await rm(isolatedHome, { recursive: true, force: true }).catch(() => undefined)
+        if (!persistent) await rm(isolatedHome, { recursive: true, force: true }).catch(() => undefined)
       }
     }
   }

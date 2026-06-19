@@ -34,6 +34,7 @@ export const IPC_CHANNELS = {
   agentPrompt: 'agent:prompt',
   agentCancel: 'agent:cancel',
   agentPermissionRespond: 'agent:permission:respond',
+  agentHistoryList: 'agent:history:list',
   agentRuntimeStatus: 'agent:runtime:status',
   agentApiKeySet: 'agent:api-key:set',
   agentApiKeyClear: 'agent:api-key:clear',

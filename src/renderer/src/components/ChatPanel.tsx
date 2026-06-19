@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { ArrowUp, Bot, CheckCircle2, FileCheck2, KeyRound, LoaderCircle, Settings2, ShieldCheck, Sparkles, Square, X } from 'lucide-react'
 import type { AgentEvent, AgentRuntimeStatus, CandidateSnapshot, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
@@ -14,6 +16,17 @@ interface ChatPanelProps {
   onPermission(requestId: string, optionId: string): void
 }
 
+interface ConversationTurn {
+  turnId: string
+  started: Extract<AgentEvent, { type: 'turn_started' }>
+  plan?: Extract<AgentEvent, { type: 'plan' }>
+  activity?: Extract<AgentEvent, { type: 'activity' }>
+  terminal?: Extract<AgentEvent, { type: 'completed' | 'cancelled' | 'failed' }>
+  permission?: Extract<AgentEvent, { type: 'permission_request' }>
+  assistantText: string
+  summary?: string
+}
+
 export function ChatPanel({ workspace, events, candidate, running, onPrompt, onCancel, onReject, onPermission }: ChatPanelProps): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [showReview, setShowReview] = useState(false)
@@ -21,16 +34,15 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
   const [apiKey, setApiKey] = useState('')
   const [runtime, setRuntime] = useState<AgentRuntimeStatus>()
   const [runtimeError, setRuntimeError] = useState('')
-  const started = findLast(events, 'turn_started')
-  const plan = findLast(events, 'plan')
-  const activity = findLast(events, 'activity')
-  const terminal = [...events].reverse().find((event) => ['completed', 'cancelled', 'failed'].includes(event.type))
-  const assistantText = useMemo(() => events.filter((event): event is Extract<AgentEvent, { type: 'assistant_delta' }> => event.type === 'assistant_delta').map((event) => event.text).join(''), [events])
-  const pendingPermission = useMemo(() => {
-    const resolved = new Set(events.filter((event): event is Extract<AgentEvent, { type: 'permission_resolved' }> => event.type === 'permission_resolved').map((event) => event.requestId))
-    return [...events].reverse().find((event): event is Extract<AgentEvent, { type: 'permission_request' }> => event.type === 'permission_request' && !resolved.has(event.requestId))
-  }, [events])
+  const conversationRef = useRef<HTMLDivElement>(null)
+  const turns = useMemo(() => buildConversation(events), [events])
+  const latestTurnId = turns.at(-1)?.turnId
+
   useEffect(() => { void getRobotApi().getAgentRuntimeStatus().then(setRuntime).catch(() => undefined) }, [])
+  useEffect(() => {
+    const element = conversationRef.current
+    if (element) element.scrollTop = element.scrollHeight
+  }, [events.length])
 
   async function saveApiKey(): Promise<void> {
     setRuntimeError('')
@@ -53,10 +65,7 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
   return (
     <section className="chat-panel">
       <div className="section-heading">
-        <div>
-          <span className="eyebrow">AI 助教</span>
-          <h2>把想法说给小马听</h2>
-        </div>
+        <div><span className="eyebrow">AI 助教</span><h2>把想法说给小马听</h2></div>
         <button type="button" className={`model-chip ${runtime?.ready ? 'ready' : ''}`} onClick={() => setShowRuntime((value) => !value)} aria-expanded={showRuntime}>
           {runtime?.ready ? <Sparkles size={14} /> : <Settings2 size={14} />} {runtime?.adapter === 'reasonix' ? `Reasonix ${runtime.version}` : '模拟教学'}
         </button>
@@ -71,87 +80,78 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
         </div>
       )}
 
-      <div className="conversation" aria-live="polite">
-        {!started && (
-          <div className="chat-welcome">
-            <span className="assistant-mark"><Bot size={16} /></span>
-            <div><strong>先说一个你观察到的问题</strong><p>我会在安全副本里尝试修改，核对通过后再交给你查看。</p></div>
-          </div>
-        )}
-        {started && <div className="message student-message">{started.message}</div>}
-        {plan && (
-          <div className="plan-strip" aria-label="本次修改计划">
-            {plan.steps.map((step, index) => {
-              const completed = terminal?.type === 'completed' || (activity ? ['editing', 'validating'].includes(activity.state) && index === 0 || activity.state === 'validating' && index === 1 : false)
-              const active = !completed && (activity?.state === 'thinking' && index === 0 || activity?.state === 'editing' && index === 1 || activity?.state === 'validating' && index === 2)
-              return <span key={step.id} className={completed ? 'done' : active ? 'active' : ''}><i>{completed ? '✓' : index + 1}</i>{step.label}</span>
-            })}
-          </div>
-        )}
-        {(assistantText || activity || terminal) && (
-          <div className="message assistant-message">
-            <span className="assistant-mark"><Bot size={16} /></span>
-            <div className="assistant-copy">
-              {assistantText && <div className="assistant-transcript">{assistantText}</div>}
-              {pendingPermission && (
-                <div className="permission-card" role="group" aria-label="AI 操作确认">
-                  <span className="permission-icon"><ShieldCheck size={17} /></span>
-                  <div><strong>{pendingPermission.title}</strong><p>{pendingPermission.detail}</p></div>
-                  <div className="permission-actions">
-                    {pendingPermission.options.map((option) => <button type="button" key={option.id} className={option.tone === 'approve' ? 'approve' : option.tone === 'reject' ? 'reject' : ''} onClick={() => onPermission(pendingPermission.requestId, option.id)}>{option.label}</button>)}
-                  </div>
-                </div>
-              )}
-              {running && activity && <span className="agent-activity"><LoaderCircle size={13} className="spin" /> {activity.label}</span>}
-              {terminal?.type === 'failed' && <div className="agent-error"><X size={14} /> <span><strong>这次没有完成</strong>{terminal.message} 正式项目没有变化。</span></div>}
-              {terminal?.type === 'cancelled' && <div className="agent-cancelled"><Square size={12} /> {terminal.message}</div>}
-              {candidate?.state === 'review_ready' && (
-                <div className="change-card">
-                  <span className="change-status"><CheckCircle2 size={15} /> 已通过安全核对</span>
-                  <strong>转弯参数候选修改</strong>
-                  <small>{findLast(events, 'candidate_ready')?.summary ?? '修改只保存在候选副本中。'}</small>
-                  {showReview && candidate.validation && (
-                    <div className="review-summary">
-                      <span><FileCheck2 size={13} /> {candidate.validation.changedFiles} 个允许文件</span>
-                      {candidate.validation.files.map((file) => <code key={file.path}>{file.path} · +{file.additions} / -{file.deletions}</code>)}
-                    </div>
-                  )}
-                  <div className="change-actions">
-                    <button type="button" onClick={() => setShowReview((value) => !value)}>{showReview ? '收起摘要' : '查看安全摘要'}</button>
-                    <button type="button" onClick={() => onReject(candidate.id)}>放弃修改</button>
-                    <button type="button" className="button-primary" disabled title="候选编译将在下一阶段接入">等待编译接入</button>
-                  </div>
-                </div>
-              )}
-              {terminal?.type === 'completed' && candidate?.state === 'no_changes' && <div className="agent-cancelled"><CheckCircle2 size={13} /> {terminal.message}</div>}
-            </div>
-          </div>
-        )}
+      <div ref={conversationRef} className="conversation" aria-live="polite">
+        {turns.length === 0 && <div className="chat-welcome"><span className="assistant-mark"><Bot size={16} /></span><div><strong>先说一个你观察到的问题</strong><p>我会记住这个项目里的对话，并在安全副本中尝试修改。</p></div></div>}
+        {turns.map((turn) => (
+          <TurnView
+            key={turn.turnId}
+            turn={turn}
+            candidate={turn.turnId === latestTurnId ? candidate : undefined}
+            running={running && turn.turnId === latestTurnId}
+            showReview={showReview}
+            onToggleReview={() => setShowReview((value) => !value)}
+            onReject={onReject}
+            onPermission={onPermission}
+          />
+        ))}
       </div>
 
       <div className="prompt-box">
-        <textarea
-          aria-label="告诉 AI 你希望机器马做什么"
-          placeholder={workspace ? '例如：检测一下黑线，或者让转弯更平稳…' : '请先新建一个训练项目'}
-          rows={3}
-          value={message}
-          disabled={!workspace || running}
-          onChange={(event) => setMessage(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() }
-          }}
-        />
+        <textarea aria-label="告诉 AI 你希望机器马做什么" placeholder={workspace ? '继续追问，或提出下一步修改…' : '请先新建一个训练项目'} rows={3} value={message} disabled={!workspace || running} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
         <div className="prompt-footer">
-          <span>{running ? 'AI 正在安全副本中工作' : 'Enter 发送 · Shift+Enter 换行'}</span>
-          {running
-            ? <button type="button" className="cancel-agent" aria-label="停止本次修改" onClick={onCancel}><Square size={14} /></button>
-            : <button type="button" aria-label="发送消息" onClick={submit} disabled={!message.trim() || !workspace}><ArrowUp size={18} /></button>}
+          <span>{running ? 'AI 正在安全副本中工作' : turns.length > 0 ? `已保留 ${turns.length} 轮上下文` : 'Enter 发送 · Shift+Enter 换行'}</span>
+          {running ? <button type="button" className="cancel-agent" aria-label="停止本次修改" onClick={onCancel}><Square size={14} /></button> : <button type="button" aria-label="发送消息" onClick={submit} disabled={!message.trim() || !workspace}><ArrowUp size={18} /></button>}
         </div>
       </div>
     </section>
   )
 }
 
-function findLast<T extends AgentEvent['type']>(events: AgentEvent[], type: T): Extract<AgentEvent, { type: T }> | undefined {
-  return [...events].reverse().find((event): event is Extract<AgentEvent, { type: T }> => event.type === type)
+function TurnView({ turn, candidate, running, showReview, onToggleReview, onReject, onPermission }: { turn: ConversationTurn; candidate?: CandidateSnapshot; running: boolean; showReview: boolean; onToggleReview(): void; onReject(id: string): void; onPermission(requestId: string, optionId: string): void }): React.JSX.Element {
+  const activity = turn.activity
+  const terminal = turn.terminal
+  return (
+    <article className="conversation-turn">
+      <div className="message student-message">{turn.started.message}</div>
+      {turn.plan && <div className="plan-strip" aria-label="本次修改计划">{turn.plan.steps.map((step, index) => {
+        const completed = terminal?.type === 'completed' || (activity ? (['editing', 'validating'].includes(activity.state) && index === 0) || (activity.state === 'validating' && index === 1) : false)
+        const active = !completed && ((activity?.state === 'thinking' && index === 0) || (activity?.state === 'editing' && index === 1) || (activity?.state === 'validating' && index === 2))
+        return <span key={step.id} className={completed ? 'done' : active ? 'active' : ''}><i>{completed ? '✓' : index + 1}</i>{step.label}</span>
+      })}</div>}
+      {(turn.assistantText || activity || terminal || turn.permission) && <div className="message assistant-message">
+        <span className="assistant-mark"><Bot size={16} /></span>
+        <div className="assistant-copy">
+          {turn.assistantText && <div className="assistant-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" /> }}>{turn.assistantText}</ReactMarkdown></div>}
+          {turn.permission && <div className="permission-card" role="group" aria-label="AI 操作确认"><span className="permission-icon"><ShieldCheck size={17} /></span><div><strong>{turn.permission.title}</strong><p>{turn.permission.detail}</p></div><div className="permission-actions">{turn.permission.options.map((option) => <button type="button" key={option.id} className={option.tone === 'approve' ? 'approve' : option.tone === 'reject' ? 'reject' : ''} onClick={() => onPermission(turn.permission!.requestId, option.id)}>{option.label}</button>)}</div></div>}
+          {running && activity && <span className="agent-activity"><LoaderCircle size={13} className="spin" /> {activity.label}</span>}
+          {terminal?.type === 'failed' && <div className="agent-error"><X size={14} /> <span><strong>这次没有完成</strong>{terminal.message} 正式项目没有变化。</span></div>}
+          {terminal?.type === 'cancelled' && <div className="agent-cancelled"><Square size={12} /> {terminal.message}</div>}
+          {candidate?.state === 'review_ready' && <div className="change-card"><span className="change-status"><CheckCircle2 size={15} /> 已通过安全核对</span><strong>候选修改</strong><small>{turn.summary ?? '修改只保存在候选副本中。'}</small>{showReview && candidate.validation && <div className="review-summary"><span><FileCheck2 size={13} /> {candidate.validation.changedFiles} 个允许文件</span>{candidate.validation.files.map((file) => <code key={file.path}>{file.path} · +{file.additions} / -{file.deletions}</code>)}</div>}<div className="change-actions"><button type="button" onClick={onToggleReview}>{showReview ? '收起摘要' : '查看安全摘要'}</button><button type="button" onClick={() => onReject(candidate.id)}>放弃修改</button><button type="button" className="button-primary" disabled title="候选编译将在下一阶段接入">等待编译接入</button></div></div>}
+          {terminal?.type === 'completed' && terminal.state === 'no_changes' && <div className="agent-cancelled"><CheckCircle2 size={13} /> {terminal.message}</div>}
+        </div>
+      </div>}
+    </article>
+  )
+}
+
+export function buildConversation(events: AgentEvent[]): ConversationTurn[] {
+  const turns: ConversationTurn[] = []
+  const byId = new Map<string, ConversationTurn>()
+  const resolved = new Set(events.filter((event): event is Extract<AgentEvent, { type: 'permission_resolved' }> => event.type === 'permission_resolved').map((event) => event.requestId))
+  for (const event of events) {
+    if (event.type === 'turn_started') {
+      const turn: ConversationTurn = { turnId: event.turnId, started: event, assistantText: '' }
+      turns.push(turn); byId.set(event.turnId, turn); continue
+    }
+    const turn = byId.get(event.turnId)
+    if (!turn) continue
+    if (event.type === 'assistant_delta') turn.assistantText += event.text
+    else if (event.type === 'plan') turn.plan = event
+    else if (event.type === 'activity') turn.activity = event
+    else if (event.type === 'permission_request' && !resolved.has(event.requestId)) turn.permission = event
+    else if (event.type === 'permission_resolved' && turn.permission?.requestId === event.requestId) turn.permission = undefined
+    else if (event.type === 'candidate_ready') turn.summary = event.summary
+    else if (event.type === 'completed' || event.type === 'cancelled' || event.type === 'failed') turn.terminal = event
+  }
+  return turns
 }

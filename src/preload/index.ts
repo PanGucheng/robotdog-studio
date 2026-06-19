@@ -38,6 +38,7 @@ const api: RobotDogApi = {
   promptAgent: (workspaceId, message) => ipcRenderer.invoke(IPC_CHANNELS.agentPrompt, workspaceId, message),
   cancelAgent: (turnId) => ipcRenderer.invoke(IPC_CHANNELS.agentCancel, turnId),
   respondAgentPermission: (turnId, requestId, optionId) => ipcRenderer.invoke(IPC_CHANNELS.agentPermissionRespond, turnId, requestId, optionId),
+  listAgentHistory: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.agentHistoryList, workspaceId),
   getAgentRuntimeStatus: () => ipcRenderer.invoke(IPC_CHANNELS.agentRuntimeStatus),
   setAgentApiKey: (apiKey) => ipcRenderer.invoke(IPC_CHANNELS.agentApiKeySet, apiKey),
   clearAgentApiKey: () => ipcRenderer.invoke(IPC_CHANNELS.agentApiKeyClear),

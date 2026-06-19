@@ -321,6 +321,7 @@ export const browserDemoApi: RobotDogApi = {
     return true
   },
   respondAgentPermission: async () => true,
+  listAgentHistory: async () => [],
   getAgentRuntimeStatus: async () => ({ adapter: 'mock', version: 'browser-demo', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示使用模拟 AI' }),
   setAgentApiKey: async () => ({ adapter: 'mock', version: 'browser-demo', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示不保存 API Key' }),
   clearAgentApiKey: async () => ({ adapter: 'mock', version: 'browser-demo', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示不保存 API Key' }),

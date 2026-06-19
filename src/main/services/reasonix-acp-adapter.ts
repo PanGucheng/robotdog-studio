@@ -14,6 +14,7 @@ interface PendingPermission { turnId: string; allowed: Set<string>; resolve: (op
 export class ReasonixAcpAdapter implements ReasonixAdapter {
   readonly kind = 'reasonix' as const
   private readonly pendingPermissions = new Map<string, PendingPermission>()
+  private readonly sessions = new Map<string, string>()
 
   constructor(private readonly processes: ReasonixProcessManager, private readonly getApiKey: () => Promise<string>) {}
 
@@ -23,7 +24,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
     const configPath = join(context.candidateRoot, 'reasonix.toml')
     const originalConfig = await readFile(configPath, 'utf8').catch(() => '')
     await writeFile(configPath, secureConfig, 'utf8')
-    const process = await this.processes.start(context.candidateRoot, apiKey)
+    const process = await this.processes.start(context.candidateRoot, apiKey, context.workspaceId)
     let sessionId = ''
     let sequence = 0
     let summary = ''
@@ -63,8 +64,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
     signal.addEventListener('abort', cancel, { once: true })
     try {
       await process.client.request('initialize', { protocolVersion: 1, clientInfo: { name: 'robotdog-studio', title: 'RobotDog Studio', version: '0.1.0' } })
-      const created = await process.client.request<{ sessionId: string }>('session/new', { cwd: context.candidateRoot, mcpServers: [] })
-      sessionId = created.sessionId
+      sessionId = await this.openWorkspaceSession(process.client, context.workspaceId, context.candidateRoot)
       if (signal.aborted) throw signal.reason
       emit({ type: 'activity', sequence: ++sequence, label: 'Reasonix 已连接，正在修改候选副本', state: 'editing' })
       const result = await process.client.request<{ stopReason: string }>('session/prompt', { sessionId, prompt: [{ type: 'text', text: context.message }] }, 10 * 60_000)
@@ -79,6 +79,21 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
       await process.stop()
       await writeFile(configPath, originalConfig, 'utf8').catch(() => undefined)
     }
+  }
+
+  private async openWorkspaceSession(client: import('./acp-client').AcpClient, workspaceId: string, cwd: string): Promise<string> {
+    let sessionId = this.sessions.get(workspaceId)
+    if (!sessionId) {
+      const listed = await client.request<{ sessions?: Array<{ sessionId?: string; updatedAt?: string }> }>('session/list', {}).catch(() => ({ sessions: [] }))
+      sessionId = listed.sessions?.filter((session) => typeof session.sessionId === 'string').sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).at(0)?.sessionId
+    }
+    if (sessionId) {
+      const resumed = await client.request('session/resume', { sessionId, cwd, mcpServers: [] }).then(() => true, () => false)
+      if (resumed) { this.sessions.set(workspaceId, sessionId); return sessionId }
+    }
+    const created = await client.request<{ sessionId: string }>('session/new', { cwd, mcpServers: [] })
+    this.sessions.set(workspaceId, created.sessionId)
+    return created.sessionId
   }
 
   respondPermission(turnId: string, requestId: string, optionId: string): boolean {
