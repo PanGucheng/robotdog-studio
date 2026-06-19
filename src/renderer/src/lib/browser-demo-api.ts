@@ -320,6 +320,9 @@ export const browserDemoApi: RobotDogApi = {
     emitBrowserAgent(turn, 99, { type: 'cancelled', message: '已停止这次修改，正式项目没有变化。' })
     return true
   },
+  getAgentRuntimeStatus: async () => ({ adapter: 'mock', version: 'browser-demo', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示使用模拟 AI' }),
+  setAgentApiKey: async () => ({ adapter: 'mock', version: 'browser-demo', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示不保存 API Key' }),
+  clearAgentApiKey: async () => ({ adapter: 'mock', version: 'browser-demo', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示不保存 API Key' }),
   connectDemo: async () => {
     update({ connection: 'connecting' })
     await new Promise((resolve) => setTimeout(resolve, 280))

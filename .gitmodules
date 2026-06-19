@@ -1,0 +1,3 @@
+[submodule "third_party/reasonix"]
+	path = third_party/reasonix
+	url = https://github.com/esengine/DeepSeek-Reasonix.git

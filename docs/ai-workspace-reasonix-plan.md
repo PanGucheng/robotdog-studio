@@ -668,6 +668,8 @@ AI 失败不能把后续节点误标为完成。
 
 ### 阶段 D：真实 Reasonix ACP
 
+状态（2026-06-19）：已完成。源码以 Git 子模块固定到 `v1.9.1`（`f944dfb7`），Windows x64 发布包和二进制 SHA-256 记录在 `config/reasonix-runtime.json`。应用已接入 ACP、候选目录权限策略、进程校验/脱敏/超时、safeStorage 密钥设置入口和 Mock 协议夹具；真实联网提示仍需用户配置自己的 DeepSeek API Key 后人工验收。
+
 实现：
 
 - 固定 Reasonix 1.x 二进制、哈希和配置模板；

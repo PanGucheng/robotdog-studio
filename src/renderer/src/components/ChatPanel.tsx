@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { ArrowUp, Bot, CheckCircle2, FileCheck2, LoaderCircle, Sparkles, Square, X } from 'lucide-react'
-import type { AgentEvent, CandidateSnapshot, WorkspaceSummary } from '../../../shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowUp, Bot, CheckCircle2, FileCheck2, KeyRound, LoaderCircle, Settings2, Sparkles, Square, X } from 'lucide-react'
+import type { AgentEvent, AgentRuntimeStatus, CandidateSnapshot, WorkspaceSummary } from '../../../shared/types'
+import { getRobotApi } from '../lib/browser-demo-api'
 
 interface ChatPanelProps {
   workspace?: WorkspaceSummary
@@ -15,11 +16,26 @@ interface ChatPanelProps {
 export function ChatPanel({ workspace, events, candidate, running, onPrompt, onCancel, onReject }: ChatPanelProps): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [showReview, setShowReview] = useState(false)
+  const [showRuntime, setShowRuntime] = useState(false)
+  const [apiKey, setApiKey] = useState('')
+  const [runtime, setRuntime] = useState<AgentRuntimeStatus>()
+  const [runtimeError, setRuntimeError] = useState('')
   const started = findLast(events, 'turn_started')
   const plan = findLast(events, 'plan')
   const activity = findLast(events, 'activity')
   const terminal = [...events].reverse().find((event) => ['completed', 'cancelled', 'failed'].includes(event.type))
   const assistantText = useMemo(() => events.filter((event): event is Extract<AgentEvent, { type: 'assistant_delta' }> => event.type === 'assistant_delta').map((event) => event.text).join(''), [events])
+  useEffect(() => { void getRobotApi().getAgentRuntimeStatus().then(setRuntime).catch(() => undefined) }, [])
+
+  async function saveApiKey(): Promise<void> {
+    setRuntimeError('')
+    try { setRuntime(await getRobotApi().setAgentApiKey(apiKey)); setApiKey('') } catch (caught) { setRuntimeError(caught instanceof Error ? caught.message : String(caught)) }
+  }
+
+  async function clearApiKey(): Promise<void> {
+    setRuntimeError('')
+    try { setRuntime(await getRobotApi().clearAgentApiKey()) } catch (caught) { setRuntimeError(caught instanceof Error ? caught.message : String(caught)) }
+  }
 
   function submit(): void {
     const trimmed = message.trim()
@@ -36,8 +52,19 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
           <span className="eyebrow">AI 助教</span>
           <h2>把想法说给小马听</h2>
         </div>
-        <span className="model-chip"><Sparkles size={14} /> 模拟教学</span>
+        <button type="button" className={`model-chip ${runtime?.ready ? 'ready' : ''}`} onClick={() => setShowRuntime((value) => !value)} aria-expanded={showRuntime}>
+          {runtime?.ready ? <Sparkles size={14} /> : <Settings2 size={14} />} {runtime?.adapter === 'reasonix' ? `Reasonix ${runtime.version}` : '模拟教学'}
+        </button>
       </div>
+
+      {showRuntime && runtime?.adapter === 'reasonix' && (
+        <div className="runtime-card">
+          <div><KeyRound size={16} /><span><strong>DeepSeek 访问密钥</strong><small>{runtime.detail}。密钥由 Windows 加密存储，界面不会再次读取。</small></span></div>
+          <input type="password" value={apiKey} placeholder={runtime.apiKeyConfigured ? '已配置；输入新密钥可替换' : 'sk-…'} autoComplete="off" onChange={(event) => setApiKey(event.target.value)} />
+          {runtimeError && <small className="runtime-error">{runtimeError}</small>}
+          <div className="runtime-actions"><button type="button" onClick={() => void clearApiKey()} disabled={!runtime.apiKeyConfigured}>清除密钥</button><button type="button" className="button-primary" onClick={() => void saveApiKey()} disabled={!apiKey.trim()}>安全保存</button></div>
+        </div>
+      )}
 
       <div className="conversation" aria-live="polite">
         {!started && (

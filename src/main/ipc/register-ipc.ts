@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../shared/channels'
-import type { AppHealth } from '../../shared/types'
+import type { AgentRuntimeStatus, AppHealth } from '../../shared/types'
 import { FirmwareBuildService } from '../services/firmware-build-service'
 import { MockRobotService } from '../services/mock-robot-service'
 import { MockConnectivityService } from '../services/mock-connectivity-service'
@@ -9,8 +9,12 @@ import { ToolchainService } from '../services/toolchain-service'
 import { WorkspaceService } from '../services/workspace-service'
 import { CandidateService } from '../services/candidate-service'
 import { AgentSessionService } from '../services/agent-session-service'
+import { DeepSeekSecretStore } from '../services/deepseek-secret-store'
+import { ReasonixProcessManager } from '../services/reasonix-process-manager'
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService): () => void {
+export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
+
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -47,7 +51,7 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
         { id: 'serial', label: '串口服务', status: 'ready', detail: '模拟设备可用' },
         { id: 'gcc', label: '内置 WCH GCC12', status: toolchainStatus.gcc.ok ? 'ready' : 'unavailable', detail: toolchainStatus.gcc.detail },
         { id: 'openocd', label: '内置 WCH OpenOCD', status: toolchainStatus.openocd.ok ? 'ready' : 'unavailable', detail: toolchainStatus.openocd.detail },
-        { id: 'reasonix', label: 'Reasonix', status: 'pending', detail: '将在 AI 阶段接入 ACP' }
+        { id: 'reasonix', label: 'Reasonix', status: agentRuntime && await agentRuntimeStatus(agentRuntime).then((value) => value.ready) ? 'ready' : 'unavailable', detail: agentRuntime ? `固定版本 ${agentRuntime.version}` : '未配置运行时' }
       ]
     }
   })
@@ -134,6 +138,18 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       return agents.cancel(turnId)
     })
   }
+  if (agentRuntime) {
+    ipcMain.handle(IPC_CHANNELS.agentRuntimeStatus, () => agentRuntimeStatus(agentRuntime))
+    ipcMain.handle(IPC_CHANNELS.agentApiKeySet, async (_event, apiKey: unknown) => {
+      if (typeof apiKey !== 'string') throw new Error('INVALID_API_KEY')
+      await agentRuntime.secrets.set(apiKey)
+      return agentRuntimeStatus(agentRuntime)
+    })
+    ipcMain.handle(IPC_CHANNELS.agentApiKeyClear, async () => {
+      await agentRuntime.secrets.clear()
+      return agentRuntimeStatus(agentRuntime)
+    })
+  }
 
   return () => {
     robot.off('status', statusListener)
@@ -147,5 +163,20 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     for (const channel of Object.values(IPC_CHANNELS)) {
       ipcMain.removeHandler(channel)
     }
+  }
+}
+
+async function agentRuntimeStatus(runtime: AgentRuntimeServices): Promise<AgentRuntimeStatus> {
+  const [installed, apiKeyConfigured] = await Promise.all([
+    runtime.processes.verifyBinary().then(() => true, () => false),
+    runtime.secrets.has()
+  ])
+  return {
+    adapter: 'reasonix',
+    version: runtime.version,
+    installed,
+    apiKeyConfigured,
+    ready: installed && apiKeyConfigured,
+    detail: !installed ? 'Reasonix 文件缺失或校验失败' : !apiKeyConfigured ? '请配置 DeepSeek API Key' : 'Reasonix ACP 已就绪'
   }
 }

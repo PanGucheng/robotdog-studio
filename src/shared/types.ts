@@ -181,6 +181,15 @@ export interface AgentTurnSnapshot {
   startedAt: string
 }
 
+export interface AgentRuntimeStatus {
+  adapter: 'mock' | 'reasonix'
+  version: string
+  installed: boolean
+  apiKeyConfigured: boolean
+  ready: boolean
+  detail: string
+}
+
 export interface StudentPlanStep {
   id: string
   label: string
@@ -371,6 +380,9 @@ export interface RobotDogApi {
   rejectCandidate(candidateId: string): Promise<CandidateSnapshot>
   promptAgent(workspaceId: string, message: string): Promise<AgentTurnSnapshot>
   cancelAgent(turnId?: string): Promise<boolean>
+  getAgentRuntimeStatus(): Promise<AgentRuntimeStatus>
+  setAgentApiKey(apiKey: string): Promise<AgentRuntimeStatus>
+  clearAgentApiKey(): Promise<AgentRuntimeStatus>
   onStatus(listener: (status: RobotStatus) => void): () => void
   onLog(listener: (entry: LogEntry) => void): () => void
   onCcd(listener: (frame: CcdFrame) => void): () => void
