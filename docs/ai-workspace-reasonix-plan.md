@@ -628,6 +628,8 @@ AI 失败不能把后续节点误标为完成。
 
 ### 阶段 B：候选 worktree 与 Diff 策略
 
+状态：已于 2026-06-19 完成。已通过 31 项自动测试、生产构建和 Electron 预加载烟雾测试；参数 YAML schema 将随正式固件参数范围确定后继续加固。
+
 实现：
 
 - `CandidateService`、worktree 创建和清理；

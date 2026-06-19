@@ -1,4 +1,4 @@
-import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../../shared/types'
+import type { CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../../shared/types'
 
 const statusListeners = new Set<(status: RobotStatus) => void>()
 const logListeners = new Set<(entry: LogEntry) => void>()
@@ -8,6 +8,8 @@ const connectionListeners = new Set<(snapshot: DeviceConnectionSnapshot) => void
 const firmwareUpdateListeners = new Set<(event: FirmwareUpdateEvent) => void>()
 const recoveryListeners = new Set<(event: RecoveryEvent) => void>()
 const workspaceListeners = new Set<(workspace: WorkspaceSummary) => void>()
+const candidateListeners = new Set<(candidate: CandidateSnapshot) => void>()
+const demoCandidates = new Map<string, CandidateSnapshot>()
 
 let demoWorkspaces: WorkspaceSummary[] = [{
   id: 'ws_0123456789abcdef01234567', name: '巡线基础训练', studentDisplayName: '林同学',
@@ -263,6 +265,41 @@ export const browserDemoApi: RobotDogApi = {
     return structuredClone(workspace)
   },
   getWorkspaceHistory: async (workspaceId) => [{ commit: (await browserDemoApi.getWorkspace(workspaceId)).headCommit, shortCommit: 'demo000', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }],
+  createCandidate: async (workspaceId) => {
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    const now = new Date()
+    const candidate: CandidateSnapshot = {
+      id: `cand_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`, workspaceId, state: 'agent_running',
+      baseCommit: workspace.headCommit, baseTreeHash: '0'.repeat(64), policyVersion: 'student-v1:1',
+      createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 7_200_000).toISOString(), updatedAt: now.toISOString()
+    }
+    demoCandidates.set(candidate.id, candidate)
+    candidateListeners.forEach((listener) => listener(structuredClone(candidate)))
+    return structuredClone(candidate)
+  },
+  getCandidate: async (candidateId) => {
+    const candidate = demoCandidates.get(candidateId)
+    if (!candidate) throw new Error('候选修改不存在')
+    return structuredClone(candidate)
+  },
+  getCandidateDiff: async (candidateId) => {
+    const candidate = await browserDemoApi.getCandidate(candidateId)
+    return { candidateId, diffHash: candidate.diffHash ?? '0'.repeat(64), files: [] }
+  },
+  validateCandidate: async (candidateId) => {
+    const candidate = await browserDemoApi.getCandidate(candidateId)
+    const validated = { ...candidate, state: 'no_changes' as const, updatedAt: new Date().toISOString(), sourceTreeHash: candidate.baseTreeHash, diffHash: '0'.repeat(64), validation: { valid: true, policyVersion: 'student-v1:1', files: [], violations: [], warnings: [], changedFiles: 0, patchBytes: 0 } }
+    demoCandidates.set(candidateId, validated)
+    candidateListeners.forEach((listener) => listener(structuredClone(validated)))
+    return validated
+  },
+  rejectCandidate: async (candidateId) => {
+    const candidate = await browserDemoApi.getCandidate(candidateId)
+    const rejected = { ...candidate, state: 'rejected' as const, updatedAt: new Date().toISOString() }
+    demoCandidates.set(candidateId, rejected)
+    candidateListeners.forEach((listener) => listener(structuredClone(rejected)))
+    return rejected
+  },
   connectDemo: async () => {
     update({ connection: 'connecting' })
     await new Promise((resolve) => setTimeout(resolve, 280))
@@ -299,7 +336,8 @@ export const browserDemoApi: RobotDogApi = {
   onDeviceConnection: (listener) => { connectionListeners.add(listener); return () => connectionListeners.delete(listener) },
   onFirmwareUpdate: (listener) => { firmwareUpdateListeners.add(listener); return () => firmwareUpdateListeners.delete(listener) },
   onRecovery: (listener) => { recoveryListeners.add(listener); return () => recoveryListeners.delete(listener) },
-  onWorkspaceChanged: (listener) => { workspaceListeners.add(listener); return () => workspaceListeners.delete(listener) }
+  onWorkspaceChanged: (listener) => { workspaceListeners.add(listener); return () => workspaceListeners.delete(listener) },
+  onCandidateChanged: (listener) => { candidateListeners.add(listener); return () => candidateListeners.delete(listener) }
 }
 
 export function getRobotApi(): RobotDogApi {

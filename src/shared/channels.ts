@@ -25,6 +25,12 @@ export const IPC_CHANNELS = {
   workspaceGet: 'workspace:get',
   workspaceHistory: 'workspace:history',
   workspaceChangedEvent: 'workspace:changed',
+  candidateCreate: 'candidate:create',
+  candidateGet: 'candidate:get',
+  candidateGetDiff: 'candidate:get-diff',
+  candidateValidate: 'candidate:validate',
+  candidateReject: 'candidate:reject',
+  candidateChangedEvent: 'candidate:changed',
   robotStatusEvent: 'robot:status',
   robotLogEvent: 'robot:log',
   robotCcdEvent: 'robot:ccd'

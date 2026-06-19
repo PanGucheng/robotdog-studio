@@ -35,6 +35,77 @@ export class GitWorkspaceService {
     })
   }
 
+  async isClean(projectRoot: string): Promise<boolean> {
+    await this.assertManagedRepository(projectRoot)
+    return (await this.run(projectRoot, ['status', '--porcelain=v1', '--untracked-files=all'])).trim().length === 0
+  }
+
+  async addDetachedWorktree(projectRoot: string, candidateRoot: string, commit: string): Promise<void> {
+    await this.assertManagedRepository(projectRoot)
+    if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error('WORKSPACE_COMMIT_INVALID')
+    await this.run(projectRoot, ['worktree', 'add', '--detach', resolve(candidateRoot), commit])
+  }
+
+  async removeWorktree(projectRoot: string, candidateRoot: string): Promise<void> {
+    await this.assertManagedRepository(projectRoot)
+    await this.run(projectRoot, ['worktree', 'remove', '--force', resolve(candidateRoot)])
+    await this.run(projectRoot, ['worktree', 'prune'])
+  }
+
+  async changedFiles(candidateRoot: string): Promise<Array<{ code: string; path: string; originalPath?: string }>> {
+    await this.assertManagedRepository(candidateRoot)
+    const output = await this.run(candidateRoot, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--find-renames=50%'])
+    const chunks = output.split('\0').filter(Boolean)
+    const changes: Array<{ code: string; path: string; originalPath?: string }> = []
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index]
+      const code = chunk.slice(0, 2)
+      const path = chunk.slice(3).replaceAll('\\', '/')
+      if (code.includes('R') || code.includes('C')) {
+        const originalPath = chunks[++index]?.replaceAll('\\', '/')
+        changes.push({ code, path, originalPath })
+      } else changes.push({ code, path })
+    }
+    return changes
+  }
+
+  async lineStats(candidateRoot: string, path: string): Promise<{ additions: number; deletions: number }> {
+    await this.assertManagedRepository(candidateRoot)
+    const output = await this.run(candidateRoot, ['diff', '--numstat', 'HEAD', '--', path])
+    if (!output.trim()) return { additions: 0, deletions: 0 }
+    const [added, deleted] = output.trim().split(/\s+/)
+    return { additions: Number(added) || 0, deletions: Number(deleted) || 0 }
+  }
+
+  async headBlobHash(candidateRoot: string, path: string): Promise<string | undefined> {
+    await this.assertManagedRepository(candidateRoot)
+    try {
+      const hash = (await this.run(candidateRoot, ['rev-parse', `HEAD:${path}`])).trim()
+      return /^[a-f0-9]{40}$/.test(hash) ? hash : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  async workingFileHash(candidateRoot: string, path: string): Promise<string | undefined> {
+    await this.assertManagedRepository(candidateRoot)
+    try {
+      const hash = (await this.run(candidateRoot, ['hash-object', '--', path])).trim()
+      return /^[a-f0-9]{40}$/.test(hash) ? hash : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  async headFileText(candidateRoot: string, path: string): Promise<string> {
+    await this.assertManagedRepository(candidateRoot)
+    try {
+      return await this.run(candidateRoot, ['show', `HEAD:${path}`])
+    } catch {
+      return ''
+    }
+  }
+
   async assertManagedRepository(projectRoot: string): Promise<void> {
     const root = resolve(projectRoot)
     const marker = await readFile(resolve(root, MANAGED_MARKER), 'utf8').catch(() => '')

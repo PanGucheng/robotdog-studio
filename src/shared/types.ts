@@ -95,6 +95,7 @@ export interface WorkspaceMetadata {
   lastCheckpoint: string
   policyProfile: 'student-v1'
   state: WorkspaceState
+  activeCandidateId?: string
 }
 
 export interface WorkspaceSummary {
@@ -106,6 +107,67 @@ export interface WorkspaceSummary {
   headCommit: string
   state: WorkspaceState
   updatedAt: string
+  activeCandidateId?: string
+}
+
+export type CandidateState =
+  | 'preparing' | 'agent_running' | 'validating' | 'review_ready' | 'no_changes'
+  | 'building' | 'build_passed' | 'awaiting_apply' | 'applying' | 'applied'
+  | 'rejected' | 'cancelled' | 'failed' | 'stale' | 'conflict'
+
+export interface PatchViolation {
+  code: string
+  path?: string
+  message: string
+}
+
+export interface PatchFileSummary {
+  path: string
+  status: 'added' | 'modified' | 'deleted' | 'renamed' | 'type_changed' | 'unmerged'
+  bytes: number
+  additions: number
+  deletions: number
+}
+
+export interface PatchValidationReport {
+  valid: boolean
+  policyVersion: string
+  files: PatchFileSummary[]
+  violations: PatchViolation[]
+  warnings: PatchViolation[]
+  changedFiles: number
+  patchBytes: number
+}
+
+export interface CandidateSnapshot {
+  id: string
+  workspaceId: string
+  state: CandidateState
+  baseCommit: string
+  baseTreeHash: string
+  policyVersion: string
+  createdAt: string
+  expiresAt: string
+  updatedAt: string
+  sourceTreeHash?: string
+  diffHash?: string
+  validation?: PatchValidationReport
+  error?: string
+}
+
+export interface CandidateDiffFile {
+  path: string
+  status: PatchFileSummary['status']
+  before: string
+  after: string
+  additions: number
+  deletions: number
+}
+
+export interface CandidateDiff {
+  candidateId: string
+  diffHash: string
+  files: CandidateDiffFile[]
 }
 
 export interface WorkspaceHistoryEntry {
@@ -265,6 +327,11 @@ export interface RobotDogApi {
   createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>
   getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
+  createCandidate(workspaceId: string): Promise<CandidateSnapshot>
+  getCandidate(candidateId: string): Promise<CandidateSnapshot>
+  getCandidateDiff(candidateId: string): Promise<CandidateDiff>
+  validateCandidate(candidateId: string): Promise<CandidateSnapshot>
+  rejectCandidate(candidateId: string): Promise<CandidateSnapshot>
   onStatus(listener: (status: RobotStatus) => void): () => void
   onLog(listener: (entry: LogEntry) => void): () => void
   onCcd(listener: (frame: CcdFrame) => void): () => void
@@ -273,4 +340,5 @@ export interface RobotDogApi {
   onFirmwareUpdate(listener: (event: FirmwareUpdateEvent) => void): () => void
   onRecovery(listener: (event: RecoveryEvent) => void): () => void
   onWorkspaceChanged(listener: (workspace: WorkspaceSummary) => void): () => void
+  onCandidateChanged(listener: (candidate: CandidateSnapshot) => void): () => void
 }

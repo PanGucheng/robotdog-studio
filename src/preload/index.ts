@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/channels'
-import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WorkspaceSummary } from '../shared/types'
+import type { CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WorkspaceSummary } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const wrapped = (_event: Electron.IpcRendererEvent, payload: T): void => listener(payload)
@@ -30,6 +30,11 @@ const api: RobotDogApi = {
   createWorkspace: (input) => ipcRenderer.invoke(IPC_CHANNELS.workspaceCreate, input),
   getWorkspace: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.workspaceGet, workspaceId),
   getWorkspaceHistory: (workspaceId, limit) => ipcRenderer.invoke(IPC_CHANNELS.workspaceHistory, workspaceId, limit),
+  createCandidate: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.candidateCreate, workspaceId),
+  getCandidate: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateGet, candidateId),
+  getCandidateDiff: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateGetDiff, candidateId),
+  validateCandidate: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateValidate, candidateId),
+  rejectCandidate: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateReject, candidateId),
   onStatus: (listener) => subscribe<RobotStatus>(IPC_CHANNELS.robotStatusEvent, listener),
   onLog: (listener) => subscribe<LogEntry>(IPC_CHANNELS.robotLogEvent, listener),
   onCcd: (listener) => subscribe<CcdFrame>(IPC_CHANNELS.robotCcdEvent, listener),
@@ -37,7 +42,8 @@ const api: RobotDogApi = {
   onDeviceConnection: (listener) => subscribe<DeviceConnectionSnapshot>(IPC_CHANNELS.deviceConnectionEvent, listener),
   onFirmwareUpdate: (listener) => subscribe<FirmwareUpdateEvent>(IPC_CHANNELS.firmwareUpdateEvent, listener),
   onRecovery: (listener) => subscribe<RecoveryEvent>(IPC_CHANNELS.recoveryEvent, listener),
-  onWorkspaceChanged: (listener) => subscribe<WorkspaceSummary>(IPC_CHANNELS.workspaceChangedEvent, listener)
+  onWorkspaceChanged: (listener) => subscribe<WorkspaceSummary>(IPC_CHANNELS.workspaceChangedEvent, listener),
+  onCandidateChanged: (listener) => subscribe<CandidateSnapshot>(IPC_CHANNELS.candidateChangedEvent, listener)
 }
 
 contextBridge.exposeInMainWorld('robotDog', api)

@@ -7,8 +7,9 @@ import { MockConnectivityService } from '../services/mock-connectivity-service'
 import { MockRecoveryService } from '../services/mock-recovery-service'
 import { ToolchainService } from '../services/toolchain-service'
 import { WorkspaceService } from '../services/workspace-service'
+import { CandidateService } from '../services/candidate-service'
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService): () => void {
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -91,6 +92,33 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
       if (limit !== undefined && (typeof limit !== 'number' || !Number.isInteger(limit))) throw new Error('WORKSPACE_HISTORY_LIMIT_INVALID')
       return workspaces.history(workspaceId, limit as number | undefined)
+    })
+  }
+  if (candidates) {
+    const withCandidateEvent = async (operation: () => Promise<unknown>): Promise<unknown> => {
+      const candidate = await operation()
+      sendToAll(IPC_CHANNELS.candidateChangedEvent, candidate)
+      return candidate
+    }
+    ipcMain.handle(IPC_CHANNELS.candidateCreate, (_event, workspaceId: unknown) => {
+      if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
+      return withCandidateEvent(() => candidates.create(workspaceId))
+    })
+    ipcMain.handle(IPC_CHANNELS.candidateGet, (_event, candidateId: unknown) => {
+      if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
+      return candidates.get(candidateId)
+    })
+    ipcMain.handle(IPC_CHANNELS.candidateGetDiff, (_event, candidateId: unknown) => {
+      if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
+      return candidates.getDiff(candidateId)
+    })
+    ipcMain.handle(IPC_CHANNELS.candidateValidate, (_event, candidateId: unknown) => {
+      if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
+      return withCandidateEvent(() => candidates.validate(candidateId))
+    })
+    ipcMain.handle(IPC_CHANNELS.candidateReject, (_event, candidateId: unknown) => {
+      if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
+      return withCandidateEvent(() => candidates.reject(candidateId))
     })
   }
 
