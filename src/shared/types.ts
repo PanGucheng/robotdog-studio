@@ -208,6 +208,8 @@ export type AgentEvent =
   | AgentEventBase & { type: 'plan'; steps: StudentPlanStep[] }
   | AgentEventBase & { type: 'assistant_delta'; text: string }
   | AgentEventBase & { type: 'activity'; label: string; state: 'thinking' | 'editing' | 'validating' }
+  | AgentEventBase & { type: 'permission_request'; requestId: string; title: string; kind: 'edit' | 'question'; detail: string; options: Array<{ id: string; label: string; tone: 'approve' | 'reject' | 'neutral' }> }
+  | AgentEventBase & { type: 'permission_resolved'; requestId: string; optionId: string }
   | AgentEventBase & { type: 'candidate_ready'; candidate: CandidateSnapshot; summary: string }
   | AgentEventBase & { type: 'completed'; state: 'review_ready' | 'no_changes'; message: string }
   | AgentEventBase & { type: 'cancelled'; message: string }
@@ -380,6 +382,7 @@ export interface RobotDogApi {
   rejectCandidate(candidateId: string): Promise<CandidateSnapshot>
   promptAgent(workspaceId: string, message: string): Promise<AgentTurnSnapshot>
   cancelAgent(turnId?: string): Promise<boolean>
+  respondAgentPermission(turnId: string, requestId: string, optionId: string): Promise<boolean>
   getAgentRuntimeStatus(): Promise<AgentRuntimeStatus>
   setAgentApiKey(apiKey: string): Promise<AgentRuntimeStatus>
   clearAgentApiKey(): Promise<AgentRuntimeStatus>

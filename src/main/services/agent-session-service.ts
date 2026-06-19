@@ -58,6 +58,13 @@ export class AgentSessionService extends EventEmitter {
     return this.active ? structuredClone(this.active.snapshot) : undefined
   }
 
+  respondPermission(turnId: string, requestId: string, optionId: string): boolean {
+    const active = this.active
+    if (!active || active.snapshot.turnId !== turnId || !this.adapter.respondPermission?.(turnId, requestId, optionId)) return false
+    this.publish(active, { type: 'permission_resolved', requestId, optionId })
+    return true
+  }
+
   private async run(active: ActiveTurn): Promise<void> {
     const { snapshot, controller } = active
     try {
@@ -102,7 +109,11 @@ export class AgentSessionService extends EventEmitter {
     if (event.type === 'plan') {
       const steps: StudentPlanStep[] = event.steps.slice(0, 6).map((step, index) => ({ ...step, status: index === 0 ? 'active' : 'pending' }))
       this.publish(active, { type: 'plan', steps })
-    } else if (event.type === 'assistant_delta') this.publish(active, { type: 'assistant_delta', text: event.text.slice(0, 2_000) })
+    } else if (event.type === 'assistant_delta') this.publish(active, { type: 'assistant_delta', text: event.text.slice(0, 8_000) })
+    else if (event.type === 'permission_request') this.publish(active, {
+      type: 'permission_request', requestId: event.requestId, title: event.title.slice(0, 160), kind: event.kind,
+      detail: event.detail.slice(0, 500), options: event.options.slice(0, 6).map((option) => ({ ...option, label: option.label.slice(0, 100) }))
+    })
     else {
       active.snapshot.state = event.state
       this.publish(active, { type: 'activity', label: event.label.slice(0, 120), state: event.state })
@@ -135,6 +146,7 @@ function isAdapterEvent(value: unknown): value is AdapterEvent {
   if (!Number.isInteger(event.sequence) || (event.sequence ?? 0) < 1) return false
   if (event.type === 'assistant_delta') return typeof event.text === 'string'
   if (event.type === 'activity') return typeof event.label === 'string' && ['thinking', 'editing', 'validating'].includes(event.state ?? '')
+  if (event.type === 'permission_request') return typeof event.requestId === 'string' && typeof event.title === 'string' && typeof event.detail === 'string' && ['edit', 'question'].includes(event.kind ?? '') && Array.isArray(event.options)
   if (event.type === 'plan') return Array.isArray(event.steps) && event.steps.every((step) => step && typeof step.id === 'string' && typeof step.label === 'string')
   return false
 }

@@ -5,9 +5,15 @@ import { ReasonixPermissionPolicy } from './reasonix-permission-policy'
 import { ReasonixProcessManager } from './reasonix-process-manager'
 
 interface UpdateParams { update?: { sessionUpdate?: string; content?: { text?: string }; title?: string; kind?: string; status?: string } }
+interface PermissionParams {
+  toolCall?: { toolCallId?: string; title?: string; kind?: string; rawInput?: Record<string, unknown> }
+  options?: Array<{ optionId?: string; name?: string; kind?: string }>
+}
+interface PendingPermission { turnId: string; allowed: Set<string>; resolve: (optionId: string) => void }
 
 export class ReasonixAcpAdapter implements ReasonixAdapter {
   readonly kind = 'reasonix' as const
+  private readonly pendingPermissions = new Map<string, PendingPermission>()
 
   constructor(private readonly processes: ReasonixProcessManager, private readonly getApiKey: () => Promise<string>) {}
 
@@ -22,7 +28,24 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
     let sequence = 0
     let summary = ''
     const policy = new ReasonixPermissionPolicy(context.candidateRoot)
-    process.client.handleRequest('session/request_permission', (params) => policy.decide(params))
+    process.client.handleRequest('session/request_permission', async (value) => {
+      const params = (value ?? {}) as PermissionParams
+      const requestId = params.toolCall?.toolCallId ?? ''
+      const isQuestion = requestId.startsWith('ask-')
+      const safeEdit = policy.decide(value).outcome.outcome === 'selected'
+      if (!requestId || (!isQuestion && !safeEdit)) return { outcome: { outcome: 'cancelled' } }
+      const options = (params.options ?? []).flatMap((option) => {
+        if (!option.optionId || !option.name) return []
+        const reject = option.kind === 'reject_once' || option.kind === 'reject_always' || option.optionId.endsWith(':cancel')
+        if (!isQuestion && option.kind !== 'allow_once' && !reject) return []
+        return [{ id: option.optionId, label: isQuestion ? option.name : reject ? '暂不允许' : '允许这次修改', tone: reject ? 'reject' as const : isQuestion ? 'neutral' as const : 'approve' as const }]
+      }).slice(0, 6)
+      if (options.length === 0) return { outcome: { outcome: 'cancelled' } }
+      const detail = isQuestion ? 'Reasonix 需要你的选择后才能继续。' : permissionDetail(params.toolCall?.rawInput)
+      emit({ type: 'permission_request', sequence: ++sequence, requestId, title: params.toolCall?.title ?? (isQuestion ? '需要你的选择' : '允许修改学生文件？'), kind: isQuestion ? 'question' : 'edit', detail, options })
+      const optionId = await this.waitForPermission(context.turnId, requestId, options.map((option) => option.id), signal)
+      return optionId ? { outcome: { outcome: 'selected', optionId } } : { outcome: { outcome: 'cancelled' } }
+    })
     const dispose = process.client.onNotification((method, params) => {
       if (method !== 'session/update') return
       const update = (params as UpdateParams).update
@@ -51,11 +74,51 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
       return { summary: summary.slice(0, 4_000) || 'Reasonix 已完成候选修改。' }
     } finally {
       signal.removeEventListener('abort', cancel)
+      this.cancelPermissionsForTurn(context.turnId)
       dispose()
       await process.stop()
       await writeFile(configPath, originalConfig, 'utf8').catch(() => undefined)
     }
   }
+
+  respondPermission(turnId: string, requestId: string, optionId: string): boolean {
+    const pending = this.pendingPermissions.get(requestId)
+    if (!pending || pending.turnId !== turnId || !pending.allowed.has(optionId)) return false
+    this.pendingPermissions.delete(requestId)
+    pending.resolve(optionId)
+    return true
+  }
+
+  private waitForPermission(turnId: string, requestId: string, options: string[], signal: AbortSignal): Promise<string> {
+    return new Promise((resolve) => {
+      const finish = (optionId: string): void => {
+        clearTimeout(timer)
+        signal.removeEventListener('abort', cancel)
+        resolve(optionId)
+      }
+      const cancel = (): void => {
+        this.pendingPermissions.delete(requestId)
+        finish('')
+      }
+      const timer = setTimeout(cancel, 5 * 60_000)
+      this.pendingPermissions.set(requestId, { turnId, allowed: new Set(options), resolve: finish })
+      signal.addEventListener('abort', cancel, { once: true })
+      if (signal.aborted) cancel()
+    })
+  }
+
+  private cancelPermissionsForTurn(turnId: string): void {
+    for (const [requestId, pending] of this.pendingPermissions) {
+      if (pending.turnId !== turnId) continue
+      this.pendingPermissions.delete(requestId)
+      pending.resolve('')
+    }
+  }
+}
+
+function permissionDetail(input?: Record<string, unknown>): string {
+  const paths = Object.entries(input ?? {}).filter(([key, value]) => /path|file/i.test(key) && typeof value === 'string').map(([, value]) => String(value))
+  return paths.length > 0 ? `将只在安全副本中修改：${paths.slice(0, 3).join('、')}` : '将只在安全副本和允许的学生文件范围内修改。'
 }
 
 const secureConfig = `default_model = "deepseek-flash"

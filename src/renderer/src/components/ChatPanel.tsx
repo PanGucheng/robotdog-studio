@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowUp, Bot, CheckCircle2, FileCheck2, KeyRound, LoaderCircle, Settings2, Sparkles, Square, X } from 'lucide-react'
+import { ArrowUp, Bot, CheckCircle2, FileCheck2, KeyRound, LoaderCircle, Settings2, ShieldCheck, Sparkles, Square, X } from 'lucide-react'
 import type { AgentEvent, AgentRuntimeStatus, CandidateSnapshot, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 
@@ -11,9 +11,10 @@ interface ChatPanelProps {
   onPrompt(message: string): void
   onCancel(): void
   onReject(candidateId: string): void
+  onPermission(requestId: string, optionId: string): void
 }
 
-export function ChatPanel({ workspace, events, candidate, running, onPrompt, onCancel, onReject }: ChatPanelProps): React.JSX.Element {
+export function ChatPanel({ workspace, events, candidate, running, onPrompt, onCancel, onReject, onPermission }: ChatPanelProps): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [showReview, setShowReview] = useState(false)
   const [showRuntime, setShowRuntime] = useState(false)
@@ -25,6 +26,10 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
   const activity = findLast(events, 'activity')
   const terminal = [...events].reverse().find((event) => ['completed', 'cancelled', 'failed'].includes(event.type))
   const assistantText = useMemo(() => events.filter((event): event is Extract<AgentEvent, { type: 'assistant_delta' }> => event.type === 'assistant_delta').map((event) => event.text).join(''), [events])
+  const pendingPermission = useMemo(() => {
+    const resolved = new Set(events.filter((event): event is Extract<AgentEvent, { type: 'permission_resolved' }> => event.type === 'permission_resolved').map((event) => event.requestId))
+    return [...events].reverse().find((event): event is Extract<AgentEvent, { type: 'permission_request' }> => event.type === 'permission_request' && !resolved.has(event.requestId))
+  }, [events])
   useEffect(() => { void getRobotApi().getAgentRuntimeStatus().then(setRuntime).catch(() => undefined) }, [])
 
   async function saveApiKey(): Promise<void> {
@@ -87,7 +92,16 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
           <div className="message assistant-message">
             <span className="assistant-mark"><Bot size={16} /></span>
             <div className="assistant-copy">
-              {assistantText && <p>{assistantText}</p>}
+              {assistantText && <div className="assistant-transcript">{assistantText}</div>}
+              {pendingPermission && (
+                <div className="permission-card" role="group" aria-label="AI 操作确认">
+                  <span className="permission-icon"><ShieldCheck size={17} /></span>
+                  <div><strong>{pendingPermission.title}</strong><p>{pendingPermission.detail}</p></div>
+                  <div className="permission-actions">
+                    {pendingPermission.options.map((option) => <button type="button" key={option.id} className={option.tone === 'approve' ? 'approve' : option.tone === 'reject' ? 'reject' : ''} onClick={() => onPermission(pendingPermission.requestId, option.id)}>{option.label}</button>)}
+                  </div>
+                </div>
+              )}
               {running && activity && <span className="agent-activity"><LoaderCircle size={13} className="spin" /> {activity.label}</span>}
               {terminal?.type === 'failed' && <div className="agent-error"><X size={14} /> <span><strong>这次没有完成</strong>{terminal.message} 正式项目没有变化。</span></div>}
               {terminal?.type === 'cancelled' && <div className="agent-cancelled"><Square size={12} /> {terminal.message}</div>}

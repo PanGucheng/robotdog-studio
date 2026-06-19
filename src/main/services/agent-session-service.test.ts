@@ -6,6 +6,7 @@ import type { AgentEvent } from '../../shared/types'
 import { AgentSessionService } from './agent-session-service'
 import { CandidateService } from './candidate-service'
 import { MockReasonixAdapter } from './mock-reasonix-adapter'
+import type { AdapterEvent, AdapterTurnContext, ReasonixAdapter } from './reasonix-adapter'
 import { WorkspaceService } from './workspace-service'
 
 describe('AgentSessionService', () => {
@@ -86,12 +87,55 @@ describe('AgentSessionService', () => {
     expect((await candidates.get(turn.candidateId)).state).toBe('rejected')
     expect((await workspaces.get(workspaceId)).state).toBe('ready')
   })
+
+  it('pauses for a visible permission and resumes only after the matching response', async () => {
+    const adapter = new PermissionFixtureAdapter()
+    const service = new AgentSessionService(candidates, adapter)
+    const events: AgentEvent[] = []
+    service.on('event', (event) => events.push(event))
+    const turn = await service.prompt(workspaceId, '把转弯强度降低 2')
+    await waitForEvent(events, 'permission_request')
+
+    expect(service.respondPermission('wrong-turn', 'write-1', 'allow_once')).toBe(false)
+    expect(service.respondPermission(turn.turnId, 'write-1', 'allow_once')).toBe(true)
+    await waitUntilIdle(service)
+
+    expect(events.map((event) => event.type)).toContain('permission_resolved')
+    expect((await candidates.get(turn.candidateId)).state).toBe('review_ready')
+  })
 })
+
+class PermissionFixtureAdapter implements ReasonixAdapter {
+  readonly kind = 'reasonix' as const
+  private pending?: { turnId: string; resolve: () => void }
+
+  async runTurn(context: AdapterTurnContext, emit: (event: AdapterEvent | unknown) => void): Promise<{ summary: string }> {
+    emit({ type: 'permission_request', sequence: 1, requestId: 'write-1', title: '允许修改？', kind: 'edit', detail: '安全副本', options: [{ id: 'allow_once', label: '允许', tone: 'approve' }] })
+    await new Promise<void>((resolve) => { this.pending = { turnId: context.turnId, resolve } })
+    await writeFile(join(context.candidateRoot, 'student-config', 'line-following.yaml'), 'turn_strength: 16\nline_target: 64\n')
+    return { summary: '已修改。' }
+  }
+
+  respondPermission(turnId: string, requestId: string, optionId: string): boolean {
+    if (!this.pending || this.pending.turnId !== turnId || requestId !== 'write-1' || optionId !== 'allow_once') return false
+    this.pending.resolve()
+    this.pending = undefined
+    return true
+  }
+}
 
 async function waitUntilIdle(service: AgentSessionService): Promise<void> {
   const deadline = Date.now() + 10_000
   while (service.getActive()) {
     if (Date.now() > deadline) throw new Error('agent test timed out')
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
+async function waitForEvent(events: AgentEvent[], type: AgentEvent['type']): Promise<void> {
+  const deadline = Date.now() + 5_000
+  while (!events.some((event) => event.type === type)) {
+    if (Date.now() > deadline) throw new Error('agent event timed out')
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
 }

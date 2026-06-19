@@ -137,6 +137,10 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       if (turnId !== undefined && typeof turnId !== 'string') throw new Error('AGENT_TURN_ID_INVALID')
       return agents.cancel(turnId)
     })
+    ipcMain.handle(IPC_CHANNELS.agentPermissionRespond, (_event, turnId: unknown, requestId: unknown, optionId: unknown) => {
+      if (typeof turnId !== 'string' || typeof requestId !== 'string' || typeof optionId !== 'string') throw new Error('AGENT_PERMISSION_INVALID')
+      return agents.respondPermission(turnId, requestId, optionId)
+    })
   }
   if (agentRuntime) {
     ipcMain.handle(IPC_CHANNELS.agentRuntimeStatus, () => agentRuntimeStatus(agentRuntime))

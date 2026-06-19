@@ -97,7 +97,7 @@ export function App(): React.JSX.Element {
     const offAgent = api.onAgentEvent((event) => {
       if (seenAgentEvents.current.has(event.eventId)) return
       seenAgentEvents.current.add(event.eventId)
-      setAgentEvents((current) => [...current.slice(-99), event])
+      setAgentEvents((current) => [...current.slice(-1999), event])
       if (event.type === 'candidate_ready') setCandidate(event.candidate)
       if (['completed', 'cancelled', 'failed'].includes(event.type)) setAgentTurn(undefined)
     })
@@ -164,6 +164,10 @@ export function App(): React.JSX.Element {
     void api.promptAgent(activeWorkspace.id, message).then(setAgentTurn).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
   }
   const cancelAgent = (): void => { void api.cancelAgent(agentTurn?.turnId) }
+  const respondAgentPermission = (requestId: string, optionId: string): void => {
+    if (!agentTurn) return
+    void api.respondAgentPermission(agentTurn.turnId, requestId, optionId).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+  }
   const rejectCandidate = (candidateId: string): void => {
     void api.rejectCandidate(candidateId).then(() => {
       setCandidate(undefined)
@@ -215,7 +219,7 @@ export function App(): React.JSX.Element {
       </div>
 
       <div className="studio-grid">
-        <ChatPanel workspace={activeWorkspace} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} />
+        <ChatPanel workspace={activeWorkspace} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onPermission={respondAgentPermission} />
         <Workbench
           frame={frame}
           status={status}
