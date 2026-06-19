@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, Menu, Plus, ShieldAlert } from 'lucide-react'
-import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../shared/types'
+import type { AgentEvent, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../shared/types'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
 import { PipelineRail } from './components/PipelineRail'
@@ -64,6 +64,10 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string>()
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>()
+  const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([])
+  const [agentTurn, setAgentTurn] = useState<AgentTurnSnapshot>()
+  const [candidate, setCandidate] = useState<CandidateSnapshot>()
+  const seenAgentEvents = useRef(new Set<string>())
 
   useEffect(() => {
     void api.getStatus().then(setStatus)
@@ -90,6 +94,13 @@ export function App(): React.JSX.Element {
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setActiveWorkspaceId(workspace.id)
     })
+    const offAgent = api.onAgentEvent((event) => {
+      if (seenAgentEvents.current.has(event.eventId)) return
+      seenAgentEvents.current.add(event.eventId)
+      setAgentEvents((current) => [...current.slice(-99), event])
+      if (event.type === 'candidate_ready') setCandidate(event.candidate)
+      if (['completed', 'cancelled', 'failed'].includes(event.type)) setAgentTurn(undefined)
+    })
     return () => {
       offStatus()
       offCcd()
@@ -99,6 +110,7 @@ export function App(): React.JSX.Element {
       offUpdate()
       offRecovery()
       offWorkspace()
+      offAgent()
     }
   }, [api])
 
@@ -144,6 +156,21 @@ export function App(): React.JSX.Element {
     })
   }
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+  const promptAgent = (message: string): void => {
+    if (!activeWorkspace) return
+    setAgentEvents([])
+    setCandidate(undefined)
+    seenAgentEvents.current.clear()
+    void api.promptAgent(activeWorkspace.id, message).then(setAgentTurn).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+  }
+  const cancelAgent = (): void => { void api.cancelAgent(agentTurn?.turnId) }
+  const rejectCandidate = (candidateId: string): void => {
+    void api.rejectCandidate(candidateId).then(() => {
+      setCandidate(undefined)
+      setAgentEvents([])
+      void api.listWorkspaces().then(setWorkspaces)
+    }).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+  }
 
   return (
     <main className="studio-shell">
@@ -188,7 +215,7 @@ export function App(): React.JSX.Element {
       </div>
 
       <div className="studio-grid">
-        <ChatPanel />
+        <ChatPanel workspace={activeWorkspace} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} />
         <Workbench
           frame={frame}
           status={status}

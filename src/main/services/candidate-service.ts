@@ -145,6 +145,17 @@ export class CandidateService {
     return this.finish(snapshot, 'rejected', undefined, true)
   }
 
+  async cancel(candidateId: string): Promise<CandidateSnapshot> {
+    const snapshot = await this.get(candidateId)
+    if (!activeStates.has(snapshot.state)) throw new Error('CANDIDATE_NOT_CANCELLABLE')
+    return this.finish(snapshot, 'cancelled', undefined, true)
+  }
+
+  async getCandidateRootForMain(candidateId: string): Promise<string> {
+    await this.get(candidateId)
+    return this.candidateRoot(candidateId)
+  }
+
   async reconcile(): Promise<void> {
     await mkdir(this.candidatesDir, { recursive: true })
     const workspaces = await this.workspaces.list()

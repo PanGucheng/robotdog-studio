@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/channels'
-import type { CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WorkspaceSummary } from '../shared/types'
+import type { AgentEvent, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WorkspaceSummary } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const wrapped = (_event: Electron.IpcRendererEvent, payload: T): void => listener(payload)
@@ -35,6 +35,8 @@ const api: RobotDogApi = {
   getCandidateDiff: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateGetDiff, candidateId),
   validateCandidate: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateValidate, candidateId),
   rejectCandidate: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateReject, candidateId),
+  promptAgent: (workspaceId, message) => ipcRenderer.invoke(IPC_CHANNELS.agentPrompt, workspaceId, message),
+  cancelAgent: (turnId) => ipcRenderer.invoke(IPC_CHANNELS.agentCancel, turnId),
   onStatus: (listener) => subscribe<RobotStatus>(IPC_CHANNELS.robotStatusEvent, listener),
   onLog: (listener) => subscribe<LogEntry>(IPC_CHANNELS.robotLogEvent, listener),
   onCcd: (listener) => subscribe<CcdFrame>(IPC_CHANNELS.robotCcdEvent, listener),
@@ -43,7 +45,8 @@ const api: RobotDogApi = {
   onFirmwareUpdate: (listener) => subscribe<FirmwareUpdateEvent>(IPC_CHANNELS.firmwareUpdateEvent, listener),
   onRecovery: (listener) => subscribe<RecoveryEvent>(IPC_CHANNELS.recoveryEvent, listener),
   onWorkspaceChanged: (listener) => subscribe<WorkspaceSummary>(IPC_CHANNELS.workspaceChangedEvent, listener),
-  onCandidateChanged: (listener) => subscribe<CandidateSnapshot>(IPC_CHANNELS.candidateChangedEvent, listener)
+  onCandidateChanged: (listener) => subscribe<CandidateSnapshot>(IPC_CHANNELS.candidateChangedEvent, listener),
+  onAgentEvent: (listener) => subscribe<AgentEvent>(IPC_CHANNELS.agentEvent, listener)
 }
 
 contextBridge.exposeInMainWorld('robotDog', api)

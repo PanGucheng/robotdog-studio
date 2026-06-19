@@ -8,8 +8,9 @@ import { MockRecoveryService } from '../services/mock-recovery-service'
 import { ToolchainService } from '../services/toolchain-service'
 import { WorkspaceService } from '../services/workspace-service'
 import { CandidateService } from '../services/candidate-service'
+import { AgentSessionService } from '../services/agent-session-service'
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService): () => void {
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -25,6 +26,7 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   const connectionListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.deviceConnectionEvent, payload)
   const updateListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.firmwareUpdateEvent, payload)
   const recoveryListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.recoveryEvent, payload)
+  const agentListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.agentEvent, payload)
 
   robot.on('status', statusListener)
   robot.on('log', logListener)
@@ -33,6 +35,7 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   connectivity.on('connection', connectionListener)
   connectivity.on('update', updateListener)
   recovery.on('event', recoveryListener)
+  agents?.on('event', agentListener)
 
   ipcMain.handle(IPC_CHANNELS.healthGet, async (): Promise<AppHealth> => {
     const toolchainStatus = await toolchain.getStatus()
@@ -121,6 +124,16 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       return withCandidateEvent(() => candidates.reject(candidateId))
     })
   }
+  if (agents) {
+    ipcMain.handle(IPC_CHANNELS.agentPrompt, (_event, workspaceId: unknown, message: unknown) => {
+      if (typeof workspaceId !== 'string' || typeof message !== 'string') throw new Error('AGENT_PROMPT_INVALID')
+      return agents.prompt(workspaceId, message)
+    })
+    ipcMain.handle(IPC_CHANNELS.agentCancel, (_event, turnId: unknown) => {
+      if (turnId !== undefined && typeof turnId !== 'string') throw new Error('AGENT_TURN_ID_INVALID')
+      return agents.cancel(turnId)
+    })
+  }
 
   return () => {
     robot.off('status', statusListener)
@@ -130,6 +143,7 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     connectivity.off('connection', connectionListener)
     connectivity.off('update', updateListener)
     recovery.off('event', recoveryListener)
+    agents?.off('event', agentListener)
     for (const channel of Object.values(IPC_CHANNELS)) {
       ipcMain.removeHandler(channel)
     }

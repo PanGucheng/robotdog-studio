@@ -1,4 +1,4 @@
-import type { CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../../shared/types'
 
 const statusListeners = new Set<(status: RobotStatus) => void>()
 const logListeners = new Set<(entry: LogEntry) => void>()
@@ -9,7 +9,10 @@ const firmwareUpdateListeners = new Set<(event: FirmwareUpdateEvent) => void>()
 const recoveryListeners = new Set<(event: RecoveryEvent) => void>()
 const workspaceListeners = new Set<(workspace: WorkspaceSummary) => void>()
 const candidateListeners = new Set<(candidate: CandidateSnapshot) => void>()
+const agentListeners = new Set<(event: AgentEvent) => void>()
 const demoCandidates = new Map<string, CandidateSnapshot>()
+let browserAgentToken = 0
+let browserAgentTurn: AgentTurnSnapshot | undefined
 
 let demoWorkspaces: WorkspaceSummary[] = [{
   id: 'ws_0123456789abcdef01234567', name: '巡线基础训练', studentDisplayName: '林同学',
@@ -300,6 +303,23 @@ export const browserDemoApi: RobotDogApi = {
     candidateListeners.forEach((listener) => listener(structuredClone(rejected)))
     return rejected
   },
+  promptAgent: async (workspaceId, message) => {
+    if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')
+    const candidate = await browserDemoApi.createCandidate(workspaceId)
+    const turn: AgentTurnSnapshot = { turnId: `turn_${Date.now()}`, workspaceId, candidateId: candidate.id, state: 'preparing', message: message.trim(), startedAt: new Date().toISOString() }
+    browserAgentTurn = turn
+    browserAgentToken += 1
+    void runBrowserAgent(turn, browserAgentToken)
+    return { ...turn }
+  },
+  cancelAgent: async (turnId) => {
+    if (!browserAgentTurn || (turnId && browserAgentTurn.turnId !== turnId)) return false
+    const turn = browserAgentTurn
+    browserAgentToken += 1
+    browserAgentTurn = undefined
+    emitBrowserAgent(turn, 99, { type: 'cancelled', message: '已停止这次修改，正式项目没有变化。' })
+    return true
+  },
   connectDemo: async () => {
     update({ connection: 'connecting' })
     await new Promise((resolve) => setTimeout(resolve, 280))
@@ -337,7 +357,44 @@ export const browserDemoApi: RobotDogApi = {
   onFirmwareUpdate: (listener) => { firmwareUpdateListeners.add(listener); return () => firmwareUpdateListeners.delete(listener) },
   onRecovery: (listener) => { recoveryListeners.add(listener); return () => recoveryListeners.delete(listener) },
   onWorkspaceChanged: (listener) => { workspaceListeners.add(listener); return () => workspaceListeners.delete(listener) },
-  onCandidateChanged: (listener) => { candidateListeners.add(listener); return () => candidateListeners.delete(listener) }
+  onCandidateChanged: (listener) => { candidateListeners.add(listener); return () => candidateListeners.delete(listener) },
+  onAgentEvent: (listener) => { agentListeners.add(listener); return () => agentListeners.delete(listener) }
+}
+
+async function runBrowserAgent(turn: AgentTurnSnapshot, token: number): Promise<void> {
+  const sequence = [
+    { type: 'turn_started' as const, workspaceId: turn.workspaceId, candidateId: turn.candidateId, message: turn.message },
+    { type: 'plan' as const, steps: [
+      { id: 'inspect', label: '检查现在的巡线参数', status: 'active' as const },
+      { id: 'adjust', label: '在候选副本中调整', status: 'pending' as const },
+      { id: 'verify', label: '进行安全核对', status: 'pending' as const }
+    ] },
+    { type: 'activity' as const, label: '正在理解你的想法', state: 'thinking' as const },
+    { type: 'assistant_delta' as const, text: '我先看看现在的转弯设置，' },
+    { type: 'activity' as const, label: '正在准备一份可撤销的修改', state: 'editing' as const },
+    { type: 'assistant_delta' as const, text: '把转弯强度从 18 调整到 16。' },
+    { type: 'activity' as const, label: '正在检查修改范围和文件安全', state: 'validating' as const }
+  ]
+  for (let index = 0; index < sequence.length; index += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 140))
+    if (token !== browserAgentToken) return
+    emitBrowserAgent(turn, index + 1, sequence[index])
+  }
+  const current = demoCandidates.get(turn.candidateId)
+  if (!current || token !== browserAgentToken) return
+  const ready: CandidateSnapshot = {
+    ...current, state: 'review_ready', sourceTreeHash: '1'.repeat(64), diffHash: '2'.repeat(64), updatedAt: new Date().toISOString(),
+    validation: { valid: true, policyVersion: 'student-v1:1', files: [{ path: 'student-config/line-following.yaml', status: 'modified', bytes: 36, additions: 1, deletions: 1 }], violations: [], warnings: [], changedFiles: 1, patchBytes: 36 }
+  }
+  demoCandidates.set(ready.id, ready)
+  emitBrowserAgent(turn, 8, { type: 'candidate_ready', candidate: ready, summary: '转弯强度 18 → 16，修改仅发生在学生参数文件。' })
+  emitBrowserAgent(turn, 9, { type: 'completed', state: 'review_ready', message: '修改已通过安全核对，等你查看。' })
+  browserAgentTurn = undefined
+}
+
+function emitBrowserAgent(turn: AgentTurnSnapshot, sequence: number, event: AgentEventPayload): void {
+  const payload = { ...event, eventId: `${turn.turnId}:${sequence}`, turnId: turn.turnId, sequence, timestamp: new Date().toISOString() } as AgentEvent
+  agentListeners.forEach((listener) => listener(structuredClone(payload)))
 }
 
 export function getRobotApi(): RobotDogApi {

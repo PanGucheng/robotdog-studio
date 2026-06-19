@@ -4,6 +4,8 @@ import { registerIpc } from './ipc/register-ipc'
 import { MockRobotService } from './services/mock-robot-service'
 import { WorkspaceService } from './services/workspace-service'
 import { CandidateService } from './services/candidate-service'
+import { AgentSessionService } from './services/agent-session-service'
+import { MockReasonixAdapter } from './services/mock-reasonix-adapter'
 
 const robot = new MockRobotService()
 let disposeIpc: (() => void) | undefined
@@ -61,7 +63,8 @@ app.whenReady().then(async () => {
   await workspaces.initialize()
   const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces })
   await candidates.initialize()
-  disposeIpc = registerIpc(robot, undefined, undefined, workspaces, candidates)
+  const agents = new AgentSessionService(candidates, new MockReasonixAdapter())
+  disposeIpc = registerIpc(robot, undefined, undefined, workspaces, candidates, agents)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

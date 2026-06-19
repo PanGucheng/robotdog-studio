@@ -31,6 +31,9 @@ export const IPC_CHANNELS = {
   candidateValidate: 'candidate:validate',
   candidateReject: 'candidate:reject',
   candidateChangedEvent: 'candidate:changed',
+  agentPrompt: 'agent:prompt',
+  agentCancel: 'agent:cancel',
+  agentEvent: 'agent:event',
   robotStatusEvent: 'robot:status',
   robotLogEvent: 'robot:log',
   robotCcdEvent: 'robot:ccd'

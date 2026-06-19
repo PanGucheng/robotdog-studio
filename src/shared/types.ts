@@ -170,6 +170,43 @@ export interface CandidateDiff {
   files: CandidateDiffFile[]
 }
 
+export type AgentTurnState = 'preparing' | 'thinking' | 'editing' | 'validating' | 'review_ready' | 'no_changes' | 'cancelled' | 'failed'
+
+export interface AgentTurnSnapshot {
+  turnId: string
+  workspaceId: string
+  candidateId: string
+  state: AgentTurnState
+  message: string
+  startedAt: string
+}
+
+export interface StudentPlanStep {
+  id: string
+  label: string
+  status: 'pending' | 'active' | 'completed'
+}
+
+interface AgentEventBase {
+  eventId: string
+  turnId: string
+  sequence: number
+  timestamp: string
+}
+
+export type AgentEvent =
+  | AgentEventBase & { type: 'turn_started'; workspaceId: string; candidateId: string; message: string }
+  | AgentEventBase & { type: 'plan'; steps: StudentPlanStep[] }
+  | AgentEventBase & { type: 'assistant_delta'; text: string }
+  | AgentEventBase & { type: 'activity'; label: string; state: 'thinking' | 'editing' | 'validating' }
+  | AgentEventBase & { type: 'candidate_ready'; candidate: CandidateSnapshot; summary: string }
+  | AgentEventBase & { type: 'completed'; state: 'review_ready' | 'no_changes'; message: string }
+  | AgentEventBase & { type: 'cancelled'; message: string }
+  | AgentEventBase & { type: 'failed'; code: string; message: string }
+
+type WithoutAgentEnvelope<T> = T extends AgentEvent ? Omit<T, keyof AgentEventBase> : never
+export type AgentEventPayload = WithoutAgentEnvelope<AgentEvent>
+
 export interface WorkspaceHistoryEntry {
   commit: string
   shortCommit: string
@@ -332,6 +369,8 @@ export interface RobotDogApi {
   getCandidateDiff(candidateId: string): Promise<CandidateDiff>
   validateCandidate(candidateId: string): Promise<CandidateSnapshot>
   rejectCandidate(candidateId: string): Promise<CandidateSnapshot>
+  promptAgent(workspaceId: string, message: string): Promise<AgentTurnSnapshot>
+  cancelAgent(turnId?: string): Promise<boolean>
   onStatus(listener: (status: RobotStatus) => void): () => void
   onLog(listener: (entry: LogEntry) => void): () => void
   onCcd(listener: (frame: CcdFrame) => void): () => void
@@ -341,4 +380,5 @@ export interface RobotDogApi {
   onRecovery(listener: (event: RecoveryEvent) => void): () => void
   onWorkspaceChanged(listener: (workspace: WorkspaceSummary) => void): () => void
   onCandidateChanged(listener: (candidate: CandidateSnapshot) => void): () => void
+  onAgentEvent(listener: (event: AgentEvent) => void): () => void
 }
