@@ -6,6 +6,7 @@ release/
 coverage/
 playwright-report/
 test-results/
+.firmware-build/
 
 # Electron and native build caches
 .electron-vite/
@@ -35,4 +36,3 @@ resources/tools/*
 Thumbs.db
 Desktop.ini
 .DS_Store
-

@@ -20,6 +20,39 @@ corepack pnpm test
 corepack pnpm build
 ```
 
+## 内置 WCH 固件工具链
+
+RobotDog Studio 按完整版设计交付，用户无需安装 MounRiver Studio 即可编译 CH32V203 固件。
+
+当前内置的 Windows 命令行工具链位于：
+
+```text
+vendor/wch/
+├─ Toolchain/RISC-V Embedded GCC12
+└─ OpenOCD/OpenOCD
+```
+
+使用内置 GCC12 验证 `D:\RobotDog\ch32v203-robot-dog` 固件工程：
+
+```powershell
+npm run firmware:build:ch32v203
+```
+
+默认读取 `D:\RobotDog\ch32v203-robot-dog`，构建产物输出到 `.firmware-build/ch32v203-robot-dog/<timestamp>/`，包括：
+
+- `GPIO_Toggle.elf`
+- `GPIO_Toggle.hex`
+- `GPIO_Toggle.bin`
+- `GPIO_Toggle.map`
+
+可以通过环境变量覆盖路径：
+
+```powershell
+$env:ROBOTDOG_FIRMWARE_ROOT='D:\path\to\firmware'
+$env:ROBOTDOG_FIRMWARE_OUT='D:\path\to\output'
+npm run firmware:build:ch32v203
+```
+
 ## 当前能力
 
 - Electron Main、Preload、Renderer 三进程隔离。
@@ -27,9 +60,9 @@ corepack pnpm build
 - 浏览器和 Electron 共用的模拟设备体验。
 - CCD 128 点曲线、阈值、中心和偏差展示。
 - 连接、动作、检测黑线和软件急停交互。
-- 固件统一串口协议与命令行构建适配文档。
+- 固件统一串口协议、内置 WCH GCC12/OpenOCD 资源和命令行构建适配。
 
-真实串口、沁恒 GCC/OpenOCD、WCH-Link 和 Reasonix ACP 将按照 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 分阶段接入。
+真实串口、WCH-Link 烧录和 Reasonix ACP 将按照 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 分阶段接入。
 
 ## 重要安全说明
 

@@ -1,0 +1,19 @@
+{
+  "id": "wch-bundled-toolchain",
+  "version": "2026-03-wch-gcc12-openocd",
+  "components": [
+    {
+      "id": "gcc12-riscv",
+      "label": "WCH RISC-V Embedded GCC12",
+      "path": "Toolchain/RISC-V Embedded GCC12",
+      "compiler": "bin/riscv-wch-elf-gcc.exe",
+      "prefix": "riscv-wch-elf"
+    },
+    {
+      "id": "openocd",
+      "label": "WCH OpenOCD",
+      "path": "OpenOCD/OpenOCD",
+      "executable": "bin/openocd.exe"
+    }
+  ]
+}

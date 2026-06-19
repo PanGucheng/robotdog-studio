@@ -1,0 +1,172 @@
+{
+	"version": "1.0",
+	"id": "Toolchain",
+	"otherResourceSize": 1210,
+	"details": [
+		{
+			"version": "v1.4",
+			"type": "RISC-V",
+			"name": "GCC8",
+			"path": "./RISC-V Embedded GCC",
+			"status": 2,
+			"label": "GCC8 [RISC-V]",
+			"intro": "The RISC-V GCC toolchain v8.2",
+			"intro_zh": "适用于RISC-V内核MCU的工具链GCC v8.2",
+			"occupyDiskSize": 516,
+			"compiler_c_executable": {
+				"folder": "./bin",
+				"name": "riscv-none-embed-gcc"
+			},
+			"compiler_cpp_executable": {
+				"folder": "./bin",
+				"name": "riscv-none-embed-g++"
+			},
+			"linker_c_executable": {
+				"folder": "./bin",
+				"name": "riscv-none-embed-gcc"
+			},
+			"linker_cpp_executable": {
+				"folder": "./bin",
+				"name": "riscv-none-embed-g++"
+			},
+			"debugger_executable": {
+				"folder": "./bin",
+				"name": "riscv-none-embed-gdb"
+			},
+			"nm_executable": {
+				"folder": "./bin",
+				"name": "riscv-none-embed-nm"
+			},
+			"objdump_executable": {
+				"folder": "./bin",
+				"name": "riscv-none-embed-objdump"
+			},
+			"other_tool_dir": "bin",
+			"other_tool_prefix": "riscv-none-embed-"
+		},
+		{
+			"version": "v1.4",
+			"type": "RISC-V",
+			"name": "GCC12",
+			"label": "GCC12 [RISC-V]",
+			"path": "./RISC-V Embedded GCC12",
+			"intro": "The RISC-V GCC toolchain v12.2",
+			"intro_zh": "适用于RISC-V内核MCU的工具链GCC v12.2",
+			"status": 2,
+			"occupyDiskSize": 964,
+			"compiler_c_executable": {
+				"folder": "./bin",
+				"name": "riscv-wch-elf-gcc"
+			},
+			"compiler_cpp_executable": {
+				"folder": "./bin",
+				"name": "riscv-wch-elf-g++"
+			},
+			"linker_c_executable": {
+				"folder": "./bin",
+				"name": "riscv-wch-elf-gcc"
+			},
+			"linker_cpp_executable": {
+				"folder": "./bin",
+				"name": "riscv-wch-elf-g++"
+			},
+			"debugger_executable": {
+				"folder": "./bin",
+				"name": "riscv-wch-elf-gdb"
+			},
+			"nm_executable": {
+				"folder": "./bin",
+				"name": "riscv-wch-elf-nm"
+			},
+			"objdump_executable": {
+				"folder": "./bin",
+				"name": "riscv-wch-elf-objdump"
+			},
+			"other_tool_dir": "bin",
+			"other_tool_prefix": "riscv-wch-elf-"
+		},
+		{
+			"version": "v1.1",
+			"type": "RISC-V",
+			"name": "GCC15",
+			"label": "GCC15 [RISC-V]",
+			"path": "./RISC-V Embedded GCC15",
+			"intro": "The RISC-V GCC toolchain v15.2",
+			"intro_zh": "适用于RISC-V内核MCU的工具链GCC v15.2",
+			"status": 2,
+			"occupyDiskSize": 728,
+			"compiler_c_executable": {
+				"folder": "./bin",
+				"name": "riscv32-wch-elf-gcc"
+			},
+			"compiler_cpp_executable": {
+				"folder": "./bin",
+				"name": "riscv32-wch-elf-g++"
+			},
+			"linker_c_executable": {
+				"folder": "./bin",
+				"name": "riscv32-wch-elf-gcc"
+			},
+			"linker_cpp_executable": {
+				"folder": "./bin",
+				"name": "riscv32-wch-elf-g++"
+			},
+			"debugger_executable": {
+				"folder": "./bin",
+				"name": "riscv32-wch-elf-gdb"
+			},
+			"nm_executable": {
+				"folder": "./bin",
+				"name": "riscv32-wch-elf-nm"
+			},
+			"objdump_executable": {
+				"folder": "./bin",
+				"name": "riscv32-wch-elf-objdump"
+			},
+			"other_tool_dir": "bin",
+			"other_tool_prefix": "riscv32-wch-elf-"
+		},
+		{
+			"version": "v1.1",
+			"type": "ARM",
+			"name": "ARM",
+			"label": "GCC9 [ARM]",
+			"path": "./arm-none-eabi-gcc",
+			"status": 2,
+			"intro": "The ARM GCC toolchain v9.3",
+			"intro_zh": "适用于ARM内核MCU的工具链GCC v9.3",
+			"occupyDiskSize": 310,
+			"compiler_c_executable": {
+				"folder": "./bin",
+				"name": "arm-none-eabi-gcc"
+			},
+			"compiler_cpp_executable": {
+				"folder": "./bin",
+				"name": "arm-none-eabi-g++"
+			},
+			"linker_c_executable": {
+				"folder": "./bin",
+				"name": "arm-none-eabi-gcc"
+			},
+			"linker_cpp_executable": {
+				"folder": "./bin",
+				"name": "arm-none-eabi-g++"
+			},
+			"debugger_executable": {
+				"folder": "./bin",
+				"name": "arm-none-eabi-gdb"
+			},
+			"nm_executable": {
+				"folder": "./bin",
+				"name": "arm-none-eabi-nm"
+			},
+			"objdump_executable": {
+				"folder": "./bin",
+				"name": "arm-none-eabi-objdump"
+			},
+			"other_tool_dir": "bin",
+			"other_tool_prefix": "arm-none-eabi-"
+		}
+	],
+	"toShowFeature": false
+}

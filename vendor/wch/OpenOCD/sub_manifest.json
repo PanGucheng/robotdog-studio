@@ -1,0 +1,22 @@
+{
+	"version": "v2.8",
+	"id": "OpenOCD",
+	"details": [
+		{
+			"version": "v2.8",
+			"name": "default",
+			"label" :"Default",
+			"path": "./OpenOCD",
+			"intro": "Debugging software for embedded systems",
+			"intro_zh":"用于嵌入式系统的调试器软件",
+			"openocd_executable": {
+				"folder": "./bin",
+				"name": "openocd"
+			},
+			"remote_executable": {
+				"folder": "./bin",
+				"name": "MRSRemoteAssistant"
+			}
+		}
+	]
+}
