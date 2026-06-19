@@ -6,8 +6,9 @@ import { MockRobotService } from '../services/mock-robot-service'
 import { MockConnectivityService } from '../services/mock-connectivity-service'
 import { MockRecoveryService } from '../services/mock-recovery-service'
 import { ToolchainService } from '../services/toolchain-service'
+import { WorkspaceService } from '../services/workspace-service'
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain)): () => void {
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -75,6 +76,23 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     return recovery.start()
   })
   ipcMain.handle(IPC_CHANNELS.recoveryCancel, () => recovery.cancel())
+  if (workspaces) {
+    ipcMain.handle(IPC_CHANNELS.workspaceList, () => workspaces.list())
+    ipcMain.handle(IPC_CHANNELS.workspaceCreate, async (_event, input: unknown) => {
+      const workspace = await workspaces.create(input as never)
+      sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
+      return workspace
+    })
+    ipcMain.handle(IPC_CHANNELS.workspaceGet, (_event, workspaceId: unknown) => {
+      if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
+      return workspaces.get(workspaceId)
+    })
+    ipcMain.handle(IPC_CHANNELS.workspaceHistory, (_event, workspaceId: unknown, limit: unknown) => {
+      if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
+      if (limit !== undefined && (typeof limit !== 'number' || !Number.isInteger(limit))) throw new Error('WORKSPACE_HISTORY_LIMIT_INVALID')
+      return workspaces.history(workspaceId, limit as number | undefined)
+    })
+  }
 
   return () => {
     robot.off('status', statusListener)

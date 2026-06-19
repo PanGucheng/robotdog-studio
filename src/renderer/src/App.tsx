@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CircleUserRound, GraduationCap, Menu, ShieldAlert } from 'lucide-react'
-import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus } from '../../shared/types'
+import { CircleUserRound, GraduationCap, Menu, Plus, ShieldAlert } from 'lucide-react'
+import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../shared/types'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
 import { PipelineRail } from './components/PipelineRail'
@@ -62,6 +62,8 @@ export function App(): React.JSX.Element {
   const [teacherMode, setTeacherMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>()
 
   useEffect(() => {
     void api.getStatus().then(setStatus)
@@ -71,6 +73,10 @@ export function App(): React.JSX.Element {
     void api.getDeviceConnection().then(setConnection)
     void api.getFirmwareUpdate().then(setFirmwareUpdate)
     void api.getRecovery().then(setRecovery)
+    void api.listWorkspaces().then((items) => {
+      setWorkspaces(items)
+      setActiveWorkspaceId((current) => current ?? items[0]?.id)
+    }).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
     const offStatus = api.onStatus(setStatus)
     const offCcd = api.onCcd(setFrame)
     const offLog = api.onLog((entry) => setLogs((current) => [...current.slice(-49), entry]))
@@ -80,6 +86,10 @@ export function App(): React.JSX.Element {
     const offConnection = api.onDeviceConnection(setConnection)
     const offUpdate = api.onFirmwareUpdate((event) => setFirmwareUpdate(event.snapshot))
     const offRecovery = api.onRecovery((event) => setRecovery(event.snapshot))
+    const offWorkspace = api.onWorkspaceChanged((workspace) => {
+      setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
+      setActiveWorkspaceId(workspace.id)
+    })
     return () => {
       offStatus()
       offCcd()
@@ -88,6 +98,7 @@ export function App(): React.JSX.Element {
       offConnection()
       offUpdate()
       offRecovery()
+      offWorkspace()
     }
   }, [api])
 
@@ -125,6 +136,14 @@ export function App(): React.JSX.Element {
   const cancelUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.cancelFirmwareUpdate()) }) }
   const startRecovery = (): void => { void run(async () => { setRecovery(await api.startRecovery()) }) }
   const cancelRecovery = (): void => { void run(async () => { setRecovery(await api.cancelRecovery()) }) }
+  const createWorkspace = (): void => {
+    void run(async () => {
+      const workspace = await api.createWorkspace({ name: '巡线基础训练', studentDisplayName: '林同学' })
+      setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
+      setActiveWorkspaceId(workspace.id)
+    })
+  }
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
 
   return (
     <main className="studio-shell">
@@ -154,7 +173,15 @@ export function App(): React.JSX.Element {
       </header>
 
       <div className="context-bar">
-        <span><GraduationCap size={15} /> 当前项目：巡线基础训练</span>
+        <span className="workspace-picker"><GraduationCap size={15} />
+          {workspaces.length > 0 ? (
+            <select aria-label="当前训练项目" value={activeWorkspaceId} onChange={(event) => setActiveWorkspaceId(event.target.value)}>
+              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name} · {workspace.studentDisplayName}</option>)}
+            </select>
+          ) : <strong>还没有训练项目</strong>}
+          <button type="button" onClick={createWorkspace} disabled={busy} title="创建受保护的训练项目"><Plus size={13} /> 新建</button>
+        </span>
+        {activeWorkspace && <span className="checkpoint-tag">存档 {activeWorkspace.headCommit.slice(0, 7)}</span>}
         <span>固件：{status.firmware}</span>
         <span className="simulation-flag">SIMULATION · {teacherMode ? '教师维护' : '学生工作台'}</span>
         {error && <span className="inline-error">{error}</span>}

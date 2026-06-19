@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc/register-ipc'
 import { MockRobotService } from './services/mock-robot-service'
+import { WorkspaceService } from './services/workspace-service'
 
 const robot = new MockRobotService()
 let disposeIpc: (() => void) | undefined
@@ -50,8 +51,14 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
-  disposeIpc = registerIpc(robot)
+app.whenReady().then(async () => {
+  const defaultRoot = join(app.getPath('userData'), 'managed-data')
+  const rootOverride = process.env.ROBOTDOG_WORKSPACE_ROOT
+  const workspaceRoot = rootOverride ? join(app.getPath('userData'), 'development', rootOverride.replace(/[^a-zA-Z0-9_-]/g, '_')) : defaultRoot
+  const templateRoot = join(app.getAppPath(), 'resources', 'workspace-templates', 'ch32v203-robotdog', '2026.06')
+  const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot })
+  await workspaces.initialize()
+  disposeIpc = registerIpc(robot, undefined, undefined, workspaces)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

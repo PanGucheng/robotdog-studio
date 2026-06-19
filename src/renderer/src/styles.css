@@ -59,6 +59,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 
 .context-bar { display: flex; align-items: center; gap: 24px; padding: 0 24px; color: #596b7a; border-bottom: 1px solid var(--line); background: #edf2f6; font-size: 11px; }
 .context-bar span { gap: 6px; }
+.workspace-picker select { max-width: 240px; padding: 4px 25px 4px 7px; color: #294455; border: 1px solid #c7d5df; border-radius: 6px; background: #f8fbfd; font-size: 10px; font-weight: 700; }
+.workspace-picker button { display: flex; align-items: center; gap: 3px; padding: 4px 7px; color: #087d92; border: 1px solid #afd4dc; border-radius: 6px; background: #f5fcfd; font-size: 9px; font-weight: 800; cursor: pointer; }
+.context-bar .checkpoint-tag { padding: 3px 6px; color: #667887; border: 1px dashed #b8c8d3; border-radius: 5px; background: #f7fafc; font: 9px var(--mono); }
 .context-bar .simulation-flag { margin-left: auto; color: #1d6c7c; font: 10px var(--mono); letter-spacing: 0.08em; }
 .context-bar .inline-error { color: var(--red); font-weight: 700; }
 

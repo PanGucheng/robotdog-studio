@@ -74,6 +74,47 @@ export interface AppHealth {
   }>
 }
 
+export type WorkspaceState = 'ready' | 'candidate_active' | 'applying' | 'error' | 'conflict' | 'archived'
+
+export interface CreateWorkspaceInput {
+  name: string
+  studentDisplayName: string
+  templateId?: 'ch32v203-robotdog'
+}
+
+export interface WorkspaceMetadata {
+  schemaVersion: 1
+  id: string
+  name: string
+  studentDisplayName: string
+  templateId: 'ch32v203-robotdog'
+  templateVersion: string
+  createdAt: string
+  updatedAt: string
+  activeBranch: 'main'
+  lastCheckpoint: string
+  policyProfile: 'student-v1'
+  state: WorkspaceState
+}
+
+export interface WorkspaceSummary {
+  id: string
+  name: string
+  studentDisplayName: string
+  templateId: 'ch32v203-robotdog'
+  templateVersion: string
+  headCommit: string
+  state: WorkspaceState
+  updatedAt: string
+}
+
+export interface WorkspaceHistoryEntry {
+  commit: string
+  shortCommit: string
+  message: string
+  createdAt: string
+}
+
 export interface ToolStatus {
   ok: boolean
   label: string
@@ -220,6 +261,10 @@ export interface RobotDogApi {
   getRecovery(): Promise<RecoverySnapshot>
   startRecovery(): Promise<RecoverySnapshot>
   cancelRecovery(): Promise<RecoverySnapshot>
+  listWorkspaces(): Promise<WorkspaceSummary[]>
+  createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>
+  getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
+  getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
   onStatus(listener: (status: RobotStatus) => void): () => void
   onLog(listener: (entry: LogEntry) => void): () => void
   onCcd(listener: (frame: CcdFrame) => void): () => void
@@ -227,4 +272,5 @@ export interface RobotDogApi {
   onDeviceConnection(listener: (snapshot: DeviceConnectionSnapshot) => void): () => void
   onFirmwareUpdate(listener: (event: FirmwareUpdateEvent) => void): () => void
   onRecovery(listener: (event: RecoveryEvent) => void): () => void
+  onWorkspaceChanged(listener: (workspace: WorkspaceSummary) => void): () => void
 }

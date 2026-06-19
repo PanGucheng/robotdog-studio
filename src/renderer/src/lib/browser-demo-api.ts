@@ -1,4 +1,4 @@
-import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus } from '../../../shared/types'
+import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../../shared/types'
 
 const statusListeners = new Set<(status: RobotStatus) => void>()
 const logListeners = new Set<(entry: LogEntry) => void>()
@@ -7,6 +7,13 @@ const buildListeners = new Set<(event: FirmwareBuildEvent) => void>()
 const connectionListeners = new Set<(snapshot: DeviceConnectionSnapshot) => void>()
 const firmwareUpdateListeners = new Set<(event: FirmwareUpdateEvent) => void>()
 const recoveryListeners = new Set<(event: RecoveryEvent) => void>()
+const workspaceListeners = new Set<(workspace: WorkspaceSummary) => void>()
+
+let demoWorkspaces: WorkspaceSummary[] = [{
+  id: 'ws_0123456789abcdef01234567', name: '巡线基础训练', studentDisplayName: '林同学',
+  templateId: 'ch32v203-robotdog', templateVersion: '2026.06', headCommit: '86d826a000000000000000000000000000000000',
+  state: 'ready', updatedAt: new Date().toISOString()
+}]
 
 let status: RobotStatus = {
   connection: 'disconnected',
@@ -239,6 +246,23 @@ export const browserDemoApi: RobotDogApi = {
     emitRecovery('cancelled', { state: 'cancelled', message: '教师恢复已安全取消', canCancel: false, completedAt: new Date().toISOString() })
     return { ...recoverySnapshot }
   },
+  listWorkspaces: async () => structuredClone(demoWorkspaces),
+  createWorkspace: async (input) => {
+    const workspace: WorkspaceSummary = {
+      id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
+      name: input.name.trim(), studentDisplayName: input.studentDisplayName.trim(), templateId: 'ch32v203-robotdog',
+      templateVersion: '2026.06', headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: new Date().toISOString()
+    }
+    demoWorkspaces = [workspace, ...demoWorkspaces]
+    workspaceListeners.forEach((listener) => listener(structuredClone(workspace)))
+    return structuredClone(workspace)
+  },
+  getWorkspace: async (workspaceId) => {
+    const workspace = demoWorkspaces.find((item) => item.id === workspaceId)
+    if (!workspace) throw new Error('训练项目不存在')
+    return structuredClone(workspace)
+  },
+  getWorkspaceHistory: async (workspaceId) => [{ commit: (await browserDemoApi.getWorkspace(workspaceId)).headCommit, shortCommit: 'demo000', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }],
   connectDemo: async () => {
     update({ connection: 'connecting' })
     await new Promise((resolve) => setTimeout(resolve, 280))
@@ -274,7 +298,8 @@ export const browserDemoApi: RobotDogApi = {
   onFirmwareBuild: (listener) => { buildListeners.add(listener); return () => buildListeners.delete(listener) },
   onDeviceConnection: (listener) => { connectionListeners.add(listener); return () => connectionListeners.delete(listener) },
   onFirmwareUpdate: (listener) => { firmwareUpdateListeners.add(listener); return () => firmwareUpdateListeners.delete(listener) },
-  onRecovery: (listener) => { recoveryListeners.add(listener); return () => recoveryListeners.delete(listener) }
+  onRecovery: (listener) => { recoveryListeners.add(listener); return () => recoveryListeners.delete(listener) },
+  onWorkspaceChanged: (listener) => { workspaceListeners.add(listener); return () => workspaceListeners.delete(listener) }
 }
 
 export function getRobotApi(): RobotDogApi {

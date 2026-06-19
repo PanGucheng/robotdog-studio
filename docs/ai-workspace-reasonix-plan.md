@@ -607,6 +607,8 @@ AI 失败不能把后续节点误标为完成。
 
 ### 阶段 A：工作区与 Git 基础
 
+状态：已于 2026-06-19 完成。已通过 23 项自动测试、生产构建、Electron 预加载烟雾测试及 1280×720 浏览器演示检查。
+
 实现：
 
 - `WorkspaceService`、`GitWorkspaceService`、元数据 schema；

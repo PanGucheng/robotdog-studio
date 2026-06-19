@@ -20,6 +20,11 @@ export const IPC_CHANNELS = {
   recoveryStart: 'firmware:recovery:start',
   recoveryCancel: 'firmware:recovery:cancel',
   recoveryEvent: 'firmware:recovery:event',
+  workspaceList: 'workspace:list',
+  workspaceCreate: 'workspace:create',
+  workspaceGet: 'workspace:get',
+  workspaceHistory: 'workspace:history',
+  workspaceChangedEvent: 'workspace:changed',
   robotStatusEvent: 'robot:status',
   robotLogEvent: 'robot:log',
   robotCcdEvent: 'robot:ccd'
