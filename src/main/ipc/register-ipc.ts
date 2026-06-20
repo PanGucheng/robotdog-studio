@@ -81,12 +81,10 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     return connectivity.setUsbConnected(connected)
   })
   ipcMain.handle(IPC_CHANNELS.firmwareUpdateGet, () => connectivity.getUpdate())
-  ipcMain.handle(IPC_CHANNELS.firmwareUpdateStart, () => {
+  ipcMain.handle(IPC_CHANNELS.firmwareUpdateStart, async (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== 'string') throw new Error('请先选择学生对话')
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时下载学生固件')
-    const build = firmware.getSnapshot()
-    if (build.state !== 'completed') throw new Error('请先完成固件编译')
-    const binary = build.artifacts.find((artifact) => artifact.kind === 'bin')
-    if (!binary) throw new Error('编译产物中没有 BIN 固件')
+    const binary = await firmware.requireCurrentArtifact(workspaceId, 'bin')
     return connectivity.startUpdate(binary)
   })
   ipcMain.handle(IPC_CHANNELS.firmwareUpdateCancel, () => connectivity.cancelUpdate())

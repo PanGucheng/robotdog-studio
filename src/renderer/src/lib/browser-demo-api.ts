@@ -228,9 +228,11 @@ export const browserDemoApi: RobotDogApi = {
     return structuredClone(deviceConnection)
   },
   getFirmwareUpdate: async () => ({ ...firmwareUpdate }),
-  startFirmwareUpdate: async () => {
+  startFirmwareUpdate: async (workspaceId) => {
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(recoverySnapshot.state)) throw new Error('教师恢复进行中，不能同时下载学生固件')
     if (buildSnapshot.state !== 'completed') throw new Error('请先完成固件编译')
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    if (buildSnapshot.proof?.workspaceId !== workspace.id || buildSnapshot.proof.workspaceCommit !== workspace.headCommit) throw new Error('学生代码已经变化，请重新生成完整固件')
     const bin = buildSnapshot.artifacts.find((artifact) => artifact.kind === 'bin')
     if (!bin) throw new Error('编译产物中没有 BIN 固件')
     browserUpdateToken += 1

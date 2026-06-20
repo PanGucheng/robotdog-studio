@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { copyFile, cp, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import type {
   FirmwareBuildArtifact,
@@ -44,7 +44,38 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     this.outputBase = resolve(options.outputBase ?? join(process.cwd(), '.firmware-build', 'managed'))
   }
 
+  async initialize(): Promise<void> {
+    await mkdir(this.outputBase, { recursive: true })
+    const entries = await readdir(this.outputBase, { withFileTypes: true })
+    await Promise.all(entries.filter((entry) => entry.isDirectory() && entry.name.startsWith('.building-')).map((entry) => rm(join(this.outputBase, entry.name), { recursive: true, force: true })))
+    const recovered: FirmwareBuildSnapshot[] = []
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue
+      const snapshot = await this.readCachedBuild(join(this.outputBase, entry.name), entry.name)
+      if (snapshot) recovered.push(snapshot)
+    }
+    recovered.sort((left, right) => (right.completedAt ?? '').localeCompare(left.completedAt ?? ''))
+    if (recovered[0]) {
+      const status = await this.baseline?.getStatus().catch(() => undefined)
+      this.activeSnapshot = { ...recovered[0], firmwareRoot: status?.sourceRoot ?? '', logs: ['已恢复上次经过哈希校验的固件产物。'] }
+    }
+  }
+
   getSnapshot(): FirmwareBuildSnapshot { return structuredClone(this.activeSnapshot) }
+
+  async requireCurrentArtifact(workspaceId: string, kind: FirmwareBuildArtifact['kind']): Promise<FirmwareBuildArtifact> {
+    if (!this.workspaces || this.activeSnapshot.state !== 'completed' || !this.activeSnapshot.proof) throw new Error('请先为当前学生对话生成完整固件。')
+    const workspace = await this.workspaces.get(workspaceId)
+    const proof = this.activeSnapshot.proof
+    if (proof.workspaceId !== workspace.id || proof.workspaceCommit !== workspace.headCommit || proof.firmwareBaselineId !== workspace.firmwareBaselineId || proof.baselineCommit !== workspace.baselineCommit) {
+      throw new Error('学生代码或固件基线已经变化，请重新生成完整固件。')
+    }
+    const artifact = this.activeSnapshot.artifacts.find((item) => item.kind === kind)
+    if (!artifact) throw new Error(`完整固件中缺少 ${kind.toUpperCase()} 产物。`)
+    const actual = createHash('sha256').update(await readFile(artifact.path)).digest('hex')
+    if (!artifact.sha256 || actual !== artifact.sha256) throw new Error('固件产物校验失败，请重新生成。')
+    return structuredClone(artifact)
+  }
 
   async build(options: FirmwareBuildOptions): Promise<FirmwareBuildSnapshot> {
     if (this.activeSnapshot.state === 'running') throw new Error('已有固件构建正在进行')
@@ -79,7 +110,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
 
       const cached = await this.readCachedBuild(publishedRoot, inputHash)
       if (cached) {
-        this.activeSnapshot = { ...cached, id: buildId, logs: ['输入没有变化，已使用经过哈希校验的固件产物。'] }
+        this.activeSnapshot = { ...cached, id: buildId, firmwareRoot: sourceRoot, logs: ['输入没有变化，已使用经过哈希校验的固件产物。'] }
         this.emitSnapshot('completed')
         return this.getSnapshot()
       }
@@ -237,7 +268,11 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
 
   private emitSnapshot(type: FirmwareBuildEvent['type']): void {
     const snapshot = this.getSnapshot()
-    this.emit('event', type === 'snapshot' ? { type, snapshot } : type === 'log' ? { type, line: '', level: 'info' } : { type, snapshot } as FirmwareBuildEvent)
+    if (type === 'snapshot') this.emit('event', { type, snapshot })
+    else if (type === 'progress') this.emit('event', { type, snapshot })
+    else if (type === 'completed') this.emit('event', { type, snapshot })
+    else if (type === 'failed') this.emit('event', { type, snapshot })
+    else if (type === 'cancelled') this.emit('event', { type, snapshot })
   }
 
   private throwIfCancelled(): void { if (this.cancelRequested) throw new Error('构建已取消') }

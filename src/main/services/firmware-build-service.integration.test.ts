@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -43,5 +43,14 @@ describe('FirmwareBuildService integration', () => {
     const cached = await service.build({ workspaceId: workspace.id })
     expect(cached.state).toBe('completed')
     expect(cached.logs.join(' ')).toContain('哈希校验')
+    const binary = await service.requireCurrentArtifact(workspace.id, 'bin')
+    expect(binary.sha256).toMatch(/^[a-f0-9]{64}$/)
+
+    const recoveredService = new FirmwareBuildService(new ToolchainService(repoRoot), { baseline, workspaces, outputBase: join(sandbox, '固件 产物') })
+    await recoveredService.initialize()
+    expect(recoveredService.getSnapshot()).toMatchObject({ state: 'completed', proof: { workspaceId: workspace.id } })
+
+    await writeFile(binary.path, 'tampered')
+    await expect(service.requireCurrentArtifact(workspace.id, 'bin')).rejects.toThrow('校验失败')
   }, 120_000)
 })

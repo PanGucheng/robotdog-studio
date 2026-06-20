@@ -40,10 +40,11 @@ npm run firmware:build:ch32v203
 
 默认读取 `D:\RobotDog\ch32v203-robot-dog`，构建产物输出到 `.firmware-build/ch32v203-robot-dog/<timestamp>/`，包括：
 
-- `GPIO_Toggle.elf`
-- `GPIO_Toggle.hex`
-- `GPIO_Toggle.bin`
-- `GPIO_Toggle.map`
+- `RobotDog.elf`
+- `RobotDog.hex`
+- `RobotDog.bin`
+- `RobotDog.map`
+- `build-proof.json`
 
 可以通过环境变量覆盖路径：
 

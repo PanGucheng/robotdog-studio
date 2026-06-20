@@ -353,6 +353,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .code-editor-empty { min-height: 360px; display: grid; place-content: center; justify-items: center; color: #607d89; text-align: center; }
 .code-editor-empty h3 { margin: 10px 0 2px; color: #274d5e; }
 .code-editor-empty p { margin: 0; }
+.build-proof-strip { margin-top: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 9px; border: 1px solid #a9d7cb; border-radius: 9px; background: #edf9f5; color: #315f57; font-size: 10px; }
+.build-proof-strip span { display: flex; flex-wrap: wrap; gap: 7px; }
+.build-proof-strip.is-stale { border-color: #e6c7a4; background: #fff7eb; color: #825326; }
 
 @media (max-width: 1220px) {
   .student-code-studio { grid-template-columns: 170px minmax(0, 1fr); }

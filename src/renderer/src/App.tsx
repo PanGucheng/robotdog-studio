@@ -179,7 +179,10 @@ export function App(): React.JSX.Element {
   }) }
   const cancelBuild = (): void => { void run(async () => { setBuild(await api.cancelFirmwareBuild()) }) }
   const toggleUsb = (): void => { void run(async () => { setConnection(await api.setDemoUsbConnected(connection.updatePort.state === 'disconnected')) }) }
-  const startUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.startFirmwareUpdate()) }) }
+  const startUpdate = (): void => { void run(async () => {
+    if (!activeWorkspaceId) throw new Error('请先选择学生对话')
+    setFirmwareUpdate(await api.startFirmwareUpdate(activeWorkspaceId))
+  }) }
   const cancelUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.cancelFirmwareUpdate()) }) }
   const startRecovery = (): void => { void run(async () => { setRecovery(await api.startRecovery()) }) }
   const cancelRecovery = (): void => { void run(async () => { setRecovery(await api.cancelRecovery()) }) }

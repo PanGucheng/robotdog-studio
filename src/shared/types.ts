@@ -447,7 +447,7 @@ export interface RobotDogApi {
   getDeviceConnection(): Promise<DeviceConnectionSnapshot>
   setDemoUsbConnected(connected: boolean): Promise<DeviceConnectionSnapshot>
   getFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>
-  startFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>
+  startFirmwareUpdate(workspaceId: string): Promise<FirmwareUpdateSnapshot>
   cancelFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>
   getRecovery(): Promise<RecoverySnapshot>
   startRecovery(): Promise<RecoverySnapshot>

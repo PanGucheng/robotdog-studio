@@ -88,6 +88,7 @@ app.whenReady().then(async () => {
   await agentHistory.initialize()
   const agents = new AgentSessionService(candidates, new ReasonixAcpAdapter(processes, () => secrets.get()))
   const firmwareBuild = new FirmwareBuildService(toolchain, { baseline, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
+  await firmwareBuild.initialize()
   disposeIpc = registerIpc(robot, toolchain, firmwareBuild, workspaces, candidates, agents, { secrets, processes, version: reasonixVersion }, agentHistory, baseline)
   createWindow()
   app.on('activate', () => {
