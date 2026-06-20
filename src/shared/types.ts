@@ -152,7 +152,19 @@ export interface CandidateSnapshot {
   sourceTreeHash?: string
   diffHash?: string
   validation?: PatchValidationReport
+  buildProof?: CandidateBuildProof
+  appliedCommit?: string
   error?: string
+}
+
+export interface CandidateBuildProof {
+  candidateId: string
+  sourceTreeHash: string
+  diffHash: string
+  compiler: string
+  objectSha256: string
+  completedAt: string
+  checks: Array<{ id: 'c-source' | 'line-config'; label: string; detail: string }>
 }
 
 export interface CandidateDiffFile {
@@ -375,10 +387,13 @@ export interface RobotDogApi {
   createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>
   getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
+  undoWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   createCandidate(workspaceId: string): Promise<CandidateSnapshot>
   getCandidate(candidateId: string): Promise<CandidateSnapshot>
   getCandidateDiff(candidateId: string): Promise<CandidateDiff>
   validateCandidate(candidateId: string): Promise<CandidateSnapshot>
+  buildCandidate(candidateId: string): Promise<CandidateSnapshot>
+  applyCandidate(candidateId: string): Promise<CandidateSnapshot>
   rejectCandidate(candidateId: string): Promise<CandidateSnapshot>
   promptAgent(workspaceId: string, message: string): Promise<AgentTurnSnapshot>
   cancelAgent(turnId?: string): Promise<boolean>

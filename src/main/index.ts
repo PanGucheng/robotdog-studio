@@ -9,6 +9,8 @@ import { ReasonixAcpAdapter } from './services/reasonix-acp-adapter'
 import { ReasonixProcessManager } from './services/reasonix-process-manager'
 import { DeepSeekSecretStore } from './services/deepseek-secret-store'
 import { AgentHistoryService } from './services/agent-history-service'
+import { ToolchainService } from './services/toolchain-service'
+import { CandidateBuildService } from './services/candidate-build-service'
 
 const robot = new MockRobotService()
 let disposeIpc: (() => void) | undefined
@@ -64,7 +66,8 @@ app.whenReady().then(async () => {
   const templateRoot = join(app.getAppPath(), 'resources', 'workspace-templates', 'ch32v203-robotdog', '2026.06')
   const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot })
   await workspaces.initialize()
-  const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces })
+  const toolchain = new ToolchainService()
+  const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(toolchain, join(workspaceRoot, 'build-cache')) })
   await candidates.initialize()
   const reasonixVersion = 'v1.9.1'
   const processes = new ReasonixProcessManager({
@@ -77,7 +80,7 @@ app.whenReady().then(async () => {
   const agentHistory = new AgentHistoryService(join(workspaceRoot, 'conversations'))
   await agentHistory.initialize()
   const agents = new AgentSessionService(candidates, new ReasonixAcpAdapter(processes, () => secrets.get()))
-  disposeIpc = registerIpc(robot, undefined, undefined, workspaces, candidates, agents, { secrets, processes, version: reasonixVersion }, agentHistory)
+  disposeIpc = registerIpc(robot, toolchain, undefined, workspaces, candidates, agents, { secrets, processes, version: reasonixVersion }, agentHistory)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

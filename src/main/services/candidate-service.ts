@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { access, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { access, copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
-import type { CandidateDiff, CandidateSnapshot, CandidateState, PatchValidationReport } from '../../shared/types'
+import type { CandidateBuildProof, CandidateDiff, CandidateSnapshot, CandidateState, PatchValidationReport } from '../../shared/types'
+import type { CandidateBuilder } from './candidate-build-service'
 import { GitWorkspaceService } from './git-workspace-service'
 import { PatchPolicyService } from './patch-policy-service'
 import { SourceFingerprintService } from './source-fingerprint-service'
@@ -26,6 +27,8 @@ const candidateSchema = z.object({
   sourceTreeHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   diffHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   validation: z.custom<PatchValidationReport>().optional(),
+  buildProof: z.custom<CandidateBuildProof>().optional(),
+  appliedCommit: z.string().regex(/^[a-f0-9]{40}$/).optional(),
   error: z.string().max(500).optional()
 }).strict()
 
@@ -38,6 +41,7 @@ export interface CandidateServiceOptions {
   policy?: PatchPolicyService
   fingerprint?: SourceFingerprintService
   lifetimeMs?: number
+  builder?: CandidateBuilder
 }
 
 export class CandidateService {
@@ -47,6 +51,7 @@ export class CandidateService {
   private readonly policy: PatchPolicyService
   private readonly fingerprint: SourceFingerprintService
   private readonly lifetimeMs: number
+  private readonly builder?: CandidateBuilder
 
   constructor(options: CandidateServiceOptions) {
     this.candidatesDir = resolve(options.rootDir, 'candidates')
@@ -55,6 +60,7 @@ export class CandidateService {
     this.policy = options.policy ?? new PatchPolicyService(this.git)
     this.fingerprint = options.fingerprint ?? new SourceFingerprintService()
     this.lifetimeMs = options.lifetimeMs ?? 2 * 60 * 60 * 1000
+    this.builder = options.builder
   }
 
   async initialize(): Promise<void> {
@@ -114,10 +120,10 @@ export class CandidateService {
     try {
       const validation = await this.policy.validate(this.candidateRoot(candidateId))
       const sourceTreeHash = await this.fingerprint.calculate(this.candidateRoot(candidateId))
-      const diffHash = createHash('sha256').update(JSON.stringify({ files: validation.files, sourceTreeHash })).digest('hex')
+      const diffHash = calculateDiffHash(validation, sourceTreeHash)
       const state: CandidateState = validation.files.length === 0 ? 'no_changes' : validation.valid ? 'review_ready' : 'failed'
       const error = validation.valid ? undefined : validation.violations.map((item) => item.message).join('；').slice(0, 500)
-      return this.update(snapshot, { state, validation, sourceTreeHash, diffHash, error })
+      return this.update(snapshot, { state, validation, sourceTreeHash, diffHash, buildProof: undefined, error })
     } catch (caught) {
       const error = caught instanceof Error ? caught.message : String(caught)
       return this.update(snapshot, { state: 'failed', error: error.slice(0, 500) })
@@ -126,7 +132,7 @@ export class CandidateService {
 
   async getDiff(candidateId: string): Promise<CandidateDiff> {
     const snapshot = await this.validate(candidateId)
-    if (!snapshot.validation?.valid || !snapshot.diffHash || !['review_ready', 'no_changes'].includes(snapshot.state)) throw new Error('CANDIDATE_DIFF_NOT_READY')
+    if (!snapshot.validation?.valid || !snapshot.diffHash || !['review_ready', 'build_passed', 'awaiting_apply', 'no_changes'].includes(snapshot.state)) throw new Error('CANDIDATE_DIFF_NOT_READY')
     const candidateRoot = this.candidateRoot(candidateId)
     const files = await Promise.all(snapshot.validation.files.map(async (file) => ({
       path: file.path,
@@ -137,6 +143,69 @@ export class CandidateService {
       deletions: file.deletions
     })))
     return { candidateId, diffHash: snapshot.diffHash, files }
+  }
+
+  async build(candidateId: string): Promise<CandidateSnapshot> {
+    let snapshot = await this.get(candidateId)
+    if (snapshot.state !== 'review_ready' || !snapshot.validation?.valid || !snapshot.sourceTreeHash || !snapshot.diffHash) throw new Error('CANDIDATE_NOT_BUILDABLE')
+    if (!this.builder) throw new Error('CANDIDATE_BUILDER_UNAVAILABLE')
+    snapshot = await this.update(snapshot, { state: 'building', error: undefined, buildProof: undefined })
+    try {
+      const proof = await this.builder.build({
+        candidateId, candidateRoot: this.candidateRoot(candidateId),
+        sourceTreeHash: snapshot.sourceTreeHash!, diffHash: snapshot.diffHash!
+      })
+      const currentTreeHash = await this.fingerprint.calculate(this.candidateRoot(candidateId))
+      if (currentTreeHash !== proof.sourceTreeHash || proof.diffHash !== snapshot.diffHash) throw new Error('CANDIDATE_CHANGED_DURING_BUILD')
+      return this.update(snapshot, { state: 'build_passed', buildProof: proof, error: undefined })
+    } catch (caught) {
+      const error = caught instanceof Error ? caught.message : String(caught)
+      return this.update(snapshot, { state: 'review_ready', error: error.slice(0, 500), buildProof: undefined })
+    }
+  }
+
+  async apply(candidateId: string): Promise<CandidateSnapshot> {
+    let snapshot = await this.get(candidateId)
+    if (snapshot.state !== 'build_passed' || !snapshot.buildProof || !snapshot.validation?.valid || !snapshot.sourceTreeHash || !snapshot.diffHash) throw new Error('CANDIDATE_NOT_APPLICABLE')
+    const projectRoot = await this.workspaces.getProjectRootForMain(snapshot.workspaceId)
+    if ((await this.git.getHead(projectRoot)) !== snapshot.baseCommit || !(await this.git.isClean(projectRoot))) {
+      return this.finish(snapshot, 'stale', '正式项目已经变化，请重新生成候选修改。', true)
+    }
+    const validation = await this.policy.validate(this.candidateRoot(candidateId))
+    const sourceTreeHash = await this.fingerprint.calculate(this.candidateRoot(candidateId))
+    const diffHash = calculateDiffHash(validation, sourceTreeHash)
+    if (!validation.valid || sourceTreeHash !== snapshot.buildProof.sourceTreeHash || diffHash !== snapshot.buildProof.diffHash) {
+      return this.update(snapshot, { state: 'review_ready', buildProof: undefined, sourceTreeHash, diffHash, validation, error: '候选内容在编译后发生变化，请重新检查并编译。' })
+    }
+
+    snapshot = await this.update(snapshot, { state: 'applying', error: undefined })
+    await this.workspaces.beginCandidateApply(snapshot.workspaceId, candidateId)
+    const backups: Array<{ path: string; content?: Buffer }> = []
+    let committed: string | undefined
+    try {
+      for (const file of validation.files) {
+        if (file.status === 'deleted' || file.status === 'renamed') throw new Error('CANDIDATE_APPLY_UNSUPPORTED_CHANGE')
+        const target = join(projectRoot, ...file.path.split('/'))
+        const content = await readFile(target).catch(() => undefined)
+        backups.push({ path: target, content })
+        await mkdir(dirname(target), { recursive: true })
+        await copyFile(join(this.candidateRoot(candidateId), ...file.path.split('/')), target)
+      }
+      committed = await this.git.commitAll(projectRoot, `feat(student): apply AI candidate ${candidateId.slice(5, 13)}`)
+      await this.workspaces.completeCandidateApply(snapshot.workspaceId, candidateId, committed)
+      await this.git.removeWorktree(projectRoot, this.candidateRoot(candidateId)).catch(() => undefined)
+      return this.update(snapshot, { state: 'applied', appliedCommit: committed, error: undefined })
+    } catch (caught) {
+      const error = caught instanceof Error ? caught.message : String(caught)
+      if (committed) return this.update(snapshot, { state: 'applying', appliedCommit: committed, error: error.slice(0, 500) })
+      for (const backup of backups.reverse()) {
+        if (backup.content) await writeFile(backup.path, backup.content)
+        else await rm(backup.path, { force: true })
+      }
+      await this.git.restoreManagedChanges(projectRoot).catch(() => undefined)
+      await this.workspaces.restoreCandidateAfterApplyFailure(snapshot.workspaceId, candidateId).catch(() => undefined)
+      return this.update(snapshot, { state: 'build_passed', error: error.slice(0, 500) })
+    }
   }
 
   async reject(candidateId: string): Promise<CandidateSnapshot> {
@@ -168,6 +237,22 @@ export class CandidateService {
         await this.git.removeWorktree(projectRoot, candidateRoot)
       }
       await this.workspaces.setCandidateState(workspace.id, 'ready')
+    }
+    for (const workspace of workspaces) {
+      if (workspace.state !== 'applying' || !workspace.activeCandidateId || !(await exists(this.metadataPath(workspace.activeCandidateId)))) continue
+      const snapshot = await this.get(workspace.activeCandidateId)
+      const projectRoot = await this.workspaces.getProjectRootForMain(workspace.id)
+      const clean = await this.git.isClean(projectRoot)
+      const head = await this.git.getHead(projectRoot)
+      if (clean && head !== snapshot.baseCommit) {
+        await this.workspaces.completeCandidateApply(workspace.id, snapshot.id, head)
+        if (await exists(this.candidateRoot(snapshot.id))) await this.git.removeWorktree(projectRoot, this.candidateRoot(snapshot.id)).catch(() => undefined)
+        await this.update(snapshot, { state: 'applied', appliedCommit: head, error: undefined })
+      } else {
+        if (!clean) await this.git.restoreManagedChanges(projectRoot).catch(() => undefined)
+        await this.workspaces.restoreCandidateAfterApplyFailure(workspace.id, snapshot.id)
+        await this.update(snapshot, { state: snapshot.buildProof ? 'build_passed' : 'review_ready', error: '上次应用被中断，正式项目已恢复，可重新尝试。' })
+      }
     }
     const entries = await readdir(this.candidatesDir, { withFileTypes: true })
     for (const entry of entries) {
@@ -216,6 +301,10 @@ export class CandidateService {
     candidateIdSchema.parse(candidateId)
     return join(this.candidatesDir, `${candidateId}.json`)
   }
+}
+
+function calculateDiffHash(validation: PatchValidationReport, sourceTreeHash: string): string {
+  return createHash('sha256').update(JSON.stringify({ files: validation.files, sourceTreeHash })).digest('hex')
 }
 
 async function exists(path: string): Promise<boolean> {

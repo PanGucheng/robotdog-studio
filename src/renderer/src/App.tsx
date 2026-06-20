@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, Menu, Plus, ShieldAlert } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../shared/types'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -71,6 +71,7 @@ export function App(): React.JSX.Element {
   const [candidateDiff, setCandidateDiff] = useState<CandidateDiff>()
   const [candidateDiffLoading, setCandidateDiffLoading] = useState(false)
   const [candidateDiffError, setCandidateDiffError] = useState<string>()
+  const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceHistoryEntry[]>([])
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
 
@@ -203,9 +204,20 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let disposed = false
+    if (!activeWorkspaceId) { setWorkspaceHistory([]); return }
+    void api.getWorkspaceHistory(activeWorkspaceId, 20).then((history) => {
+      if (!disposed) setWorkspaceHistory(history)
+    }).catch((caught) => {
+      if (!disposed) setError(caught instanceof Error ? caught.message : String(caught))
+    })
+    return () => { disposed = true }
+  }, [api, activeWorkspace?.headCommit, activeWorkspaceId])
+
+  useEffect(() => {
+    let disposed = false
     setCandidateDiff(undefined)
     setCandidateDiffError(undefined)
-    if (!candidate || candidate.workspaceId !== activeWorkspaceId || candidate.state !== 'review_ready') {
+    if (!candidate || candidate.workspaceId !== activeWorkspaceId || !['review_ready', 'building', 'build_passed', 'awaiting_apply'].includes(candidate.state)) {
       setCandidateDiffLoading(false)
       return
     }
@@ -235,6 +247,28 @@ export function App(): React.JSX.Element {
       setCandidate(undefined)
       void api.listWorkspaces().then(setWorkspaces)
     }).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+  }
+  const buildCandidate = (candidateId: string): void => {
+    void run(async () => { setCandidate(await api.buildCandidate(candidateId)) })
+  }
+  const applyCandidate = (candidateId: string): void => {
+    void run(async () => {
+      const applied = await api.applyCandidate(candidateId)
+      if (applied.state !== 'applied') { setCandidate(applied); return }
+      setCandidate(undefined)
+      setCandidateDiff(undefined)
+      const [items, history] = await Promise.all([api.listWorkspaces(), api.getWorkspaceHistory(applied.workspaceId, 20)])
+      setWorkspaces(items)
+      setWorkspaceHistory(history)
+    })
+  }
+  const undoWorkspace = (): void => {
+    if (!activeWorkspaceId) return
+    void run(async () => {
+      const workspace = await api.undoWorkspace(activeWorkspaceId)
+      setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
+      setWorkspaceHistory(await api.getWorkspaceHistory(activeWorkspaceId, 20))
+    })
   }
 
   return (
@@ -296,7 +330,11 @@ export function App(): React.JSX.Element {
           candidateDiff={candidateDiff}
           candidateDiffLoading={candidateDiffLoading}
           candidateDiffError={candidateDiffError}
+          workspaceHistory={workspaceHistory}
           onRejectCandidate={rejectCandidate}
+          onBuildCandidate={buildCandidate}
+          onApplyCandidate={applyCandidate}
+          onUndoWorkspace={undoWorkspace}
           onBuildFirmware={buildFirmware}
           onCancelBuild={cancelBuild}
           onToggleUsb={toggleUsb}

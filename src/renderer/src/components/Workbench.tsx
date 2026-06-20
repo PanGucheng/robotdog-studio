@@ -1,6 +1,6 @@
 import { Activity, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, ToolchainStatus } from '../../../shared/types'
+import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
@@ -21,7 +21,11 @@ interface WorkbenchProps {
   candidateDiff?: CandidateDiff
   candidateDiffLoading: boolean
   candidateDiffError?: string
+  workspaceHistory: WorkspaceHistoryEntry[]
   onRejectCandidate(candidateId: string): void
+  onBuildCandidate(candidateId: string): void
+  onApplyCandidate(candidateId: string): void
+  onUndoWorkspace(): void
   onBuildFirmware: () => void
   onCancelBuild: () => void
   onToggleUsb: () => void
@@ -40,7 +44,7 @@ const tabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, candidate, candidateDiff, candidateDiffLoading, candidateDiffError, onRejectCandidate, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, candidate, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
   useEffect(() => { if (candidate?.state === 'review_ready') setActiveTab('代码修改') }, [candidate?.id, candidate?.state])
   const error = frame.center - frame.target
@@ -56,7 +60,7 @@ export function Workbench({ frame, status, logs, toolchain, build, connection, u
         ))}
       </nav>
 
-      {activeTab === '代码修改' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} onReject={onRejectCandidate} /> : activeTab === '编译 / 烧录' ? (
+      {activeTab === '代码修改' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '编译 / 烧录' ? (
         <div className="workbench-content firmware-workbench">
           <div className="ccd-summary">
             <div>

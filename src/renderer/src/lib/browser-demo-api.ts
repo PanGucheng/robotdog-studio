@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 
 const statusListeners = new Set<(status: RobotStatus) => void>()
 const logListeners = new Set<(entry: LogEntry) => void>()
@@ -19,6 +19,7 @@ let demoWorkspaces: WorkspaceSummary[] = [{
   templateId: 'ch32v203-robotdog', templateVersion: '2026.06', headCommit: '86d826a000000000000000000000000000000000',
   state: 'ready', updatedAt: new Date().toISOString()
 }]
+const demoHistories = new Map<string, WorkspaceHistoryEntry[]>([[demoWorkspaces[0].id, [{ commit: demoWorkspaces[0].headCommit, shortCommit: '86d826a', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }]]])
 
 let status: RobotStatus = {
   connection: 'disconnected',
@@ -259,6 +260,7 @@ export const browserDemoApi: RobotDogApi = {
       templateVersion: '2026.06', headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: new Date().toISOString()
     }
     demoWorkspaces = [workspace, ...demoWorkspaces]
+    demoHistories.set(workspace.id, [{ commit: workspace.headCommit, shortCommit: workspace.headCommit.slice(0, 7), message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }])
     workspaceListeners.forEach((listener) => listener(structuredClone(workspace)))
     return structuredClone(workspace)
   },
@@ -267,7 +269,20 @@ export const browserDemoApi: RobotDogApi = {
     if (!workspace) throw new Error('训练项目不存在')
     return structuredClone(workspace)
   },
-  getWorkspaceHistory: async (workspaceId) => [{ commit: (await browserDemoApi.getWorkspace(workspaceId)).headCommit, shortCommit: 'demo000', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }],
+  getWorkspaceHistory: async (workspaceId, limit = 20) => structuredClone((demoHistories.get(workspaceId) ?? []).slice(0, limit)),
+  undoWorkspace: async (workspaceId) => {
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    const history = demoHistories.get(workspaceId) ?? []
+    if (history.length < 2 || !history[0].message.startsWith('feat(student): apply AI candidate ')) {
+      throw new Error('没有可以撤销的 AI 修改')
+    }
+    const commit = Math.random().toString(16).slice(2).padEnd(40, '0').slice(0, 40)
+    const reverted = { ...workspace, headCommit: commit, updatedAt: new Date().toISOString() }
+    demoWorkspaces = demoWorkspaces.map((item) => item.id === workspaceId ? reverted : item)
+    demoHistories.set(workspaceId, [{ commit, shortCommit: commit.slice(0, 7), message: `Revert "${history[0].message}"`, createdAt: new Date().toISOString() }, ...history])
+    workspaceListeners.forEach((listener) => listener(structuredClone(reverted)))
+    return structuredClone(reverted)
+  },
   createCandidate: async (workspaceId) => {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
     const now = new Date()
@@ -277,6 +292,7 @@ export const browserDemoApi: RobotDogApi = {
       createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 7_200_000).toISOString(), updatedAt: now.toISOString()
     }
     demoCandidates.set(candidate.id, candidate)
+    demoWorkspaces = demoWorkspaces.map((item) => item.id === workspaceId ? { ...item, state: 'candidate_active', activeCandidateId: candidate.id, updatedAt: now.toISOString() } : item)
     candidateListeners.forEach((listener) => listener(structuredClone(candidate)))
     return structuredClone(candidate)
   },
@@ -287,7 +303,7 @@ export const browserDemoApi: RobotDogApi = {
   },
   getCandidateDiff: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
-    return { candidateId, diffHash: candidate.diffHash ?? '0'.repeat(64), files: candidate.state === 'review_ready' ? [{ path: 'student-config/line-following.yaml', status: 'modified', before: 'turn_strength: 18\nline_target: 64\n', after: '# 减少过弯时的左右摆动\nturn_strength: 16\nline_target: 64\n', additions: 2, deletions: 1 }] : [] }
+    return { candidateId, diffHash: candidate.diffHash ?? '0'.repeat(64), files: ['review_ready', 'building', 'build_passed', 'awaiting_apply'].includes(candidate.state) ? [{ path: 'student-config/line-following.yaml', status: 'modified', before: 'turn_strength: 18\nline_target: 64\n', after: '# 减少过弯时的左右摆动\nturn_strength: 16\nline_target: 64\n', additions: 2, deletions: 1 }] : [] }
   },
   validateCandidate: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
@@ -296,10 +312,35 @@ export const browserDemoApi: RobotDogApi = {
     candidateListeners.forEach((listener) => listener(structuredClone(validated)))
     return validated
   },
+  buildCandidate: async (candidateId) => {
+    const candidate = await browserDemoApi.getCandidate(candidateId)
+    if (candidate.state !== 'review_ready' || !candidate.sourceTreeHash || !candidate.diffHash) throw new Error('候选尚未准备好')
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const built: CandidateSnapshot = { ...candidate, state: 'build_passed', updatedAt: new Date().toISOString(), error: undefined, buildProof: { candidateId, sourceTreeHash: candidate.sourceTreeHash, diffHash: candidate.diffHash, compiler: 'WCH GCC12 browser demo', objectSha256: '3'.repeat(64), completedAt: new Date().toISOString(), checks: [{ id: 'c-source', label: '学生控制代码', detail: 'WCH GCC 编译通过' }, { id: 'line-config', label: '巡线参数', detail: 'turn_strength=16，line_target=64' }] } }
+    demoCandidates.set(candidateId, built)
+    candidateListeners.forEach((listener) => listener(structuredClone(built)))
+    return structuredClone(built)
+  },
+  applyCandidate: async (candidateId) => {
+    const candidate = await browserDemoApi.getCandidate(candidateId)
+    if (candidate.state !== 'build_passed') throw new Error('请先编译候选修改')
+    const commit = Math.random().toString(16).slice(2).padEnd(40, '0').slice(0, 40)
+    const applied: CandidateSnapshot = { ...candidate, state: 'applied', appliedCommit: commit, updatedAt: new Date().toISOString() }
+    demoCandidates.set(candidateId, applied)
+    const workspace = await browserDemoApi.getWorkspace(candidate.workspaceId)
+    const ready: WorkspaceSummary = { ...workspace, state: 'ready', activeCandidateId: undefined, headCommit: commit, updatedAt: new Date().toISOString() }
+    demoWorkspaces = demoWorkspaces.map((item) => item.id === ready.id ? ready : item)
+    const history = demoHistories.get(ready.id) ?? []
+    demoHistories.set(ready.id, [{ commit, shortCommit: commit.slice(0, 7), message: `feat(student): apply AI candidate ${candidateId.slice(5, 13)}`, createdAt: new Date().toISOString() }, ...history])
+    candidateListeners.forEach((listener) => listener(structuredClone(applied)))
+    workspaceListeners.forEach((listener) => listener(structuredClone(ready)))
+    return structuredClone(applied)
+  },
   rejectCandidate: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
     const rejected = { ...candidate, state: 'rejected' as const, updatedAt: new Date().toISOString() }
     demoCandidates.set(candidateId, rejected)
+    demoWorkspaces = demoWorkspaces.map((item) => item.id === candidate.workspaceId ? { ...item, state: 'ready', activeCandidateId: undefined, updatedAt: new Date().toISOString() } : item)
     candidateListeners.forEach((listener) => listener(structuredClone(rejected)))
     return rejected
   },

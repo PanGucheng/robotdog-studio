@@ -1,6 +1,6 @@
 # RobotDog Studio
 
-RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Electron 桌面上位机。项目目前完成工程底座与三通道阶段 A：安全 IPC、模拟机器马、CCD 可视化、动作控制、蓝牙/USB 双链路模拟、IAP 下载状态机和“比赛维修站”主界面。
+RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Electron 桌面上位机。项目目前已完成安全桌面底座、三通道模拟链路，以及 Reasonix 驱动的受控 AI 修改闭环。
 
 ## 本地开发
 
@@ -65,8 +65,13 @@ npm run firmware:build:ch32v203
 - IAP 二进制帧、CRC32 流解析、固件 SHA-256/板型/Flash 区域校验和稳定设备身份注册。
 - 教师模式完整恢复模拟；学生下载与教师恢复互斥，关键写入阶段禁止强制取消。
 - 蓝牙运行态协议、板载有线 IAP 与 WCH-Link 教师恢复的三通道方案，以及内置 WCH GCC12/OpenOCD 和命令行构建适配。
+- 固定 Reasonix v1.9.1 ACP 运行时、连续会话、Markdown 对话与逐次工具审批。
+- AI 只修改隔离候选工作区；Main 进程再次执行白名单、路径、Diff 和源码树校验。
+- 候选修改可查看 Diff，使用内置 WCH GCC 预检学生 C 代码并校验巡线 YAML；构建证明与源码树、Diff 哈希绑定。
+- 通过预检的候选可原子应用到正式工作区并创建 Git 检查点；历史可见，撤销使用新的 Revert 提交，不改写历史。
+- 应用中断、候选篡改、构建失败和提交失败均有恢复路径，重启后会对账候选状态。
 
-真实蓝牙串口、有线 IAP、WCH-Link 恢复和 Reasonix ACP 将按照 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 分阶段接入。三通道设计详见 [连接与固件下载计划](./docs/three-channel-connection-plan.md)，IAP 帧定义见 [IAP 二进制协议](./docs/iap-protocol-v1.md)。
+候选预检当前编译学生可编辑的 C 单元并校验参数文件，不等同于生成可下载的完整固件。真实蓝牙串口、有线 IAP、WCH-Link 恢复及完整固件模板映射继续按 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 接入。三通道设计详见 [连接与固件下载计划](./docs/three-channel-connection-plan.md)，AI 安全边界详见 [AI 修改闭环计划](./docs/ai-workspace-reasonix-plan.md)。
 
 ## 重要安全说明
 

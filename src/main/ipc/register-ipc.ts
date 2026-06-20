@@ -104,6 +104,12 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       if (limit !== undefined && (typeof limit !== 'number' || !Number.isInteger(limit))) throw new Error('WORKSPACE_HISTORY_LIMIT_INVALID')
       return workspaces.history(workspaceId, limit as number | undefined)
     })
+    ipcMain.handle(IPC_CHANNELS.workspaceUndo, async (_event, workspaceId: unknown) => {
+      if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
+      const workspace = await workspaces.undoLast(workspaceId)
+      sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
+      return workspace
+    })
   }
   if (candidates) {
     const withCandidateEvent = async (operation: () => Promise<unknown>): Promise<unknown> => {
@@ -126,6 +132,14 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     ipcMain.handle(IPC_CHANNELS.candidateValidate, (_event, candidateId: unknown) => {
       if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
       return withCandidateEvent(() => candidates.validate(candidateId))
+    })
+    ipcMain.handle(IPC_CHANNELS.candidateBuild, (_event, candidateId: unknown) => {
+      if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
+      return withCandidateEvent(() => candidates.build(candidateId))
+    })
+    ipcMain.handle(IPC_CHANNELS.candidateApply, (_event, candidateId: unknown) => {
+      if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
+      return withCandidateEvent(() => candidates.apply(candidateId))
     })
     ipcMain.handle(IPC_CHANNELS.candidateReject, (_event, candidateId: unknown) => {
       if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')

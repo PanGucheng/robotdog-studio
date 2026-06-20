@@ -134,6 +134,42 @@ export class WorkspaceService {
     return this.toSummary(updated)
   }
 
+  async beginCandidateApply(workspaceId: string, candidateId: string): Promise<WorkspaceSummary> {
+    const metadata = await this.readMetadata(workspaceId)
+    if (metadata.state !== 'candidate_active' || metadata.activeCandidateId !== candidateId) throw new Error('WORKSPACE_CANDIDATE_MISMATCH')
+    const updated: WorkspaceMetadata = { ...metadata, state: 'applying', updatedAt: new Date().toISOString() }
+    await this.writeMetadata(updated)
+    return this.toSummary(updated)
+  }
+
+  async completeCandidateApply(workspaceId: string, candidateId: string, commit: string): Promise<WorkspaceSummary> {
+    if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error('WORKSPACE_COMMIT_INVALID')
+    const metadata = await this.readMetadata(workspaceId)
+    if (metadata.activeCandidateId !== candidateId || !['applying', 'candidate_active'].includes(metadata.state)) throw new Error('WORKSPACE_CANDIDATE_MISMATCH')
+    const updated: WorkspaceMetadata = { ...metadata, state: 'ready', activeCandidateId: undefined, lastCheckpoint: commit, updatedAt: new Date().toISOString() }
+    await this.writeMetadata(updated)
+    return this.toSummary(updated)
+  }
+
+  async restoreCandidateAfterApplyFailure(workspaceId: string, candidateId: string): Promise<WorkspaceSummary> {
+    const metadata = await this.readMetadata(workspaceId)
+    if (metadata.activeCandidateId !== candidateId) throw new Error('WORKSPACE_CANDIDATE_MISMATCH')
+    const updated: WorkspaceMetadata = { ...metadata, state: 'candidate_active', updatedAt: new Date().toISOString() }
+    await this.writeMetadata(updated)
+    return this.toSummary(updated)
+  }
+
+  async undoLast(workspaceId: string): Promise<WorkspaceSummary> {
+    const metadata = await this.readMetadata(workspaceId)
+    if (metadata.state !== 'ready' || metadata.activeCandidateId) throw new Error('WORKSPACE_BUSY')
+    const projectRoot = this.projectPath(workspaceId)
+    if (!(await this.git.isClean(projectRoot))) throw new Error('WORKSPACE_DIRTY')
+    const commit = await this.git.revertHead(projectRoot)
+    const updated: WorkspaceMetadata = { ...metadata, lastCheckpoint: commit, updatedAt: new Date().toISOString() }
+    await this.writeMetadata(updated)
+    return this.toSummary(updated)
+  }
+
   private async readMetadata(workspaceId: string): Promise<WorkspaceMetadata> {
     if (!/^ws_[a-f0-9]{24}$/.test(workspaceId)) throw new Error('WORKSPACE_ID_INVALID')
     const metadataPath = this.resolveInside(this.workspacesDir, workspaceId, 'workspace.json')

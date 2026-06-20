@@ -106,6 +106,34 @@ export class GitWorkspaceService {
     }
   }
 
+  async commitAll(projectRoot: string, message: string): Promise<string> {
+    await this.assertManagedRepository(projectRoot)
+    if (!message.trim() || message.length > 160) throw new Error('WORKSPACE_COMMIT_MESSAGE_INVALID')
+    await this.run(projectRoot, ['add', '--all'])
+    await this.run(projectRoot, [
+      '-c', 'user.name=RobotDog Studio', '-c', 'user.email=studio@robotdog.local',
+      'commit', '-m', message.trim()
+    ])
+    return this.getHead(projectRoot)
+  }
+
+  async restoreManagedChanges(projectRoot: string): Promise<void> {
+    await this.assertManagedRepository(projectRoot)
+    await this.run(projectRoot, ['restore', '--staged', '--worktree', '.'])
+  }
+
+  async revertHead(projectRoot: string): Promise<string> {
+    await this.assertManagedRepository(projectRoot)
+    const entries = await this.history(projectRoot, 2)
+    if (entries.length < 2) throw new Error('WORKSPACE_NOTHING_TO_UNDO')
+    if (!entries[0].message.startsWith('feat(student): apply AI candidate ')) throw new Error('WORKSPACE_NOTHING_TO_UNDO')
+    await this.run(projectRoot, [
+      '-c', 'user.name=RobotDog Studio', '-c', 'user.email=studio@robotdog.local',
+      'revert', '--no-edit', 'HEAD'
+    ])
+    return this.getHead(projectRoot)
+  }
+
   async assertManagedRepository(projectRoot: string): Promise<void> {
     const root = resolve(projectRoot)
     const marker = await readFile(resolve(root, MANAGED_MARKER), 'utf8').catch(() => '')

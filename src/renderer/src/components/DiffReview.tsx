@@ -1,13 +1,18 @@
-import { AlertTriangle, CheckCircle2, FileCode2, FileDiff, LoaderCircle, ShieldCheck, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileCode2, FileDiff, GitCommitHorizontal, Hammer, History, LoaderCircle, RotateCcw, ShieldCheck, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { CandidateDiff, CandidateDiffFile, CandidateSnapshot } from '../../../shared/types'
+import type { CandidateDiff, CandidateDiffFile, CandidateSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
 
 interface DiffReviewProps {
   candidate?: CandidateSnapshot
   diff?: CandidateDiff
   loading: boolean
   error?: string
+  history: WorkspaceHistoryEntry[]
+  busy: boolean
   onReject(candidateId: string): void
+  onBuild(candidateId: string): void
+  onApply(candidateId: string): void
+  onUndo(): void
 }
 
 export interface DiffRow {
@@ -17,7 +22,7 @@ export interface DiffRow {
   text: string
 }
 
-export function DiffReview({ candidate, diff, loading, error, onReject }: DiffReviewProps): React.JSX.Element {
+export function DiffReview({ candidate, diff, loading, error, history, busy, onReject, onBuild, onApply, onUndo }: DiffReviewProps): React.JSX.Element {
   const [selectedPath, setSelectedPath] = useState<string>()
   useEffect(() => {
     if (!diff?.files.some((file) => file.path === selectedPath)) setSelectedPath(diff?.files[0]?.path)
@@ -25,7 +30,7 @@ export function DiffReview({ candidate, diff, loading, error, onReject }: DiffRe
   const selected = diff?.files.find((file) => file.path === selectedPath) ?? diff?.files[0]
   const rows = useMemo(() => selected ? buildDiffRows(selected) : [], [selected])
 
-  if (!candidate) return <DiffEmpty />
+  if (!candidate) return <HistoryPanel history={history} busy={busy} onUndo={onUndo} />
   if (loading) return <div className="diff-state"><LoaderCircle className="spin" size={22} /><strong>正在展开候选修改</strong><span>核对文件范围、源码指纹和修改内容…</span></div>
   if (error) return <div className="diff-state is-error"><AlertTriangle size={22} /><strong>暂时无法读取修改</strong><span>{error}</span></div>
   if (!diff || diff.files.length === 0) return <DiffEmpty message="这次候选没有产生文件变化。" />
@@ -43,6 +48,11 @@ export function DiffReview({ candidate, diff, loading, error, onReject }: DiffRe
         <span><FileDiff size={14} /> {diff.files.length} 个文件</span><span className="added">+{additions}</span><span className="removed">−{deletions}</span><code>{diff.diffHash.slice(0, 10)}</code>
       </div>
 
+      <div className="candidate-proof-slot">
+        {candidate.error && <div className="candidate-build-error"><AlertTriangle size={15} /><span><strong>候选预检没有通过</strong>{candidate.error}</span></div>}
+        {candidate.buildProof && <div className="candidate-build-proof"><CheckCircle2 size={16} /><span><strong>候选预检编译通过</strong><small>{candidate.buildProof.checks.map((check) => check.detail).join(' · ')}</small></span><code>{candidate.buildProof.objectSha256.slice(0, 10)}</code></div>}
+      </div>
+
       <div className="diff-station">
         <aside className="diff-files" aria-label="修改文件">
           <span className="diff-files-label">检查清单</span>
@@ -56,13 +66,18 @@ export function DiffReview({ candidate, diff, loading, error, onReject }: DiffRe
         </section>
       </div>
 
-      <footer className="diff-review-actions"><span><CheckCircle2 size={14} /> 已通过路径、大小、文本与敏感信息检查</span><button type="button" onClick={() => onReject(candidate.id)}><X size={14} /> 放弃这次修改</button><button type="button" className="button-primary" disabled title="下一里程碑将接入候选编译">下一步：编译候选</button></footer>
+      <footer className="diff-review-actions"><span><CheckCircle2 size={14} /> 已通过路径、大小、文本与敏感信息检查</span><button type="button" onClick={() => onReject(candidate.id)} disabled={busy}><X size={14} /> 放弃这次修改</button>{candidate.state === 'build_passed' ? <button type="button" className="button-primary" onClick={() => onApply(candidate.id)} disabled={busy}><GitCommitHorizontal size={14} /> {busy ? '正在应用…' : '确认应用到项目'}</button> : <button type="button" className="button-primary" onClick={() => onBuild(candidate.id)} disabled={busy || candidate.state !== 'review_ready'}><Hammer size={14} /> {busy ? '正在预检编译…' : '预检并编译候选'}</button>}</footer>
     </div>
   )
 }
 
 function DiffEmpty({ message = 'AI 生成修改后，这里会逐行展示候选内容。' }: { message?: string }): React.JSX.Element {
   return <div className="diff-empty"><span><FileDiff size={24} /></span><strong>代码检查台等待候选</strong><p>{message}</p></div>
+}
+
+function HistoryPanel({ history, busy, onUndo }: { history: WorkspaceHistoryEntry[]; busy: boolean; onUndo(): void }): React.JSX.Element {
+  const canUndo = history[0]?.message.startsWith('feat(student): apply AI candidate ') ?? false
+  return <div className="history-panel"><header><div><span className="eyebrow">本地存档轨道 · Git history</span><h2>每次正式修改都留有退路</h2><p>应用候选会生成新存档；撤销同样生成记录，不会抹掉历史。</p></div><button type="button" onClick={onUndo} disabled={busy || !canUndo}><RotateCcw size={14} /> {busy ? '正在撤销…' : '撤销上次修改'}</button></header><div className="history-track">{history.length === 0 ? <div className="history-empty"><History size={22} />还没有本地存档</div> : history.map((entry, index) => <article key={entry.commit} className={index === 0 ? 'current' : ''}><span className="history-node"><GitCommitHorizontal size={13} /></span><div><strong>{entry.message}</strong><small>{new Date(entry.createdAt).toLocaleString('zh-CN', { hour12: false })}</small></div><code>{entry.shortCommit}</code>{index === 0 && <em>当前</em>}</article>)}</div></div>
 }
 
 function fileName(path: string): string { return path.split('/').at(-1) ?? path }
