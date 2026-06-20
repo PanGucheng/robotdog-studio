@@ -5,6 +5,8 @@ import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
 import { DiffReview } from './DiffReview'
+import { DisplaySettings } from './DisplaySettings'
+import type { UiScale } from '../lib/ui-scale'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -22,6 +24,8 @@ interface WorkbenchProps {
   candidateDiffLoading: boolean
   candidateDiffError?: string
   workspaceHistory: WorkspaceHistoryEntry[]
+  uiScale: UiScale
+  onUiScaleChange(scale: UiScale): void
   onRejectCandidate(candidateId: string): void
   onBuildCandidate(candidateId: string): void
   onApplyCandidate(candidateId: string): void
@@ -44,7 +48,7 @@ const tabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, candidate, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, candidate, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
   useEffect(() => { if (candidate?.state === 'review_ready') setActiveTab('代码修改') }, [candidate?.id, candidate?.state])
   const error = frame.center - frame.target
@@ -60,7 +64,9 @@ export function Workbench({ frame, status, logs, toolchain, build, connection, u
         ))}
       </nav>
 
-      {activeTab === '代码修改' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '编译 / 烧录' ? (
+      {activeTab === '代码修改' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
+        <DisplaySettings scale={uiScale} toolchain={toolchain} onScaleChange={onUiScaleChange} />
+      ) : activeTab === '编译 / 烧录' ? (
         <div className="workbench-content firmware-workbench">
           <div className="ccd-summary">
             <div>

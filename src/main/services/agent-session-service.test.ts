@@ -48,6 +48,8 @@ describe('AgentSessionService', () => {
     ])
     expect(new Set(events.map((event) => event.eventId)).size).toBe(events.length)
     expect(events.map((event) => event.sequence)).toEqual(events.map((_event, index) => index + 1))
+    expect(events[0]).toMatchObject({ type: 'turn_started', promptVersion: 'robotdog-student-v1.0.0' })
+    expect(turn.promptHash).toMatch(/^[a-f0-9]{64}$/)
     expect((await candidates.get(turn.candidateId)).state).toBe('review_ready')
     expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'student-config', 'line-following.yaml'), 'utf8')).toContain('turn_strength: 18')
   })

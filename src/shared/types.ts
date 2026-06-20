@@ -190,6 +190,8 @@ export interface AgentTurnSnapshot {
   candidateId: string
   state: AgentTurnState
   message: string
+  promptVersion?: string
+  promptHash?: string
   startedAt: string
 }
 
@@ -216,7 +218,7 @@ interface AgentEventBase {
 }
 
 export type AgentEvent =
-  | AgentEventBase & { type: 'turn_started'; workspaceId: string; candidateId: string; message: string }
+  | AgentEventBase & { type: 'turn_started'; workspaceId: string; candidateId: string; message: string; promptVersion?: string; promptHash?: string }
   | AgentEventBase & { type: 'plan'; steps: StudentPlanStep[] }
   | AgentEventBase & { type: 'assistant_delta'; text: string }
   | AgentEventBase & { type: 'activity'; label: string; state: 'thinking' | 'editing' | 'validating' }

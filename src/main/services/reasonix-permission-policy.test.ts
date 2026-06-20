@@ -19,6 +19,15 @@ describe('ReasonixPermissionPolicy', () => {
     expect(policy.decide(request)).toEqual({ outcome: { outcome: 'selected', optionId: 'allow_once' } })
   })
 
+  it('automatically allows candidate-local reads and searches but not Git metadata', () => {
+    expect(policy.decide({ toolCall: { kind: 'read', title: 'read_file README.md' }, options }))
+      .toEqual({ outcome: { outcome: 'selected', optionId: 'allow_once' } })
+    expect(policy.decide({ toolCall: { kind: 'search', title: 'grep turn_strength' }, options }))
+      .toEqual({ outcome: { outcome: 'selected', optionId: 'allow_once' } })
+    expect(policy.decide({ toolCall: { kind: 'read', rawInput: { path: '.git/config' } }, options }))
+      .toEqual({ outcome: { outcome: 'cancelled' } })
+  })
+
   it('still rejects title subjects outside the student whitelist', () => {
     expect(policy.assess({ toolCall: { kind: 'edit', title: 'write_file Core/Src/main.c' }, options }).allowed).toBe(false)
   })

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import type { AdapterEvent, AdapterTurnContext, ReasonixAdapter } from './reasonix-adapter'
 import { ReasonixPermissionPolicy } from './reasonix-permission-policy'
 import { ReasonixProcessManager } from './reasonix-process-manager'
+import { buildStudentAgentPrompt } from './student-agent-prompt'
 
 interface UpdateParams { update?: { sessionUpdate?: string; content?: { text?: string }; title?: string; kind?: string; status?: string } }
 interface PermissionParams {
@@ -10,6 +11,16 @@ interface PermissionParams {
   options?: Array<{ optionId?: string; name?: string; kind?: string }>
 }
 interface PendingPermission { turnId: string; allowed: Set<string>; resolve: (optionId: string) => void }
+type PermissionResponse = { outcome: { outcome: 'selected' | 'cancelled'; optionId?: string } }
+
+export function automaticPermissionResponse(candidateRoot: string, value: unknown): PermissionResponse | undefined {
+  const params = (value ?? {}) as PermissionParams
+  const requestId = params.toolCall?.toolCallId ?? ''
+  if (requestId.startsWith('ask-')) return undefined
+  if (!requestId) return { outcome: { outcome: 'cancelled' } }
+  const policy = new ReasonixPermissionPolicy(candidateRoot)
+  return policy.assess(value).allowed ? policy.decide(value) : { outcome: { outcome: 'cancelled' } }
+}
 
 export class ReasonixAcpAdapter implements ReasonixAdapter {
   readonly kind = 'reasonix' as const
@@ -28,23 +39,18 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
     let sessionId = ''
     let sequence = 0
     let summary = ''
-    const policy = new ReasonixPermissionPolicy(context.candidateRoot)
     process.client.handleRequest('session/request_permission', async (value) => {
       const params = (value ?? {}) as PermissionParams
       const requestId = params.toolCall?.toolCallId ?? ''
-      const isQuestion = requestId.startsWith('ask-')
-      const assessment = policy.assess(value)
-      const safeEdit = assessment.allowed && policy.decide(value).outcome.outcome === 'selected'
-      if (!requestId || (!isQuestion && !safeEdit)) return { outcome: { outcome: 'cancelled' } }
+      const automatic = automaticPermissionResponse(context.candidateRoot, value)
+      if (automatic) return automatic
       const options = (params.options ?? []).flatMap((option) => {
         if (!option.optionId || !option.name) return []
         const reject = option.kind === 'reject_once' || option.kind === 'reject_always' || option.optionId.endsWith(':cancel')
-        if (!isQuestion && option.kind !== 'allow_once' && !reject) return []
-        return [{ id: option.optionId, label: isQuestion ? option.name : reject ? '暂不允许' : '允许这次修改', tone: reject ? 'reject' as const : isQuestion ? 'neutral' as const : 'approve' as const }]
+        return [{ id: option.optionId, label: option.name, tone: reject ? 'reject' as const : 'neutral' as const }]
       }).slice(0, 6)
       if (options.length === 0) return { outcome: { outcome: 'cancelled' } }
-      const detail = isQuestion ? 'Reasonix 需要你的选择后才能继续。' : permissionDetail(assessment.paths)
-      emit({ type: 'permission_request', sequence: ++sequence, requestId, title: params.toolCall?.title ?? (isQuestion ? '需要你的选择' : '允许修改学生文件？'), kind: isQuestion ? 'question' : 'edit', detail, options })
+      emit({ type: 'permission_request', sequence: ++sequence, requestId, title: params.toolCall?.title ?? '需要你的选择', kind: 'question', detail: '这个选择会影响修改结果，请选一个更符合你想法的答案。', options })
       const optionId = await this.waitForPermission(context.turnId, requestId, options.map((option) => option.id), signal)
       return optionId ? { outcome: { outcome: 'selected', optionId } } : { outcome: { outcome: 'cancelled' } }
     })
@@ -68,7 +74,10 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
       sessionId = await this.openWorkspaceSession(process.client, context.workspaceId, context.candidateRoot)
       if (signal.aborted) throw signal.reason
       emit({ type: 'activity', sequence: ++sequence, label: 'Reasonix 已连接，正在修改候选副本', state: 'editing' })
-      const result = await process.client.request<{ stopReason: string }>('session/prompt', { sessionId, prompt: [{ type: 'text', text: context.message }] }, 10 * 60_000)
+      const result = await process.client.request<{ stopReason: string }>('session/prompt', {
+        sessionId,
+        prompt: [{ type: 'text', text: buildStudentAgentPrompt(context.message, { policyVersion: context.policyVersion }) }]
+      }, 10 * 60_000)
       if (result.stopReason === 'error') throw new Error('AGENT_CRASHED')
       if (result.stopReason === 'cancelled' || signal.aborted) throw signal.reason ?? new Error('AGENT_CANCELLED')
       await process.client.request('session/close', { sessionId }).catch(() => undefined)
@@ -130,10 +139,6 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
       pending.resolve('')
     }
   }
-}
-
-function permissionDetail(paths: string[]): string {
-  return paths.length > 0 ? `将只在安全副本中修改：${paths.slice(0, 3).join('、')}` : '将只在安全副本和允许的学生文件范围内修改。'
 }
 
 const secureConfig = `default_model = "deepseek-flash"

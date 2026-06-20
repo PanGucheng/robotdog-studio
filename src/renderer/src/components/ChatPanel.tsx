@@ -81,7 +81,7 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
       )}
 
       <div ref={conversationRef} className="conversation" aria-live="polite">
-        {turns.length === 0 && <div className="chat-welcome"><span className="assistant-mark"><Bot size={16} /></span><div><strong>先说一个你观察到的问题</strong><p>我会记住这个项目里的对话，并在安全副本中尝试修改。</p></div></div>}
+        {turns.length === 0 && <div className="chat-welcome"><span className="assistant-mark"><Bot size={16} /></span><div><strong>先说一个你观察到的问题</strong><p>我会在安全副本中一次完成允许的修改，最后再请你统一查看和确认。</p></div></div>}
         {turns.map((turn) => (
           <TurnView
             key={turn.turnId}
@@ -122,7 +122,7 @@ function TurnView({ turn, candidate, running, showReview, onToggleReview, onReje
         <span className="assistant-mark"><Bot size={16} /></span>
         <div className="assistant-copy">
           {turn.assistantText && <div className="assistant-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" /> }}>{turn.assistantText}</ReactMarkdown></div>}
-          {turn.permission && <div className="permission-card" role="group" aria-label="AI 操作确认"><span className="permission-icon"><ShieldCheck size={17} /></span><div><strong>{turn.permission.title}</strong><p>{turn.permission.detail}</p></div><div className="permission-actions">{turn.permission.options.map((option) => <button type="button" key={option.id} className={option.tone === 'approve' ? 'approve' : option.tone === 'reject' ? 'reject' : ''} onClick={() => onPermission(turn.permission!.requestId, option.id)}>{option.label}</button>)}</div></div>}
+          {turn.permission && <div className="permission-card" role="group" aria-label="AI 需要你的选择"><span className="permission-icon"><ShieldCheck size={17} /></span><div><strong>{turn.permission.title}</strong><p>{turn.permission.detail}</p></div><div className="permission-actions">{turn.permission.options.map((option) => <button type="button" key={option.id} className={option.tone === 'approve' ? 'approve' : option.tone === 'reject' ? 'reject' : ''} onClick={() => onPermission(turn.permission!.requestId, option.id)}>{option.label}</button>)}</div></div>}
           {running && activity && <span className="agent-activity"><LoaderCircle size={13} className="spin" /> {activity.label}</span>}
           {terminal?.type === 'failed' && <div className="agent-error"><X size={14} /> <span><strong>这次没有完成</strong>{terminal.message} 正式项目没有变化。</span></div>}
           {terminal?.type === 'cancelled' && <div className="agent-cancelled"><Square size={12} /> {terminal.message}</div>}

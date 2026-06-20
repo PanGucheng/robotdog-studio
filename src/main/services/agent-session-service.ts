@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, StudentPlanStep } from '../../shared/types'
 import { CandidateService } from './candidate-service'
 import type { AdapterEvent, ReasonixAdapter } from './reasonix-adapter'
+import { STUDENT_AGENT_PROMPT_SHA256, STUDENT_AGENT_PROMPT_VERSION } from './student-agent-prompt'
 
 const workspaceIdSchema = z.string().regex(/^ws_[a-f0-9]{24}$/)
 const messageSchema = z.string().trim().min(1).max(2_000)
@@ -35,11 +36,16 @@ export class AgentSessionService extends EventEmitter {
       candidateId: candidate.id,
       state: 'preparing',
       message: validMessage,
+      promptVersion: STUDENT_AGENT_PROMPT_VERSION,
+      promptHash: STUDENT_AGENT_PROMPT_SHA256,
       startedAt: new Date().toISOString()
     }
     const active: ActiveTurn = { snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0 }
     this.active = active
-    this.publish(active, { type: 'turn_started', workspaceId: validWorkspaceId, candidateId: candidate.id, message: validMessage })
+    this.publish(active, {
+      type: 'turn_started', workspaceId: validWorkspaceId, candidateId: candidate.id, message: validMessage,
+      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256
+    })
     active.done = this.run(active).finally(() => {
       if (this.active?.snapshot.turnId === turnId) this.active = undefined
     })
@@ -68,13 +74,15 @@ export class AgentSessionService extends EventEmitter {
   private async run(active: ActiveTurn): Promise<void> {
     const { snapshot, controller } = active
     try {
+      const candidateSnapshot = await this.candidates.get(snapshot.candidateId)
       const candidateRoot = await this.candidates.getCandidateRootForMain(snapshot.candidateId)
       const result = await this.adapter.runTurn({
         turnId: snapshot.turnId,
         workspaceId: snapshot.workspaceId,
         candidateId: snapshot.candidateId,
         candidateRoot,
-        message: snapshot.message
+        message: snapshot.message,
+        policyVersion: candidateSnapshot.policyVersion
       }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
       if (controller.signal.aborted) throw controller.signal.reason
       snapshot.state = 'validating'

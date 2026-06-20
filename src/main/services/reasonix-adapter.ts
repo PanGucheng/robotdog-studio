@@ -10,6 +10,7 @@ export interface AdapterTurnContext {
   candidateId: string
   candidateRoot: string
   message: string
+  policyVersion?: string
 }
 
 export interface ReasonixAdapter {

@@ -7,6 +7,7 @@ import { ControlDock } from './components/ControlDock'
 import { PipelineRail } from './components/PipelineRail'
 import { Workbench } from './components/Workbench'
 import { getRobotApi } from './lib/browser-demo-api'
+import { applyUiScale, readUiScale, type UiScale } from './lib/ui-scale'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -72,8 +73,11 @@ export function App(): React.JSX.Element {
   const [candidateDiffLoading, setCandidateDiffLoading] = useState(false)
   const [candidateDiffError, setCandidateDiffError] = useState<string>()
   const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceHistoryEntry[]>([])
+  const [uiScale, setUiScale] = useState<UiScale>(() => readUiScale())
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
+
+  useEffect(() => { applyUiScale(uiScale) }, [uiScale])
 
   useEffect(() => {
     void api.getStatus().then(setStatus)
@@ -331,6 +335,8 @@ export function App(): React.JSX.Element {
           candidateDiffLoading={candidateDiffLoading}
           candidateDiffError={candidateDiffError}
           workspaceHistory={workspaceHistory}
+          uiScale={uiScale}
+          onUiScaleChange={setUiScale}
           onRejectCandidate={rejectCandidate}
           onBuildCandidate={buildCandidate}
           onApplyCandidate={applyCandidate}

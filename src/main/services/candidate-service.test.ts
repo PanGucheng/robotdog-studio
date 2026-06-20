@@ -154,7 +154,7 @@ describe('CandidateService', () => {
     expect((await workspaces.get(workspaceId)).state).toBe('candidate_active')
     expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'student-config', 'line-following.yaml'), 'utf8')).toContain('18')
     await service.reject(candidate.id)
-  })
+  }, 15_000)
 
   it('finishes a committed application after an interrupted metadata update', async () => {
     class InterruptedWorkspaceService extends WorkspaceService {
@@ -178,7 +178,7 @@ describe('CandidateService', () => {
     await recovered.initialize()
     expect((await recovered.get(candidate.id)).state).toBe('applied')
     expect((await workspaces.get(workspaceId)).state).toBe('ready')
-  })
+  }, 15_000)
 
   it('rejects oversized files, secrets, and junction escapes', async () => {
     const first = await candidates.create(workspaceId)

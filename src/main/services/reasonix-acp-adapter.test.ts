@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { ReasonixAcpAdapter } from './reasonix-acp-adapter'
+import { join } from 'node:path'
+import { automaticPermissionResponse, ReasonixAcpAdapter } from './reasonix-acp-adapter'
+
+describe('ReasonixAcpAdapter permission batching', () => {
+  const root = join('C:', 'managed', 'candidate')
+  const options = [{ optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' }]
+
+  it('automatically allows whitelisted candidate edits without a UI round trip', () => {
+    expect(automaticPermissionResponse(root, {
+      toolCall: { toolCallId: 'edit-1', kind: 'edit', rawInput: { path: 'Core/Src/student_control.c' } }, options
+    })).toEqual({ outcome: { outcome: 'selected', optionId: 'allow_once' } })
+    expect(automaticPermissionResponse(root, {
+      toolCall: { toolCallId: 'read-1', kind: 'read', rawInput: { path: 'README.md' } }, options
+    })).toEqual({ outcome: { outcome: 'selected', optionId: 'allow_once' } })
+  })
+
+  it('automatically rejects unsafe tools while preserving real student questions', () => {
+    expect(automaticPermissionResponse(root, {
+      toolCall: { toolCallId: 'exec-1', kind: 'execute', rawInput: { command: 'git status' } }, options
+    })).toEqual({ outcome: { outcome: 'cancelled' } })
+    expect(automaticPermissionResponse(root, {
+      toolCall: { toolCallId: 'ask-choice', kind: 'question' }, options
+    })).toBeUndefined()
+  })
+})
 
 describe('ReasonixAcpAdapter workspace sessions', () => {
   it('creates once, then resumes the same session in a new candidate cwd', async () => {
