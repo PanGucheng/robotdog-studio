@@ -1,5 +1,7 @@
 # CH32V203 固件适配要求
 
+可直接交付下位机开发者的完整需求、接口、优先级与验收表见 [RobotDog CH32V203 下位机固件修改要求](./firmware-developer-modification-requirements.md)。本页仅保留上位机侧的摘要。
+
 下位机仓库保持独立开发。为了接入 RobotDog Studio，需要下位机开发者提供：
 
 1. 将命令、应答、状态和 CCD 数据统一到蓝牙运行态 UART，并实现 `serial-protocol-v1.md`。
