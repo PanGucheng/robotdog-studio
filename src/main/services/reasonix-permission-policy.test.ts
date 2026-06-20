@@ -13,6 +13,16 @@ describe('ReasonixPermissionPolicy', () => {
       .toEqual({ outcome: { outcome: 'selected', optionId: 'allow_once' } })
   })
 
+  it('accepts Reasonix ACP v1 title subjects when rawInput is omitted', () => {
+    const request = { toolCall: { kind: 'edit', title: 'edit_file student-config/line-following.yaml' }, options }
+    expect(policy.assess(request)).toEqual({ allowed: true, paths: ['student-config/line-following.yaml'] })
+    expect(policy.decide(request)).toEqual({ outcome: { outcome: 'selected', optionId: 'allow_once' } })
+  })
+
+  it('still rejects title subjects outside the student whitelist', () => {
+    expect(policy.assess({ toolCall: { kind: 'edit', title: 'write_file Core/Src/main.c' }, options }).allowed).toBe(false)
+  })
+
   it.each([
     { toolCall: { kind: 'execute', rawInput: { command: 'git status' } }, options },
     { toolCall: { kind: 'edit', rawInput: { path: '../outside.txt' } }, options },

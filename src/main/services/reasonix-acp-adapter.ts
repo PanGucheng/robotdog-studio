@@ -33,7 +33,8 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
       const params = (value ?? {}) as PermissionParams
       const requestId = params.toolCall?.toolCallId ?? ''
       const isQuestion = requestId.startsWith('ask-')
-      const safeEdit = policy.decide(value).outcome.outcome === 'selected'
+      const assessment = policy.assess(value)
+      const safeEdit = assessment.allowed && policy.decide(value).outcome.outcome === 'selected'
       if (!requestId || (!isQuestion && !safeEdit)) return { outcome: { outcome: 'cancelled' } }
       const options = (params.options ?? []).flatMap((option) => {
         if (!option.optionId || !option.name) return []
@@ -42,7 +43,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
         return [{ id: option.optionId, label: isQuestion ? option.name : reject ? '暂不允许' : '允许这次修改', tone: reject ? 'reject' as const : isQuestion ? 'neutral' as const : 'approve' as const }]
       }).slice(0, 6)
       if (options.length === 0) return { outcome: { outcome: 'cancelled' } }
-      const detail = isQuestion ? 'Reasonix 需要你的选择后才能继续。' : permissionDetail(params.toolCall?.rawInput)
+      const detail = isQuestion ? 'Reasonix 需要你的选择后才能继续。' : permissionDetail(assessment.paths)
       emit({ type: 'permission_request', sequence: ++sequence, requestId, title: params.toolCall?.title ?? (isQuestion ? '需要你的选择' : '允许修改学生文件？'), kind: isQuestion ? 'question' : 'edit', detail, options })
       const optionId = await this.waitForPermission(context.turnId, requestId, options.map((option) => option.id), signal)
       return optionId ? { outcome: { outcome: 'selected', optionId } } : { outcome: { outcome: 'cancelled' } }
@@ -131,8 +132,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
   }
 }
 
-function permissionDetail(input?: Record<string, unknown>): string {
-  const paths = Object.entries(input ?? {}).filter(([key, value]) => /path|file/i.test(key) && typeof value === 'string').map(([, value]) => String(value))
+function permissionDetail(paths: string[]): string {
   return paths.length > 0 ? `将只在安全副本中修改：${paths.slice(0, 3).join('、')}` : '将只在安全副本和允许的学生文件范围内修改。'
 }
 
