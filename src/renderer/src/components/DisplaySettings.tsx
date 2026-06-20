@@ -1,10 +1,11 @@
-import { Check, Eye, MonitorUp, Route, Type } from 'lucide-react'
-import type { ToolchainStatus } from '../../../shared/types'
+import { Check, Eye, FlaskConical, MonitorUp, Route, Type } from 'lucide-react'
+import type { FirmwareBaselineStatus, ToolchainStatus } from '../../../shared/types'
 import { UI_SCALE_OPTIONS, type UiScale } from '../lib/ui-scale'
 
 interface DisplaySettingsProps {
   scale: UiScale
   toolchain?: ToolchainStatus
+  baseline?: FirmwareBaselineStatus
   onScaleChange(scale: UiScale): void
 }
 
@@ -15,7 +16,7 @@ const scaleCopy: Record<UiScale, string> = {
   175: '最大文字与操作按钮'
 }
 
-export function DisplaySettings({ scale, toolchain, onScaleChange }: DisplaySettingsProps): React.JSX.Element {
+export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: DisplaySettingsProps): React.JSX.Element {
   const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
   return (
     <div className="display-settings">
@@ -57,6 +58,10 @@ export function DisplaySettings({ scale, toolchain, onScaleChange }: DisplaySett
         <article className={toolchainReady ? 'ready' : ''}>
           <span className="settings-status-icon"><Check size={18} /></span>
           <div><strong>程序翻译工具</strong><p>{toolchainReady ? '内置工具已经准备好。' : '工具仍在检查；这不会影响查看项目。'}</p></div>
+        </article>
+        <article className={baseline?.releaseEligible ? 'ready' : 'provisional'}>
+          <span className="settings-status-icon"><FlaskConical size={18} /></span>
+          <div><strong>{baseline?.releaseEligible ? '正式 SDK' : '临时 SDK 基线'}</strong><p>{baseline?.readyForTesting ? `${baseline.label}：仅用于功能测试。` : 'SDK 校验未通过，完整固件编译已停用。'}</p></div>
         </article>
       </div>
     </div>

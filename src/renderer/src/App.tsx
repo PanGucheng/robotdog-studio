@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleUserRound, GraduationCap, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
+import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -8,6 +8,8 @@ import { PipelineRail } from './components/PipelineRail'
 import { Workbench } from './components/Workbench'
 import { getRobotApi } from './lib/browser-demo-api'
 import { applyUiScale, readUiScale, type UiScale } from './lib/ui-scale'
+import { LearningCenter, type LearningDestination } from './components/LearningCenter'
+import { toStudentErrorMessage } from './lib/student-errors'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -57,6 +59,7 @@ export function App(): React.JSX.Element {
   const [frame, setFrame] = useState(initialFrame)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [toolchain, setToolchain] = useState<ToolchainStatus>()
+  const [baseline, setBaseline] = useState<FirmwareBaselineStatus>()
   const [build, setBuild] = useState<FirmwareBuildSnapshot>(initialBuild)
   const [connection, setConnection] = useState<DeviceConnectionSnapshot>(initialConnection)
   const [firmwareUpdate, setFirmwareUpdate] = useState<FirmwareUpdateSnapshot>(initialUpdate)
@@ -74,6 +77,8 @@ export function App(): React.JSX.Element {
   const [candidateDiffError, setCandidateDiffError] = useState<string>()
   const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceHistoryEntry[]>([])
   const [uiScale, setUiScale] = useState<UiScale>(() => readUiScale())
+  const [learningOpen, setLearningOpen] = useState(() => localStorage.getItem('robotdog.learning-intro-seen.v1') !== '1')
+  const [learningDestination, setLearningDestination] = useState<LearningDestination>()
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
 
@@ -82,8 +87,9 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     void api.getStatus().then(setStatus)
     void api.getToolchainStatus().then(setToolchain).catch((caught) => {
-      setError(caught instanceof Error ? caught.message : String(caught))
+      setError(toStudentErrorMessage(caught))
     })
+    void api.getFirmwareBaselineStatus().then(setBaseline).catch((caught) => setError(toStudentErrorMessage(caught)))
     void api.getDeviceConnection().then(setConnection)
     void api.getFirmwareUpdate().then(setFirmwareUpdate)
     void api.getRecovery().then(setRecovery)
@@ -105,7 +111,7 @@ export function App(): React.JSX.Element {
           return next
         })
       }).catch(() => undefined)
-    }).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+    }).catch((caught) => setError(toStudentErrorMessage(caught)))
     const offStatus = api.onStatus(setStatus)
     const offCcd = api.onCcd(setFrame)
     const offLog = api.onLog((entry) => setLogs((current) => [...current.slice(-49), entry]))
@@ -159,7 +165,7 @@ export function App(): React.JSX.Element {
     try {
       await operation()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
+      setError(toStudentErrorMessage(caught))
     } finally {
       setBusy(false)
     }
@@ -205,6 +211,14 @@ export function App(): React.JSX.Element {
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
   const activeCandidateId = activeWorkspace?.activeCandidateId
   const agentEvents = activeWorkspaceId ? agentEventsByWorkspace[activeWorkspaceId] ?? [] : []
+  const navigateFromLearning = (destination: LearningDestination): void => {
+    setLearningDestination(destination)
+    if (destination === 'chat') setTimeout(() => document.querySelector<HTMLTextAreaElement>('[aria-label="告诉 AI 你希望机器马做什么"]')?.focus(), 0)
+  }
+  const closeLearning = (): void => {
+    localStorage.setItem('robotdog.learning-intro-seen.v1', '1')
+    setLearningOpen(false)
+  }
 
   useEffect(() => {
     let disposed = false
@@ -216,7 +230,7 @@ export function App(): React.JSX.Element {
     void api.getCandidate(activeCandidateId).then((recovered) => {
       if (!disposed) setCandidate(recovered)
     }).catch((caught) => {
-      if (!disposed) setError(caught instanceof Error ? caught.message : String(caught))
+      if (!disposed) setError(toStudentErrorMessage(caught))
     })
     return () => { disposed = true }
   }, [api, activeCandidateId, activeWorkspaceId])
@@ -227,7 +241,7 @@ export function App(): React.JSX.Element {
     void api.getWorkspaceHistory(activeWorkspaceId, 20).then((history) => {
       if (!disposed) setWorkspaceHistory(history)
     }).catch((caught) => {
-      if (!disposed) setError(caught instanceof Error ? caught.message : String(caught))
+      if (!disposed) setError(toStudentErrorMessage(caught))
     })
     return () => { disposed = true }
   }, [api, activeWorkspace?.headCommit, activeWorkspaceId])
@@ -244,7 +258,7 @@ export function App(): React.JSX.Element {
     void api.getCandidateDiff(candidate.id).then((diff) => {
       if (!disposed) setCandidateDiff(diff)
     }).catch((caught) => {
-      if (!disposed) setCandidateDiffError(caught instanceof Error ? caught.message : String(caught))
+      if (!disposed) setCandidateDiffError(toStudentErrorMessage(caught))
     }).finally(() => {
       if (!disposed) setCandidateDiffLoading(false)
     })
@@ -254,22 +268,22 @@ export function App(): React.JSX.Element {
   const promptAgent = (message: string): void => {
     if (!activeWorkspace) return
     setCandidate(undefined)
-    void api.promptAgent(activeWorkspace.id, message).then(setAgentTurn).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+    void api.promptAgent(activeWorkspace.id, message).then(setAgentTurn).catch((caught) => setError(toStudentErrorMessage(caught)))
   }
   const explainDiagnostic = (candidateId: string, diagnostic: string): void => {
     if (!activeWorkspace) return
-    void api.explainManualDraft(activeWorkspace.id, candidateId, diagnostic).then(setAgentTurn).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+    void api.explainManualDraft(activeWorkspace.id, candidateId, diagnostic).then(setAgentTurn).catch((caught) => setError(toStudentErrorMessage(caught)))
   }
   const cancelAgent = (): void => { void api.cancelAgent(agentTurn?.turnId) }
   const respondAgentPermission = (requestId: string, optionId: string): void => {
     if (!agentTurn) return
-    void api.respondAgentPermission(agentTurn.turnId, requestId, optionId).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+    void api.respondAgentPermission(agentTurn.turnId, requestId, optionId).catch((caught) => setError(toStudentErrorMessage(caught)))
   }
   const rejectCandidate = (candidateId: string): void => {
     void api.rejectCandidate(candidateId).then(() => {
       setCandidate(undefined)
       void api.listWorkspaces().then(setWorkspaces)
-    }).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+    }).catch((caught) => setError(toStudentErrorMessage(caught)))
   }
   const buildCandidate = (candidateId: string): void => {
     void run(async () => { setCandidate(await api.buildCandidate(candidateId)) })
@@ -283,6 +297,7 @@ export function App(): React.JSX.Element {
       const [items, history] = await Promise.all([api.listWorkspaces(), api.getWorkspaceHistory(applied.workspaceId, 20)])
       setWorkspaces(items)
       setWorkspaceHistory(history)
+      setLearningDestination('编译 / 烧录')
     })
   }
   const undoWorkspace = (): void => {
@@ -315,6 +330,7 @@ export function App(): React.JSX.Element {
           <button type="button" className={`student-pill ${teacherMode ? 'is-teacher' : ''}`} onClick={() => setTeacherMode((current) => !current)} title="切换学生/教师演示模式">
             <CircleUserRound size={17} /> {teacherMode ? '教师模式' : '林同学'}
           </button>
+          <button type="button" className="learning-button" onClick={() => setLearningOpen(true)}><HelpCircle size={16} /> 操作示范</button>
           <button type="button" className="emergency-button" onClick={() => action('stop')} disabled={!connected}>
             <ShieldAlert size={18} /> 急停
           </button>
@@ -344,6 +360,7 @@ export function App(): React.JSX.Element {
           status={status}
           logs={logs}
           toolchain={toolchain}
+          baseline={baseline}
           build={build}
           connection={connection}
           update={firmwareUpdate}
@@ -371,10 +388,13 @@ export function App(): React.JSX.Element {
           onCancelUpdate={cancelUpdate}
           onStartRecovery={startRecovery}
           onCancelRecovery={cancelRecovery}
+          learningDestination={learningDestination}
+          onLearningDestinationHandled={() => setLearningDestination(undefined)}
         />
       </div>
 
       <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />
+      <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />
     </main>
   )
 }
