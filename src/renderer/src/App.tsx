@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, Menu, Plus, ShieldAlert } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../shared/types'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -68,6 +68,9 @@ export function App(): React.JSX.Element {
   const [agentEventsByWorkspace, setAgentEventsByWorkspace] = useState<Record<string, AgentEvent[]>>({})
   const [agentTurn, setAgentTurn] = useState<AgentTurnSnapshot>()
   const [candidate, setCandidate] = useState<CandidateSnapshot>()
+  const [candidateDiff, setCandidateDiff] = useState<CandidateDiff>()
+  const [candidateDiffLoading, setCandidateDiffLoading] = useState(false)
+  const [candidateDiffError, setCandidateDiffError] = useState<string>()
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
 
@@ -111,6 +114,10 @@ export function App(): React.JSX.Element {
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setActiveWorkspaceId(workspace.id)
     })
+    const offCandidate = api.onCandidateChanged((nextCandidate) => {
+      setCandidate(nextCandidate)
+      void api.listWorkspaces().then(setWorkspaces).catch(() => undefined)
+    })
     const offAgent = api.onAgentEvent((event) => {
       if (seenAgentEvents.current.has(event.eventId)) return
       seenAgentEvents.current.add(event.eventId)
@@ -129,6 +136,7 @@ export function App(): React.JSX.Element {
       offUpdate()
       offRecovery()
       offWorkspace()
+      offCandidate()
       offAgent()
     }
   }, [api])
@@ -175,7 +183,43 @@ export function App(): React.JSX.Element {
     })
   }
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+  const activeCandidateId = activeWorkspace?.activeCandidateId
   const agentEvents = activeWorkspaceId ? agentEventsByWorkspace[activeWorkspaceId] ?? [] : []
+
+  useEffect(() => {
+    let disposed = false
+    if (!activeWorkspaceId) { setCandidate(undefined); return }
+    if (!activeCandidateId) {
+      setCandidate((current) => current?.workspaceId === activeWorkspaceId ? current : undefined)
+      return
+    }
+    void api.getCandidate(activeCandidateId).then((recovered) => {
+      if (!disposed) setCandidate(recovered)
+    }).catch((caught) => {
+      if (!disposed) setError(caught instanceof Error ? caught.message : String(caught))
+    })
+    return () => { disposed = true }
+  }, [api, activeCandidateId, activeWorkspaceId])
+
+  useEffect(() => {
+    let disposed = false
+    setCandidateDiff(undefined)
+    setCandidateDiffError(undefined)
+    if (!candidate || candidate.workspaceId !== activeWorkspaceId || candidate.state !== 'review_ready') {
+      setCandidateDiffLoading(false)
+      return
+    }
+    setCandidateDiffLoading(true)
+    void api.getCandidateDiff(candidate.id).then((diff) => {
+      if (!disposed) setCandidateDiff(diff)
+    }).catch((caught) => {
+      if (!disposed) setCandidateDiffError(caught instanceof Error ? caught.message : String(caught))
+    }).finally(() => {
+      if (!disposed) setCandidateDiffLoading(false)
+    })
+    return () => { disposed = true }
+  }, [api, activeWorkspaceId, candidate?.id, candidate?.diffHash, candidate?.state, candidate?.workspaceId])
+
   const promptAgent = (message: string): void => {
     if (!activeWorkspace) return
     setCandidate(undefined)
@@ -248,6 +292,11 @@ export function App(): React.JSX.Element {
           recovery={recovery}
           teacherMode={teacherMode}
           busy={busy}
+          candidate={candidate?.workspaceId === activeWorkspaceId ? candidate : undefined}
+          candidateDiff={candidateDiff}
+          candidateDiffLoading={candidateDiffLoading}
+          candidateDiffError={candidateDiffError}
+          onRejectCandidate={rejectCandidate}
           onBuildFirmware={buildFirmware}
           onCancelBuild={cancelBuild}
           onToggleUsb={toggleUsb}

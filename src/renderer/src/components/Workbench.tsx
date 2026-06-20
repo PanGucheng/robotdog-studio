@@ -1,9 +1,10 @@
 import { Activity, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, Square, TerminalSquare } from 'lucide-react'
-import { useState } from 'react'
-import type { CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, ToolchainStatus } from '../../../shared/types'
+import { useEffect, useState } from 'react'
+import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, ToolchainStatus } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
+import { DiffReview } from './DiffReview'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -16,6 +17,11 @@ interface WorkbenchProps {
   recovery: RecoverySnapshot
   teacherMode: boolean
   busy: boolean
+  candidate?: CandidateSnapshot
+  candidateDiff?: CandidateDiff
+  candidateDiffLoading: boolean
+  candidateDiffError?: string
+  onRejectCandidate(candidateId: string): void
   onBuildFirmware: () => void
   onCancelBuild: () => void
   onToggleUsb: () => void
@@ -34,8 +40,9 @@ const tabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, candidate, candidateDiff, candidateDiffLoading, candidateDiffError, onRejectCandidate, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
+  useEffect(() => { if (candidate?.state === 'review_ready') setActiveTab('代码修改') }, [candidate?.id, candidate?.state])
   const error = frame.center - frame.target
   const buildProgress = build.totalFiles > 0 ? Math.round((build.completedFiles / build.totalFiles) * 100) : 0
   const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
@@ -49,7 +56,7 @@ export function Workbench({ frame, status, logs, toolchain, build, connection, u
         ))}
       </nav>
 
-      {activeTab === '编译 / 烧录' ? (
+      {activeTab === '代码修改' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} onReject={onRejectCandidate} /> : activeTab === '编译 / 烧录' ? (
         <div className="workbench-content firmware-workbench">
           <div className="ccd-summary">
             <div>

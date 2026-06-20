@@ -281,6 +281,54 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .firmware-log-lines span.error { color: #ff938d; }
 .recognition-badge.is-ready { color: #08734d; border-color: #b5dfcf; background: #effaf5; }
 
+/* Candidate inspection station: a compact, classroom-friendly code proofing desk. */
+.diff-review { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 12px; min-height: 0; padding: 18px 20px 14px; background: #f3f7f9; }
+.diff-review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.diff-review-head h2 { margin: 5px 0 4px; color: var(--navy); font-family: "Bahnschrift", "Microsoft YaHei UI", sans-serif; font-size: 19px; }
+.diff-review-head p { margin: 0; color: #70818e; font-size: 10px; }
+.diff-verdict { display: flex; align-items: center; gap: 8px; min-width: 128px; padding: 9px 11px; color: #08734d; border: 1px solid #b8dfcf; border-radius: 9px; background: #edfaf4; }
+.diff-verdict strong, .diff-verdict small { display: block; }
+.diff-verdict strong { font-size: 11px; }
+.diff-verdict small { margin-top: 2px; color: #5e8b79; font: 9px var(--mono); }
+.diff-ledger { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 5px 8px; border: 1px solid #d6e1e7; border-radius: 8px; background: white; }
+.diff-ledger span { display: flex; align-items: center; gap: 5px; padding: 4px 7px; color: #526979; border-radius: 5px; font-size: 9px; }
+.diff-ledger .added { color: #08734d; background: #eaf8f1; font: 10px var(--mono); }
+.diff-ledger .removed { color: #a83b34; background: #fff0ee; font: 10px var(--mono); }
+.diff-ledger code { margin-left: auto; color: #82909b; font: 9px var(--mono); }
+.diff-station { display: grid; grid-template-columns: minmax(155px, 0.28fr) minmax(0, 1fr); min-height: 0; border: 1px solid #ccd9e1; border-radius: 11px; background: white; box-shadow: 0 10px 28px rgb(35 67 90 / 6%); overflow: hidden; }
+.diff-files { padding: 10px 8px; border-right: 1px solid #d6e1e7; background: #f8fafb; overflow: auto; }
+.diff-files-label { display: block; padding: 2px 7px 8px; color: #82919c; font: 8px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.diff-files button { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 7px; width: 100%; margin-bottom: 5px; padding: 9px 8px; color: #607382; border: 1px solid transparent; border-radius: 7px; background: transparent; text-align: left; cursor: pointer; }
+.diff-files button > span { min-width: 0; }
+.diff-files button strong, .diff-files button small, .diff-files button em { display: block; }
+.diff-files button strong { color: var(--navy); font: 10px var(--mono); overflow: hidden; text-overflow: ellipsis; }
+.diff-files button small { margin-top: 3px; color: #8a98a3; font: 8px var(--mono); overflow: hidden; text-overflow: ellipsis; }
+.diff-files button em { grid-column: 2; margin-top: 4px; color: #56806f; font: normal 8px var(--mono); }
+.diff-files button.active { color: #087d92; border-color: #a9d7df; background: #eef9fb; box-shadow: inset 3px 0 var(--sensor); }
+.diff-sheet { display: grid; grid-template-rows: 35px minmax(0, 1fr); min-width: 0; min-height: 0; background: #10243a; }
+.diff-sheet-title { display: grid; grid-template-columns: minmax(0, 1fr) 72px 84px; align-items: center; gap: 8px; padding: 0 11px; color: #d7e2ea; border-bottom: 1px solid #314b62; background: #193149; }
+.diff-sheet-title span { display: flex; align-items: center; gap: 6px; min-width: 0; font: 9px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diff-sheet-title small { color: #7f98aa; font: 8px var(--mono); text-align: center; }
+.diff-code { min-height: 0; overflow: auto; padding: 7px 0 14px; }
+.diff-line { display: grid; grid-template-columns: 20px 38px 38px minmax(max-content, 1fr); min-height: 21px; color: #c7d5df; font: 10px/21px var(--mono); }
+.diff-line > span { user-select: none; }
+.diff-line .line-sign { color: #71899a; text-align: center; }
+.diff-line .line-no { color: #61798c; border-right: 1px solid rgb(255 255 255 / 5%); text-align: right; padding-right: 7px; }
+.diff-line code { display: block; padding: 0 10px; font: inherit; white-space: pre; }
+.diff-line.added { color: #b9efd8; background: rgb(22 163 106 / 14%); }
+.diff-line.added .line-sign { color: #62d5a5; }
+.diff-line.removed { color: #ffc3be; background: rgb(217 45 32 / 14%); }
+.diff-line.removed .line-sign { color: #ff8e86; }
+.diff-review-actions { display: flex; align-items: center; gap: 8px; }
+.diff-review-actions > span { display: flex; align-items: center; gap: 6px; margin-right: auto; color: #477261; font-size: 9px; }
+.diff-review-actions button { display: flex; align-items: center; gap: 6px; height: 33px; padding: 0 10px; color: #526979; border: 1px solid #cedae2; border-radius: 7px; background: white; font-size: 9px; font-weight: 750; cursor: pointer; }
+.diff-review-actions .button-primary { color: white; border-color: var(--navy); background: var(--navy); }
+.diff-empty, .diff-state { display: grid; place-content: center; justify-items: center; gap: 7px; min-height: 0; padding: 24px; color: #6f8190; text-align: center; background: linear-gradient(135deg, #f8fbfc, #edf3f6); }
+.diff-empty > span { display: grid; place-items: center; width: 48px; height: 48px; color: #087d92; border: 1px dashed #8dc8d3; border-radius: 50%; background: white; }
+.diff-empty strong, .diff-state strong { color: var(--navy); font-size: 13px; }
+.diff-empty p, .diff-state span { margin: 0; font-size: 10px; }
+.diff-state.is-error { color: #9e433d; }
+
 .control-dock { display: flex; align-items: center; gap: 16px; padding: 0 22px; border-top: 1px solid #ced9e1; background: white; box-shadow: 0 -7px 28px rgb(35 67 90 / 7%); z-index: 4; }
 .dock-group { gap: 8px; }
 .dock-button, .icon-command { display: flex; align-items: center; justify-content: center; gap: 7px; height: 38px; color: #334d60; border: 1px solid #cdd9e1; border-radius: 8px; background: #f9fbfc; font-size: 11px; font-weight: 650; cursor: pointer; }
@@ -306,6 +354,8 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .bay-divider { display: none; }
   .recovery-body { grid-template-columns: 1fr; }
   .recovery-actions { grid-row: auto; grid-column: 1; justify-content: flex-start; }
+  .diff-station { grid-template-columns: 140px minmax(0, 1fr); }
+  .diff-review-actions > span { display: none; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

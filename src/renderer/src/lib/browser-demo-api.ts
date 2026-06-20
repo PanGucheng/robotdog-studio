@@ -287,7 +287,7 @@ export const browserDemoApi: RobotDogApi = {
   },
   getCandidateDiff: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
-    return { candidateId, diffHash: candidate.diffHash ?? '0'.repeat(64), files: [] }
+    return { candidateId, diffHash: candidate.diffHash ?? '0'.repeat(64), files: candidate.state === 'review_ready' ? [{ path: 'student-config/line-following.yaml', status: 'modified', before: 'turn_strength: 18\nline_target: 64\n', after: '# 减少过弯时的左右摆动\nturn_strength: 16\nline_target: 64\n', additions: 2, deletions: 1 }] : [] }
   },
   validateCandidate: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
