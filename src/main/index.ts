@@ -13,6 +13,7 @@ import { ToolchainService } from './services/toolchain-service'
 import { CandidateBuildService } from './services/candidate-build-service'
 import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
+import { DiagnosticService } from './services/diagnostic-service'
 
 const robot = new MockRobotService()
 let disposeIpc: (() => void) | undefined
@@ -89,7 +90,18 @@ app.whenReady().then(async () => {
   const agents = new AgentSessionService(candidates, new ReasonixAcpAdapter(processes, () => secrets.get()))
   const firmwareBuild = new FirmwareBuildService(toolchain, { baseline, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
   await firmwareBuild.initialize()
-  disposeIpc = registerIpc(robot, toolchain, firmwareBuild, workspaces, candidates, agents, { secrets, processes, version: reasonixVersion }, agentHistory, baseline)
+  const runtime = { secrets, processes, version: reasonixVersion }
+  const diagnostics = new DiagnosticService({
+    dataRoot: workspaceRoot,
+    getRuntimeInfo: async () => ({
+      mode: 'simulation',
+      workspaceCount: (await workspaces.list()).length,
+      toolchain: await toolchain.getStatus(),
+      baseline: await baseline.getStatus(),
+      agent: await getAgentRuntimeStatus(runtime)
+    })
+  })
+  disposeIpc = registerIpc(robot, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -105,3 +117,15 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => disposeIpc?.())
+
+async function getAgentRuntimeStatus(runtime: { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }): Promise<import('../shared/types').AgentRuntimeStatus> {
+  const [installed, apiKeyConfigured] = await Promise.all([
+    runtime.processes.verifyBinary().then(() => true, () => false),
+    runtime.secrets.has()
+  ])
+  return {
+    adapter: 'reasonix', version: runtime.version, installed, apiKeyConfigured,
+    ready: installed && apiKeyConfigured,
+    detail: !installed ? 'Reasonix 文件缺失或校验失败' : !apiKeyConfigured ? '请配置 DeepSeek API Key' : 'Reasonix ACP 已就绪'
+  }
+}

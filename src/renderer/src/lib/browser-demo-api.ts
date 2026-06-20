@@ -162,6 +162,18 @@ async function runBrowserFirmwareUpdate(token: number): Promise<void> {
 
 export const browserDemoApi: RobotDogApi = {
   getHealth: async () => ({ appVersion: '0.1.0', platform: 'browser', mode: 'simulation', checks: [] }),
+  getRuntimeInfo: async () => ({
+    dataRoot: '浏览器演示数据（不会写入磁盘）', diagnosticsRoot: '浏览器演示诊断', mode: 'simulation', workspaceCount: demoWorkspaces.length,
+    toolchain: demoToolchainStatus,
+    baseline: await browserDemoApi.getFirmwareBaselineStatus(),
+    agent: { adapter: 'reasonix', version: 'v1.9.1', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示 AI 已就绪' }
+  }),
+  exportDiagnostics: async () => ({
+    path: '浏览器演示/robotdog-diagnostics-demo.json', createdAt: new Date().toISOString(), bytes: 1024,
+    included: ['应用模式与版本环境', '工具链状态', '固件基线校验', 'AI 运行时状态', '工作区数量'],
+    excluded: ['API Key', '学生代码', '聊天正文', '候选修改内容', '固件二进制']
+  }),
+  openDataDirectory: async () => true,
   getStatus: async () => ({ ...status }),
   getToolchainStatus: async () => demoToolchainStatus,
   getFirmwareBaselineStatus: async () => ({

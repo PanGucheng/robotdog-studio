@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, ipcMain, shell } from 'electron'
 import { IPC_CHANNELS } from '../../shared/channels'
 import type { AgentRuntimeStatus, AppHealth } from '../../shared/types'
 import { FirmwareBuildService } from '../services/firmware-build-service'
@@ -13,10 +13,11 @@ import { DeepSeekSecretStore } from '../services/deepseek-secret-store'
 import { ReasonixProcessManager } from '../services/reasonix-process-manager'
 import { AgentHistoryService } from '../services/agent-history-service'
 import { FirmwareBaselineService } from '../services/firmware-baseline-service'
+import { DiagnosticService } from '../services/diagnostic-service'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService): () => void {
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -60,6 +61,11 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       ]
     }
   })
+  if (diagnostics) {
+    ipcMain.handle(IPC_CHANNELS.runtimeInfoGet, () => diagnostics.getRuntimeInfo())
+    ipcMain.handle(IPC_CHANNELS.diagnosticsExport, () => diagnostics.export())
+    ipcMain.handle(IPC_CHANNELS.dataDirectoryOpen, async () => (await shell.openPath(diagnostics.dataRoot)) === '')
+  }
   ipcMain.handle(IPC_CHANNELS.robotStatusGet, () => robot.getStatus())
   ipcMain.handle(IPC_CHANNELS.robotConnectDemo, () => robot.connectDemo())
   ipcMain.handle(IPC_CHANNELS.robotDisconnect, () => robot.disconnect())

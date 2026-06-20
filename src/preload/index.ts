@@ -10,6 +10,9 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
 
 const api: RobotDogApi = {
   getHealth: () => ipcRenderer.invoke(IPC_CHANNELS.healthGet),
+  getRuntimeInfo: () => ipcRenderer.invoke(IPC_CHANNELS.runtimeInfoGet),
+  exportDiagnostics: () => ipcRenderer.invoke(IPC_CHANNELS.diagnosticsExport),
+  openDataDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.dataDirectoryOpen),
   getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.robotStatusGet),
   connectDemo: () => ipcRenderer.invoke(IPC_CHANNELS.robotConnectDemo),
   disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.robotDisconnect),

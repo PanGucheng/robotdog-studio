@@ -1,5 +1,8 @@
 export const IPC_CHANNELS = {
   healthGet: 'app:health:get',
+  runtimeInfoGet: 'app:runtime-info:get',
+  diagnosticsExport: 'app:diagnostics:export',
+  dataDirectoryOpen: 'app:data-directory:open',
   robotStatusGet: 'robot:status:get',
   robotConnectDemo: 'robot:connect-demo',
   robotDisconnect: 'robot:disconnect',

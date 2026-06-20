@@ -74,6 +74,24 @@ export interface AppHealth {
   }>
 }
 
+export interface AppRuntimeInfo {
+  dataRoot: string
+  diagnosticsRoot: string
+  mode: 'simulation' | 'hardware'
+  workspaceCount: number
+  toolchain: ToolchainStatus
+  baseline: FirmwareBaselineStatus
+  agent: AgentRuntimeStatus
+}
+
+export interface DiagnosticExportResult {
+  path: string
+  createdAt: string
+  bytes: number
+  included: string[]
+  excluded: string[]
+}
+
 export type WorkspaceState = 'ready' | 'candidate_active' | 'applying' | 'error' | 'conflict' | 'archived'
 
 export interface CreateWorkspaceInput {
@@ -435,6 +453,9 @@ export type RecoveryEvent = { type: 'snapshot' | 'progress' | 'completed' | 'fai
 
 export interface RobotDogApi {
   getHealth(): Promise<AppHealth>
+  getRuntimeInfo(): Promise<AppRuntimeInfo>
+  exportDiagnostics(): Promise<DiagnosticExportResult>
+  openDataDirectory(): Promise<boolean>
   getStatus(): Promise<RobotStatus>
   connectDemo(): Promise<RobotStatus>
   disconnect(): Promise<RobotStatus>
