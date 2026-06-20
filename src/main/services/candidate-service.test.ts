@@ -104,6 +104,10 @@ describe('CandidateService', () => {
     expect(built.state).toBe('build_passed')
     expect(built.buildProof).toMatchObject({ sourceTreeHash: built.sourceTreeHash, diffHash: built.diffHash })
 
+    const reviewedDiff = await candidates.getDiff(candidate.id)
+    expect(reviewedDiff.files).toHaveLength(1)
+    expect((await candidates.get(candidate.id)).state).toBe('build_passed')
+
     const applied = await candidates.apply(candidate.id)
     expect(applied.state).toBe('applied')
     expect(applied.appliedCommit).toMatch(/^[a-f0-9]{40}$/)

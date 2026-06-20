@@ -131,7 +131,7 @@ export class CandidateService {
   }
 
   async getDiff(candidateId: string): Promise<CandidateDiff> {
-    const snapshot = await this.validate(candidateId)
+    const snapshot = await this.get(candidateId)
     if (!snapshot.validation?.valid || !snapshot.diffHash || !['review_ready', 'build_passed', 'awaiting_apply', 'no_changes'].includes(snapshot.state)) throw new Error('CANDIDATE_DIFF_NOT_READY')
     const candidateRoot = this.candidateRoot(candidateId)
     const files = await Promise.all(snapshot.validation.files.map(async (file) => ({
