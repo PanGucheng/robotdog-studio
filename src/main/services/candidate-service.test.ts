@@ -67,6 +67,39 @@ describe('CandidateService', () => {
     await expect(readFile(candidateFile, 'utf8')).rejects.toThrow()
   })
 
+  it('keeps manual edits in a recoverable draft and protects reference files', async () => {
+    const draft = await candidates.openManualDraft(workspaceId)
+    expect(draft.origin).toBe('manual')
+    expect((await candidates.openManualDraft(workspaceId)).id).toBe(draft.id)
+
+    const files = await candidates.listStudentCodeFiles(workspaceId, draft.id)
+    expect(files.find((file) => file.path === 'Core/Inc/student_control.h')).toMatchObject({ group: '参考接口', editable: false })
+    await expect(candidates.writeManualDraft(draft.id, 'Core/Inc/student_control.h', 'changed')).rejects.toThrow('只能查看')
+
+    const changed = '#include "student_control.h"\nvoid StudentControl_Update(void) { /* 学生草稿 */ }\n'
+    const saved = await candidates.writeManualDraft(draft.id, 'Core/Src/student_control.c', changed)
+    expect(saved.state).toBe('agent_running')
+    expect((await candidates.listStudentCodeFiles(workspaceId, draft.id)).find((file) => file.path === 'Core/Src/student_control.c')?.content).toBe(changed)
+    expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'Core', 'Src', 'student_control.c'), 'utf8')).not.toContain('学生草稿')
+  })
+
+  it('validates, builds, reviews, and applies a manual draft as one Git checkpoint', async () => {
+    const draft = await candidates.openManualDraft(workspaceId)
+    const changed = '#include "student_control.h"\nvoid StudentControl_Update(void) { /* 过弯练习 */ }\n'
+    await candidates.writeManualDraft(draft.id, 'Core/Src/student_control.c', changed)
+
+    const validated = await candidates.validate(draft.id)
+    expect(validated.state).toBe('review_ready')
+    expect((await candidates.getDiff(draft.id)).files).toHaveLength(1)
+    const built = await candidates.build(draft.id)
+    expect(built.state).toBe('build_passed')
+    const applied = await candidates.apply(draft.id)
+
+    expect(applied.state).toBe('applied')
+    expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'Core', 'Src', 'student_control.c'), 'utf8')).toBe(changed)
+    expect((await workspaces.history(workspaceId, 1))[0].message).toContain('manual draft')
+  })
+
   it('blocks policy files, binary content, deletion, and rename', async () => {
     const candidate = await candidates.create(workspaceId)
     const root = join(dataRoot, 'candidates', candidate.id)

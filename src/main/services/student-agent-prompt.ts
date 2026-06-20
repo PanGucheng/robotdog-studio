@@ -76,3 +76,21 @@ ${JSON.stringify(message)}
 
 请先读取直接相关文件，再开始这次任务。`
 }
+
+export function buildDiagnosticExplanationPrompt(diagnostic: string, snippets: Array<{ path: string; content: string }>): string {
+  const codeQuestion = diagnostic.startsWith('请逐段解释')
+  return `${STUDENT_AGENT_SYSTEM_PROMPT}
+
+## 本轮只读任务
+
+这次只做${codeQuestion ? '代码讲解' : '编译错误解释'}，不修改文件、不调用工具，也不提出审批请求。${codeQuestion ? '请结合机器马巡线动作，按选中代码的顺序逐小段解释，并指出学生可以观察到的现象。' : `请按下面四步回答：
+
+1. 错误发生在哪个学生文件或哪一行；
+2. 用生活化语言说明编译器为什么看不懂；
+3. 指出最可能需要检查的代码；
+4. 给出一个很短的修改示例，但不要声称已经替学生改好。`}
+
+<diagnostic_json>
+${JSON.stringify({ diagnostic, snippets })}
+</diagnostic_json>`
+}

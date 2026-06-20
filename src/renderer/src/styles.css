@@ -318,6 +318,47 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .diff-sheet-title { display: grid; grid-template-columns: minmax(0, 1fr) 72px 84px; align-items: center; gap: 8px; padding: 0 11px; color: #d7e2ea; border-bottom: 1px solid #314b62; background: #193149; }
 .diff-sheet-title span { display: flex; align-items: center; gap: 6px; min-width: 0; font: 9px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .diff-sheet-title small { color: #7f98aa; font: 8px var(--mono); text-align: center; }
+
+/* Student code studio: the file rail reads like checkpoints on a training track. */
+.student-code-studio { min-height: 0; height: 100%; display: grid; grid-template-columns: 210px minmax(0, 1fr); background: #10283a; }
+.student-file-rail { min-height: 0; padding: 16px 12px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; background: #eaf2f4; border-right: 1px solid #c9dadd; color: #16384a; }
+.editor-rail-heading { padding: 0 4px 12px; border-bottom: 2px solid #173f53; }
+.editor-rail-heading span { display: block; color: #5c7884; font: 700 10px var(--mono); letter-spacing: .13em; text-transform: uppercase; }
+.editor-rail-heading strong { display: block; margin-top: 5px; font-size: 16px; }
+.student-file-group { display: grid; gap: 6px; }
+.student-file-group > span { padding-left: 5px; color: #66838f; font-size: 11px; font-weight: 800; }
+.student-file-group button { width: 100%; padding: 9px 8px; display: flex; align-items: center; gap: 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #24495a; text-align: left; }
+.student-file-group button:hover { background: #f7fbfc; border-color: #c9dadd; }
+.student-file-group button.active { background: #fff; border-color: #62b9ad; box-shadow: 0 4px 14px rgba(22, 67, 78, .09); }
+.student-file-group button > span { display: grid; gap: 1px; min-width: 0; }
+.student-file-group button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.student-file-group button small { color: #78909a; font-size: 9px; }
+.editor-safety-note { margin-top: auto; padding: 10px; display: flex; align-items: flex-start; gap: 8px; border-top: 1px dashed #b6cbd0; color: #5a7783; font-size: 10px; line-height: 1.55; }
+.student-editor-main { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(320px, 1fr) auto; }
+.student-editor-toolbar { min-height: 76px; padding: 11px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #f8fbfc; border-bottom: 1px solid #d0e0e4; }
+.student-editor-toolbar h2 { margin: 2px 0; color: #173d4f; font-size: 18px; }
+.student-editor-toolbar p { margin: 0; color: #78909b; font: 10px var(--mono); }
+.student-editor-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.draft-save-state { display: inline-flex; align-items: center; gap: 5px; color: #3d786f; font-size: 10px; font-weight: 800; }
+.draft-save-state.saving { color: #9c741f; }
+.student-monaco-shell { position: relative; min-height: 0; overflow: hidden; }
+.student-monaco-shell.is-readonly::after { content: ''; position: absolute; inset: 0; pointer-events: none; border: 1px solid rgba(127, 183, 255, .12); }
+.editor-readonly-flag { position: absolute; right: 16px; top: 12px; z-index: 2; padding: 6px 9px; display: flex; align-items: center; gap: 6px; border: 1px solid #446579; border-radius: 999px; background: rgba(15, 40, 57, .92); color: #bcd0d9; font-size: 10px; }
+.editor-feedback { padding: 10px 15px; background: #e8f6f1; border-top: 1px solid #aed8ca; color: #28584f; }
+.editor-feedback.has-error { background: #fff1e8; border-color: #efc0a2; color: #8c3f25; }
+.editor-feedback strong { display: block; font-size: 11px; }
+.editor-feedback p { margin: 3px 0 0; white-space: pre-wrap; font: 11px/1.55 var(--mono); }
+.editor-feedback small { display: block; margin-top: 4px; }
+.editor-feedback button { margin-top: 8px; border-color: currentColor; background: transparent; color: inherit; }
+.code-editor-empty { min-height: 360px; display: grid; place-content: center; justify-items: center; color: #607d89; text-align: center; }
+.code-editor-empty h3 { margin: 10px 0 2px; color: #274d5e; }
+.code-editor-empty p { margin: 0; }
+
+@media (max-width: 1220px) {
+  .student-code-studio { grid-template-columns: 170px minmax(0, 1fr); }
+  .student-editor-toolbar { align-items: flex-start; flex-direction: column; }
+  .student-editor-actions { justify-content: flex-start; }
+}
 .diff-code { min-height: 0; overflow: auto; padding: 7px 0 14px; }
 .diff-line { display: grid; grid-template-columns: 20px 38px 38px minmax(max-content, 1fr); min-height: 21px; color: #c7d5df; font: 10px/21px var(--mono); }
 .diff-line > span { user-select: none; }

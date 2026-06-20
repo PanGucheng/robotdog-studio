@@ -90,6 +90,23 @@ describe('AgentSessionService', () => {
     expect((await workspaces.get(workspaceId)).state).toBe('ready')
   })
 
+  it('explains a manual draft error without modifying or closing the draft', async () => {
+    const draft = await candidates.openManualDraft(workspaceId)
+    const before = (await candidates.listStudentCodeFiles(workspaceId, draft.id)).map((file) => file.content)
+    const service = new AgentSessionService(candidates, new MockReasonixAdapter({ stepDelayMs: 0 }))
+    const events: AgentEvent[] = []
+    service.on('event', (event) => events.push(event))
+
+    await service.explainManualDraft(workspaceId, draft.id, 'student_control.c:8: error: expected ;')
+    await waitUntilIdle(service)
+
+    expect(events).toContainEqual(expect.objectContaining({ type: 'turn_started', message: '请解释刚才的编译错误' }))
+    expect(events).toContainEqual(expect.objectContaining({ type: 'assistant_delta' }))
+    expect(events.at(-1)).toMatchObject({ type: 'completed', state: 'no_changes' })
+    expect((await candidates.get(draft.id)).state).toBe('agent_running')
+    expect((await candidates.listStudentCodeFiles(workspaceId, draft.id)).map((file) => file.content)).toEqual(before)
+  })
+
   it('pauses for a visible permission and resumes only after the matching response', async () => {
     const adapter = new PermissionFixtureAdapter()
     const service = new AgentSessionService(candidates, adapter)

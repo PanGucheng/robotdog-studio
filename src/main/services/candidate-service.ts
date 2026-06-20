@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { access, copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
-import type { CandidateBuildProof, CandidateDiff, CandidateSnapshot, CandidateState, PatchValidationReport } from '../../shared/types'
+import type { CandidateBuildProof, CandidateDiff, CandidateSnapshot, CandidateState, PatchValidationReport, StudentCodeFile } from '../../shared/types'
 import type { CandidateBuilder } from './candidate-build-service'
 import { GitWorkspaceService } from './git-workspace-service'
 import { PatchPolicyService } from './patch-policy-service'
@@ -17,6 +17,7 @@ const candidateStateSchema = z.enum([
 const candidateSchema = z.object({
   id: candidateIdSchema,
   workspaceId: z.string().regex(/^ws_[a-f0-9]{24}$/),
+  origin: z.enum(['ai', 'manual']).default('ai'),
   state: candidateStateSchema,
   baseCommit: z.string().regex(/^[a-f0-9]{40}$/),
   baseTreeHash: z.string().regex(/^[a-f0-9]{64}$/),
@@ -68,7 +69,7 @@ export class CandidateService {
     await this.reconcile()
   }
 
-  async create(workspaceId: string): Promise<CandidateSnapshot> {
+  async create(workspaceId: string, origin: 'ai' | 'manual' = 'ai'): Promise<CandidateSnapshot> {
     await mkdir(this.candidatesDir, { recursive: true })
     const workspace = await this.workspaces.get(workspaceId)
     if (workspace.activeCandidateId || workspace.state === 'candidate_active') throw new Error('WORKSPACE_CANDIDATE_ACTIVE')
@@ -86,6 +87,7 @@ export class CandidateService {
       const snapshot: CandidateSnapshot = {
         id,
         workspaceId,
+        origin,
         state: 'agent_running',
         baseCommit,
         baseTreeHash,
@@ -106,6 +108,48 @@ export class CandidateService {
   async get(candidateId: string): Promise<CandidateSnapshot> {
     candidateIdSchema.parse(candidateId)
     return structuredClone(candidateSchema.parse(JSON.parse(await readFile(this.metadataPath(candidateId), 'utf8'))))
+  }
+
+  async openManualDraft(workspaceId: string): Promise<CandidateSnapshot> {
+    const workspace = await this.workspaces.get(workspaceId)
+    if (workspace.activeCandidateId) {
+      const existing = await this.get(workspace.activeCandidateId)
+      if (existing.origin === 'manual' && activeStates.has(existing.state)) return existing
+      throw new Error('请先完成或放弃当前 AI 修改，再开始自己编写代码。')
+    }
+    return this.create(workspaceId, 'manual')
+  }
+
+  async listStudentCodeFiles(workspaceId: string, candidateId?: string): Promise<StudentCodeFile[]> {
+    const workspace = await this.workspaces.get(workspaceId)
+    let root = await this.workspaces.getProjectRootForMain(workspace.id)
+    if (candidateId) {
+      const candidate = await this.get(candidateId)
+      if (candidate.workspaceId !== workspace.id) throw new Error('CANDIDATE_WORKSPACE_MISMATCH')
+      root = this.candidateRoot(candidate.id)
+    }
+    const descriptors: Array<Omit<StudentCodeFile, 'content'>> = [
+      { path: 'Core/Src/student_control.c', label: '小马怎么走', group: '控制逻辑', language: 'c', editable: true },
+      { path: 'student-config/line-following.yaml', label: '巡线参数', group: '参数设置', language: 'yaml', editable: true },
+      { path: 'Core/Inc/student_control.h', label: '输入和动作说明', group: '参考接口', language: 'c', editable: false }
+    ]
+    return Promise.all(descriptors.map(async (file) => ({ ...file, content: await readFile(join(root, ...file.path.split('/')), 'utf8') })))
+  }
+
+  async writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot> {
+    const snapshot = await this.get(candidateId)
+    if (snapshot.origin !== 'manual' || !activeStates.has(snapshot.state)) throw new Error('MANUAL_DRAFT_NOT_ACTIVE')
+    if (!['Core/Src/student_control.c', 'student-config/line-following.yaml'].includes(path)) throw new Error('这个参考文件只能查看，不能修改。')
+    const bytes = Buffer.byteLength(content, 'utf8')
+    if (bytes > 64_000 || content.includes('\0')) throw new Error('代码内容过大或包含不支持的字符。')
+    const target = join(this.candidateRoot(candidateId), ...path.split('/'))
+    const temporary = `${target}.manual.tmp`
+    await writeFile(temporary, content, 'utf8')
+    await rename(temporary, target)
+    return this.update(snapshot, {
+      state: 'agent_running', validation: undefined, sourceTreeHash: undefined, diffHash: undefined,
+      buildProof: undefined, error: undefined
+    })
   }
 
   async validate(candidateId: string): Promise<CandidateSnapshot> {
@@ -191,7 +235,9 @@ export class CandidateService {
         await mkdir(dirname(target), { recursive: true })
         await copyFile(join(this.candidateRoot(candidateId), ...file.path.split('/')), target)
       }
-      committed = await this.git.commitAll(projectRoot, `feat(student): apply AI candidate ${candidateId.slice(5, 13)}`)
+      committed = await this.git.commitAll(projectRoot, snapshot.origin === 'manual'
+        ? `feat(student): apply manual draft ${candidateId.slice(5, 13)}`
+        : `feat(student): apply AI candidate ${candidateId.slice(5, 13)}`)
       await this.workspaces.completeCandidateApply(snapshot.workspaceId, candidateId, committed)
       await this.git.removeWorktree(projectRoot, this.candidateRoot(candidateId)).catch(() => undefined)
       return this.update(snapshot, { state: 'applied', appliedCommit: committed, error: undefined })

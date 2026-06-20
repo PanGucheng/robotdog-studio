@@ -177,6 +177,7 @@ export interface PatchValidationReport {
 export interface CandidateSnapshot {
   id: string
   workspaceId: string
+  origin?: 'ai' | 'manual'
   state: CandidateState
   baseCommit: string
   baseTreeHash: string
@@ -190,6 +191,15 @@ export interface CandidateSnapshot {
   buildProof?: CandidateBuildProof
   appliedCommit?: string
   error?: string
+}
+
+export interface StudentCodeFile {
+  path: 'Core/Src/student_control.c' | 'Core/Inc/student_control.h' | 'student-config/line-following.yaml'
+  label: string
+  group: '控制逻辑' | '参数设置' | '参考接口'
+  language: 'c' | 'yaml'
+  editable: boolean
+  content: string
 }
 
 export interface CandidateBuildProof {
@@ -445,6 +455,10 @@ export interface RobotDogApi {
   listWorkspaces(): Promise<WorkspaceSummary[]>
   createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>
   renameWorkspace(workspaceId: string, name: string): Promise<WorkspaceSummary>
+  listStudentCodeFiles(workspaceId: string, candidateId?: string): Promise<StudentCodeFile[]>
+  openManualDraft(workspaceId: string): Promise<CandidateSnapshot>
+  writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot>
+  explainManualDraft(workspaceId: string, candidateId: string, diagnostic: string): Promise<AgentTurnSnapshot>
   getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
   undoWorkspace(workspaceId: string): Promise<WorkspaceSummary>

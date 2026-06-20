@@ -1,4 +1,4 @@
-import { Activity, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, Square, TerminalSquare } from 'lucide-react'
+import { Activity, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
@@ -6,7 +6,9 @@ import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
 import { DiffReview } from './DiffReview'
 import { DisplaySettings } from './DisplaySettings'
+import { StudentCodeEditor } from './StudentCodeEditor'
 import type { UiScale } from '../lib/ui-scale'
+import type { WorkspaceSummary } from '../../../shared/types'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -20,6 +22,7 @@ interface WorkbenchProps {
   teacherMode: boolean
   busy: boolean
   candidate?: CandidateSnapshot
+  workspace?: WorkspaceSummary
   candidateDiff?: CandidateDiff
   candidateDiffLoading: boolean
   candidateDiffError?: string
@@ -30,6 +33,8 @@ interface WorkbenchProps {
   onBuildCandidate(candidateId: string): void
   onApplyCandidate(candidateId: string): void
   onUndoWorkspace(): void
+  onCandidateChanged(candidate?: CandidateSnapshot): void
+  onExplainDiagnostic(candidateId: string, diagnostic: string): void
   onBuildFirmware: () => void
   onCancelBuild: () => void
   onToggleUsb: () => void
@@ -44,13 +49,14 @@ const tabs = [
   ['CCD 曲线', Activity],
   ['串口日志', TerminalSquare],
   ['编译 / 烧录', Cpu],
-  ['代码修改', Code2],
+  ['编写代码', Code2],
+  ['修改确认', ShieldCheck],
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, candidate, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, build, connection, update, recovery, teacherMode, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainDiagnostic, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery }: WorkbenchProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
-  useEffect(() => { if (candidate?.state === 'review_ready') setActiveTab('代码修改') }, [candidate?.id, candidate?.state])
+  useEffect(() => { if (candidate?.state === 'review_ready' || candidate?.state === 'build_passed') setActiveTab('修改确认') }, [candidate?.id, candidate?.state])
   const error = frame.center - frame.target
   const buildProgress = build.totalFiles > 0 ? Math.round((build.completedFiles / build.totalFiles) * 100) : 0
   const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
@@ -64,7 +70,7 @@ export function Workbench({ frame, status, logs, toolchain, build, connection, u
         ))}
       </nav>
 
-      {activeTab === '代码修改' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
+      {activeTab === '编写代码' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainDiagnostic={onExplainDiagnostic} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
         <DisplaySettings scale={uiScale} toolchain={toolchain} onScaleChange={onUiScaleChange} />
       ) : activeTab === '编译 / 烧录' ? (
         <div className="workbench-content firmware-workbench">

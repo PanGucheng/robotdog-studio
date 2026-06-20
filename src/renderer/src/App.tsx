@@ -253,6 +253,10 @@ export function App(): React.JSX.Element {
     setCandidate(undefined)
     void api.promptAgent(activeWorkspace.id, message).then(setAgentTurn).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
   }
+  const explainDiagnostic = (candidateId: string, diagnostic: string): void => {
+    if (!activeWorkspace) return
+    void api.explainManualDraft(activeWorkspace.id, candidateId, diagnostic).then(setAgentTurn).catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+  }
   const cancelAgent = (): void => { void api.cancelAgent(agentTurn?.turnId) }
   const respondAgentPermission = (requestId: string, optionId: string): void => {
     if (!agentTurn) return
@@ -344,6 +348,7 @@ export function App(): React.JSX.Element {
           teacherMode={teacherMode}
           busy={busy}
           candidate={candidate?.workspaceId === activeWorkspaceId ? candidate : undefined}
+          workspace={activeWorkspace}
           candidateDiff={candidateDiff}
           candidateDiffLoading={candidateDiffLoading}
           candidateDiffError={candidateDiffError}
@@ -354,6 +359,8 @@ export function App(): React.JSX.Element {
           onBuildCandidate={buildCandidate}
           onApplyCandidate={applyCandidate}
           onUndoWorkspace={undoWorkspace}
+          onCandidateChanged={setCandidate}
+          onExplainDiagnostic={explainDiagnostic}
           onBuildFirmware={buildFirmware}
           onCancelBuild={cancelBuild}
           onToggleUsb={toggleUsb}

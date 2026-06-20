@@ -4,7 +4,7 @@ import { z } from 'zod'
 import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, StudentPlanStep } from '../../shared/types'
 import { CandidateService } from './candidate-service'
 import type { AdapterEvent, ReasonixAdapter } from './reasonix-adapter'
-import { STUDENT_AGENT_PROMPT_SHA256, STUDENT_AGENT_PROMPT_VERSION } from './student-agent-prompt'
+import { buildDiagnosticExplanationPrompt, STUDENT_AGENT_PROMPT_SHA256, STUDENT_AGENT_PROMPT_VERSION } from './student-agent-prompt'
 
 const workspaceIdSchema = z.string().regex(/^ws_[a-f0-9]{24}$/)
 const messageSchema = z.string().trim().min(1).max(2_000)
@@ -15,6 +15,7 @@ interface ActiveTurn {
   done: Promise<void>
   lastAdapterSequence: number
   eventSequence: number
+  readOnly?: boolean
 }
 
 export class AgentSessionService extends EventEmitter {
@@ -49,6 +50,26 @@ export class AgentSessionService extends EventEmitter {
     active.done = this.run(active).finally(() => {
       if (this.active?.snapshot.turnId === turnId) this.active = undefined
     })
+    return structuredClone(snapshot)
+  }
+
+  async explainManualDraft(workspaceId: string, candidateId: string, diagnostic: string): Promise<AgentTurnSnapshot> {
+    const validWorkspaceId = workspaceIdSchema.parse(workspaceId)
+    const candidate = await this.candidates.get(candidateId)
+    if (candidate.workspaceId !== validWorkspaceId || candidate.origin !== 'manual') throw new Error('MANUAL_DRAFT_MISMATCH')
+    if (this.active) throw new Error('AGENT_BUSY')
+    const snippets = (await this.candidates.listStudentCodeFiles(validWorkspaceId, candidate.id))
+      .filter((file) => file.editable).map((file) => ({ path: file.path, content: file.content.slice(0, 8_000) }))
+    const turnId = `turn_${randomBytes(12).toString('hex')}`
+    const snapshot: AgentTurnSnapshot = {
+      turnId, workspaceId: validWorkspaceId, candidateId: candidate.id, state: 'preparing',
+      message: buildDiagnosticExplanationPrompt(diagnostic.slice(0, 4_000), snippets),
+      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256, startedAt: new Date().toISOString()
+    }
+    const active: ActiveTurn = { snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0, readOnly: true }
+    this.active = active
+    this.publish(active, { type: 'turn_started', workspaceId: validWorkspaceId, candidateId: candidate.id, message: '请解释刚才的编译错误', promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256 })
+    active.done = this.runExplanation(active).finally(() => { if (this.active?.snapshot.turnId === turnId) this.active = undefined })
     return structuredClone(snapshot)
   }
 
@@ -107,6 +128,29 @@ export class AgentSessionService extends EventEmitter {
         await this.safeCancelCandidate(snapshot.candidateId)
         const code = caught instanceof Error && caught.message === 'AGENT_CRASHED' ? 'AGENT_CRASHED' : 'AGENT_FAILED'
         this.publish(active, { type: 'failed', code, message: 'AI 助教暂时没有完成这次修改，你可以重新试一次。' })
+      }
+    }
+  }
+
+  private async runExplanation(active: ActiveTurn): Promise<void> {
+    const { snapshot, controller } = active
+    try {
+      const candidate = await this.candidates.get(snapshot.candidateId)
+      const candidateRoot = await this.candidates.getCandidateRootForMain(snapshot.candidateId)
+      await this.adapter.runTurn({
+        turnId: snapshot.turnId, workspaceId: snapshot.workspaceId, candidateId: snapshot.candidateId,
+        candidateRoot, message: snapshot.message, policyVersion: candidate.policyVersion, readOnly: true
+      }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
+      if (controller.signal.aborted) throw controller.signal.reason
+      snapshot.state = 'no_changes'
+      this.publish(active, { type: 'completed', state: 'no_changes', message: '错误解释完成，安全草稿没有被 AI 修改。' })
+    } catch {
+      if (controller.signal.aborted) {
+        snapshot.state = 'cancelled'
+        this.publish(active, { type: 'cancelled', message: '已停止解释，安全草稿没有变化。' })
+      } else {
+        snapshot.state = 'failed'
+        this.publish(active, { type: 'failed', code: 'DIAGNOSTIC_EXPLANATION_FAILED', message: 'AI 暂时没能解释这条错误，原始诊断仍保留在代码页。' })
       }
     }
   }

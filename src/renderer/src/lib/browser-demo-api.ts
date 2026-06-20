@@ -310,6 +310,34 @@ export const browserDemoApi: RobotDogApi = {
     workspaceListeners.forEach((listener) => listener(structuredClone(reverted)))
     return structuredClone(reverted)
   },
+  listStudentCodeFiles: async (_workspaceId, candidateId) => {
+    const changed = candidateId && demoCandidates.get(candidateId)?.origin === 'manual'
+    return [
+      { path: 'Core/Src/student_control.c' as const, label: '小马怎么走', group: '控制逻辑' as const, language: 'c' as const, editable: true, content: `#include "student_control.h"\n\nvoid StudentControl_Update(const student_control_input_t *input, student_control_output_t *output)\n{\n    output->action = ${changed ? 'STUDENT_ACTION_TURN_LEFT' : 'STUDENT_ACTION_WALK'};\n}\n` },
+      { path: 'student-config/line-following.yaml' as const, label: '巡线参数', group: '参数设置' as const, language: 'yaml' as const, editable: true, content: 'turn_strength: 18\nline_target: 64\n' },
+      { path: 'Core/Inc/student_control.h' as const, label: '输入和动作说明', group: '参考接口' as const, language: 'c' as const, editable: false, content: '/* 这是固件提供的只读接口说明。 */\n' }
+    ]
+  },
+  openManualDraft: async (workspaceId) => {
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    if (workspace.activeCandidateId) {
+      const active = await browserDemoApi.getCandidate(workspace.activeCandidateId)
+      if (active.origin === 'manual') return active
+      throw new Error('请先处理当前 AI 修改')
+    }
+    const candidate = await browserDemoApi.createCandidate(workspaceId)
+    const manual = { ...candidate, origin: 'manual' as const }
+    demoCandidates.set(manual.id, manual)
+    return manual
+  },
+  writeManualDraft: async (candidateId, path, _content) => {
+    if (!['Core/Src/student_control.c', 'student-config/line-following.yaml'].includes(path)) throw new Error('参考文件不能修改')
+    const candidate = await browserDemoApi.getCandidate(candidateId)
+    const updated = { ...candidate, origin: 'manual' as const, state: 'agent_running' as const, updatedAt: new Date().toISOString() }
+    demoCandidates.set(candidateId, updated)
+    candidateListeners.forEach((listener) => listener(structuredClone(updated)))
+    return structuredClone(updated)
+  },
   createCandidate: async (workspaceId) => {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
     const now = new Date()
@@ -330,11 +358,14 @@ export const browserDemoApi: RobotDogApi = {
   },
   getCandidateDiff: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
-    return { candidateId, diffHash: candidate.diffHash ?? '0'.repeat(64), files: ['review_ready', 'building', 'build_passed', 'awaiting_apply'].includes(candidate.state) ? [{ path: 'student-config/line-following.yaml', status: 'modified', before: 'turn_strength: 18\nline_target: 64\n', after: '# 减少过弯时的左右摆动\nturn_strength: 16\nline_target: 64\n', additions: 2, deletions: 1 }] : [] }
+    const manualFile = { path: 'Core/Src/student_control.c', status: 'modified' as const, before: 'output->action = STUDENT_ACTION_WALK;\n', after: 'output->action = STUDENT_ACTION_TURN_LEFT;\n', additions: 1, deletions: 1 }
+    const aiFile = { path: 'student-config/line-following.yaml', status: 'modified' as const, before: 'turn_strength: 18\nline_target: 64\n', after: '# 减少过弯时的左右摆动\nturn_strength: 16\nline_target: 64\n', additions: 2, deletions: 1 }
+    return { candidateId, diffHash: candidate.diffHash ?? '0'.repeat(64), files: ['review_ready', 'building', 'build_passed', 'awaiting_apply'].includes(candidate.state) ? [candidate.origin === 'manual' ? manualFile : aiFile] : [] }
   },
   validateCandidate: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
-    const validated = { ...candidate, state: 'no_changes' as const, updatedAt: new Date().toISOString(), sourceTreeHash: candidate.baseTreeHash, diffHash: '0'.repeat(64), validation: { valid: true, policyVersion: 'student-v1:1', files: [], violations: [], warnings: [], changedFiles: 0, patchBytes: 0 } }
+    const files = candidate.origin === 'manual' ? [{ path: 'Core/Src/student_control.c', status: 'modified' as const, bytes: 180, additions: 1, deletions: 1 }] : []
+    const validated = { ...candidate, state: candidate.origin === 'manual' ? 'review_ready' as const : 'no_changes' as const, updatedAt: new Date().toISOString(), sourceTreeHash: candidate.origin === 'manual' ? '4'.repeat(64) : candidate.baseTreeHash, diffHash: candidate.origin === 'manual' ? '5'.repeat(64) : '0'.repeat(64), validation: { valid: true, policyVersion: 'student-v1:1', files, violations: [], warnings: [], changedFiles: files.length, patchBytes: files.length ? 180 : 0 } }
     demoCandidates.set(candidateId, validated)
     candidateListeners.forEach((listener) => listener(structuredClone(validated)))
     return validated
@@ -358,7 +389,7 @@ export const browserDemoApi: RobotDogApi = {
     const ready: WorkspaceSummary = { ...workspace, state: 'ready', activeCandidateId: undefined, headCommit: commit, updatedAt: new Date().toISOString() }
     demoWorkspaces = demoWorkspaces.map((item) => item.id === ready.id ? ready : item)
     const history = demoHistories.get(ready.id) ?? []
-    demoHistories.set(ready.id, [{ commit, shortCommit: commit.slice(0, 7), message: `feat(student): apply AI candidate ${candidateId.slice(5, 13)}`, createdAt: new Date().toISOString() }, ...history])
+    demoHistories.set(ready.id, [{ commit, shortCommit: commit.slice(0, 7), message: `feat(student): apply ${candidate.origin === 'manual' ? 'manual draft' : 'AI candidate'} ${candidateId.slice(5, 13)}`, createdAt: new Date().toISOString() }, ...history])
     candidateListeners.forEach((listener) => listener(structuredClone(applied)))
     workspaceListeners.forEach((listener) => listener(structuredClone(ready)))
     return structuredClone(applied)
@@ -370,6 +401,15 @@ export const browserDemoApi: RobotDogApi = {
     demoWorkspaces = demoWorkspaces.map((item) => item.id === candidate.workspaceId ? { ...item, state: 'ready', activeCandidateId: undefined, updatedAt: new Date().toISOString() } : item)
     candidateListeners.forEach((listener) => listener(structuredClone(rejected)))
     return rejected
+  },
+  explainManualDraft: async (workspaceId, candidateId, _diagnostic) => {
+    if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')
+    const turn: AgentTurnSnapshot = { turnId: `turn_explain_${Date.now()}`, workspaceId, candidateId, state: 'preparing', message: '请解释刚才的编译错误', startedAt: new Date().toISOString() }
+    browserAgentTurn = turn
+    emitBrowserAgent(turn, 1, { type: 'turn_started', workspaceId, candidateId, message: '请解释刚才的编译错误' })
+    setTimeout(() => emitBrowserAgent(turn, 2, { type: 'assistant_delta', text: '这条错误表示编译器在标出的那一行没有认出完整的 C 语句。先检查上一行是否漏了分号 `;`，再看看括号是否成对。' }), 120)
+    setTimeout(() => { emitBrowserAgent(turn, 3, { type: 'completed', state: 'no_changes', message: '错误解释完成，安全草稿没有被 AI 修改。' }); browserAgentTurn = undefined }, 260)
+    return { ...turn }
   },
   promptAgent: async (workspaceId, message) => {
     if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')

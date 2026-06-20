@@ -21,6 +21,13 @@ export class MockReasonixAdapter implements ReasonixAdapter {
   }
 
   async runTurn(context: AdapterTurnContext, emit: (event: AdapterEvent | unknown) => void, signal: AbortSignal): Promise<{ summary: string }> {
+    if (context.readOnly) {
+      await delay(this.stepDelayMs, signal)
+      emit({ type: 'activity', sequence: 1, state: 'thinking', label: '正在把编译错误翻译成容易理解的话' })
+      await delay(this.stepDelayMs, signal)
+      emit({ type: 'assistant_delta', sequence: 2, text: '这条错误表示编译器在标出的那一行没有认出完整的 C 语句。先看看上一行是否漏了分号 `;`，再检查括号是不是成对出现。修好后重新点击“检查并查看修改”即可。' })
+      return { summary: '已用学生能理解的方式解释编译错误。' }
+    }
     let step = 0
     const next = async (event: AdapterEvent): Promise<void> => {
       step += 1

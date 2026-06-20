@@ -42,6 +42,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
     process.client.handleRequest('session/request_permission', async (value) => {
       const params = (value ?? {}) as PermissionParams
       const requestId = params.toolCall?.toolCallId ?? ''
+      if (context.readOnly) return { outcome: { outcome: 'cancelled' } }
       const automatic = automaticPermissionResponse(context.candidateRoot, value)
       if (automatic) return automatic
       const options = (params.options ?? []).flatMap((option) => {
@@ -73,10 +74,10 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
       await process.client.request('initialize', { protocolVersion: 1, clientInfo: { name: 'robotdog-studio', title: 'RobotDog Studio', version: '0.1.0' } })
       sessionId = await this.openWorkspaceSession(process.client, context.workspaceId, context.candidateRoot)
       if (signal.aborted) throw signal.reason
-      emit({ type: 'activity', sequence: ++sequence, label: 'Reasonix 已连接，正在修改候选副本', state: 'editing' })
+      emit({ type: 'activity', sequence: ++sequence, label: context.readOnly ? 'Reasonix 正在用中文解释错误' : 'Reasonix 已连接，正在修改候选副本', state: context.readOnly ? 'thinking' : 'editing' })
       const result = await process.client.request<{ stopReason: string }>('session/prompt', {
         sessionId,
-        prompt: [{ type: 'text', text: buildStudentAgentPrompt(context.message, { policyVersion: context.policyVersion }) }]
+        prompt: [{ type: 'text', text: context.readOnly ? context.message : buildStudentAgentPrompt(context.message, { policyVersion: context.policyVersion }) }]
       }, 10 * 60_000)
       if (result.stopReason === 'error') throw new Error('AGENT_CRASHED')
       if (result.stopReason === 'cancelled' || signal.aborted) throw signal.reason ?? new Error('AGENT_CANCELLED')

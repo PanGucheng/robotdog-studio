@@ -11,6 +11,7 @@ export interface AdapterTurnContext {
   candidateRoot: string
   message: string
   policyVersion?: string
+  readOnly?: boolean
 }
 
 export interface ReasonixAdapter {

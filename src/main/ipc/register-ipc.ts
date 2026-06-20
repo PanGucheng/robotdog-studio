@@ -135,6 +135,18 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
       return withCandidateEvent(() => candidates.create(workspaceId))
     })
+    ipcMain.handle(IPC_CHANNELS.studentFilesList, (_event, workspaceId: unknown, candidateId: unknown) => {
+      if (typeof workspaceId !== 'string' || (candidateId !== undefined && typeof candidateId !== 'string')) throw new Error('STUDENT_FILES_INPUT_INVALID')
+      return candidates.listStudentCodeFiles(workspaceId, candidateId as string | undefined)
+    })
+    ipcMain.handle(IPC_CHANNELS.manualDraftOpen, (_event, workspaceId: unknown) => {
+      if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
+      return withCandidateEvent(() => candidates.openManualDraft(workspaceId))
+    })
+    ipcMain.handle(IPC_CHANNELS.manualDraftWrite, (_event, candidateId: unknown, path: unknown, content: unknown) => {
+      if (typeof candidateId !== 'string' || typeof path !== 'string' || typeof content !== 'string') throw new Error('MANUAL_DRAFT_INPUT_INVALID')
+      return withCandidateEvent(() => candidates.writeManualDraft(candidateId, path as never, content))
+    })
     ipcMain.handle(IPC_CHANNELS.candidateGet, (_event, candidateId: unknown) => {
       if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
       return candidates.get(candidateId)
@@ -164,6 +176,10 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     ipcMain.handle(IPC_CHANNELS.agentPrompt, (_event, workspaceId: unknown, message: unknown) => {
       if (typeof workspaceId !== 'string' || typeof message !== 'string') throw new Error('AGENT_PROMPT_INVALID')
       return agents.prompt(workspaceId, message)
+    })
+    ipcMain.handle(IPC_CHANNELS.manualDraftExplain, (_event, workspaceId: unknown, candidateId: unknown, diagnostic: unknown) => {
+      if (typeof workspaceId !== 'string' || typeof candidateId !== 'string' || typeof diagnostic !== 'string') throw new Error('MANUAL_EXPLAIN_INPUT_INVALID')
+      return agents.explainManualDraft(workspaceId, candidateId, diagnostic)
     })
     ipcMain.handle(IPC_CHANNELS.agentCancel, (_event, turnId: unknown) => {
       if (turnId !== undefined && typeof turnId !== 'string') throw new Error('AGENT_TURN_ID_INVALID')

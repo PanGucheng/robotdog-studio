@@ -62,10 +62,6 @@ export class CandidateBuildService implements CandidateBuilder {
   }
 }
 
-async function validateLineConfig(path: string): Promise<string> {
-  return validateLineConfigText(await readFile(path, 'utf8'))
-}
-
 export function validateLineConfigText(text: string): string {
   const parsed = parseLineConfigText(text)
   return `turn_strength=${parsed.turnStrength}，line_target=${parsed.lineTarget}`
