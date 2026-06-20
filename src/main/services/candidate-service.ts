@@ -3,7 +3,7 @@ import { access, copyFile, mkdir, readFile, readdir, rename, rm, writeFile } fro
 import { dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
 import type { CandidateBuildProof, CandidateDiff, CandidateSnapshot, CandidateState, PatchValidationReport, StudentCodeFile } from '../../shared/types'
-import type { CandidateBuilder } from './candidate-build-service'
+import { CandidateBuildError, type CandidateBuilder } from './candidate-build-service'
 import { GitWorkspaceService } from './git-workspace-service'
 import { PatchPolicyService } from './patch-policy-service'
 import { SourceFingerprintService } from './source-fingerprint-service'
@@ -14,6 +14,13 @@ const candidateStateSchema = z.enum([
   'preparing', 'agent_running', 'validating', 'review_ready', 'no_changes', 'building', 'build_passed',
   'awaiting_apply', 'applying', 'applied', 'rejected', 'cancelled', 'failed', 'stale', 'conflict'
 ])
+const candidateDiagnosticSchema = z.object({
+  path: z.enum(['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'student-config/line-following.yaml']).optional(),
+  line: z.number().int().positive().max(1_000_000).optional(),
+  column: z.number().int().positive().max(1_000_000).optional(),
+  severity: z.enum(['error', 'warning']),
+  message: z.string().min(1).max(300)
+}).strict()
 const candidateSchema = z.object({
   id: candidateIdSchema,
   workspaceId: z.string().regex(/^ws_[a-f0-9]{24}$/),
@@ -30,7 +37,8 @@ const candidateSchema = z.object({
   validation: z.custom<PatchValidationReport>().optional(),
   buildProof: z.custom<CandidateBuildProof>().optional(),
   appliedCommit: z.string().regex(/^[a-f0-9]{40}$/).optional(),
-  error: z.string().max(500).optional()
+  error: z.string().max(500).optional(),
+  diagnostics: z.array(candidateDiagnosticSchema).max(6).optional()
 }).strict()
 
 const activeStates = new Set<CandidateState>(['preparing', 'agent_running', 'validating', 'review_ready', 'building', 'build_passed', 'awaiting_apply'])
@@ -43,6 +51,11 @@ export interface CandidateServiceOptions {
   fingerprint?: SourceFingerprintService
   lifetimeMs?: number
   builder?: CandidateBuilder
+}
+
+export interface ManualRepairBackup {
+  snapshot: CandidateSnapshot
+  files: Array<{ path: 'Core/Src/student_control.c' | 'student-config/line-following.yaml'; content: string }>
 }
 
 export class CandidateService {
@@ -161,8 +174,39 @@ export class CandidateService {
     await rename(temporary, target)
     return this.update(snapshot, {
       state: 'agent_running', validation: undefined, sourceTreeHash: undefined, diffHash: undefined,
-      buildProof: undefined, error: undefined
+      buildProof: undefined, error: undefined, diagnostics: undefined
     })
+  }
+
+  async prepareManualRepair(candidateId: string): Promise<CandidateSnapshot> {
+    const snapshot = await this.get(candidateId)
+    if (snapshot.origin !== 'manual' || !activeStates.has(snapshot.state) || !snapshot.diagnostics?.length) throw new Error('MANUAL_REPAIR_NOT_READY')
+    return this.update(snapshot, {
+      state: 'agent_running', validation: undefined, sourceTreeHash: undefined, diffHash: undefined,
+      buildProof: undefined
+    })
+  }
+
+  async createManualRepairBackupForMain(candidateId: string): Promise<ManualRepairBackup> {
+    const snapshot = await this.get(candidateId)
+    if (snapshot.origin !== 'manual' || !activeStates.has(snapshot.state)) throw new Error('MANUAL_REPAIR_NOT_READY')
+    const root = this.candidateRoot(candidateId)
+    return {
+      snapshot,
+      files: await Promise.all((['Core/Src/student_control.c', 'student-config/line-following.yaml'] as const).map(async (path) => ({
+        path, content: await readFile(join(root, ...path.split('/')), 'utf8')
+      })))
+    }
+  }
+
+  async restoreManualRepairForMain(backup: ManualRepairBackup): Promise<CandidateSnapshot> {
+    const current = await this.get(backup.snapshot.id)
+    if (current.workspaceId !== backup.snapshot.workspaceId || current.origin !== 'manual') throw new Error('MANUAL_REPAIR_BACKUP_MISMATCH')
+    const root = this.candidateRoot(current.id)
+    for (const file of backup.files) await writeFile(join(root, ...file.path.split('/')), file.content, 'utf8')
+    const restored = candidateSchema.parse({ ...backup.snapshot, updatedAt: new Date().toISOString() })
+    await this.writeSnapshot(restored)
+    return structuredClone(restored)
   }
 
   async validate(candidateId: string): Promise<CandidateSnapshot> {
@@ -173,7 +217,7 @@ export class CandidateService {
     if ((await this.git.getHead(projectRoot)) !== snapshot.baseCommit || !(await this.git.isClean(projectRoot))) {
       return this.finish(snapshot, 'stale', '正式项目已经变化，请重新生成候选修改。', true)
     }
-    snapshot = await this.update(snapshot, { state: 'validating', error: undefined })
+    snapshot = await this.update(snapshot, { state: 'validating', error: undefined, diagnostics: undefined })
     try {
       const validation = await this.policy.validate(this.candidateRoot(candidateId))
       const sourceTreeHash = await this.fingerprint.calculate(this.candidateRoot(candidateId))
@@ -206,7 +250,7 @@ export class CandidateService {
     let snapshot = await this.get(candidateId)
     if (snapshot.state !== 'review_ready' || !snapshot.validation?.valid || !snapshot.sourceTreeHash || !snapshot.diffHash) throw new Error('CANDIDATE_NOT_BUILDABLE')
     if (!this.builder) throw new Error('CANDIDATE_BUILDER_UNAVAILABLE')
-    snapshot = await this.update(snapshot, { state: 'building', error: undefined, buildProof: undefined })
+    snapshot = await this.update(snapshot, { state: 'building', error: undefined, diagnostics: undefined, buildProof: undefined })
     try {
       const proof = await this.builder.build({
         candidateId, candidateRoot: this.candidateRoot(candidateId),
@@ -214,10 +258,13 @@ export class CandidateService {
       })
       const currentTreeHash = await this.fingerprint.calculate(this.candidateRoot(candidateId))
       if (currentTreeHash !== proof.sourceTreeHash || proof.diffHash !== snapshot.diffHash) throw new Error('CANDIDATE_CHANGED_DURING_BUILD')
-      return this.update(snapshot, { state: 'build_passed', buildProof: proof, error: undefined })
+      return this.update(snapshot, { state: 'build_passed', buildProof: proof, error: undefined, diagnostics: undefined })
     } catch (caught) {
-      const error = caught instanceof Error ? caught.message : String(caught)
-      return this.update(snapshot, { state: 'review_ready', error: error.slice(0, 500), buildProof: undefined })
+      const diagnostics = caught instanceof CandidateBuildError ? caught.diagnostics : [{ severity: 'error' as const, message: caught instanceof Error ? caught.message : String(caught) }]
+      const first = diagnostics[0]
+      const location = first?.line ? `第 ${first.line} 行：` : ''
+      const error = `${location}${first?.message ?? '代码没有通过编译。'}`
+      return this.update(snapshot, { state: 'review_ready', error: error.slice(0, 500), diagnostics, buildProof: undefined })
     }
   }
 

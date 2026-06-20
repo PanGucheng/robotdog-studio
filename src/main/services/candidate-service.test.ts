@@ -7,7 +7,7 @@ import { SourceFingerprintService } from './source-fingerprint-service'
 import { WorkspaceService } from './workspace-service'
 import { GitWorkspaceService } from './git-workspace-service'
 import { PatchPolicyService } from './patch-policy-service'
-import type { CandidateBuilder, CandidateBuildInput } from './candidate-build-service'
+import { CandidateBuildError, type CandidateBuilder, type CandidateBuildInput } from './candidate-build-service'
 
 const passingBuilder: CandidateBuilder = {
   async build(input: CandidateBuildInput) {
@@ -123,6 +123,34 @@ describe('CandidateService', () => {
     expect((await service.getDiff(candidate.id)).files[0]).toMatchObject({ before: 'turn_strength: 18\n', after: 'turn_strength: 16\n' })
     releaseBuild?.()
     expect((await build).state).toBe('build_passed')
+  })
+
+  it('stores structured compiler diagnostics instead of a truncated raw log', async () => {
+    const failingBuilder: CandidateBuilder = {
+      async build() {
+        throw new CandidateBuildError([{
+          path: 'Core/Src/student_control.c', line: 8, column: 5, severity: 'error', message: "expected ';' before '}' token"
+        }], 'very long compiler command and internal paths')
+      }
+    }
+    const service = new CandidateService({ rootDir: dataRoot, workspaces, builder: failingBuilder })
+    const draft = await service.openManualDraft(workspaceId)
+    await service.writeManualDraft(draft.id, 'Core/Src/student_control.c', '#include "student_control.h"\nvoid StudentControl_Update(void) { broken }\n')
+    await service.validate(draft.id)
+    const failed = await service.build(draft.id)
+
+    expect(failed.state).toBe('review_ready')
+    expect(failed.error).toBe("第 8 行：expected ';' before '}' token")
+    expect(failed.diagnostics).toEqual([expect.objectContaining({ path: 'Core/Src/student_control.c', line: 8, column: 5 })])
+    expect(failed.error).not.toContain('internal paths')
+
+    const backup = await service.createManualRepairBackupForMain(draft.id)
+    await service.prepareManualRepair(draft.id)
+    await service.writeManualDraft(draft.id, 'Core/Src/student_control.c', 'half-written AI repair\n')
+    const restored = await service.restoreManualRepairForMain(backup)
+    expect(restored.state).toBe('review_ready')
+    expect(restored.diagnostics).toHaveLength(1)
+    expect((await service.listStudentCodeFiles(workspaceId, draft.id))[0].content).toContain('broken')
   })
 
   it('blocks policy files, binary content, deletion, and rename', async () => {

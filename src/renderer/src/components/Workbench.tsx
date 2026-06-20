@@ -1,6 +1,6 @@
 import { Activity, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, ToolchainStatus, WorkspaceHistoryEntry } from '../../../shared/types'
+import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
@@ -37,6 +37,8 @@ interface WorkbenchProps {
   onUndoWorkspace(): void
   onCandidateChanged(candidate?: CandidateSnapshot): void
   onExplainCode(request: StudentCodeExplanationRequest): void
+  diagnosticHelp?: StudentDiagnosticHelp
+  onRepairStudentCode(candidateId: string): void
   onBuildFirmware: () => void
   onCancelBuild: () => void
   onToggleUsb: () => void
@@ -58,9 +60,9 @@ const tabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, teacherMode, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, learningDestination, onLearningDestinationHandled }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, teacherMode, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, learningDestination, onLearningDestinationHandled }: WorkbenchProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
-  useEffect(() => { if (candidate?.state === 'review_ready' || candidate?.state === 'build_passed') setActiveTab('修改确认') }, [candidate?.id, candidate?.state])
+  useEffect(() => { if (candidate?.state === 'build_passed' || (candidate?.state === 'review_ready' && candidate.origin !== 'manual' && !candidate.error)) setActiveTab('修改确认') }, [candidate?.id, candidate?.state, candidate?.error, candidate?.origin])
   useEffect(() => {
     if (learningDestination && learningDestination !== 'chat') { setActiveTab(learningDestination); onLearningDestinationHandled() }
   }, [learningDestination, onLearningDestinationHandled])
@@ -79,7 +81,7 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
         ))}
       </nav>
 
-      {activeTab === '编写代码' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
+      {activeTab === '编写代码' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
         <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={onUiScaleChange} />
       ) : activeTab === '编译 / 烧录' ? (
         <div className="workbench-content firmware-workbench">

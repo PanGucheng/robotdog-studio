@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { AgentEvent } from '../../shared/types'
 import { AgentSessionService } from './agent-session-service'
+import { CandidateBuildError, type CandidateBuilder } from './candidate-build-service'
 import { CandidateService } from './candidate-service'
 import { MockReasonixAdapter } from './mock-reasonix-adapter'
 import type { AdapterEvent, AdapterTurnContext, ReasonixAdapter } from './reasonix-adapter'
@@ -126,6 +127,40 @@ describe('AgentSessionService', () => {
     expect((await workspaces.get(workspaceId)).activeCandidateId).toBeUndefined()
   })
 
+  it('applies an accepted AI diagnostic repair to the manual draft and rebuilds it', async () => {
+    let buildNumber = 0
+    const builder: CandidateBuilder = {
+      async build(input) {
+        buildNumber += 1
+        if (buildNumber === 1) throw new CandidateBuildError([{
+          path: 'Core/Src/student_control.c', line: 2, column: 39, severity: 'error', message: "expected ';' before '}' token"
+        }], 'raw compiler log')
+        return {
+          candidateId: input.candidateId, sourceTreeHash: input.sourceTreeHash, diffHash: input.diffHash,
+          compiler: 'test WCH GCC', objectSha256: 'a'.repeat(64), completedAt: new Date().toISOString(),
+          checks: [{ id: 'c-source', label: '学生控制代码', detail: '测试编译通过' }, { id: 'line-config', label: '巡线参数', detail: '范围正确' }]
+        }
+      }
+    }
+    const repairCandidates = new CandidateService({ rootDir: dataRoot, workspaces, builder })
+    const draft = await repairCandidates.openManualDraft(workspaceId)
+    await repairCandidates.writeManualDraft(draft.id, 'Core/Src/student_control.c', 'void StudentControl_Update(void) { broken }\n')
+    await repairCandidates.validate(draft.id)
+    expect((await repairCandidates.build(draft.id)).diagnostics).toHaveLength(1)
+    const service = new AgentSessionService(repairCandidates, new RepairFixtureAdapter())
+    const events: AgentEvent[] = []
+    service.on('event', (event) => events.push(event))
+
+    await service.repairStudentCode(workspaceId, draft.id)
+    await waitUntilIdle(service)
+
+    expect((await repairCandidates.get(draft.id)).state).toBe('build_passed')
+    expect((await repairCandidates.get(draft.id)).diagnostics).toBeUndefined()
+    expect((await repairCandidates.listStudentCodeFiles(workspaceId, draft.id))[0].content).toContain('AI 修复')
+    expect(events).toContainEqual(expect.objectContaining({ type: 'completed', message: expect.stringContaining('通过了编译') }))
+    expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'Core', 'Src', 'student_control.c'), 'utf8')).not.toContain('AI 修复')
+  })
+
   it('pauses for a visible permission and resumes only after the matching response', async () => {
     const adapter = new PermissionFixtureAdapter()
     const service = new AgentSessionService(candidates, adapter)
@@ -163,6 +198,18 @@ class PermissionFixtureAdapter implements ReasonixAdapter {
     this.pending.resolve()
     this.pending = undefined
     return true
+  }
+}
+
+class RepairFixtureAdapter implements ReasonixAdapter {
+  readonly kind = 'reasonix' as const
+
+  async runTurn(context: AdapterTurnContext, emit: (event: AdapterEvent | unknown) => void): Promise<{ summary: string }> {
+    expect(context.message).toContain('compiler_diagnostics_json')
+    emit({ type: 'activity', sequence: 1, state: 'editing', label: '正在修复学生代码' })
+    await writeFile(join(context.candidateRoot, 'Core', 'Src', 'student_control.c'), 'void StudentControl_Update(void) { /* AI 修复 */ }\n')
+    emit({ type: 'assistant_delta', sequence: 2, text: '我补好了缺少的语句结构。' })
+    return { summary: '修复完成。' }
   }
 }
 

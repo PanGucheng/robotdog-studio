@@ -1,9 +1,11 @@
 import Editor, { type BeforeMount } from '@monaco-editor/react'
 import type { Monaco } from '@monaco-editor/react'
 import type { editor as MonacoEditor } from 'monaco-editor'
-import { BookOpen, CheckCircle2, Code2, FileSliders, Play, RotateCcw, Save, ShieldCheck, Sparkles } from 'lucide-react'
+import { BookOpen, CheckCircle2, CircleAlert, Code2, FileSliders, LoaderCircle, Play, RotateCcw, Save, ShieldCheck, Sparkles, WandSparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CandidateSnapshot, StudentCodeExplanationRequest, StudentCodeFile, WorkspaceSummary } from '../../../shared/types'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import type { CandidateDiagnostic, CandidateSnapshot, StudentCodeExplanationRequest, StudentCodeFile, StudentDiagnosticHelp, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 
 interface StudentCodeEditorProps {
@@ -13,6 +15,8 @@ interface StudentCodeEditorProps {
   onCandidateChanged(candidate?: CandidateSnapshot): void
   onReadyForReview(): void
   onExplainCode(request: StudentCodeExplanationRequest): void
+  diagnosticHelp?: StudentDiagnosticHelp
+  onRepairStudentCode(candidateId: string): void
 }
 
 const configureMonaco: BeforeMount = (monaco) => {
@@ -32,7 +36,7 @@ const configureMonaco: BeforeMount = (monaco) => {
   })
 }
 
-export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode }: StudentCodeEditorProps): React.JSX.Element {
+export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp, onRepairStudentCode }: StudentCodeEditorProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const manualCandidate = candidate?.origin === 'manual' ? candidate : undefined
   const [files, setFiles] = useState<StudentCodeFile[]>([])
@@ -42,10 +46,12 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string>()
   const [diagnostic, setDiagnostic] = useState<string>()
+  const [aiHelpRequested, setAiHelpRequested] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | undefined>(undefined)
   const monacoRef = useRef<Monaco | undefined>(undefined)
   const selected = files.find((file) => file.path === selectedPath)
+  const buildDiagnostics = manualCandidate?.diagnostics ?? []
 
   useEffect(() => {
     if (!workspace) { setFiles([]); setContent(''); return }
@@ -77,13 +83,13 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
     const model = editorRef.current?.getModel()
     const monaco = monacoRef.current
     if (!model || !monaco) return
-    const match = /:(\d+)(?::(\d+))?:\s*(?:fatal\s+)?error:/i.exec(diagnostic ?? '')
-    monaco.editor.setModelMarkers(model, 'student-check', match ? [{
-      severity: monaco.MarkerSeverity.Error, message: diagnostic!.slice(0, 500),
-      startLineNumber: Number(match[1]), startColumn: Number(match[2] ?? 1),
-      endLineNumber: Number(match[1]), endColumn: Number(match[2] ?? 1) + 1
-    }] : [])
-  }, [diagnostic, selectedPath])
+    const markers = buildDiagnostics.filter((item) => item.path === selectedPath && item.line).map((item) => ({
+      severity: item.severity === 'warning' ? monaco.MarkerSeverity.Warning : monaco.MarkerSeverity.Error,
+      message: item.message, startLineNumber: item.line!, startColumn: item.column ?? 1,
+      endLineNumber: item.line!, endColumn: (item.column ?? 1) + 1
+    }))
+    monaco.editor.setModelMarkers(model, 'student-check', markers)
+  }, [buildDiagnostics, selectedPath])
 
   const saveCurrent = async (): Promise<CandidateSnapshot | undefined> => {
     if (!manualCandidate || !selected?.editable || !dirty) return manualCandidate
@@ -133,6 +139,9 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
       } else {
         setDiagnostic(built.error ?? '编译没有通过，请查看问题说明。')
         setMessage('代码还差一点，修改后可以再次检查。')
+        const firstPath = built.diagnostics?.find((item) => item.path)?.path
+        if (firstPath) setSelectedPath(firstPath)
+        requestDiagnosticHelp(built.id, built.diagnostics ?? [], built.error)
       }
     })().catch((caught) => setDiagnostic(caught instanceof Error ? caught.message : String(caught)))
   }
@@ -151,6 +160,11 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
       kind: 'selection', candidateId: manualCandidate?.id, selectedPath: selected?.path,
       content: selectedCode.slice(0, 4_000)
     })
+  }
+
+  const requestDiagnosticHelp = (candidateId: string, items: CandidateDiagnostic[], fallback?: string): void => {
+    setAiHelpRequested(true)
+    onExplainCode({ kind: 'diagnostic', candidateId, content: formatDiagnosticsForAi(items, fallback) })
   }
 
   if (!workspace) return <div className="code-editor-empty"><Code2 size={28} /><h3>先新建一个学生对话</h3><p>系统会复制代码模板，再让你放心试改。</p></div>
@@ -193,7 +207,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
             language={selected?.language ?? 'c'}
             path={selected?.path}
             value={content}
-            onChange={(value) => { if (selected?.editable && manualCandidate) { setContent(value ?? ''); setDirty(true); setDiagnostic(undefined) } }}
+            onChange={(value) => { if (selected?.editable && manualCandidate) { setContent(value ?? ''); setDirty(true); setDiagnostic(undefined); setAiHelpRequested(false) } }}
             options={{
               readOnly: !selected?.editable || !manualCandidate, automaticLayout: true, minimap: { enabled: false },
               readOnlyMessage: { value: !selected?.editable ? '这是接口说明，只能查看。' : '当前正在查看项目原稿。请点击右上角的“开始编写”按钮后再修改。' },
@@ -204,13 +218,31 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           />
           {(!selected?.editable || !manualCandidate) && <div className="editor-readonly-flag"><BookOpen size={13} /> {!selected?.editable ? '接口说明只供参考' : '点击“开始编写”后进入安全草稿'}</div>}
         </div>
-        {(message || diagnostic) && <div className={`editor-feedback ${diagnostic ? 'has-error' : ''}`}>
-          <strong>{diagnostic ? '代码检查发现问题' : '当前进度'}</strong>
-          <p>{diagnostic ?? message}</p>
+        {buildDiagnostics.length > 0 && manualCandidate ? <div className="compiler-help-card">
+          <div className="compiler-help-heading"><span><CircleAlert size={17} /></span><div><strong>代码在这里卡住了</strong><small>错误只在安全草稿里，正式项目没有变化。</small></div></div>
+          <div className="compiler-key-errors">{buildDiagnostics.slice(0, 4).map((item, index) => <div key={`${item.path}-${item.line}-${index}`}>
+            <span>{item.line ? `第 ${item.line} 行` : '代码检查'}</span><strong>{item.message}</strong>
+          </div>)}</div>
+          <div className={`compiler-ai-advice ${diagnosticHelp?.state ?? (aiHelpRequested ? 'loading' : 'idle')}`}>
+            <div className="compiler-ai-title">{diagnosticHelp?.state === 'loading' || (aiHelpRequested && !diagnosticHelp) ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}<strong>AI 助教怎么说</strong></div>
+            {diagnosticHelp?.text ? <div className="compiler-ai-copy"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{diagnosticHelp.text}</ReactMarkdown></div>
+              : diagnosticHelp?.state === 'failed' ? <p>AI 暂时没有解释成功，你可以重新试一次。</p>
+                : aiHelpRequested ? <p>正在把编译器的话翻译成容易理解的建议…</p> : <p>让 AI 解释原因，并给出一个最小修改建议。</p>}
+          </div>
+          <div className="compiler-help-actions">
+            <button type="button" onClick={() => requestDiagnosticHelp(manualCandidate.id, buildDiagnostics, diagnostic)} disabled={busy}>重新解释</button>
+            <button type="button" className="button-primary" onClick={() => onRepairStudentCode(manualCandidate.id)} disabled={busy || diagnosticHelp?.state !== 'ready'}><WandSparkles size={14} /> 接受建议并修复草稿</button>
+          </div>
+        </div> : (message || diagnostic) && <div className={`editor-feedback ${diagnostic ? 'has-error' : ''}`}>
+          <strong>{diagnostic ? '代码检查发现问题' : '当前进度'}</strong><p>{diagnostic ?? message}</p>
           {diagnostic && <small>错误只发生在安全草稿里，正式项目没有受影响。</small>}
-          {diagnostic && manualCandidate && <button type="button" onClick={() => onExplainCode({ kind: 'diagnostic', candidateId: manualCandidate.id, content: diagnostic })} disabled={busy}>请 AI 助教解释</button>}
         </div>}
       </div>
     </div>
   )
+}
+
+function formatDiagnosticsForAi(items: CandidateDiagnostic[], fallback?: string): string {
+  if (items.length === 0) return fallback ?? '代码没有通过编译。'
+  return items.map((item) => `${item.path ?? '学生代码'}${item.line ? ` 第 ${item.line} 行` : ''}${item.column ? ` 第 ${item.column} 列` : ''}：${item.message}`).join('\n')
 }

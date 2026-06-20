@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import type { CandidateBuildProof } from '../../shared/types'
+import type { CandidateBuildProof, CandidateDiagnostic } from '../../shared/types'
 import { ToolchainService } from './toolchain-service'
 
 const execFileAsync = promisify(execFile)
@@ -19,6 +19,13 @@ export interface CandidateBuilder {
   build(input: CandidateBuildInput): Promise<CandidateBuildProof>
 }
 
+export class CandidateBuildError extends Error {
+  constructor(readonly diagnostics: CandidateDiagnostic[], readonly detail: string) {
+    super(diagnostics[0]?.message ?? '代码没有通过编译。')
+    this.name = 'CandidateBuildError'
+  }
+}
+
 export class CandidateBuildService implements CandidateBuilder {
   constructor(private readonly toolchain: ToolchainService, private readonly cacheRoot: string) {}
 
@@ -32,7 +39,13 @@ export class CandidateBuildService implements CandidateBuilder {
 
     const sourcePath = join(input.candidateRoot, 'Core', 'Src', 'student_control.c')
     const includePath = join(input.candidateRoot, 'Core', 'Inc')
-    const config = parseLineConfigText(await readFile(join(input.candidateRoot, 'student-config', 'line-following.yaml'), 'utf8'))
+    let config: ReturnType<typeof parseLineConfigText>
+    try {
+      config = parseLineConfigText(await readFile(join(input.candidateRoot, 'student-config', 'line-following.yaml'), 'utf8'))
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught)
+      throw new CandidateBuildError([{ path: 'student-config/line-following.yaml', severity: 'error', message }], message)
+    }
     await writeFile(join(outputDir, 'student_config.generated.h'), renderStudentConfigHeader(config), 'utf8')
     try {
       await execFileAsync(status.gcc.path, [
@@ -42,7 +55,7 @@ export class CandidateBuildService implements CandidateBuilder {
       ], { cwd: input.candidateRoot, windowsHide: true, timeout: 60_000, maxBuffer: 1024 * 1024 })
     } catch (caught) {
       const detail = redactBuildPath(buildErrorDetail(caught), input.candidateRoot)
-      throw new Error(`学生控制代码编译失败：${detail}`)
+      throw new CandidateBuildError(parseCompilerDiagnostics(detail), detail)
     }
 
     const configDetail = `turn_strength=${config.turnStrength}，line_target=${config.lineTarget}`
@@ -60,6 +73,33 @@ export class CandidateBuildService implements CandidateBuilder {
       ]
     }
   }
+}
+
+export function parseCompilerDiagnostics(detail: string): CandidateDiagnostic[] {
+  const diagnostics: CandidateDiagnostic[] = []
+  const pattern = /([^\r\n]*?(?:student_control\.[ch]|student_config\.generated\.h)):(\d+)(?::(\d+))?:\s*(fatal error|error|warning):\s*([^\r\n]+)/gi
+  for (const match of detail.matchAll(pattern)) {
+    const source = match[1].replaceAll('\\', '/').toLowerCase()
+    const path = source.endsWith('student_control.c') ? 'Core/Src/student_control.c' as const
+      : source.endsWith('student_control.h') ? 'Core/Inc/student_control.h' as const
+        : undefined
+    diagnostics.push({
+      path,
+      line: Number(match[2]),
+      column: match[3] ? Number(match[3]) : undefined,
+      severity: match[4].toLowerCase().includes('warning') ? 'warning' : 'error',
+      message: cleanCompilerMessage(match[5])
+    })
+    if (diagnostics.length >= 6) break
+  }
+  if (diagnostics.length > 0) return diagnostics
+  const fallback = detail.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    .find((line) => /error|undefined|failed|expected/i.test(line)) ?? '编译器没有认出这段代码。'
+  return [{ path: 'Core/Src/student_control.c', severity: 'error', message: cleanCompilerMessage(fallback) }]
+}
+
+function cleanCompilerMessage(message: string): string {
+  return message.replace(/^.*?\b(?:fatal error|error):\s*/i, '').replace(/\s*\[-W[^\]]+\]\s*$/, '').trim().slice(0, 300)
 }
 
 export function validateLineConfigText(text: string): string {

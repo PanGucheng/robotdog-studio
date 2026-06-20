@@ -429,6 +429,24 @@ export const browserDemoApi: RobotDogApi = {
     setTimeout(() => { emitBrowserAgent(turn, 3, { type: 'completed', state: 'no_changes', message: request.kind === 'selection' ? '代码讲解完成，项目没有被 AI 修改。' : '错误解释完成，安全草稿没有被 AI 修改。' }); browserAgentTurn = undefined }, 260)
     return { ...turn }
   },
+  repairStudentCode: async (workspaceId, candidateId) => {
+    if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')
+    const candidate = await browserDemoApi.getCandidate(candidateId)
+    if (candidate.workspaceId !== workspaceId || candidate.origin !== 'manual') throw new Error('MANUAL_DRAFT_MISMATCH')
+    const turn: AgentTurnSnapshot = { turnId: `turn_repair_${Date.now()}`, workspaceId, candidateId, state: 'editing', message: '接受 AI 建议，修复这次编译错误', startedAt: new Date().toISOString() }
+    browserAgentTurn = turn
+    emitBrowserAgent(turn, 1, { type: 'turn_started', workspaceId, candidateId, message: turn.message })
+    setTimeout(() => emitBrowserAgent(turn, 2, { type: 'activity', state: 'editing', label: '正在把建议写入安全草稿' }), 100)
+    setTimeout(() => {
+      const repaired = { ...candidate, state: 'build_passed' as const, error: undefined, diagnostics: undefined, updatedAt: new Date().toISOString() }
+      demoCandidates.set(candidateId, repaired)
+      candidateListeners.forEach((listener) => listener(structuredClone(repaired)))
+      emitBrowserAgent(turn, 3, { type: 'candidate_ready', candidate: repaired, summary: 'AI 建议已经写入安全草稿，并通过了编译。请查看改动后再保存。' })
+      emitBrowserAgent(turn, 4, { type: 'completed', state: 'review_ready', message: 'AI 已按建议修复，代码也通过了编译。请查看修改后再保存。' })
+      browserAgentTurn = undefined
+    }, 240)
+    return { ...turn }
+  },
   promptAgent: async (workspaceId, message) => {
     if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')
     const candidate = await browserDemoApi.createCandidate(workspaceId)

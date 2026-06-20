@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -211,6 +211,7 @@ export function App(): React.JSX.Element {
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
   const activeCandidateId = activeWorkspace?.activeCandidateId
   const agentEvents = activeWorkspaceId ? agentEventsByWorkspace[activeWorkspaceId] ?? [] : []
+  const diagnosticHelp = useMemo(() => buildDiagnosticHelp(agentEvents, candidate?.id), [agentEvents, candidate?.id])
   const navigateFromLearning = (destination: LearningDestination): void => {
     setLearningDestination(destination)
     if (destination === 'chat') setTimeout(() => document.querySelector<HTMLTextAreaElement>('[aria-label="告诉 AI 你希望机器马做什么"]')?.focus(), 0)
@@ -273,6 +274,10 @@ export function App(): React.JSX.Element {
   const explainCode = (request: StudentCodeExplanationRequest): void => {
     if (!activeWorkspace) return
     void api.explainStudentCode(activeWorkspace.id, request).then(setAgentTurn).catch((caught) => setError(toStudentErrorMessage(caught)))
+  }
+  const repairStudentCode = (candidateId: string): void => {
+    if (!activeWorkspace) return
+    void api.repairStudentCode(activeWorkspace.id, candidateId).then(setAgentTurn).catch((caught) => setError(toStudentErrorMessage(caught)))
   }
   const cancelAgent = (): void => { void api.cancelAgent(agentTurn?.turnId) }
   const respondAgentPermission = (requestId: string, optionId: string): void => {
@@ -366,7 +371,7 @@ export function App(): React.JSX.Element {
           update={firmwareUpdate}
           recovery={recovery}
           teacherMode={teacherMode}
-          busy={busy}
+          busy={busy || Boolean(agentTurn)}
           candidate={candidate?.workspaceId === activeWorkspaceId ? candidate : undefined}
           workspace={activeWorkspace}
           candidateDiff={candidateDiff}
@@ -381,6 +386,8 @@ export function App(): React.JSX.Element {
           onUndoWorkspace={undoWorkspace}
           onCandidateChanged={setCandidate}
           onExplainCode={explainCode}
+          diagnosticHelp={diagnosticHelp}
+          onRepairStudentCode={repairStudentCode}
           onBuildFirmware={buildFirmware}
           onCancelBuild={cancelBuild}
           onToggleUsb={toggleUsb}
@@ -397,4 +404,15 @@ export function App(): React.JSX.Element {
       <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />
     </main>
   )
+}
+
+function buildDiagnosticHelp(events: AgentEvent[], candidateId?: string): StudentDiagnosticHelp | undefined {
+  if (!candidateId) return undefined
+  const started = [...events].reverse().find((event): event is Extract<AgentEvent, { type: 'turn_started' }> =>
+    event.type === 'turn_started' && event.candidateId === candidateId && event.message === '请解释刚才的编译错误')
+  if (!started) return undefined
+  const turnEvents = events.filter((event) => event.turnId === started.turnId)
+  const text = turnEvents.filter((event): event is Extract<AgentEvent, { type: 'assistant_delta' }> => event.type === 'assistant_delta').map((event) => event.text).join('')
+  const terminal = turnEvents.find((event) => ['completed', 'failed', 'cancelled'].includes(event.type))
+  return { candidateId, state: terminal?.type === 'completed' ? 'ready' : terminal ? 'failed' : 'loading', text: text || undefined }
 }

@@ -185,6 +185,10 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       if (typeof workspaceId !== 'string' || !request || typeof request !== 'object') throw new Error('STUDENT_EXPLAIN_INPUT_INVALID')
       return agents.explainStudentCode(workspaceId, request)
     })
+    ipcMain.handle(IPC_CHANNELS.manualDraftRepair, (_event, workspaceId: unknown, candidateId: unknown) => {
+      if (typeof workspaceId !== 'string' || typeof candidateId !== 'string') throw new Error('STUDENT_REPAIR_INPUT_INVALID')
+      return agents.repairStudentCode(workspaceId, candidateId)
+    })
     ipcMain.handle(IPC_CHANNELS.agentCancel, (_event, turnId: unknown) => {
       if (turnId !== undefined && typeof turnId !== 'string') throw new Error('AGENT_TURN_ID_INVALID')
       return agents.cancel(turnId)

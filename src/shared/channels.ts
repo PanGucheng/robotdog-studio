@@ -35,6 +35,7 @@ export const IPC_CHANNELS = {
   manualDraftOpen: 'manual-draft:open',
   manualDraftWrite: 'manual-draft:write',
   manualDraftExplain: 'manual-draft:explain',
+  manualDraftRepair: 'manual-draft:repair',
   candidateCreate: 'candidate:create',
   candidateGet: 'candidate:get',
   candidateGetDiff: 'candidate:get-diff',

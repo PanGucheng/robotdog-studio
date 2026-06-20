@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, StudentCodeExplanationRequest, StudentPlanStep } from '../../shared/types'
-import { CandidateService } from './candidate-service'
+import { CandidateService, type ManualRepairBackup } from './candidate-service'
 import type { AdapterEvent, ReasonixAdapter } from './reasonix-adapter'
 import { buildStudentCodeExplanationPrompt, STUDENT_AGENT_PROMPT_SHA256, STUDENT_AGENT_PROMPT_VERSION } from './student-agent-prompt'
 
@@ -23,6 +23,9 @@ interface ActiveTurn {
   eventSequence: number
   readOnly?: boolean
   explanation?: { root: string; policyVersion: string; kind: StudentCodeExplanationRequest['kind'] }
+  agentMessage?: string
+  repair?: boolean
+  repairBackup?: ManualRepairBackup
 }
 
 export class AgentSessionService extends EventEmitter {
@@ -89,6 +92,33 @@ export class AgentSessionService extends EventEmitter {
     return structuredClone(snapshot)
   }
 
+  async repairStudentCode(workspaceId: string, candidateId: string): Promise<AgentTurnSnapshot> {
+    const validWorkspaceId = workspaceIdSchema.parse(workspaceId)
+    const candidate = await this.candidates.get(candidateId)
+    if (candidate.workspaceId !== validWorkspaceId || candidate.origin !== 'manual') throw new Error('MANUAL_DRAFT_MISMATCH')
+    if (!candidate.diagnostics?.length) throw new Error('STUDENT_REPAIR_DIAGNOSTIC_MISSING')
+    if (this.active) throw new Error('AGENT_BUSY')
+    const turnId = `turn_${randomBytes(12).toString('hex')}`
+    const displayMessage = '接受 AI 建议，修复这次编译错误'
+    const snapshot: AgentTurnSnapshot = {
+      turnId, workspaceId: validWorkspaceId, candidateId: candidate.id, state: 'preparing', message: displayMessage,
+      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256, startedAt: new Date().toISOString()
+    }
+    const repairBackup = await this.candidates.createManualRepairBackupForMain(candidate.id)
+    const active: ActiveTurn = {
+      snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0,
+      agentMessage: buildDiagnosticRepairMessage(candidate.diagnostics), repair: true, repairBackup
+    }
+    await this.candidates.prepareManualRepair(candidate.id)
+    this.active = active
+    this.publish(active, {
+      type: 'turn_started', workspaceId: validWorkspaceId, candidateId: candidate.id, message: displayMessage,
+      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256
+    })
+    active.done = this.run(active).finally(() => { if (this.active?.snapshot.turnId === turnId) this.active = undefined })
+    return structuredClone(snapshot)
+  }
+
   async cancel(turnId?: string): Promise<boolean> {
     const active = this.active
     if (!active || (turnId && active.snapshot.turnId !== turnId)) return false
@@ -119,32 +149,40 @@ export class AgentSessionService extends EventEmitter {
         workspaceId: snapshot.workspaceId,
         candidateId,
         candidateRoot,
-        message: snapshot.message,
+        message: active.agentMessage ?? snapshot.message,
         policyVersion: candidateSnapshot.policyVersion
       }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
       if (controller.signal.aborted) throw controller.signal.reason
       snapshot.state = 'validating'
-      const candidate = await this.candidates.validate(candidateId)
-      if (candidate.state === 'review_ready' || candidate.state === 'no_changes') {
-        snapshot.state = candidate.state
+      let candidate = await this.candidates.validate(candidateId)
+      if (active.repair && candidate.state === 'review_ready') candidate = await this.candidates.build(candidate.id)
+      if (candidate.state === 'review_ready' || candidate.state === 'build_passed' || candidate.state === 'no_changes') {
+        snapshot.state = candidate.state === 'build_passed' ? 'review_ready' : candidate.state
         this.publish(active, { type: 'candidate_ready', candidate, summary: buildStudentCandidateSummary(candidate) })
         if (candidate.state === 'no_changes') await this.candidates.reject(candidate.id)
-        this.publish(active, { type: 'completed', state: candidate.state, message: candidate.state === 'review_ready' ? '修改已通过安全核对，等你查看。' : '检查完成，没有需要应用的新修改。' })
+        const completedState = candidate.state === 'build_passed' ? 'review_ready' : candidate.state
+        const message = candidate.state === 'build_passed' ? 'AI 已按建议修复，代码也通过了编译。请查看修改后再保存。'
+          : candidate.state === 'review_ready' && active.repair && candidate.error ? 'AI 已尝试修复，但编译还发现问题。草稿已保留，可以继续查看。'
+            : candidate.state === 'review_ready' ? '修改已通过安全核对，等你查看。' : '检查完成，没有需要应用的新修改。'
+        this.publish(active, { type: 'completed', state: completedState, message })
       } else {
         snapshot.state = 'failed'
-        await this.candidates.reject(candidate.id).catch(() => undefined)
-        this.publish(active, { type: 'failed', code: 'PATCH_DENIED', message: candidate.error ?? '修改没有通过安全核对。' })
+        if (active.repairBackup) await this.candidates.restoreManualRepairForMain(active.repairBackup).catch(() => undefined)
+        else await this.candidates.reject(candidate.id).catch(() => undefined)
+        this.publish(active, { type: 'failed', code: 'PATCH_DENIED', message: active.repair ? 'AI 建议超出了学生代码的安全范围，已经恢复原来的草稿。' : candidate.error ?? '修改没有通过安全核对。' })
       }
     } catch (caught) {
       if (controller.signal.aborted) {
         snapshot.state = 'cancelled'
-        await this.safeCancelCandidate(requireCandidateId(snapshot))
-        this.publish(active, { type: 'cancelled', message: '已停止这次修改，正式项目没有变化。' })
+        if (active.repairBackup) await this.candidates.restoreManualRepairForMain(active.repairBackup).catch(() => undefined)
+        else await this.safeCancelCandidate(requireCandidateId(snapshot))
+        this.publish(active, { type: 'cancelled', message: active.repair ? '已停止自动修复，安全草稿仍然保留。' : '已停止这次修改，正式项目没有变化。' })
       } else {
         snapshot.state = 'failed'
-        await this.safeCancelCandidate(requireCandidateId(snapshot))
+        if (active.repairBackup) await this.candidates.restoreManualRepairForMain(active.repairBackup).catch(() => undefined)
+        else await this.safeCancelCandidate(requireCandidateId(snapshot))
         const code = caught instanceof Error && caught.message === 'AGENT_CRASHED' ? 'AGENT_CRASHED' : 'AGENT_FAILED'
-        this.publish(active, { type: 'failed', code, message: 'AI 助教暂时没有完成这次修改，你可以重新试一次。' })
+        this.publish(active, { type: 'failed', code, message: active.repair ? 'AI 助教暂时没有完成自动修复，安全草稿仍然保留。' : 'AI 助教暂时没有完成这次修改，你可以重新试一次。' })
       }
     }
   }
@@ -231,6 +269,7 @@ function requireCandidateId(snapshot: AgentTurnSnapshot): string {
 }
 
 function buildStudentCandidateSummary(candidate: CandidateSnapshot): string {
+  if (candidate.state === 'build_passed') return 'AI 建议已经写入安全草稿，并通过了编译。请查看改动后再保存。'
   const files = candidate.validation?.files ?? []
   if (files.length === 0) return '没有发现需要保存的代码变化。'
   const labels = files.slice(0, 3).map((file) => {
@@ -241,6 +280,10 @@ function buildStudentCandidateSummary(candidate: CandidateSnapshot): string {
   })
   const uniqueLabels = [...new Set(labels)]
   return `已准备好${uniqueLabels.join('、')}的修改。请在右侧看看改动，再决定是否保存。`
+}
+
+function buildDiagnosticRepairMessage(diagnostics: NonNullable<CandidateSnapshot['diagnostics']>): string {
+  return `请按照你刚才给学生的解释和建议，根据下面的编译诊断修复当前安全草稿。先读取对应学生文件，只做解决这些错误所需的最小修改，不要修改构建脚本、硬件配置、通信协议或其他文件。不要提问；完成后用适合小学生的中文简要说明改了什么。\n\n<compiler_diagnostics_json>\n${JSON.stringify(diagnostics)}\n</compiler_diagnostics_json>`
 }
 
 function studentOptionLabel(label: string): string {

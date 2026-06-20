@@ -14,7 +14,7 @@ const tasks = [
   { id: 'ai-parameter', icon: Bot, title: '让 AI 调一次参数', time: '约 2 分钟', destination: 'chat' as const, instruction: '告诉 AI：“把转弯强度轻微降低 2”。AI 只在安全副本里工作，最后会把所有修改放在一起给你看。' },
   { id: 'review', icon: FileCheck2, title: '看懂修改并保存', time: '约 2 分钟', destination: '修改确认' as const, instruction: '在“修改确认”中对照修改前后。确认无误后再保存到项目；不满意可以直接放弃。' },
   { id: 'code', icon: Code2, title: '自己写一小段代码', time: '约 3 分钟', destination: '编写代码' as const, instruction: '打开“小马怎么走”，点击“开始编写”。所有输入会自动保存在安全草稿中，不会碰到硬件和烧录设置。' },
-  { id: 'diagnostic', icon: Sparkles, title: '请 AI 解释一个错误', time: '约 2 分钟', destination: '编写代码' as const, instruction: '少写一个分号再检查代码。错误会标在对应行；点击“请 AI 助教解释”，它只讲原因，不会偷偷改文件。' },
+  { id: 'diagnostic', icon: Sparkles, title: '请 AI 帮忙修一个错误', time: '约 2 分钟', destination: '编写代码' as const, instruction: '少写一个分号再检查代码。系统会标出关键错误，AI 先解释原因；只有点击“接受建议并修复草稿”后，它才会动手修改安全草稿。' },
   { id: 'firmware', icon: Cpu, title: '生成完整固件', time: '约 3 分钟', destination: '编译 / 烧录' as const, instruction: '点击“编译固件”。程序会把学生代码和只读 SDK 合在临时目录中，生成 ELF、HEX、BIN、MAP 和身份校验记录。' }
 ]
 

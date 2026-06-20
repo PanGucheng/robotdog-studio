@@ -209,6 +209,15 @@ export interface CandidateSnapshot {
   buildProof?: CandidateBuildProof
   appliedCommit?: string
   error?: string
+  diagnostics?: CandidateDiagnostic[]
+}
+
+export interface CandidateDiagnostic {
+  path?: StudentCodeFile['path']
+  line?: number
+  column?: number
+  severity: 'error' | 'warning'
+  message: string
 }
 
 export interface StudentCodeFile {
@@ -225,6 +234,12 @@ export interface StudentCodeExplanationRequest {
   candidateId?: string
   selectedPath?: StudentCodeFile['path']
   content: string
+}
+
+export interface StudentDiagnosticHelp {
+  candidateId: string
+  state: 'loading' | 'ready' | 'failed'
+  text?: string
 }
 
 export interface CandidateBuildProof {
@@ -487,6 +502,7 @@ export interface RobotDogApi {
   openManualDraft(workspaceId: string): Promise<CandidateSnapshot>
   writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot>
   explainStudentCode(workspaceId: string, request: StudentCodeExplanationRequest): Promise<AgentTurnSnapshot>
+  repairStudentCode(workspaceId: string, candidateId: string): Promise<AgentTurnSnapshot>
   getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
   undoWorkspace(workspaceId: string): Promise<WorkspaceSummary>

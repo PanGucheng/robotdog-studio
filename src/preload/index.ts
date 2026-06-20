@@ -40,6 +40,7 @@ const api: RobotDogApi = {
   openManualDraft: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.manualDraftOpen, workspaceId),
   writeManualDraft: (candidateId, path, content) => ipcRenderer.invoke(IPC_CHANNELS.manualDraftWrite, candidateId, path, content),
   explainStudentCode: (workspaceId, request) => ipcRenderer.invoke(IPC_CHANNELS.manualDraftExplain, workspaceId, request),
+  repairStudentCode: (workspaceId, candidateId) => ipcRenderer.invoke(IPC_CHANNELS.manualDraftRepair, workspaceId, candidateId),
   createCandidate: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.candidateCreate, workspaceId),
   getCandidate: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateGet, candidateId),
   getCandidateDiff: (candidateId) => ipcRenderer.invoke(IPC_CHANNELS.candidateGetDiff, candidateId),
