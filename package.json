@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
+    "smoke:electron": "npm run build && node scripts/smoke-electron.mjs",
+    "verify": "npm test && npm run smoke:electron",
     "reasonix:prepare": "powershell -ExecutionPolicy Bypass -File scripts/prepare-reasonix.ps1",
     "firmware:build:ch32v203": "node scripts/build-ch32v203-firmware.mjs",
     "preview": "electron-vite preview",
