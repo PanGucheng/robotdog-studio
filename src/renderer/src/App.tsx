@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, Menu, Plus, ShieldAlert } from 'lucide-react'
 import type { AgentEvent, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceSummary } from '../../shared/types'
+import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
 import { PipelineRail } from './components/PipelineRail'
@@ -91,7 +92,7 @@ export function App(): React.JSX.Element {
             }
             const live = next[workspaceId] ?? []
             const liveIds = new Set(live.map((event) => event.eventId))
-            next[workspaceId] = [...history.filter((event) => !liveIds.has(event.eventId)), ...live].slice(-2_000)
+            next[workspaceId] = compactAgentEvents([...history.filter((event) => !liveIds.has(event.eventId)), ...live])
           }
           return next
         })
@@ -115,7 +116,7 @@ export function App(): React.JSX.Element {
       seenAgentEvents.current.add(event.eventId)
       if (event.type === 'turn_started') turnWorkspaces.current.set(event.turnId, event.workspaceId)
       const workspaceId = event.type === 'turn_started' ? event.workspaceId : turnWorkspaces.current.get(event.turnId)
-      if (workspaceId) setAgentEventsByWorkspace((current) => ({ ...current, [workspaceId]: [...(current[workspaceId] ?? []).slice(-1999), event] }))
+      if (workspaceId) setAgentEventsByWorkspace((current) => ({ ...current, [workspaceId]: compactAgentEvents([...(current[workspaceId] ?? []), event]) }))
       if (event.type === 'candidate_ready') setCandidate(event.candidate)
       if (['completed', 'cancelled', 'failed'].includes(event.type)) setAgentTurn(undefined)
     })

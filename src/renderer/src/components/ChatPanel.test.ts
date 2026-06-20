@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentEvent } from '../../../shared/types'
+import { compactAgentEvents } from '../../../shared/agent-event-history'
 import { buildConversation } from './ChatPanel'
 
 describe('ChatPanel conversation grouping', () => {
@@ -16,6 +17,18 @@ describe('ChatPanel conversation grouping', () => {
       { message: '第一次', text: '**回答一**' },
       { message: '继续追问', text: '- 回答二' }
     ])
+  })
+
+  it('keeps a long streaming turn visible after compaction', () => {
+    const events = [
+      event('turn-long', 1, { type: 'turn_started', workspaceId: 'ws_111111111111111111111111', candidateId: 'candidate-a', message: '不要消失' }),
+      ...Array.from({ length: 2_500 }, (_, index) => event('turn-long', index + 2, { type: 'assistant_delta', text: '好' }))
+    ] as unknown as AgentEvent[]
+
+    const turns = buildConversation(compactAgentEvents(events))
+    expect(turns).toHaveLength(1)
+    expect(turns[0].started.message).toBe('不要消失')
+    expect(turns[0].assistantText).toBe('好'.repeat(2_500))
   })
 })
 

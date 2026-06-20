@@ -42,7 +42,7 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
   useEffect(() => {
     const element = conversationRef.current
     if (element) element.scrollTop = element.scrollHeight
-  }, [events.length])
+  }, [events])
 
   async function saveApiKey(): Promise<void> {
     setRuntimeError('')

@@ -24,6 +24,23 @@ describe('AgentHistoryService', () => {
     expect(JSON.stringify(history)).not.toContain('sk-secret123456')
     expect(await readFile(join(root, `${workspaceId}.jsonl`), 'utf8')).toContain('[REDACTED]')
   })
+
+  it('compacts streaming chunks without losing the turn start', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'robotdog-history-'))
+    roots.push(root)
+    const service = new AgentHistoryService(root)
+    await service.initialize()
+    const workspaceId = 'ws_222222222222222222222222'
+    await service.append(event('turn-long', 1, { type: 'turn_started', workspaceId, candidateId: 'candidate-1', message: '长回复测试' }))
+    for (let sequence = 2; sequence <= 22; sequence += 1) {
+      await service.append(event('turn-long', sequence, { type: 'assistant_delta', text: '字' }))
+    }
+
+    const history = await service.list(workspaceId)
+    expect(history.map((item) => item.type)).toEqual(['turn_started', 'assistant_delta'])
+    expect(history[0]).toMatchObject({ type: 'turn_started', message: '长回复测试' })
+    expect(history[1]).toMatchObject({ type: 'assistant_delta', text: '字'.repeat(21) })
+  })
 })
 
 function event(turnId: string, sequence: number, payload: Record<string, unknown>): AgentEvent {
