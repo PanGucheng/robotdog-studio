@@ -73,6 +73,8 @@ npm run firmware:build:ch32v203
 
 候选预检当前编译学生可编辑的 C 单元并校验参数文件，不等同于生成可下载的完整固件。真实蓝牙串口、有线 IAP、WCH-Link 恢复及完整固件模板映射继续按 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 接入。三通道设计详见 [连接与固件下载计划](./docs/three-channel-connection-plan.md)，AI 安全边界详见 [AI 修改闭环计划](./docs/ai-workspace-reasonix-plan.md)。
 
+下一阶段将优先完成固定固件基线、完整固件产物和 Windows 离线测试版，详见 [下一阶段详细计划](./docs/software-release-next-plan.md)。
+
 ## 重要安全说明
 
 当前版本处于模拟阶段，界面中的急停是软件急停。真实硬件必须同时实现下位机动作看门狗，并保留物理断电手段。
