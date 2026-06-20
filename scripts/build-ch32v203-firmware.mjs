@@ -4,7 +4,9 @@ import { dirname, extname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 const repoRoot = resolve(import.meta.dirname, '..')
-const manifestPath = join(repoRoot, 'resources', 'firmware-baselines', 'ch32v203-robotdog', 'provisional-0858d82', 'robotdog.firmware.json')
+const baselineRoot = join(repoRoot, 'resources', 'firmware-baselines', 'ch32v203-robotdog')
+const registry = JSON.parse(readFileSync(join(baselineRoot, 'active.json'), 'utf8'))
+const manifestPath = join(baselineRoot, registry.manifest)
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
 const firmwareRoot = resolve(process.env.ROBOTDOG_FIRMWARE_ROOT ?? manifest.source.developmentDefaultRoot)
 const studentRoot = resolve(process.env.ROBOTDOG_STUDENT_OVERLAY ?? join(repoRoot, 'resources', 'workspace-templates', 'ch32v203-robotdog', '2026.06'))

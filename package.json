@@ -12,13 +12,17 @@
     "build": "npm run typecheck && electron-vite build",
     "smoke:electron": "npm run build && node scripts/smoke-electron.mjs",
     "verify": "npm test && npm run smoke:electron",
+    "baseline:release:check": "node scripts/check-release-baseline.mjs",
+    "package:win:test": "npm run build && node scripts/package-windows.mjs zip provisional",
+    "package:win": "npm run baseline:release:check && npm run build && node scripts/package-windows.mjs nsis formal",
     "reasonix:prepare": "powershell -ExecutionPolicy Bypass -File scripts/prepare-reasonix.ps1",
     "firmware:build:ch32v203": "node scripts/build-ch32v203-firmware.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run"
   },
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
     "@monaco-editor/react": "4.7.0",
     "lucide-react": "1.20.0",
     "monaco-editor": "0.55.1",
@@ -26,14 +30,13 @@
     "react-dom": "19.2.7",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "zod": "4.4.3"
-  },
-  "devDependencies": {
+    "zod": "4.4.3",
     "@types/node": "25.9.3",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.2.0",
     "electron": "42.4.1",
+    "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
     "jsdom": "29.1.1",
     "typescript": "6.0.3",

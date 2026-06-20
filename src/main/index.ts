@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { readFile } from 'node:fs/promises'
 import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc/register-ipc'
 import { MockRobotService } from './services/mock-robot-service'
@@ -39,9 +40,23 @@ function createWindow(): void {
 
   if (smokeTest) {
     window.webContents.once('did-finish-load', async () => {
-      const preloadReady = await window.webContents.executeJavaScript('Boolean(window.robotDog)')
-      console.log(preloadReady ? 'ROBOTDOG_SMOKE_OK' : 'ROBOTDOG_SMOKE_PRELOAD_MISSING')
-      app.exit(preloadReady ? 0 : 1)
+      const result = await window.webContents.executeJavaScript(`(async () => {
+        if (!window.robotDog) return { ok: false, reason: 'preload missing' }
+        const [toolchain, baseline, runtime] = await Promise.all([
+          window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo()
+        ])
+        const existing = await window.robotDog.listWorkspaces()
+        const workspace = existing[0] ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
+        const firmware = await window.robotDog.startFirmwareBuild(workspace.id)
+        return {
+          ok: Boolean(toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4),
+          gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
+          releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
+          firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind)
+        }
+      })()`)
+      console.log(result.ok ? `ROBOTDOG_SMOKE_OK ${JSON.stringify(result)}` : `ROBOTDOG_SMOKE_FAILED ${JSON.stringify(result)}`)
+      app.exit(result.ok ? 0 : 1)
     })
     window.webContents.once('did-fail-load', (_event, code, description) => {
       console.error(`ROBOTDOG_SMOKE_LOAD_FAILED ${code} ${description}`)
@@ -66,10 +81,12 @@ app.whenReady().then(async () => {
   const defaultRoot = join(app.getPath('userData'), 'managed-data')
   const rootOverride = process.env.ROBOTDOG_WORKSPACE_ROOT
   const workspaceRoot = rootOverride ? join(app.getPath('userData'), 'development', rootOverride.replace(/[^a-zA-Z0-9_-]/g, '_')) : defaultRoot
-  const templateRoot = join(app.getAppPath(), 'resources', 'workspace-templates', 'ch32v203-robotdog', '2026.06')
+  const staticRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
+  const templateRoot = join(staticRoot, 'workspace-templates', 'ch32v203-robotdog', '2026.06')
+  const baselineRegistry = await readBaselineRegistry(staticRoot)
   const baseline = new FirmwareBaselineService({
-    manifestPath: join(app.getAppPath(), 'resources', 'firmware-baselines', 'ch32v203-robotdog', 'provisional-0858d82', 'robotdog.firmware.json'),
-    packagedSourceRoot: app.isPackaged ? join(process.resourcesPath, 'firmware-baselines', 'ch32v203-robotdog', 'current', 'source') : undefined
+    manifestPath: join(staticRoot, 'firmware-baselines', 'ch32v203-robotdog', baselineRegistry.manifest),
+    packagedSourceRoot: app.isPackaged ? join(process.resourcesPath, 'firmware-baselines', 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined
   })
   const baselineManifest = await baseline.getManifest()
   const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit })
@@ -81,7 +98,7 @@ app.whenReady().then(async () => {
   const processes = new ReasonixProcessManager({
     version: reasonixVersion,
     binarySha256: '6bb152f4bd6362ee441e6ed3f8917aa6350d646b3f7c0097bb0f5cf8ee66acf5',
-    binaryPath: join(app.getAppPath(), 'resources', 'tools', 'reasonix-v1.9.1', 'bin', 'reasonix.exe'),
+    binaryPath: join(staticRoot, 'tools', 'reasonix-v1.9.1', 'bin', 'reasonix.exe'),
     sessionDataRoot: join(workspaceRoot, 'reasonix-sessions')
   })
   const secrets = new DeepSeekSecretStore(join(app.getPath('userData'), 'secure', 'deepseek-api-key.bin'))
@@ -128,4 +145,13 @@ async function getAgentRuntimeStatus(runtime: { secrets: DeepSeekSecretStore; pr
     ready: installed && apiKeyConfigured,
     detail: !installed ? 'Reasonix 文件缺失或校验失败' : !apiKeyConfigured ? '请配置 DeepSeek API Key' : 'Reasonix ACP 已就绪'
   }
+}
+
+async function readBaselineRegistry(staticRoot: string): Promise<{ manifest: string; packagedSource: string }> {
+  const path = join(staticRoot, 'firmware-baselines', 'ch32v203-robotdog', 'active.json')
+  const value = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
+  if (value.schemaVersion !== 1 || typeof value.manifest !== 'string' || typeof value.packagedSource !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
+  const safeRelative = (item: string): boolean => !item.startsWith('/') && !item.startsWith('\\') && !item.split(/[\\/]/).includes('..')
+  if (!safeRelative(value.manifest) || !safeRelative(value.packagedSource)) throw new Error('ACTIVE_BASELINE_REGISTRY_PATH_INVALID')
+  return { manifest: value.manifest, packagedSource: value.packagedSource }
 }

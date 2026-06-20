@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "manifest": "provisional-0858d82/robotdog.firmware.json",
+  "packagedSource": "current/source",
+  "purpose": "临时功能测试；最终下位机 SDK 交付后只需切换此登记文件并通过正式发布门禁。"
+}
