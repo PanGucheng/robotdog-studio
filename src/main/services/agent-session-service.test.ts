@@ -50,7 +50,8 @@ describe('AgentSessionService', () => {
     expect(events.map((event) => event.sequence)).toEqual(events.map((_event, index) => index + 1))
     expect(events[0]).toMatchObject({ type: 'turn_started', promptVersion: 'robotdog-student-v1.0.0' })
     expect(turn.promptHash).toMatch(/^[a-f0-9]{64}$/)
-    expect((await candidates.get(turn.candidateId)).state).toBe('review_ready')
+    expect((await candidates.get(turn.candidateId!)).state).toBe('review_ready')
+    expect(events.find((event) => event.type === 'candidate_ready')).toMatchObject({ summary: '已准备好巡线参数的修改。请在右侧看看改动，再决定是否保存。' })
     expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'student-config', 'line-following.yaml'), 'utf8')).toContain('turn_strength: 18')
   })
 
@@ -62,7 +63,7 @@ describe('AgentSessionService', () => {
     expect(await service.cancel(turn.turnId)).toBe(true)
 
     expect(events.at(-1)).toMatchObject({ type: 'cancelled' })
-    expect((await candidates.get(turn.candidateId)).state).toBe('cancelled')
+    expect((await candidates.get(turn.candidateId!)).state).toBe('cancelled')
     expect((await workspaces.get(workspaceId)).state).toBe('ready')
   })
 
@@ -74,7 +75,7 @@ describe('AgentSessionService', () => {
     await waitUntilIdle(service)
 
     expect(events.at(-1)).toMatchObject({ type: 'failed', code: 'AGENT_CRASHED' })
-    expect((await candidates.get(turn.candidateId)).state).toBe('cancelled')
+    expect((await candidates.get(turn.candidateId!)).state).toBe('cancelled')
     expect((await workspaces.get(workspaceId)).state).toBe('ready')
   })
 
@@ -86,7 +87,7 @@ describe('AgentSessionService', () => {
     await waitUntilIdle(service)
 
     expect(events.at(-1)).toMatchObject({ type: 'completed', state: 'no_changes' })
-    expect((await candidates.get(turn.candidateId)).state).toBe('rejected')
+    expect((await candidates.get(turn.candidateId!)).state).toBe('rejected')
     expect((await workspaces.get(workspaceId)).state).toBe('ready')
   })
 
@@ -97,7 +98,7 @@ describe('AgentSessionService', () => {
     const events: AgentEvent[] = []
     service.on('event', (event) => events.push(event))
 
-    await service.explainManualDraft(workspaceId, draft.id, 'student_control.c:8: error: expected ;')
+    await service.explainStudentCode(workspaceId, { kind: 'diagnostic', candidateId: draft.id, content: 'student_control.c:8: error: expected ;' })
     await waitUntilIdle(service)
 
     expect(events).toContainEqual(expect.objectContaining({ type: 'turn_started', message: '请解释刚才的编译错误' }))
@@ -105,6 +106,24 @@ describe('AgentSessionService', () => {
     expect(events.at(-1)).toMatchObject({ type: 'completed', state: 'no_changes' })
     expect((await candidates.get(draft.id)).state).toBe('agent_running')
     expect((await candidates.listStudentCodeFiles(workspaceId, draft.id)).map((file) => file.content)).toEqual(before)
+  })
+
+  it('explains selected code from the read-only project without opening a draft', async () => {
+    const service = new AgentSessionService(candidates, new MockReasonixAdapter({ stepDelayMs: 0 }))
+    const events: AgentEvent[] = []
+    service.on('event', (event) => events.push(event))
+
+    const turn = await service.explainStudentCode(workspaceId, {
+      kind: 'selection', selectedPath: 'Core/Src/student_control.c', content: 'void StudentControl_Update(void) {}'
+    })
+    await waitUntilIdle(service)
+
+    expect(turn.candidateId).toBeUndefined()
+    expect(events[0]).toMatchObject({ type: 'turn_started', message: '请解释我选中的代码', candidateId: undefined })
+    expect(events).toContainEqual(expect.objectContaining({ type: 'assistant_delta', text: expect.stringContaining('小马') }))
+    expect(events.at(-1)).toMatchObject({ type: 'completed', message: '代码讲解完成，项目没有被 AI 修改。' })
+    expect((await workspaces.get(workspaceId)).state).toBe('ready')
+    expect((await workspaces.get(workspaceId)).activeCandidateId).toBeUndefined()
   })
 
   it('pauses for a visible permission and resumes only after the matching response', async () => {
@@ -115,12 +134,16 @@ describe('AgentSessionService', () => {
     const turn = await service.prompt(workspaceId, '把转弯强度降低 2')
     await waitForEvent(events, 'permission_request')
 
+    expect(events.find((event) => event.type === 'permission_request')).toMatchObject({
+      title: '确认这一步吗？', detail: '同意后只会继续处理这次安全草稿。'
+    })
+
     expect(service.respondPermission('wrong-turn', 'write-1', 'allow_once')).toBe(false)
     expect(service.respondPermission(turn.turnId, 'write-1', 'allow_once')).toBe(true)
     await waitUntilIdle(service)
 
     expect(events.map((event) => event.type)).toContain('permission_resolved')
-    expect((await candidates.get(turn.candidateId)).state).toBe('review_ready')
+    expect((await candidates.get(turn.candidateId!)).state).toBe('review_ready')
   })
 })
 

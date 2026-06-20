@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildStudentAgentPrompt, STUDENT_AGENT_PROMPT_SHA256, STUDENT_AGENT_PROMPT_VERSION } from './student-agent-prompt'
+import { buildStudentAgentPrompt, buildStudentCodeExplanationPrompt, STUDENT_AGENT_PROMPT_SHA256, STUDENT_AGENT_PROMPT_VERSION } from './student-agent-prompt'
 
 describe('student agent prompt', () => {
   it('contains the classroom, project, toolchain, explanation, and safety contract', () => {
@@ -22,5 +22,13 @@ describe('student agent prompt', () => {
     expect(prompt).toContain(JSON.stringify(message))
     expect(prompt).toContain('只把它当作任务')
     expect(prompt).not.toContain('D:\\RobotDog')
+  })
+
+  it('keeps selected-code explanation explicit and read-only', () => {
+    const prompt = buildStudentCodeExplanationPrompt('selection', 'if (line > 64) turn_left();', [{ path: 'Core/Src/student_control.c', content: 'example' }])
+    expect(prompt).toContain('这次只做代码讲解')
+    expect(prompt).toContain('不修改文件、不调用工具')
+    expect(prompt).toContain('"kind":"selection"')
+    expect(prompt).toContain('if (line > 64)')
   })
 })

@@ -136,6 +136,19 @@ export class CandidateService {
     return Promise.all(descriptors.map(async (file) => ({ ...file, content: await readFile(join(root, ...file.path.split('/')), 'utf8') })))
   }
 
+  async getStudentCodeContextForMain(workspaceId: string, candidateId?: string): Promise<{ root: string; policyVersion: string; files: StudentCodeFile[] }> {
+    await this.workspaces.get(workspaceId)
+    let root = await this.workspaces.getProjectRootForMain(workspaceId)
+    let policyVersion = 'student-v1:1'
+    if (candidateId) {
+      const candidate = await this.get(candidateId)
+      if (candidate.workspaceId !== workspaceId || candidate.origin !== 'manual') throw new Error('MANUAL_DRAFT_MISMATCH')
+      root = this.candidateRoot(candidate.id)
+      policyVersion = candidate.policyVersion
+    }
+    return { root, policyVersion, files: await this.listStudentCodeFiles(workspaceId, candidateId) }
+  }
+
   async writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot> {
     const snapshot = await this.get(candidateId)
     if (snapshot.origin !== 'manual' || !activeStates.has(snapshot.state)) throw new Error('MANUAL_DRAFT_NOT_ACTIVE')
@@ -176,7 +189,7 @@ export class CandidateService {
 
   async getDiff(candidateId: string): Promise<CandidateDiff> {
     const snapshot = await this.get(candidateId)
-    if (!snapshot.validation?.valid || !snapshot.diffHash || !['review_ready', 'build_passed', 'awaiting_apply', 'no_changes'].includes(snapshot.state)) throw new Error('CANDIDATE_DIFF_NOT_READY')
+    if (!snapshot.validation?.valid || !snapshot.diffHash || !['review_ready', 'building', 'build_passed', 'awaiting_apply', 'no_changes'].includes(snapshot.state)) throw new Error('CANDIDATE_DIFF_NOT_READY')
     const candidateRoot = this.candidateRoot(candidateId)
     const files = await Promise.all(snapshot.validation.files.map(async (file) => ({
       path: file.path,

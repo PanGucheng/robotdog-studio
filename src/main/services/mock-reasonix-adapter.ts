@@ -22,11 +22,12 @@ export class MockReasonixAdapter implements ReasonixAdapter {
 
   async runTurn(context: AdapterTurnContext, emit: (event: AdapterEvent | unknown) => void, signal: AbortSignal): Promise<{ summary: string }> {
     if (context.readOnly) {
+      const explainingSelection = context.message.includes('"kind":"selection"')
       await delay(this.stepDelayMs, signal)
-      emit({ type: 'activity', sequence: 1, state: 'thinking', label: '正在把编译错误翻译成容易理解的话' })
+      emit({ type: 'activity', sequence: 1, state: 'thinking', label: explainingSelection ? '正在结合机器马动作讲解代码' : '正在把编译错误翻译成容易理解的话' })
       await delay(this.stepDelayMs, signal)
-      emit({ type: 'assistant_delta', sequence: 2, text: '这条错误表示编译器在标出的那一行没有认出完整的 C 语句。先看看上一行是否漏了分号 `;`，再检查括号是不是成对出现。修好后重新点击“检查并查看修改”即可。' })
-      return { summary: '已用学生能理解的方式解释编译错误。' }
+      emit({ type: 'assistant_delta', sequence: 2, text: explainingSelection ? '这段代码会根据巡线传感器看到的黑线位置，决定让小马往左、往右，还是继续向前。可以把它想成小马一边看路，一边轻轻调整方向。' : '这条错误表示编译器在标出的那一行没有认出完整的 C 语句。先看看上一行是否漏了分号 `;`，再检查括号是不是成对出现。修好后重新点击“检查并查看修改”即可。' })
+      return { summary: explainingSelection ? '已用学生能理解的方式讲解代码。' : '已用学生能理解的方式解释编译错误。' }
     }
     let step = 0
     const next = async (event: AdapterEvent): Promise<void> => {

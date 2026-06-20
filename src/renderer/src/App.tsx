@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -270,9 +270,9 @@ export function App(): React.JSX.Element {
     setCandidate(undefined)
     void api.promptAgent(activeWorkspace.id, message).then(setAgentTurn).catch((caught) => setError(toStudentErrorMessage(caught)))
   }
-  const explainDiagnostic = (candidateId: string, diagnostic: string): void => {
+  const explainCode = (request: StudentCodeExplanationRequest): void => {
     if (!activeWorkspace) return
-    void api.explainManualDraft(activeWorkspace.id, candidateId, diagnostic).then(setAgentTurn).catch((caught) => setError(toStudentErrorMessage(caught)))
+    void api.explainStudentCode(activeWorkspace.id, request).then(setAgentTurn).catch((caught) => setError(toStudentErrorMessage(caught)))
   }
   const cancelAgent = (): void => { void api.cancelAgent(agentTurn?.turnId) }
   const respondAgentPermission = (requestId: string, optionId: string): void => {
@@ -380,7 +380,7 @@ export function App(): React.JSX.Element {
           onApplyCandidate={applyCandidate}
           onUndoWorkspace={undoWorkspace}
           onCandidateChanged={setCandidate}
-          onExplainDiagnostic={explainDiagnostic}
+          onExplainCode={explainCode}
           onBuildFirmware={buildFirmware}
           onCancelBuild={cancelBuild}
           onToggleUsb={toggleUsb}

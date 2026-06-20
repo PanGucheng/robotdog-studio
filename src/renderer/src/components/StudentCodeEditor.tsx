@@ -3,7 +3,7 @@ import type { Monaco } from '@monaco-editor/react'
 import type { editor as MonacoEditor } from 'monaco-editor'
 import { BookOpen, CheckCircle2, Code2, FileSliders, Play, RotateCcw, Save, ShieldCheck, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CandidateSnapshot, StudentCodeFile, WorkspaceSummary } from '../../../shared/types'
+import type { CandidateSnapshot, StudentCodeExplanationRequest, StudentCodeFile, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 
 interface StudentCodeEditorProps {
@@ -12,7 +12,7 @@ interface StudentCodeEditorProps {
   busy: boolean
   onCandidateChanged(candidate?: CandidateSnapshot): void
   onReadyForReview(): void
-  onExplainDiagnostic(candidateId: string, diagnostic: string): void
+  onExplainCode(request: StudentCodeExplanationRequest): void
 }
 
 const configureMonaco: BeforeMount = (monaco) => {
@@ -32,7 +32,7 @@ const configureMonaco: BeforeMount = (monaco) => {
   })
 }
 
-export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainDiagnostic }: StudentCodeEditorProps): React.JSX.Element {
+export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode }: StudentCodeEditorProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const manualCandidate = candidate?.origin === 'manual' ? candidate : undefined
   const [files, setFiles] = useState<StudentCodeFile[]>([])
@@ -143,12 +143,14 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   }
 
   const explainSelection = (): void => {
-    if (!manualCandidate) return
     const editor = editorRef.current
     const selection = editor?.getSelection()
     const selectedCode = selection && editor?.getModel()?.getValueInRange(selection)
     if (!selectedCode?.trim()) { setMessage('先在编辑器里选中一小段代码，再请 AI 解释。'); return }
-    onExplainDiagnostic(manualCandidate.id, `请逐段解释下面这段 ${selected?.language === 'yaml' ? '巡线参数' : 'C 代码'}在机器马上会做什么：\n\n${selectedCode.slice(0, 4_000)}`)
+    onExplainCode({
+      kind: 'selection', candidateId: manualCandidate?.id, selectedPath: selected?.path,
+      content: selectedCode.slice(0, 4_000)
+    })
   }
 
   if (!workspace) return <div className="code-editor-empty"><Code2 size={28} /><h3>先新建一个学生对话</h3><p>系统会复制代码模板，再让你放心试改。</p></div>
@@ -175,9 +177,9 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
         <header className="student-editor-toolbar">
           <div><span className="eyebrow">{selected?.group ?? '学生代码'}</span><h2>{selected?.label ?? '选择一个文件'}</h2><p>{selected?.path}</p></div>
           <div className="student-editor-actions">
+            <button type="button" onClick={explainSelection} disabled={busy || !selected}><Sparkles size={14} /> 解释选中代码</button>
             {!manualCandidate ? <button type="button" className="button-primary" onClick={startDraft} disabled={busy}><Play size={14} /> 开始编写</button> : <>
               <span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`}>{saving ? '正在保存草稿…' : dirty ? '等待自动保存…' : <><CheckCircle2 size={13} /> 草稿已保存</>}</span>
-              <button type="button" onClick={explainSelection} disabled={busy}><Sparkles size={14} /> 解释选中代码</button>
               <button type="button" onClick={discard} disabled={busy}><RotateCcw size={14} /> 放弃草稿</button>
               <button type="button" className="button-primary" onClick={checkCode} disabled={busy || saving}><Save size={14} /> 检查并查看修改</button>
             </>}
@@ -194,6 +196,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
             onChange={(value) => { if (selected?.editable && manualCandidate) { setContent(value ?? ''); setDirty(true); setDiagnostic(undefined) } }}
             options={{
               readOnly: !selected?.editable || !manualCandidate, automaticLayout: true, minimap: { enabled: false },
+              readOnlyMessage: { value: !selected?.editable ? '这是接口说明，只能查看。' : '当前正在查看项目原稿。请点击右上角的“开始编写”按钮后再修改。' },
               fontFamily: "'Cascadia Code', Consolas, monospace", fontSize: 15, lineHeight: 24, tabSize: 4,
               padding: { top: 14, bottom: 14 }, scrollBeyondLastLine: false, wordWrap: 'on',
               renderLineHighlight: 'all', smoothScrolling: true, bracketPairColorization: { enabled: true }
@@ -205,7 +208,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           <strong>{diagnostic ? '代码检查发现问题' : '当前进度'}</strong>
           <p>{diagnostic ?? message}</p>
           {diagnostic && <small>错误只发生在安全草稿里，正式项目没有受影响。</small>}
-          {diagnostic && manualCandidate && <button type="button" onClick={() => onExplainDiagnostic(manualCandidate.id, diagnostic)} disabled={busy}>请 AI 助教解释</button>}
+          {diagnostic && manualCandidate && <button type="button" onClick={() => onExplainCode({ kind: 'diagnostic', candidateId: manualCandidate.id, content: diagnostic })} disabled={busy}>请 AI 助教解释</button>}
         </div>}
       </div>
     </div>

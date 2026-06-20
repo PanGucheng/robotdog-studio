@@ -181,9 +181,9 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
       if (typeof workspaceId !== 'string' || typeof message !== 'string') throw new Error('AGENT_PROMPT_INVALID')
       return agents.prompt(workspaceId, message)
     })
-    ipcMain.handle(IPC_CHANNELS.manualDraftExplain, (_event, workspaceId: unknown, candidateId: unknown, diagnostic: unknown) => {
-      if (typeof workspaceId !== 'string' || typeof candidateId !== 'string' || typeof diagnostic !== 'string') throw new Error('MANUAL_EXPLAIN_INPUT_INVALID')
-      return agents.explainManualDraft(workspaceId, candidateId, diagnostic)
+    ipcMain.handle(IPC_CHANNELS.manualDraftExplain, (_event, workspaceId: unknown, request: unknown) => {
+      if (typeof workspaceId !== 'string' || !request || typeof request !== 'object') throw new Error('STUDENT_EXPLAIN_INPUT_INVALID')
+      return agents.explainStudentCode(workspaceId, request)
     })
     ipcMain.handle(IPC_CHANNELS.agentCancel, (_event, turnId: unknown) => {
       if (turnId !== undefined && typeof turnId !== 'string') throw new Error('AGENT_TURN_ID_INVALID')

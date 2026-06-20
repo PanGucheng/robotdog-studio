@@ -220,6 +220,13 @@ export interface StudentCodeFile {
   content: string
 }
 
+export interface StudentCodeExplanationRequest {
+  kind: 'selection' | 'diagnostic'
+  candidateId?: string
+  selectedPath?: StudentCodeFile['path']
+  content: string
+}
+
 export interface CandidateBuildProof {
   candidateId: string
   sourceTreeHash: string
@@ -250,7 +257,7 @@ export type AgentTurnState = 'preparing' | 'thinking' | 'editing' | 'validating'
 export interface AgentTurnSnapshot {
   turnId: string
   workspaceId: string
-  candidateId: string
+  candidateId?: string
   state: AgentTurnState
   message: string
   promptVersion?: string
@@ -281,7 +288,7 @@ interface AgentEventBase {
 }
 
 export type AgentEvent =
-  | AgentEventBase & { type: 'turn_started'; workspaceId: string; candidateId: string; message: string; promptVersion?: string; promptHash?: string }
+  | AgentEventBase & { type: 'turn_started'; workspaceId: string; candidateId?: string; message: string; promptVersion?: string; promptHash?: string }
   | AgentEventBase & { type: 'plan'; steps: StudentPlanStep[] }
   | AgentEventBase & { type: 'assistant_delta'; text: string }
   | AgentEventBase & { type: 'activity'; label: string; state: 'thinking' | 'editing' | 'validating' }
@@ -479,7 +486,7 @@ export interface RobotDogApi {
   listStudentCodeFiles(workspaceId: string, candidateId?: string): Promise<StudentCodeFile[]>
   openManualDraft(workspaceId: string): Promise<CandidateSnapshot>
   writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot>
-  explainManualDraft(workspaceId: string, candidateId: string, diagnostic: string): Promise<AgentTurnSnapshot>
+  explainStudentCode(workspaceId: string, request: StudentCodeExplanationRequest): Promise<AgentTurnSnapshot>
   getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
   undoWorkspace(workspaceId: string): Promise<WorkspaceSummary>

@@ -416,13 +416,17 @@ export const browserDemoApi: RobotDogApi = {
     candidateListeners.forEach((listener) => listener(structuredClone(rejected)))
     return rejected
   },
-  explainManualDraft: async (workspaceId, candidateId, _diagnostic) => {
+  explainStudentCode: async (workspaceId, request) => {
     if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')
-    const turn: AgentTurnSnapshot = { turnId: `turn_explain_${Date.now()}`, workspaceId, candidateId, state: 'preparing', message: '请解释刚才的编译错误', startedAt: new Date().toISOString() }
+    const displayMessage = request.kind === 'selection' ? '请解释我选中的代码' : '请解释刚才的编译错误'
+    const turn: AgentTurnSnapshot = { turnId: `turn_explain_${Date.now()}`, workspaceId, candidateId: request.candidateId, state: 'preparing', message: displayMessage, startedAt: new Date().toISOString() }
     browserAgentTurn = turn
-    emitBrowserAgent(turn, 1, { type: 'turn_started', workspaceId, candidateId, message: '请解释刚才的编译错误' })
-    setTimeout(() => emitBrowserAgent(turn, 2, { type: 'assistant_delta', text: '这条错误表示编译器在标出的那一行没有认出完整的 C 语句。先检查上一行是否漏了分号 `;`，再看看括号是否成对。' }), 120)
-    setTimeout(() => { emitBrowserAgent(turn, 3, { type: 'completed', state: 'no_changes', message: '错误解释完成，安全草稿没有被 AI 修改。' }); browserAgentTurn = undefined }, 260)
+    emitBrowserAgent(turn, 1, { type: 'turn_started', workspaceId, candidateId: request.candidateId, message: displayMessage })
+    const answer = request.kind === 'selection'
+      ? '这段代码会根据巡线传感器看到的黑线位置，决定让小马往左、往右，还是继续向前。可以把它想成小马一边看路，一边轻轻调整方向。'
+      : '这条错误表示编译器在标出的那一行没有认出完整的 C 语句。先检查上一行是否漏了分号 `;`，再看看括号是否成对。'
+    setTimeout(() => emitBrowserAgent(turn, 2, { type: 'assistant_delta', text: answer }), 120)
+    setTimeout(() => { emitBrowserAgent(turn, 3, { type: 'completed', state: 'no_changes', message: request.kind === 'selection' ? '代码讲解完成，项目没有被 AI 修改。' : '错误解释完成，安全草稿没有被 AI 修改。' }); browserAgentTurn = undefined }, 260)
     return { ...turn }
   },
   promptAgent: async (workspaceId, message) => {
@@ -507,6 +511,7 @@ async function runBrowserAgent(turn: AgentTurnSnapshot, token: number): Promise<
     if (token !== browserAgentToken) return
     emitBrowserAgent(turn, index + 1, sequence[index])
   }
+  if (!turn.candidateId) return
   const current = demoCandidates.get(turn.candidateId)
   if (!current || token !== browserAgentToken) return
   const ready: CandidateSnapshot = {
@@ -514,7 +519,7 @@ async function runBrowserAgent(turn: AgentTurnSnapshot, token: number): Promise<
     validation: { valid: true, policyVersion: 'student-v1:1', files: [{ path: 'student-config/line-following.yaml', status: 'modified', bytes: 36, additions: 1, deletions: 1 }], violations: [], warnings: [], changedFiles: 1, patchBytes: 36 }
   }
   demoCandidates.set(ready.id, ready)
-  emitBrowserAgent(turn, 8, { type: 'candidate_ready', candidate: ready, summary: '转弯强度 18 → 16，修改仅发生在学生参数文件。' })
+  emitBrowserAgent(turn, 8, { type: 'candidate_ready', candidate: ready, summary: '已准备好巡线参数的修改。请在右侧看看改动，再决定是否保存。' })
   emitBrowserAgent(turn, 9, { type: 'completed', state: 'review_ready', message: '修改已通过安全核对，等你查看。' })
   browserAgentTurn = undefined
 }

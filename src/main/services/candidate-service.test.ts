@@ -100,6 +100,31 @@ describe('CandidateService', () => {
     expect((await workspaces.history(workspaceId, 1))[0].message).toContain('manual draft')
   })
 
+  it('keeps an approved diff readable while compilation is running', async () => {
+    let releaseBuild: (() => void) | undefined
+    let markStarted: (() => void) | undefined
+    const started = new Promise<void>((resolve) => { markStarted = resolve })
+    const release = new Promise<void>((resolve) => { releaseBuild = resolve })
+    const slowBuilder: CandidateBuilder = {
+      async build(input) {
+        markStarted?.()
+        await release
+        return passingBuilder.build(input)
+      }
+    }
+    const service = new CandidateService({ rootDir: dataRoot, workspaces, builder: slowBuilder })
+    const candidate = await service.create(workspaceId)
+    await writeFile(join(dataRoot, 'candidates', candidate.id, 'student-config', 'line-following.yaml'), 'turn_strength: 16\n')
+    await service.validate(candidate.id)
+
+    const build = service.build(candidate.id)
+    await started
+    expect((await service.get(candidate.id)).state).toBe('building')
+    expect((await service.getDiff(candidate.id)).files[0]).toMatchObject({ before: 'turn_strength: 18\n', after: 'turn_strength: 16\n' })
+    releaseBuild?.()
+    expect((await build).state).toBe('build_passed')
+  })
+
   it('blocks policy files, binary content, deletion, and rename', async () => {
     const candidate = await candidates.create(workspaceId)
     const root = join(dataRoot, 'candidates', candidate.id)

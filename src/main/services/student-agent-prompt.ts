@@ -77,8 +77,8 @@ ${JSON.stringify(message)}
 请先读取直接相关文件，再开始这次任务。`
 }
 
-export function buildDiagnosticExplanationPrompt(diagnostic: string, snippets: Array<{ path: string; content: string }>): string {
-  const codeQuestion = diagnostic.startsWith('请逐段解释')
+export function buildStudentCodeExplanationPrompt(kind: 'selection' | 'diagnostic', content: string, snippets: Array<{ path: string; content: string }>): string {
+  const codeQuestion = kind === 'selection'
   return `${STUDENT_AGENT_SYSTEM_PROMPT}
 
 ## 本轮只读任务
@@ -91,6 +91,10 @@ export function buildDiagnosticExplanationPrompt(diagnostic: string, snippets: A
 4. 给出一个很短的修改示例，但不要声称已经替学生改好。`}
 
 <diagnostic_json>
-${JSON.stringify({ diagnostic, snippets })}
+${JSON.stringify({ kind, content, snippets })}
 </diagnostic_json>`
+}
+
+export function buildDiagnosticExplanationPrompt(diagnostic: string, snippets: Array<{ path: string; content: string }>): string {
+  return buildStudentCodeExplanationPrompt('diagnostic', diagnostic, snippets)
 }

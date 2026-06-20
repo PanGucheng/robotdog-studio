@@ -11,4 +11,9 @@ describe('toStudentErrorMessage', () => {
   it('keeps an unexpected detail for teacher troubleshooting', () => {
     expect(toStudentErrorMessage('unexpected failure')).toBe('操作没有完成：unexpected failure')
   })
+
+  it('turns the temporary diff race into a short student message', () => {
+    const message = toStudentErrorMessage(new Error("Error invoking remote method 'candidate:get-diff': Error: CANDIDATE_DIFF_NOT_READY"))
+    expect(message).toBe('修改内容还在准备中，请稍等片刻。')
+  })
 })

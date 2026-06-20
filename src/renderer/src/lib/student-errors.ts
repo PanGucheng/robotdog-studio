@@ -1,4 +1,5 @@
 const friendlyErrors: Array<[RegExp, string]> = [
+  [/CANDIDATE_DIFF_NOT_READY/i, '修改内容还在准备中，请稍等片刻。'],
   [/CANDIDATE_NOT_APPLICABLE/i, '这份修改已经失效或已保存过。请回到当前对话，重新打开最新的“修改确认”。'],
   [/CANDIDATE_(STALE|CONFLICT)/i, '代码在修改期间发生了变化。你的草稿仍然保留，请重新检查后再统一保存。'],
   [/WORKSPACE.*NOT_FOUND/i, '没有找到这次练习。它可能已被移动，请新建一个对话后再试。'],
