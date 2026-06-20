@@ -77,7 +77,7 @@ export interface AppHealth {
 export type WorkspaceState = 'ready' | 'candidate_active' | 'applying' | 'error' | 'conflict' | 'archived'
 
 export interface CreateWorkspaceInput {
-  name: string
+  name?: string
   studentDisplayName: string
   templateId?: 'ch32v203-robotdog'
 }
@@ -89,6 +89,9 @@ export interface WorkspaceMetadata {
   studentDisplayName: string
   templateId: 'ch32v203-robotdog'
   templateVersion: string
+  firmwareBaselineId: string
+  baselineCommit: string
+  nameCustomized: boolean
   createdAt: string
   updatedAt: string
   activeBranch: 'main'
@@ -104,10 +107,42 @@ export interface WorkspaceSummary {
   studentDisplayName: string
   templateId: 'ch32v203-robotdog'
   templateVersion: string
+  firmwareBaselineId: string
+  baselineCommit: string
+  createdAt: string
   headCommit: string
   state: WorkspaceState
   updatedAt: string
   activeCandidateId?: string
+}
+
+export interface FirmwareBaselineManifest {
+  schemaVersion: 1
+  id: string
+  label: string
+  status: 'provisional' | 'release'
+  releaseEligible: boolean
+  replacementPolicy: string
+  source: { repository: string; expectedCommit: string; developmentDefaultRoot: string }
+  target: { board: string; chip: string; startup: string; linkerScript: string; memory: { flashBytes: number; ramBytes: number; confirmed: boolean } }
+  toolchain: { profile: string; arch: string; abi: string; codeModel: string }
+  build: { includeDirectories: string[]; sources: string[]; cFlags: string[]; assemblerFlags: string[]; linkFlags: string[] }
+  studentOverlay: { source: string; header: string; configInput: string; generatedHeader: string }
+  artifacts: { elf: string; hex: string; bin: string; map: string }
+  integrity: Array<{ path: string; sha256: string }>
+}
+
+export interface FirmwareBaselineStatus {
+  id: string
+  label: string
+  sourceRoot: string
+  expectedCommit: string
+  status: 'provisional' | 'release'
+  readyForTesting: boolean
+  releaseEligible: boolean
+  verifiedFiles: string[]
+  errors: string[]
+  warnings: string[]
 }
 
 export type CandidateState =
@@ -263,6 +298,7 @@ export interface FirmwareBuildArtifact {
   path: string
   bytes?: number
   kind: 'elf' | 'hex' | 'bin' | 'map'
+  sha256?: string
 }
 
 export interface FirmwareSizeInfo {
@@ -276,6 +312,7 @@ export interface FirmwareSizeInfo {
 export interface FirmwareBuildSnapshot {
   id?: string
   state: FirmwareBuildState
+  workspaceId?: string
   firmwareRoot: string
   outputDir?: string
   currentFile?: string
@@ -284,9 +321,28 @@ export interface FirmwareBuildSnapshot {
   logs: string[]
   artifacts: FirmwareBuildArtifact[]
   size?: FirmwareSizeInfo
+  proof?: FirmwareBuildProof
   error?: string
   startedAt?: string
   completedAt?: string
+}
+
+export interface FirmwareBuildProof {
+  schemaVersion: 1
+  inputHash: string
+  workspaceId: string
+  workspaceCommit: string
+  workspaceSourceHash: string
+  firmwareBaselineId: string
+  baselineCommit: string
+  baselineSourceHash: string
+  toolchain: string
+  board: string
+  size: FirmwareSizeInfo
+  artifacts: Array<{ name: string; kind: FirmwareBuildArtifact['kind']; bytes: number; sha256: string }>
+  startedAt: string
+  completedAt: string
+  releaseEligible: boolean
 }
 
 export type FirmwareBuildEvent =
@@ -375,7 +431,8 @@ export interface RobotDogApi {
   runAction(action: RobotAction): Promise<RobotStatus>
   captureCcd(): Promise<CcdFrame>
   getToolchainStatus(): Promise<ToolchainStatus>
-  startFirmwareBuild(): Promise<FirmwareBuildSnapshot>
+  getFirmwareBaselineStatus(): Promise<FirmwareBaselineStatus>
+  startFirmwareBuild(workspaceId: string): Promise<FirmwareBuildSnapshot>
   cancelFirmwareBuild(): Promise<FirmwareBuildSnapshot>
   getDeviceConnection(): Promise<DeviceConnectionSnapshot>
   setDemoUsbConnected(connected: boolean): Promise<DeviceConnectionSnapshot>
@@ -387,6 +444,7 @@ export interface RobotDogApi {
   cancelRecovery(): Promise<RecoverySnapshot>
   listWorkspaces(): Promise<WorkspaceSummary[]>
   createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>
+  renameWorkspace(workspaceId: string, name: string): Promise<WorkspaceSummary>
   getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
   undoWorkspace(workspaceId: string): Promise<WorkspaceSummary>

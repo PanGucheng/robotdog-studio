@@ -12,10 +12,11 @@ import { AgentSessionService } from '../services/agent-session-service'
 import { DeepSeekSecretStore } from '../services/deepseek-secret-store'
 import { ReasonixProcessManager } from '../services/reasonix-process-manager'
 import { AgentHistoryService } from '../services/agent-history-service'
+import { FirmwareBaselineService } from '../services/firmware-baseline-service'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService): () => void {
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -65,7 +66,14 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   ipcMain.handle(IPC_CHANNELS.robotActionRun, (_event, action: unknown) => robot.runAction(action))
   ipcMain.handle(IPC_CHANNELS.robotCcdCapture, () => robot.captureCcd())
   ipcMain.handle(IPC_CHANNELS.firmwareToolchainStatus, () => toolchain.getStatus())
-  ipcMain.handle(IPC_CHANNELS.firmwareBuildStart, () => firmware.build())
+  ipcMain.handle(IPC_CHANNELS.firmwareBaselineStatus, () => {
+    if (!baseline) throw new Error('固件基线服务尚未配置')
+    return baseline.getStatus()
+  })
+  ipcMain.handle(IPC_CHANNELS.firmwareBuildStart, (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== 'string') throw new Error('请先创建或选择一个学生对话')
+    return firmware.build({ workspaceId })
+  })
   ipcMain.handle(IPC_CHANNELS.firmwareBuildCancel, () => firmware.cancel())
   ipcMain.handle(IPC_CHANNELS.deviceConnectionGet, () => connectivity.getConnection())
   ipcMain.handle(IPC_CHANNELS.simulationUsbSet, (_event, connected: unknown) => {
@@ -92,6 +100,12 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     ipcMain.handle(IPC_CHANNELS.workspaceList, () => workspaces.list())
     ipcMain.handle(IPC_CHANNELS.workspaceCreate, async (_event, input: unknown) => {
       const workspace = await workspaces.create(input as never)
+      sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
+      return workspace
+    })
+    ipcMain.handle(IPC_CHANNELS.workspaceRename, async (_event, workspaceId: unknown, name: unknown) => {
+      if (typeof workspaceId !== 'string' || typeof name !== 'string') throw new Error('WORKSPACE_RENAME_INVALID')
+      const workspace = await workspaces.renameWorkspace(workspaceId, name)
       sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
       return workspace
     })

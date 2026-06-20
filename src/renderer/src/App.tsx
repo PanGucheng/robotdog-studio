@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleUserRound, GraduationCap, Menu, Plus, ShieldAlert } from 'lucide-react'
+import { CircleUserRound, GraduationCap, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
 import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
@@ -173,7 +173,10 @@ export function App(): React.JSX.Element {
   }
   const capture = (): void => { void run(() => api.captureCcd()) }
   const action = (value: RobotAction): void => { void run(() => api.runAction(value)) }
-  const buildFirmware = (): void => { void run(async () => { setBuild(await api.startFirmwareBuild()) }) }
+  const buildFirmware = (): void => { void run(async () => {
+    if (!activeWorkspaceId) throw new Error('请先新建一个学生对话')
+    setBuild(await api.startFirmwareBuild(activeWorkspaceId))
+  }) }
   const cancelBuild = (): void => { void run(async () => { setBuild(await api.cancelFirmwareBuild()) }) }
   const toggleUsb = (): void => { void run(async () => { setConnection(await api.setDemoUsbConnected(connection.updatePort.state === 'disconnected')) }) }
   const startUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.startFirmwareUpdate()) }) }
@@ -182,9 +185,18 @@ export function App(): React.JSX.Element {
   const cancelRecovery = (): void => { void run(async () => { setRecovery(await api.cancelRecovery()) }) }
   const createWorkspace = (): void => {
     void run(async () => {
-      const workspace = await api.createWorkspace({ name: '巡线基础训练', studentDisplayName: '林同学' })
+      const workspace = await api.createWorkspace({ studentDisplayName: '林同学' })
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setActiveWorkspaceId(workspace.id)
+    })
+  }
+  const renameWorkspace = (): void => {
+    if (!activeWorkspace) return
+    const name = window.prompt('给这次对话起一个容易辨认的名字', activeWorkspace.name)?.trim()
+    if (!name || name === activeWorkspace.name) return
+    void run(async () => {
+      const updated = await api.renameWorkspace(activeWorkspace.id, name)
+      setWorkspaces((current) => current.map((workspace) => workspace.id === updated.id ? updated : workspace))
     })
   }
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
@@ -305,11 +317,12 @@ export function App(): React.JSX.Element {
       <div className="context-bar">
         <span className="workspace-picker"><GraduationCap size={15} />
           {workspaces.length > 0 ? (
-            <select aria-label="当前训练项目" value={activeWorkspaceId} onChange={(event) => setActiveWorkspaceId(event.target.value)}>
-              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name} · {workspace.studentDisplayName}</option>)}
+            <select aria-label="当前学生对话" value={activeWorkspaceId} onChange={(event) => setActiveWorkspaceId(event.target.value)}>
+              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}</option>)}
             </select>
-          ) : <strong>还没有训练项目</strong>}
-          <button type="button" onClick={createWorkspace} disabled={busy} title="创建受保护的训练项目"><Plus size={13} /> 新建</button>
+          ) : <strong>还没有学生对话</strong>}
+          {activeWorkspace && <button type="button" onClick={renameWorkspace} disabled={busy} title="修改当前对话名称"><Pencil size={13} /> 重命名</button>}
+          <button type="button" onClick={createWorkspace} disabled={busy} title="复制代码模板并创建独立工作区"><Plus size={13} /> 新对话</button>
         </span>
         {activeWorkspace && <span className="checkpoint-tag">存档 {activeWorkspace.headCommit.slice(0, 7)}</span>}
         <span>固件：{status.firmware}</span>

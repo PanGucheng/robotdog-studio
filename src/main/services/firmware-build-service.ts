@@ -1,154 +1,160 @@
-import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path'
+import { createHash, randomUUID } from 'node:crypto'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { EventEmitter } from 'node:events'
+import { copyFile, cp, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { dirname, extname, join, relative, resolve } from 'node:path'
 import type {
   FirmwareBuildArtifact,
   FirmwareBuildEvent,
+  FirmwareBuildProof,
   FirmwareBuildSnapshot,
   FirmwareBuildState,
   FirmwareSizeInfo
 } from '../../shared/types'
+import { parseLineConfigText, renderStudentConfigHeader } from './candidate-build-service'
+import { FirmwareBaselineService } from './firmware-baseline-service'
+import { SourceFingerprintService } from './source-fingerprint-service'
 import { ToolchainService } from './toolchain-service'
+import { WorkspaceService } from './workspace-service'
 
-interface CompileCommandEntry {
-  directory: string
-  file: string
-  command: string
-}
+export interface FirmwareBuildOptions { workspaceId: string }
 
-export interface FirmwareBuildOptions {
-  firmwareRoot?: string
+export interface FirmwareBuildServiceOptions {
+  baseline?: FirmwareBaselineService
+  workspaces?: WorkspaceService
   outputBase?: string
 }
 
-type FirmwareBuildServiceEvents = {
-  event: [FirmwareBuildEvent]
-}
-
-const DEFAULT_FIRMWARE_ROOT = 'D:\\RobotDog\\ch32v203-robot-dog'
+type FirmwareBuildServiceEvents = { event: [FirmwareBuildEvent] }
 
 export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvents> {
-  private readonly toolchain: ToolchainService
-  private readonly repoRoot: string
+  private readonly baseline?: FirmwareBaselineService
+  private readonly workspaces?: WorkspaceService
+  private readonly outputBase: string
+  private readonly fingerprint = new SourceFingerprintService()
   private activeProcess?: ChildProcessWithoutNullStreams
-  private activeSnapshot: FirmwareBuildSnapshot
+  private activeSnapshot: FirmwareBuildSnapshot = this.makeIdleSnapshot()
   private cancelRequested = false
+  private redactions: string[] = []
 
-  constructor(toolchain: ToolchainService, repoRoot = process.cwd()) {
+  constructor(private readonly toolchain: ToolchainService, options: FirmwareBuildServiceOptions = {}) {
     super()
-    this.toolchain = toolchain
-    this.repoRoot = repoRoot
-    this.activeSnapshot = this.makeIdleSnapshot(DEFAULT_FIRMWARE_ROOT)
+    this.baseline = options.baseline
+    this.workspaces = options.workspaces
+    this.outputBase = resolve(options.outputBase ?? join(process.cwd(), '.firmware-build', 'managed'))
   }
 
-  getSnapshot(): FirmwareBuildSnapshot {
-    return this.cloneSnapshot(this.activeSnapshot)
-  }
+  getSnapshot(): FirmwareBuildSnapshot { return structuredClone(this.activeSnapshot) }
 
-  async build(options: FirmwareBuildOptions = {}): Promise<FirmwareBuildSnapshot> {
-    if (this.activeSnapshot.state === 'running') {
-      throw new Error('已有固件构建正在进行')
-    }
+  async build(options: FirmwareBuildOptions): Promise<FirmwareBuildSnapshot> {
+    if (this.activeSnapshot.state === 'running') throw new Error('已有固件构建正在进行')
+    if (!this.baseline || !this.workspaces) throw new Error('完整固件构建服务尚未绑定学生工作区和固件基线')
+    if (!/^ws_[a-f0-9]{24}$/.test(options.workspaceId)) throw new Error('WORKSPACE_ID_INVALID')
 
     this.cancelRequested = false
-    const firmwareRoot = resolve(options.firmwareRoot ?? process.env.ROBOTDOG_FIRMWARE_ROOT ?? DEFAULT_FIRMWARE_ROOT)
-    const outputBase = resolve(options.outputBase ?? process.env.ROBOTDOG_FIRMWARE_OUT ?? join(this.repoRoot, '.firmware-build', 'ch32v203-robot-dog'))
-    const outputDir = options.outputBase ?? process.env.ROBOTDOG_FIRMWARE_OUT
-      ? outputBase
-      : join(outputBase, new Date().toISOString().replace(/[:.]/g, '-'))
-
-    this.activeSnapshot = {
-      id: randomUUID(),
-      state: 'running',
-      firmwareRoot,
-      outputDir,
-      completedFiles: 0,
-      totalFiles: 0,
-      logs: [],
-      artifacts: [],
-      startedAt: new Date().toISOString()
-    }
-
-    this.emitSnapshot('snapshot')
-    this.addLog(`固件工程：${firmwareRoot}`)
-    this.addLog(`构建输出：${outputDir}`)
-
+    const buildId = randomUUID()
+    const temporaryRoot = join(this.outputBase, `.building-${buildId}`)
+    let publishedRoot: string | undefined
     try {
-      const toolchainStatus = await this.toolchain.getStatus()
-      if (!toolchainStatus.gcc.ok) throw new Error(`GCC 不可用：${toolchainStatus.gcc.detail}`)
-      if (!toolchainStatus.objcopy.ok) throw new Error(`objcopy 不可用：${toolchainStatus.objcopy.detail}`)
-      if (!toolchainStatus.size.ok) throw new Error(`size 不可用：${toolchainStatus.size.detail}`)
+      const [{ manifest, sourceRoot, sourceHash }, workspace, toolchain] = await Promise.all([
+        this.baseline.requireTestingBaseline(), this.workspaces.get(options.workspaceId), this.toolchain.getStatus()
+      ])
+      if (!toolchain.gcc.ok || !toolchain.objcopy.ok || !toolchain.size.ok) throw new Error('内置 WCH GCC12 工具链不完整')
+      if (workspace.firmwareBaselineId !== manifest.id || workspace.baselineCommit !== manifest.source.expectedCommit) throw new Error('工作区绑定的固件基线与当前基线不一致')
+      const projectRoot = await this.workspaces.getProjectRootForMain(workspace.id)
+      const workspaceSourceHash = await this.fingerprint.calculate(projectRoot)
+      const inputHash = createHash('sha256').update(JSON.stringify({
+        workspaceCommit: workspace.headCommit, workspaceSourceHash, baselineId: manifest.id,
+        baselineCommit: manifest.source.expectedCommit, baselineSourceHash: sourceHash,
+        toolchain: toolchain.gcc.version ?? toolchain.gcc.detail, profile: manifest.toolchain
+      })).digest('hex')
+      publishedRoot = join(this.outputBase, inputHash)
+      this.redactions = [sourceRoot, projectRoot, temporaryRoot, this.outputBase]
+      this.activeSnapshot = {
+        id: buildId, workspaceId: workspace.id, state: 'running', firmwareRoot: sourceRoot, outputDir: publishedRoot,
+        completedFiles: 0, totalFiles: manifest.build.sources.length + 1, logs: [], artifacts: [], startedAt: new Date().toISOString()
+      }
+      this.emitSnapshot('snapshot')
+      this.addLog(`正在准备 ${manifest.label}`)
 
-      const compileCommandsPath = join(firmwareRoot, 'build', 'obj', 'compile_commands.json')
-      const linkerScript = join(firmwareRoot, 'Ld', 'Link.ld')
-      assertFile(compileCommandsPath, 'compile_commands.json')
-      assertFile(linkerScript, '链接脚本')
+      const cached = await this.readCachedBuild(publishedRoot, inputHash)
+      if (cached) {
+        this.activeSnapshot = { ...cached, id: buildId, logs: ['输入没有变化，已使用经过哈希校验的固件产物。'] }
+        this.emitSnapshot('completed')
+        return this.getSnapshot()
+      }
 
-      mkdirSync(join(outputDir, 'obj'), { recursive: true })
-      const compileCommands = JSON.parse(readFileSync(compileCommandsPath, 'utf8')) as CompileCommandEntry[]
-      this.activeSnapshot.totalFiles = compileCommands.length
-      this.emitSnapshot('progress')
+      const stagingRoot = join(temporaryRoot, 'source')
+      const outputRoot = join(temporaryRoot, 'output')
+      await mkdir(this.outputBase, { recursive: true })
+      await this.copyBaseline(sourceRoot, stagingRoot)
+      await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay)
+      await mkdir(join(outputRoot, 'obj'), { recursive: true })
 
+      const sources = [...manifest.build.sources, manifest.studentOverlay.source]
       const objectFiles: string[] = []
-      for (const [index, entry] of compileCommands.entries()) {
+      for (const [index, source] of sources.entries()) {
         this.throwIfCancelled()
-        const { args, objectPath, sourceFile } = this.prepareCompileArgs(entry, outputDir)
+        const sourcePath = join(stagingRoot, ...source.split('/'))
+        const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
+        await mkdir(dirname(objectPath), { recursive: true })
+        const includeArgs = manifest.build.includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
+        const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
+        const isAssembly = extname(source).toLowerCase() === '.s'
+        const args = isAssembly
+          ? ['-c', '-x', 'assembler-with-cpp', ...includeArgs, ...targetArgs, ...manifest.build.assemblerFlags, sourcePath, '-o', objectPath]
+          : ['-c', '-x', 'c', ...includeArgs, ...targetArgs, ...manifest.build.cFlags, sourcePath, '-o', objectPath]
+        this.activeSnapshot.currentFile = source
+        this.addLog(`[${index + 1}/${sources.length}] ${source}`)
+        await this.runProcess(toolchain.gcc.path, args, stagingRoot)
         objectFiles.push(objectPath)
-        this.activeSnapshot.currentFile = relative(firmwareRoot, sourceFile)
-        this.addLog(`[${index + 1}/${compileCommands.length}] ${this.activeSnapshot.currentFile}`)
-        await this.runProcess(toolchainStatus.gcc.path, args)
         this.activeSnapshot.completedFiles = index + 1
         this.emitSnapshot('progress')
       }
 
-      const elfPath = join(outputDir, 'GPIO_Toggle.elf')
-      const mapPath = join(outputDir, 'GPIO_Toggle.map')
-      const hexPath = join(outputDir, 'GPIO_Toggle.hex')
-      const binPath = join(outputDir, 'GPIO_Toggle.bin')
+      const elfPath = join(outputRoot, manifest.artifacts.elf)
+      const hexPath = join(outputRoot, manifest.artifacts.hex)
+      const binPath = join(outputRoot, manifest.artifacts.bin)
+      const mapPath = join(outputRoot, manifest.artifacts.map)
+      this.activeSnapshot.currentFile = `链接 ${manifest.artifacts.elf}`
+      await this.runProcess(toolchain.gcc.path, [
+        `-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`,
+        ...manifest.build.linkFlags, `-Wl,-Map=${mapPath}`, '-T', join(stagingRoot, ...manifest.target.linkerScript.split('/')),
+        '-o', elfPath, ...objectFiles
+      ], stagingRoot)
+      await this.runProcess(toolchain.objcopy.path, ['-O', 'ihex', elfPath, hexPath], stagingRoot)
+      await this.runProcess(toolchain.objcopy.path, ['-O', 'binary', elfPath, binPath], stagingRoot)
+      const sizeOutput = await this.runProcess(toolchain.size.path, [elfPath], stagingRoot)
+      const size = parseSizeOutput(sizeOutput)
+      if (!size) throw new Error('无法读取固件 Flash/RAM 占用')
+      if (size.text + size.data > manifest.target.memory.flashBytes) throw new Error('固件超过临时基线声明的 Flash 容量')
+      if (size.data + size.bss > manifest.target.memory.ramBytes) throw new Error('固件超过临时基线声明的 RAM 容量')
 
-      this.activeSnapshot.currentFile = '链接 GPIO_Toggle.elf'
-      this.addLog('链接 GPIO_Toggle.elf')
-      await this.runProcess(toolchainStatus.gcc.path, [
-        '-march=rv32imac',
-        '-mcmodel=medlow',
-        '-mabi=ilp32',
-        '-nostartfiles',
-        '--specs=nano.specs',
-        '--specs=nosys.specs',
-        '-Wl,-Bstatic',
-        '-Wl,--gc-sections',
-        `-Wl,-Map=${mapPath}`,
-        '-T',
-        linkerScript,
-        '-o',
-        elfPath,
-        ...objectFiles
+      const artifacts = await Promise.all([
+        makeArtifact(manifest.artifacts.elf, elfPath, 'elf'), makeArtifact(manifest.artifacts.hex, hexPath, 'hex'),
+        makeArtifact(manifest.artifacts.bin, binPath, 'bin'), makeArtifact(manifest.artifacts.map, mapPath, 'map')
       ])
-
-      this.addLog('生成 HEX 与 BIN')
-      await this.runProcess(toolchainStatus.objcopy.path, ['-O', 'ihex', elfPath, hexPath])
-      await this.runProcess(toolchainStatus.objcopy.path, ['-O', 'binary', elfPath, binPath])
-
-      this.addLog('读取固件体积')
-      const sizeOutput = await this.runProcess(toolchainStatus.size.path, [elfPath])
-      this.activeSnapshot.size = parseSizeOutput(sizeOutput)
-      this.activeSnapshot.artifacts = [
-        makeArtifact('GPIO_Toggle.elf', elfPath, 'elf'),
-        makeArtifact('GPIO_Toggle.hex', hexPath, 'hex'),
-        makeArtifact('GPIO_Toggle.bin', binPath, 'bin'),
-        makeArtifact('GPIO_Toggle.map', mapPath, 'map')
-      ]
-      this.complete('completed')
+      const completedAt = new Date().toISOString()
+      const proof: FirmwareBuildProof = {
+        schemaVersion: 1, inputHash, workspaceId: workspace.id, workspaceCommit: workspace.headCommit, workspaceSourceHash,
+        firmwareBaselineId: manifest.id, baselineCommit: manifest.source.expectedCommit, baselineSourceHash: sourceHash,
+        toolchain: toolchain.gcc.version ?? toolchain.gcc.detail, board: manifest.target.board, size,
+        artifacts: artifacts.map(({ name, kind, bytes, sha256 }) => ({ name, kind, bytes: bytes ?? 0, sha256: sha256! })),
+        startedAt: this.activeSnapshot.startedAt!, completedAt, releaseEligible: manifest.releaseEligible
+      }
+      await writeFile(join(outputRoot, 'build-proof.json'), `${JSON.stringify(proof, null, 2)}\n`, 'utf8')
+      await rm(publishedRoot, { recursive: true, force: true })
+      await rename(outputRoot, publishedRoot)
+      await rm(temporaryRoot, { recursive: true, force: true })
+      const publishedArtifacts = artifacts.map((artifact) => ({ ...artifact, path: join(publishedRoot!, artifact.name) }))
+      this.activeSnapshot = { ...this.activeSnapshot, state: 'completed', currentFile: undefined, outputDir: publishedRoot, artifacts: publishedArtifacts, size, proof, completedAt }
+      this.addLog('完整固件已生成并完成哈希校验', 'success')
+      this.emitSnapshot('completed')
       return this.getSnapshot()
     } catch (caught) {
-      if (this.cancelRequested) {
-        this.complete('cancelled', '构建已取消')
-        return this.getSnapshot()
-      }
-
-      this.complete('failed', caught instanceof Error ? caught.message : String(caught))
+      await rm(temporaryRoot, { recursive: true, force: true }).catch(() => undefined)
+      if (this.cancelRequested) this.complete('cancelled', '构建已安全取消')
+      else this.complete('failed', this.redact(caught instanceof Error ? caught.message : String(caught)))
       return this.getSnapshot()
     }
   }
@@ -157,73 +163,66 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     if (this.activeSnapshot.state !== 'running') return this.getSnapshot()
     this.cancelRequested = true
     this.activeProcess?.kill()
-    this.complete('cancelled', '构建已取消')
     return this.getSnapshot()
   }
 
-  private prepareCompileArgs(entry: CompileCommandEntry, outputDir: string): { args: string[]; objectPath: string; sourceFile: string } {
-    const originalArgs = splitCommand(entry.command)
-    const args = absolutizeProjectPaths(originalArgs.slice(1), entry.directory)
-    const sourceFile = normalize(isAbsolute(entry.file) ? entry.file : join(entry.directory, entry.file))
-
-    const outputIndex = args.indexOf('-o')
-    if (outputIndex === -1 || outputIndex === args.length - 1) {
-      throw new Error(`编译命令缺少 -o 输出：${entry.file}`)
-    }
-
-    const objectPath = toObjectPath(args[outputIndex + 1], outputDir)
-    mkdirSync(dirname(objectPath), { recursive: true })
-    args[outputIndex + 1] = objectPath
-
-    const lastArgIndex = args.length - 1
-    if (!isAbsolute(args[lastArgIndex]) || normalize(args[lastArgIndex]) === normalize(entry.file)) {
-      args[lastArgIndex] = sourceFile
-    }
-
-    return { args, objectPath, sourceFile }
+  private async copyBaseline(sourceRoot: string, stagingRoot: string): Promise<void> {
+    const ignored = new Set(['.git', 'build', '.eide', '.mrs', '.vscode'])
+    await cp(sourceRoot, stagingRoot, {
+      recursive: true, verbatimSymlinks: true,
+      filter: (source) => !relative(sourceRoot, source).split(/[\\/]/).some((part) => ignored.has(part))
+    })
   }
 
-  private runProcess(command: string, args: string[]): Promise<string> {
+  private async applyStudentOverlay(projectRoot: string, stagingRoot: string, overlay: { source: string; header: string; configInput: string; generatedHeader: string }): Promise<void> {
+    for (const path of [overlay.source, overlay.header]) {
+      const target = join(stagingRoot, ...path.split('/'))
+      await mkdir(dirname(target), { recursive: true })
+      await copyFile(join(projectRoot, ...path.split('/')), target)
+    }
+    const config = parseLineConfigText(await readFile(join(projectRoot, ...overlay.configInput.split('/')), 'utf8'))
+    const generatedPath = join(stagingRoot, ...overlay.generatedHeader.split('/'))
+    await mkdir(dirname(generatedPath), { recursive: true })
+    await writeFile(generatedPath, renderStudentConfigHeader(config), 'utf8')
+  }
+
+  private async readCachedBuild(root: string, inputHash: string): Promise<FirmwareBuildSnapshot | undefined> {
+    try {
+      const proof = JSON.parse(await readFile(join(root, 'build-proof.json'), 'utf8')) as FirmwareBuildProof
+      if (proof.inputHash !== inputHash) return undefined
+      const artifacts = await Promise.all(proof.artifacts.map(async (item) => {
+        const artifact = await makeArtifact(item.name, join(root, item.name), item.kind)
+        if (artifact.sha256 !== item.sha256) throw new Error('缓存产物哈希不匹配')
+        return artifact
+      }))
+      return {
+        workspaceId: proof.workspaceId, state: 'completed', firmwareRoot: '', outputDir: root,
+        completedFiles: this.activeSnapshot.totalFiles, totalFiles: this.activeSnapshot.totalFiles, logs: [], artifacts,
+        size: proof.size, proof, startedAt: proof.startedAt, completedAt: proof.completedAt
+      }
+    } catch { return undefined }
+  }
+
+  private runProcess(command: string, args: string[], cwd: string): Promise<string> {
     return new Promise((resolveRun, reject) => {
       this.throwIfCancelled()
-      const child = spawn(command, args, {
-        cwd: this.repoRoot,
-        windowsHide: true,
-        shell: false
-      })
+      const child = spawn(command, args, { cwd, windowsHide: true, shell: false, env: { PATH: process.env.PATH ?? '', SystemRoot: process.env.SystemRoot ?? '' } })
       this.activeProcess = child
       let output = ''
-
-      child.stdout.on('data', (chunk: Buffer) => {
-        const text = chunk.toString('utf8')
-        output += text
-        this.addProcessOutput(text)
-      })
-      child.stderr.on('data', (chunk: Buffer) => {
-        const text = chunk.toString('utf8')
-        output += text
-        this.addProcessOutput(text)
-      })
+      child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString('utf8'); this.addProcessOutput(chunk.toString('utf8')) })
+      child.stderr.on('data', (chunk: Buffer) => { output += chunk.toString('utf8'); this.addProcessOutput(chunk.toString('utf8')) })
       child.on('error', reject)
       child.on('close', (code) => {
         this.activeProcess = undefined
-        if (this.cancelRequested) {
-          reject(new Error('构建已取消'))
-          return
-        }
-        if (code !== 0) {
-          reject(new Error(`命令退出码 ${code ?? 'unknown'}`))
-          return
-        }
-        resolveRun(output)
+        if (this.cancelRequested) reject(new Error('构建已取消'))
+        else if (code !== 0) reject(new Error(`构建命令退出码 ${code ?? 'unknown'}`))
+        else resolveRun(output)
       })
     })
   }
 
   private addProcessOutput(text: string): void {
-    for (const line of text.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) {
-      this.addLog(line, classifyLog(line))
-    }
+    for (const line of text.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) this.addLog(this.redact(line), classifyLog(line))
   }
 
   private addLog(line: string, level: 'info' | 'warning' | 'error' | 'success' = 'info'): void {
@@ -232,121 +231,31 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
   }
 
   private complete(state: Exclude<FirmwareBuildState, 'idle' | 'running'>, error?: string): void {
-    this.activeSnapshot = {
-      ...this.activeSnapshot,
-      state,
-      error,
-      currentFile: undefined,
-      completedAt: new Date().toISOString()
-    }
-    if (state === 'completed') this.addLog('固件编译完成', 'success')
+    this.activeSnapshot = { ...this.activeSnapshot, state, error, currentFile: undefined, completedAt: new Date().toISOString() }
     this.emitSnapshot(state)
   }
 
   private emitSnapshot(type: FirmwareBuildEvent['type']): void {
     const snapshot = this.getSnapshot()
-    if (type === 'completed') this.emit('event', { type: 'completed', snapshot })
-    else if (type === 'failed') this.emit('event', { type: 'failed', snapshot })
-    else if (type === 'cancelled') this.emit('event', { type: 'cancelled', snapshot })
-    else if (type === 'progress') this.emit('event', { type: 'progress', snapshot })
-    else this.emit('event', { type: 'snapshot', snapshot })
+    this.emit('event', type === 'snapshot' ? { type, snapshot } : type === 'log' ? { type, line: '', level: 'info' } : { type, snapshot } as FirmwareBuildEvent)
   }
 
-  private throwIfCancelled(): void {
-    if (this.cancelRequested) throw new Error('构建已取消')
-  }
-
-  private makeIdleSnapshot(firmwareRoot: string): FirmwareBuildSnapshot {
-    return {
-      state: 'idle',
-      firmwareRoot,
-      completedFiles: 0,
-      totalFiles: 0,
-      logs: [],
-      artifacts: []
-    }
-  }
-
-  private cloneSnapshot(snapshot: FirmwareBuildSnapshot): FirmwareBuildSnapshot {
-    return {
-      ...snapshot,
-      logs: [...snapshot.logs],
-      artifacts: [...snapshot.artifacts],
-      size: snapshot.size ? { ...snapshot.size } : undefined
-    }
-  }
+  private throwIfCancelled(): void { if (this.cancelRequested) throw new Error('构建已取消') }
+  private redact(text: string): string { return this.redactions.reduce((value, path) => value.replaceAll(path, '[受保护路径]').replaceAll(path.replaceAll('\\', '/'), '[受保护路径]'), text) }
+  private makeIdleSnapshot(): FirmwareBuildSnapshot { return { state: 'idle', firmwareRoot: '', completedFiles: 0, totalFiles: 0, logs: [], artifacts: [] } }
 }
 
-function assertFile(path: string, label: string): void {
-  if (!existsSync(path)) throw new Error(`${label}不存在：${path}`)
-}
-
-function splitCommand(command: string): string[] {
-  const args: string[] = []
-  let current = ''
-  let quote: string | null = null
-
-  for (let i = 0; i < command.length; i += 1) {
-    const char = command[i]
-    if ((char === '"' || char === "'") && quote === null) {
-      quote = char
-      continue
-    }
-    if (char === quote) {
-      quote = null
-      continue
-    }
-    if (/\s/.test(char) && quote === null) {
-      if (current.length > 0) {
-        args.push(current)
-        current = ''
-      }
-      continue
-    }
-    current += char
-  }
-  if (current.length > 0) args.push(current)
-  return args
-}
-
-function absolutizeProjectPaths(args: string[], firmwareRoot: string): string[] {
-  return args.map((arg) => {
-    if (arg.startsWith('-I') && arg.length > 2) {
-      const includePath = arg.slice(2)
-      return isAbsolute(includePath) ? arg : `-I${join(firmwareRoot, includePath)}`
-    }
-    return arg
-  })
-}
-
-function toObjectPath(originalOutput: string, outputDir: string): string {
-  const normalized = normalize(originalOutput)
-  const marker = normalize('build/obj/.obj/')
-  const markerIndex = normalized.indexOf(marker)
-  const relativeObject = markerIndex >= 0 ? normalized.slice(markerIndex + marker.length) : normalized
-  return join(outputDir, 'obj', relativeObject)
-}
-
-function parseSizeOutput(output: string): FirmwareSizeInfo | undefined {
+export function parseSizeOutput(output: string): FirmwareSizeInfo | undefined {
   const dataLine = output.split(/\r?\n/).map((line) => line.trim()).find((line) => /^\d+\s+\d+\s+\d+\s+\d+\s+[0-9a-fA-F]+/.test(line))
   if (!dataLine) return undefined
   const [text, data, bss, dec, hex] = dataLine.split(/\s+/)
-  return {
-    text: Number(text),
-    data: Number(data),
-    bss: Number(bss),
-    dec: Number(dec),
-    hex
-  }
+  return { text: Number(text), data: Number(data), bss: Number(bss), dec: Number(dec), hex }
 }
 
-function makeArtifact(name: string, path: string, kind: FirmwareBuildArtifact['kind']): FirmwareBuildArtifact {
-  return {
-    name,
-    path,
-    kind,
-    bytes: existsSync(path) ? statSync(path).size : undefined
-  }
+async function makeArtifact(name: string, path: string, kind: FirmwareBuildArtifact['kind']): Promise<FirmwareBuildArtifact> {
+  const bytes = (await stat(path)).size
+  const sha256 = createHash('sha256').update(await readFile(path)).digest('hex')
+  return { name, path, kind, bytes, sha256 }
 }
 
 function classifyLog(line: string): 'info' | 'warning' | 'error' | 'success' {

@@ -6,10 +6,12 @@ import type { CreateWorkspaceInput, WorkspaceHistoryEntry, WorkspaceMetadata, Wo
 import { GitWorkspaceService } from './git-workspace-service'
 
 const MAX_TEMPLATE_FILE_BYTES = 4 * 1024 * 1024
-const workspaceNameSchema = z.string().trim().min(1).max(48).refine((value) => !/[<>:"/\\|?*\u0000-\u001f]/.test(value), '项目名称包含 Windows 不支持的字符')
+const PROVISIONAL_BASELINE_ID = 'ch32v203-robotdog-provisional-0858d82'
+const PROVISIONAL_BASELINE_COMMIT = '0858d821d56daaea6e45740f5b496714fea20aca'
+const workspaceNameSchema = z.string().trim().min(1).max(48).refine((value) => !/[<>"/\\|?*\u0000-\u001f]/.test(value), '对话名称包含不支持的字符')
 const studentNameSchema = z.string().trim().min(1).max(24).refine((value) => !/[<>:"/\\|?*\u0000-\u001f]/.test(value), '学生名称包含 Windows 不支持的字符')
 const createSchema = z.object({
-  name: workspaceNameSchema,
+  name: workspaceNameSchema.optional(),
   studentDisplayName: studentNameSchema,
   templateId: z.literal('ch32v203-robotdog').default('ch32v203-robotdog')
 }).strict()
@@ -21,6 +23,9 @@ const metadataSchema = z.object({
   studentDisplayName: studentNameSchema,
   templateId: z.literal('ch32v203-robotdog'),
   templateVersion: z.string().min(1).max(32),
+  firmwareBaselineId: z.string().min(1).max(96).default(PROVISIONAL_BASELINE_ID),
+  baselineCommit: z.string().regex(/^[a-f0-9]{40}$/).default(PROVISIONAL_BASELINE_COMMIT),
+  nameCustomized: z.boolean().default(false),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   activeBranch: z.literal('main'),
@@ -34,6 +39,8 @@ export interface WorkspaceServiceOptions {
   rootDir: string
   templateRoot: string
   templateVersion?: string
+  firmwareBaselineId?: string
+  baselineCommit?: string
   git?: GitWorkspaceService
 }
 
@@ -42,6 +49,8 @@ export class WorkspaceService {
   private readonly workspacesDir: string
   private readonly templateRoot: string
   private readonly templateVersion: string
+  private readonly firmwareBaselineId: string
+  private readonly baselineCommit: string
   private readonly git: GitWorkspaceService
 
   constructor(options: WorkspaceServiceOptions) {
@@ -49,6 +58,8 @@ export class WorkspaceService {
     this.workspacesDir = join(this.rootDir, 'workspaces')
     this.templateRoot = resolve(options.templateRoot)
     this.templateVersion = options.templateVersion ?? '2026.06'
+    this.firmwareBaselineId = options.firmwareBaselineId ?? PROVISIONAL_BASELINE_ID
+    this.baselineCommit = options.baselineCommit ?? PROVISIONAL_BASELINE_COMMIT
     this.git = options.git ?? new GitWorkspaceService()
   }
 
@@ -62,6 +73,7 @@ export class WorkspaceService {
   async create(input: CreateWorkspaceInput): Promise<WorkspaceSummary> {
     const validated = createSchema.parse(input)
     await this.initialize()
+    const name = validated.name ?? await this.nextDefaultName(new Date())
     const id = `ws_${randomBytes(12).toString('hex')}`
     const temporaryRoot = this.resolveInside(this.workspacesDir, `.creating-${id}`)
     const finalRoot = this.resolveInside(this.workspacesDir, id)
@@ -75,10 +87,13 @@ export class WorkspaceService {
       const metadata: WorkspaceMetadata = {
         schemaVersion: 1,
         id,
-        name: validated.name,
+        name,
         studentDisplayName: validated.studentDisplayName,
         templateId: validated.templateId,
         templateVersion: this.templateVersion,
+        firmwareBaselineId: this.firmwareBaselineId,
+        baselineCommit: this.baselineCommit,
+        nameCustomized: validated.name !== undefined,
         createdAt: now,
         updatedAt: now,
         activeBranch: 'main',
@@ -114,6 +129,14 @@ export class WorkspaceService {
 
   async get(workspaceId: string): Promise<WorkspaceSummary> {
     return this.toSummary(await this.readMetadata(workspaceId))
+  }
+
+  async renameWorkspace(workspaceId: string, name: string): Promise<WorkspaceSummary> {
+    const validatedName = workspaceNameSchema.parse(name)
+    const metadata = await this.readMetadata(workspaceId)
+    const updated: WorkspaceMetadata = { ...metadata, name: validatedName, nameCustomized: true, updatedAt: new Date().toISOString() }
+    await this.writeMetadata(updated)
+    return this.toSummary(updated)
   }
 
   async history(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]> {
@@ -196,6 +219,25 @@ export class WorkspaceService {
     await cp(this.templateRoot, destination, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true })
   }
 
+  private async nextDefaultName(now: Date): Promise<string> {
+    const pad = (value: number): string => String(value).padStart(2, '0')
+    const base = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())} 巡线练习`
+    const names = new Set<string>()
+    for (const entry of await readdir(this.workspacesDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !entry.name.startsWith('ws_')) continue
+      try {
+        const raw = JSON.parse(await readFile(join(this.workspacesDir, entry.name, 'workspace.json'), 'utf8')) as { name?: unknown }
+        if (typeof raw.name === 'string') names.add(raw.name)
+      } catch { /* Damaged workspaces do not reserve display names. */ }
+    }
+    if (!names.has(base)) return base
+    for (let index = 2; index < 10_000; index += 1) {
+      const candidate = `${base}（${index}）`
+      if (!names.has(candidate)) return candidate
+    }
+    throw new Error('WORKSPACE_NAME_EXHAUSTED')
+  }
+
   private async validateTemplateTree(directory: string): Promise<void> {
     const info = await stat(directory)
     if (!info.isDirectory()) throw new Error('WORKSPACE_TEMPLATE_INVALID')
@@ -232,7 +274,7 @@ export class WorkspaceService {
   }
 
   private toSummary(metadata: WorkspaceMetadata): WorkspaceSummary {
-    const { id, name, studentDisplayName, templateId, templateVersion, lastCheckpoint: headCommit, state, updatedAt, activeCandidateId } = metadata
-    return { id, name, studentDisplayName, templateId, templateVersion, headCommit, state, updatedAt, activeCandidateId }
+    const { id, name, studentDisplayName, templateId, templateVersion, firmwareBaselineId, baselineCommit, createdAt, lastCheckpoint: headCommit, state, updatedAt, activeCandidateId } = metadata
+    return { id, name, studentDisplayName, templateId, templateVersion, firmwareBaselineId, baselineCommit, createdAt, headCommit, state, updatedAt, activeCandidateId }
   }
 }

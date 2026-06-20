@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "id": "ch32v203-robotdog-provisional-0858d82",
+  "label": "CH32V203 机器马临时测试基线",
+  "status": "provisional",
+  "releaseEligible": false,
+  "replacementPolicy": "下位机交付后替换清单与只读 SDK，不迁移或覆盖学生工作区",
+  "source": {
+    "repository": "ch32v203-robot-dog",
+    "expectedCommit": "0858d821d56daaea6e45740f5b496714fea20aca",
+    "developmentDefaultRoot": "D:\\RobotDog\\ch32v203-robot-dog"
+  },
+  "target": {
+    "board": "ch32v203-robotdog-unconfirmed",
+    "chip": "CH32V203RBT-unconfirmed",
+    "startup": "Startup/startup_ch32v20x_D6.S",
+    "linkerScript": "Ld/Link.ld",
+    "memory": {
+      "flashBytes": 65536,
+      "ramBytes": 20480,
+      "confirmed": false
+    }
+  },
+  "toolchain": {
+    "profile": "ch32v203-wch-gcc12",
+    "arch": "rv32imac",
+    "abi": "ilp32",
+    "codeModel": "medlow"
+  },
+  "build": {
+    "includeDirectories": ["Debug", "Core", "User", "Peripheral/inc", "Core/Inc"],
+    "sources": [
+      "Core/core_riscv.c",
+      "Debug/debug.c",
+      "Peripheral/src/ch32v20x_adc.c",
+      "Peripheral/src/ch32v20x_bkp.c",
+      "Peripheral/src/ch32v20x_can.c",
+      "Peripheral/src/ch32v20x_crc.c",
+      "Peripheral/src/ch32v20x_dbgmcu.c",
+      "Peripheral/src/ch32v20x_dma.c",
+      "Peripheral/src/ch32v20x_exti.c",
+      "Peripheral/src/ch32v20x_flash.c",
+      "Peripheral/src/ch32v20x_gpio.c",
+      "Peripheral/src/ch32v20x_i2c.c",
+      "Peripheral/src/ch32v20x_iwdg.c",
+      "Peripheral/src/ch32v20x_misc.c",
+      "Peripheral/src/ch32v20x_opa.c",
+      "Peripheral/src/ch32v20x_pwr.c",
+      "Peripheral/src/ch32v20x_rcc.c",
+      "Peripheral/src/ch32v20x_rtc.c",
+      "Peripheral/src/ch32v20x_spi.c",
+      "Peripheral/src/ch32v20x_tim.c",
+      "Peripheral/src/ch32v20x_usart.c",
+      "Peripheral/src/ch32v20x_wwdg.c",
+      "Startup/startup_ch32v20x_D6.S",
+      "User/ccd_line_sensor.c",
+      "User/ch32v20x_it.c",
+      "User/main.c",
+      "User/pic1.c",
+      "User/sh1106_oled.c",
+      "User/system_ch32v20x.c"
+    ],
+    "cFlags": [
+      "-std=gnu99",
+      "-Os",
+      "-fsigned-char",
+      "-Wall",
+      "-g",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-msave-restore",
+      "-fno-common",
+      "-Wunused",
+      "-Wuninitialized"
+    ],
+    "assemblerFlags": ["-g", "-msave-restore", "-fno-common"],
+    "linkFlags": [
+      "-nostartfiles",
+      "--specs=nano.specs",
+      "--specs=nosys.specs",
+      "-Wl,-Bstatic",
+      "-Wl,--gc-sections"
+    ]
+  },
+  "studentOverlay": {
+    "source": "Core/Src/student_control.c",
+    "header": "Core/Inc/student_control.h",
+    "configInput": "student-config/line-following.yaml",
+    "generatedHeader": "Core/Inc/student_config.generated.h"
+  },
+  "artifacts": {
+    "elf": "RobotDog.elf",
+    "hex": "RobotDog.hex",
+    "bin": "RobotDog.bin",
+    "map": "RobotDog.map"
+  },
+  "integrity": [
+    { "path": "Ld/Link.ld", "sha256": "87c3eb9a5c449f694068b39366a6a95e014084fffc666422bfd486d966df6f75" },
+    { "path": "Startup/startup_ch32v20x_D6.S", "sha256": "7e838536c6990984e5dffa20bc7ed1f02d4d753326f169eb952e9936d19ee0c2" },
+    { "path": "User/main.c", "sha256": "4cbde7a11994e3a66a2b9b041870b2b5359ffa3652f2dd539e2f8edba52c5afb" },
+    { "path": "User/ccd_line_sensor.c", "sha256": "bdc37802001f788b8c7c83ba937a7c2b8590609b7bf36ceef028183e03b0bf80" },
+    { "path": "User/ccd_line_sensor.h", "sha256": "3700f53bb6ab5b8c0507a022b56bc5b09a111fa685d6c1601d57825ef0951c0c" }
+  ]
+}

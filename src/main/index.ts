@@ -11,6 +11,8 @@ import { DeepSeekSecretStore } from './services/deepseek-secret-store'
 import { AgentHistoryService } from './services/agent-history-service'
 import { ToolchainService } from './services/toolchain-service'
 import { CandidateBuildService } from './services/candidate-build-service'
+import { FirmwareBaselineService } from './services/firmware-baseline-service'
+import { FirmwareBuildService } from './services/firmware-build-service'
 
 const robot = new MockRobotService()
 let disposeIpc: (() => void) | undefined
@@ -64,7 +66,12 @@ app.whenReady().then(async () => {
   const rootOverride = process.env.ROBOTDOG_WORKSPACE_ROOT
   const workspaceRoot = rootOverride ? join(app.getPath('userData'), 'development', rootOverride.replace(/[^a-zA-Z0-9_-]/g, '_')) : defaultRoot
   const templateRoot = join(app.getAppPath(), 'resources', 'workspace-templates', 'ch32v203-robotdog', '2026.06')
-  const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot })
+  const baseline = new FirmwareBaselineService({
+    manifestPath: join(app.getAppPath(), 'resources', 'firmware-baselines', 'ch32v203-robotdog', 'provisional-0858d82', 'robotdog.firmware.json'),
+    packagedSourceRoot: app.isPackaged ? join(process.resourcesPath, 'firmware-baselines', 'ch32v203-robotdog', 'current', 'source') : undefined
+  })
+  const baselineManifest = await baseline.getManifest()
+  const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit })
   await workspaces.initialize()
   const toolchain = new ToolchainService()
   const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(toolchain, join(workspaceRoot, 'build-cache')) })
@@ -80,7 +87,8 @@ app.whenReady().then(async () => {
   const agentHistory = new AgentHistoryService(join(workspaceRoot, 'conversations'))
   await agentHistory.initialize()
   const agents = new AgentSessionService(candidates, new ReasonixAcpAdapter(processes, () => secrets.get()))
-  disposeIpc = registerIpc(robot, toolchain, undefined, workspaces, candidates, agents, { secrets, processes, version: reasonixVersion }, agentHistory)
+  const firmwareBuild = new FirmwareBuildService(toolchain, { baseline, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
+  disposeIpc = registerIpc(robot, toolchain, firmwareBuild, workspaces, candidates, agents, { secrets, processes, version: reasonixVersion }, agentHistory, baseline)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

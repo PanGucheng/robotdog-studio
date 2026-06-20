@@ -42,6 +42,23 @@ describe('WorkspaceService', () => {
     expect(await service.list()).toEqual([])
   })
 
+  it('creates dated unique conversation names and persists user renames', async () => {
+    const service = new WorkspaceService({ rootDir: dataRoot, templateRoot })
+    const first = await service.create({ studentDisplayName: '林同学' })
+    const second = await service.create({ studentDisplayName: '林同学' })
+
+    expect(first.name).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} 巡线练习$/)
+    expect(second.name).toBe(`${first.name}（2）`)
+    expect(first.id).not.toBe(second.id)
+    expect(first.createdAt).toMatch(/T/)
+
+    const renamed = await service.renameWorkspace(first.id, '第一次过弯实验')
+    expect(renamed.name).toBe('第一次过弯实验')
+    expect(renamed.id).toBe(first.id)
+    expect(renamed.headCommit).toBe(first.headCommit)
+    expect((await service.get(first.id)).name).toBe('第一次过弯实验')
+  })
+
   it('rolls back the temporary directory when Git initialization fails', async () => {
     class FailingGitService extends GitWorkspaceService {
       override async initialize(): Promise<string> { throw new Error('simulated git failure') }

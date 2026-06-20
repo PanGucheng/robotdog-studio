@@ -16,7 +16,7 @@ let browserAgentTurn: AgentTurnSnapshot | undefined
 
 let demoWorkspaces: WorkspaceSummary[] = [{
   id: 'ws_0123456789abcdef01234567', name: '巡线基础训练', studentDisplayName: '林同学',
-  templateId: 'ch32v203-robotdog', templateVersion: '2026.06', headCommit: '86d826a000000000000000000000000000000000',
+  templateId: 'ch32v203-robotdog', templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: new Date().toISOString(), headCommit: '86d826a000000000000000000000000000000000',
   state: 'ready', updatedAt: new Date().toISOString()
 }]
 const demoHistories = new Map<string, WorkspaceHistoryEntry[]>([[demoWorkspaces[0].id, [{ commit: demoWorkspaces[0].headCommit, shortCommit: '86d826a', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }]]])
@@ -164,9 +164,17 @@ export const browserDemoApi: RobotDogApi = {
   getHealth: async () => ({ appVersion: '0.1.0', platform: 'browser', mode: 'simulation', checks: [] }),
   getStatus: async () => ({ ...status }),
   getToolchainStatus: async () => demoToolchainStatus,
-  startFirmwareBuild: async () => {
+  getFirmwareBaselineStatus: async () => ({
+    id: 'ch32v203-robotdog-provisional-0858d82', label: 'CH32V203 机器马临时测试基线', sourceRoot: 'D:\\RobotDog\\ch32v203-robot-dog',
+    expectedCommit: '0858d821d56daaea6e45740f5b496714fea20aca', status: 'provisional', readyForTesting: true, releaseEligible: false,
+    verifiedFiles: ['Ld/Link.ld', 'Startup/startup_ch32v20x_D6.S', 'User/main.c'], errors: [],
+    warnings: ['当前使用未确认的临时固件工程，只可用于功能测试，不能作为发布固件。']
+  }),
+  startFirmwareBuild: async (workspaceId) => {
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
     buildSnapshot = {
       state: 'running',
+      workspaceId,
       firmwareRoot: 'D:\\RobotDog\\ch32v203-robot-dog',
       outputDir: '.firmware-build\\demo',
       completedFiles: 0,
@@ -196,7 +204,13 @@ export const browserDemoApi: RobotDogApi = {
         { name: 'GPIO_Toggle.elf', path: '.firmware-build\\demo\\GPIO_Toggle.elf', kind: 'elf', bytes: 213592 },
         { name: 'GPIO_Toggle.hex', path: '.firmware-build\\demo\\GPIO_Toggle.hex', kind: 'hex', bytes: 77709 },
         { name: 'GPIO_Toggle.bin', path: '.firmware-build\\demo\\GPIO_Toggle.bin', kind: 'bin', bytes: 27380 }
-      ]
+      ],
+      proof: {
+        schemaVersion: 1, inputHash: '1'.repeat(64), workspaceId, workspaceCommit: workspace.headCommit, workspaceSourceHash: '2'.repeat(64),
+        firmwareBaselineId: workspace.firmwareBaselineId, baselineCommit: workspace.baselineCommit, baselineSourceHash: '3'.repeat(64),
+        toolchain: 'WCH GCC12 browser demo', board: 'ch32v203-robotdog-unconfirmed', size: { text: 27380, data: 236, bss: 3476, dec: 31092, hex: '7974' },
+        artifacts: [], startedAt: buildSnapshot.startedAt!, completedAt: new Date().toISOString(), releaseEligible: false
+      }
     }
     emitBuild({ type: 'completed', snapshot: buildSnapshot })
     return buildSnapshot
@@ -254,15 +268,28 @@ export const browserDemoApi: RobotDogApi = {
   },
   listWorkspaces: async () => structuredClone(demoWorkspaces),
   createWorkspace: async (input) => {
+    const now = new Date()
+    const baseName = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} 巡线练习`
+    let name = input.name?.trim() || baseName
+    for (let index = 2; demoWorkspaces.some((item) => item.name === name); index += 1) name = `${baseName}（${index}）`
     const workspace: WorkspaceSummary = {
       id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
-      name: input.name.trim(), studentDisplayName: input.studentDisplayName.trim(), templateId: 'ch32v203-robotdog',
-      templateVersion: '2026.06', headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: new Date().toISOString()
+      name, studentDisplayName: input.studentDisplayName.trim(), templateId: 'ch32v203-robotdog',
+      templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: now.toISOString(), headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: now.toISOString()
     }
     demoWorkspaces = [workspace, ...demoWorkspaces]
     demoHistories.set(workspace.id, [{ commit: workspace.headCommit, shortCommit: workspace.headCommit.slice(0, 7), message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }])
     workspaceListeners.forEach((listener) => listener(structuredClone(workspace)))
     return structuredClone(workspace)
+  },
+  renameWorkspace: async (workspaceId, name) => {
+    const trimmed = name.trim()
+    if (!trimmed) throw new Error('对话名称不能为空')
+    const current = await browserDemoApi.getWorkspace(workspaceId)
+    const updated = { ...current, name: trimmed, updatedAt: new Date().toISOString() }
+    demoWorkspaces = demoWorkspaces.map((workspace) => workspace.id === workspaceId ? updated : workspace)
+    workspaceListeners.forEach((listener) => listener(structuredClone(updated)))
+    return structuredClone(updated)
   },
   getWorkspace: async (workspaceId) => {
     const workspace = demoWorkspaces.find((item) => item.id === workspaceId)
