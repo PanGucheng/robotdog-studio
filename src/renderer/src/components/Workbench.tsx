@@ -10,6 +10,8 @@ import { StudentCodeEditor } from './StudentCodeEditor'
 import type { UiScale } from '../lib/ui-scale'
 import type { WorkspaceSummary } from '../../../shared/types'
 import type { LearningDestination } from './LearningCenter'
+import { toStudentProblem } from '../lib/student-errors'
+import { ProblemCard } from './ProblemCard'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -88,7 +90,7 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
           <div className="ccd-summary">
             <div>
               <span className="eyebrow">编译与安全下载</span>
-              <h2>{update.state === 'completed' ? '新固件已在小马上运行' : build.state === 'running' ? `正在编译：${build.currentFile ?? '准备中'}` : artifactCurrent ? '固件产物已准备好' : build.state === 'completed' ? '代码已变化，需要重新生成固件' : '无线调试，有线下载'}</h2>
+              <h2>{update.state === 'completed' ? '新程序已在小马上运行' : build.state === 'running' ? `正在生成：${build.currentFile ?? '准备中'}` : artifactCurrent ? '小马程序已准备好' : build.state === 'completed' ? '代码已变化，需要重新生成程序' : '无线调试，有线下载'}</h2>
               <p>蓝牙负责地面调试，板载 USB 负责稳定下载；WCH-Link 只在教师恢复时使用。</p>
             </div>
             <div className={`recognition-badge ${toolchainReady ? 'is-ready' : ''}`}>
@@ -122,14 +124,14 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
 
             <article className="firmware-card build-status-card">
               <span className="eyebrow">Build station</span>
-              <h3>{build.state === 'idle' ? '等待编译' : build.state === 'failed' ? '编译失败' : artifactCurrent ? '编译完成' : build.state === 'completed' ? '产物已过期' : build.state === 'cancelled' ? '已取消' : '正在编译'}</h3>
+              <h3>{build.state === 'idle' ? '等待生成程序' : build.state === 'failed' ? '生成程序失败' : artifactCurrent ? '程序生成完成' : build.state === 'completed' ? '程序文件已过期' : build.state === 'cancelled' ? '已取消' : '正在生成程序'}</h3>
               <div className="build-progress">
                 <span style={{ width: `${buildProgress}%` }} />
               </div>
               <p>{build.completedFiles}/{build.totalFiles || 29} 个源文件 · {build.outputDir ?? '尚未创建输出目录'}</p>
               <div className="firmware-actions">
                 <button type="button" className="button-primary" onClick={onBuildFirmware} disabled={busy || build.state === 'running' || !toolchainReady}>
-                  <Play size={15} /> 编译固件
+                  <Play size={15} /> 生成程序
                 </button>
                 <button type="button" onClick={onCancelBuild} disabled={build.state !== 'running'}>
                   <Square size={14} /> 取消
@@ -140,7 +142,7 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
 
           <div className="artifact-row">
             {build.artifacts.length === 0 ? (
-              <article className="empty-artifacts"><FileArchive size={18} /> 编译完成后，这里会出现 ELF / HEX / BIN / MAP。</article>
+              <article className="empty-artifacts"><FileArchive size={18} /> 生成完成后，这里会出现 ELF / HEX / BIN / MAP 程序文件。</article>
             ) : build.artifacts.map((artifact) => (
               <article key={artifact.path}>
                 <span>{artifact.kind.toUpperCase()}</span>
@@ -164,10 +166,12 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
             <span><strong>{artifactCurrent ? '产物身份已核对' : '产物已过期'}</strong>{build.proof.releaseEligible ? '正式固件基线' : '临时测试基线 · 不可发布'} · 存档 {build.proof.workspaceCommit.slice(0, 7)} · 输入 {build.proof.inputHash.slice(0, 8)}</span>
           </div>}
 
+          {build.state === 'failed' && build.error && <ProblemCard problem={toStudentProblem(build.error, '生成程序失败')} tone="danger" primaryAction={{ label: '重新生成程序', onClick: onBuildFirmware, disabled: busy }} />}
+
           <div className="firmware-log">
             <div className="log-strip-title"><TerminalSquare size={15} /> 编译日志</div>
             <div className="firmware-log-lines">
-              {build.logs.length === 0 ? <span className="empty-log">点击“编译固件”后，GCC 输出会在这里滚动。</span> : build.logs.slice(-14).map((line, index) => (
+              {build.logs.length === 0 ? <span className="empty-log">点击“生成程序”后，技术日志会在这里滚动。</span> : build.logs.slice(-14).map((line, index) => (
                 <span key={`${line}-${index}`} className={/error|错误|failed/i.test(line) ? 'error' : /warning|警告/i.test(line) ? 'warning' : ''}>{line}</span>
               ))}
             </div>

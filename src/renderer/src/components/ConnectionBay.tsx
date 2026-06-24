@@ -1,5 +1,7 @@
 import { Bluetooth, Cable, Check, Download, LoaderCircle, RotateCcw, ShieldCheck, Unplug, Usb } from 'lucide-react'
 import type { DeviceConnectionSnapshot, FirmwareBuildState, FirmwareUpdateSnapshot, FirmwareUpdateState } from '../../../shared/types'
+import { toStudentProblem } from '../lib/student-errors'
+import { ProblemCard } from './ProblemCard'
 
 interface ConnectionBayProps {
   connection: DeviceConnectionSnapshot
@@ -90,8 +92,8 @@ export function ConnectionBay({ connection, update, buildState, busy, onToggleUs
 
         {update.state === 'waiting_for_usb' && <div className="update-callout"><Cable size={16} /> 请把板载 USB 下载线接到电脑；模拟阶段可点击右上方“模拟接线”。</div>}
         {update.state === 'completed' && <div className="update-callout success"><ShieldCheck size={16} /> 新固件已通过校验，无线调试连接已经恢复。</div>}
-        {update.state === 'failed' && <div className="update-callout error"><RotateCcw size={16} /> {update.error} Bootloader 未被覆盖，可以安全重试。</div>}
-        {buildState !== 'completed' && update.state === 'idle' && <div className="update-callout"><Download size={16} /> 请先在下方完成固件编译，生成 BIN 后即可下载。</div>}
+        {update.state === 'failed' && <ProblemCard problem={{ ...toStudentProblem(update.error ?? update.message, '下载没有完成'), nextStep: `${toStudentProblem(update.error ?? update.message, '下载没有完成').nextStep} Bootloader 未被覆盖，可以安全重试。` }} tone="danger" compact primaryAction={{ label: '重新下载', onClick: onStartUpdate, disabled: busy }} />}
+        {buildState !== 'completed' && update.state === 'idle' && <div className="update-callout"><Download size={16} /> 请先完成“生成程序”，出现 BIN 程序文件后即可下载。</div>}
       </div>
     </section>
   )

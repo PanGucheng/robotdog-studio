@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toStudentErrorMessage } from './student-errors'
+import { toStudentErrorMessage, toStudentProblem } from './student-errors'
 
 describe('toStudentErrorMessage', () => {
   it('explains an inapplicable candidate without exposing the internal code', () => {
@@ -9,11 +9,19 @@ describe('toStudentErrorMessage', () => {
   })
 
   it('keeps an unexpected detail for teacher troubleshooting', () => {
-    expect(toStudentErrorMessage('unexpected failure')).toBe('操作没有完成：unexpected failure')
+    const problem = toStudentProblem('unexpected failure')
+    expect(problem.whatHappened).toBe('系统没有完成刚才的操作。')
+    expect(problem.technicalDetail).toBe('unexpected failure')
   })
 
   it('turns the temporary diff race into a short student message', () => {
     const message = toStudentErrorMessage(new Error("Error invoking remote method 'candidate:get-diff': Error: CANDIDATE_DIFF_NOT_READY"))
-    expect(message).toBe('修改内容还在准备中，请稍等片刻。')
+    expect(message).toBe('系统正在整理这次修改的前后对比，暂时还不能展示。')
+  })
+
+  it('redacts API-like secrets from technical details', () => {
+    const problem = toStudentProblem('request failed api_key=sk-123456789abcdef')
+    expect(problem.technicalDetail).toContain('api_key=***')
+    expect(problem.technicalDetail).not.toContain('123456789abcdef')
   })
 })

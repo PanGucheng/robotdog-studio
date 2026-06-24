@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ArrowUp, Bot, CheckCircle2, FileCheck2, KeyRound, LoaderCircle, Settings2, ShieldCheck, Sparkles, Square, X } from 'lucide-react'
+import { ArrowUp, Bot, CheckCircle2, FileCheck2, KeyRound, LoaderCircle, Settings2, ShieldCheck, Sparkles, Square } from 'lucide-react'
 import type { AgentEvent, AgentRuntimeStatus, CandidateSnapshot, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
+import { toStudentErrorMessage, toStudentProblem } from '../lib/student-errors'
+import { ProblemCard } from './ProblemCard'
 
 interface ChatPanelProps {
   workspace?: WorkspaceSummary
@@ -46,12 +48,12 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
 
   async function saveApiKey(): Promise<void> {
     setRuntimeError('')
-    try { setRuntime(await getRobotApi().setAgentApiKey(apiKey)); setApiKey('') } catch (caught) { setRuntimeError(caught instanceof Error ? caught.message : String(caught)) }
+    try { setRuntime(await getRobotApi().setAgentApiKey(apiKey)); setApiKey('') } catch (caught) { setRuntimeError(toStudentErrorMessage(caught)) }
   }
 
   async function clearApiKey(): Promise<void> {
     setRuntimeError('')
-    try { setRuntime(await getRobotApi().clearAgentApiKey()) } catch (caught) { setRuntimeError(caught instanceof Error ? caught.message : String(caught)) }
+    try { setRuntime(await getRobotApi().clearAgentApiKey()) } catch (caught) { setRuntimeError(toStudentErrorMessage(caught)) }
   }
 
   function submit(): void {
@@ -124,9 +126,9 @@ function TurnView({ turn, candidate, running, showReview, onToggleReview, onReje
           {turn.assistantText && <div className="assistant-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" /> }}>{turn.assistantText}</ReactMarkdown></div>}
           {turn.permission && <div className="permission-card" role="group" aria-label="AI 需要你的选择"><span className="permission-icon"><ShieldCheck size={17} /></span><div><strong>{turn.permission.title}</strong><p>{turn.permission.detail}</p></div><div className="permission-actions">{turn.permission.options.map((option) => <button type="button" key={option.id} className={option.tone === 'approve' ? 'approve' : option.tone === 'reject' ? 'reject' : ''} onClick={() => onPermission(turn.permission!.requestId, option.id)}>{option.label}</button>)}</div></div>}
           {running && activity && <span className="agent-activity"><LoaderCircle size={13} className="spin" /> {activity.label}</span>}
-          {terminal?.type === 'failed' && <div className="agent-error"><X size={14} /> <span><strong>这次没有完成</strong>{terminal.message} 正式项目没有变化。</span></div>}
+          {terminal?.type === 'failed' && <ProblemCard problem={toStudentProblem(terminal.message, '这次没有完成')} tone="danger" compact />}
           {terminal?.type === 'cancelled' && <div className="agent-cancelled"><Square size={12} /> {terminal.message}</div>}
-          {candidate && ['review_ready', 'build_passed'].includes(candidate.state) && <div className="change-card"><span className="change-status"><CheckCircle2 size={15} /> {candidate.state === 'build_passed' ? '预检编译通过' : '已通过安全核对'}</span><strong>候选修改</strong><small>{turn.summary ?? '修改只保存在候选副本中。'}</small>{showReview && candidate.validation && <div className="review-summary"><span><FileCheck2 size={13} /> {candidate.validation.changedFiles} 个允许文件</span>{candidate.validation.files.map((file) => <code key={file.path}>{file.path} · +{file.additions} / -{file.deletions}</code>)}</div>}<div className="change-actions"><button type="button" onClick={onToggleReview}>{showReview ? '收起摘要' : '查看安全摘要'}</button><button type="button" onClick={() => onReject(candidate.id)}>放弃修改</button><button type="button" className="button-primary" disabled>{candidate.state === 'build_passed' ? '可在右侧应用' : '请在右侧检查并编译'}</button></div></div>}
+          {candidate && ['review_ready', 'build_passed'].includes(candidate.state) && <div className="change-card"><span className="change-status"><CheckCircle2 size={15} /> {candidate.state === 'build_passed' ? '代码检查通过' : '已通过安全核对'}</span><strong>这次修改</strong><small>{turn.summary ?? '修改只保存在安全草稿中。'}</small>{showReview && candidate.validation && <div className="review-summary"><span><FileCheck2 size={13} /> {candidate.validation.changedFiles} 个允许文件</span>{candidate.validation.files.map((file) => <code key={file.path}>{file.path} · +{file.additions} / -{file.deletions}</code>)}</div>}<div className="change-actions"><button type="button" onClick={onToggleReview}>{showReview ? '收起摘要' : '查看安全摘要'}</button><button type="button" onClick={() => onReject(candidate.id)}>放弃修改</button><button type="button" className="button-primary" disabled>{candidate.state === 'build_passed' ? '可在右侧保存到项目' : '请在右侧检查代码'}</button></div></div>}
           {terminal?.type === 'completed' && terminal.state === 'no_changes' && <div className="agent-cancelled"><CheckCircle2 size={13} /> {terminal.message}</div>}
         </div>
       </div>}

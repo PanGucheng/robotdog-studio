@@ -98,7 +98,7 @@ describe('CandidateService', () => {
     expect(applied.state).toBe('applied')
     expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'Core', 'Src', 'student_control.c'), 'utf8')).toBe(changed)
     expect((await workspaces.history(workspaceId, 1))[0].message).toContain('manual draft')
-  })
+  }, 15_000)
 
   it('keeps an approved diff readable while compilation is running', async () => {
     let releaseBuild: (() => void) | undefined

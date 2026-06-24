@@ -48,7 +48,7 @@ const initialConnection: DeviceConnectionSnapshot = {
 
 const initialUpdate: FirmwareUpdateSnapshot = {
   state: 'idle', progress: 0, bytesWritten: 0, totalBytes: 0, canCancel: false,
-  message: '编译固件后，可以通过板载 USB 下载到小马。'
+  message: '生成程序后，可以通过板载 USB 下载到小马。'
 }
 
 const initialRecovery: RecoverySnapshot = { state: 'idle', progress: 0, message: '教师恢复待命', canCancel: false }

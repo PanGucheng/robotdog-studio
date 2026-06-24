@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import type { AppRuntimeInfo, DiagnosticExportResult, FirmwareBaselineStatus, ToolchainStatus } from '../../../shared/types'
 import { UI_SCALE_OPTIONS, type UiScale } from '../lib/ui-scale'
 import { getRobotApi } from '../lib/browser-demo-api'
-import { toStudentErrorMessage } from '../lib/student-errors'
+import { type StudentProblem, toStudentProblem } from '../lib/student-errors'
+import { ProblemCard } from './ProblemCard'
 
 interface DisplaySettingsProps {
   scale: UiScale
@@ -23,12 +24,12 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
   const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
   const [runtime, setRuntime] = useState<AppRuntimeInfo>()
   const [diagnostic, setDiagnostic] = useState<DiagnosticExportResult>()
-  const [error, setError] = useState<string>()
+  const [error, setError] = useState<StudentProblem>()
   const [busy, setBusy] = useState(false)
-  useEffect(() => { void getRobotApi().getRuntimeInfo().then(setRuntime).catch((caught) => setError(toStudentErrorMessage(caught))) }, [])
+  useEffect(() => { void getRobotApi().getRuntimeInfo().then(setRuntime).catch((caught) => setError(toStudentProblem(caught, '设置状态读取失败'))) }, [])
   const exportDiagnostics = (): void => {
     setBusy(true); setError(undefined)
-    void getRobotApi().exportDiagnostics().then(setDiagnostic).catch((caught) => setError(toStudentErrorMessage(caught))).finally(() => setBusy(false))
+    void getRobotApi().exportDiagnostics().then(setDiagnostic).catch((caught) => setError(toStudentProblem(caught, '诊断文件没有导出'))).finally(() => setBusy(false))
   }
   return (
     <div className="display-settings">
@@ -73,7 +74,7 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
         </article>
         <article className={baseline?.releaseEligible ? 'ready' : 'provisional'}>
           <span className="settings-status-icon"><FlaskConical size={18} /></span>
-          <div><strong>{baseline?.releaseEligible ? '正式 SDK' : '临时 SDK 基线'}</strong><p>{baseline?.readyForTesting ? `${baseline.label}：仅用于功能测试。` : 'SDK 校验未通过，完整固件编译已停用。'}</p></div>
+          <div><strong>{baseline?.releaseEligible ? '正式 SDK' : '临时 SDK 基线'}</strong><p>{baseline?.readyForTesting ? `${baseline.label}：仅用于功能测试。` : 'SDK 校验未通过，生成程序已停用。'}</p></div>
         </article>
       </div>
 
@@ -86,10 +87,10 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
         </dl>
         <div className="diagnostic-actions">
           <button type="button" onClick={exportDiagnostics} disabled={busy}><FileDown size={14} /> {busy ? '正在导出…' : '导出诊断文件'}</button>
-          <button type="button" onClick={() => { void getRobotApi().openDataDirectory().catch((caught) => setError(toStudentErrorMessage(caught))) }}><FolderOpen size={14} /> 打开数据文件夹</button>
+          <button type="button" onClick={() => { void getRobotApi().openDataDirectory().catch((caught) => setError(toStudentProblem(caught, '数据文件夹没有打开'))) }}><FolderOpen size={14} /> 打开数据文件夹</button>
         </div>
         {diagnostic && <p className="diagnostic-success">已导出：{diagnostic.path}（{diagnostic.bytes} 字节）</p>}
-        {error && <p className="diagnostic-error">{error}</p>}
+        {error && <ProblemCard problem={error} tone="danger" compact />}
       </section>
     </div>
   )

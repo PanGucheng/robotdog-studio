@@ -15,7 +15,7 @@ const tasks = [
   { id: 'review', icon: FileCheck2, title: '看懂修改并保存', time: '约 2 分钟', destination: '修改确认' as const, instruction: '在“修改确认”中对照修改前后。确认无误后再保存到项目；不满意可以直接放弃。' },
   { id: 'code', icon: Code2, title: '自己写一小段代码', time: '约 3 分钟', destination: '编写代码' as const, instruction: '打开“小马怎么走”，点击“开始编写”。所有输入会自动保存在安全草稿中，不会碰到硬件和烧录设置。' },
   { id: 'diagnostic', icon: Sparkles, title: '请 AI 帮忙修一个错误', time: '约 2 分钟', destination: '编写代码' as const, instruction: '少写一个分号再检查代码。系统会标出关键错误，AI 先解释原因；只有点击“接受建议并修复草稿”后，它才会动手修改安全草稿。' },
-  { id: 'firmware', icon: Cpu, title: '生成完整固件', time: '约 3 分钟', destination: '编译 / 烧录' as const, instruction: '点击“编译固件”。程序会把学生代码和只读 SDK 合在临时目录中，生成 ELF、HEX、BIN、MAP 和身份校验记录。' }
+  { id: 'firmware', icon: Cpu, title: '生成小马程序', time: '约 3 分钟', destination: '编译 / 烧录' as const, instruction: '点击“生成程序”。系统会把学生代码和只读 SDK 合在临时目录中，生成 ELF、HEX、BIN、MAP 和身份校验记录。' }
 ]
 
 export function LearningCenter({ open, onClose, onNavigate }: LearningCenterProps): React.JSX.Element | null {

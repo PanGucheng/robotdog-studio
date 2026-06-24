@@ -7,6 +7,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { CandidateDiagnostic, CandidateSnapshot, StudentCodeExplanationRequest, StudentCodeFile, StudentDiagnosticHelp, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
+import { toStudentErrorMessage, toStudentProblem } from '../lib/student-errors'
+import { ProblemCard } from './ProblemCard'
 
 interface StudentCodeEditorProps {
   workspace?: WorkspaceSummary
@@ -63,7 +65,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
       setSelectedPath(next?.path ?? 'Core/Src/student_control.c')
       setContent(next?.content ?? '')
       setDirty(false)
-    }).catch((caught) => { if (!disposed) setMessage(caught instanceof Error ? caught.message : String(caught)) })
+    }).catch((caught) => { if (!disposed) setMessage(toStudentErrorMessage(caught)) })
     return () => { disposed = true }
   }, [api, workspace?.id, manualCandidate?.id])
 
@@ -105,11 +107,11 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
 
   const startDraft = (): void => {
     if (!workspace) return
-    void api.openManualDraft(workspace.id).then((opened) => { onCandidateChanged(opened); setMessage('已创建安全草稿，修改会自动保存到草稿中。') }).catch((caught) => setMessage(caught instanceof Error ? caught.message : String(caught)))
+    void api.openManualDraft(workspace.id).then((opened) => { onCandidateChanged(opened); setMessage('已创建安全草稿，修改会自动保存到草稿中。') }).catch((caught) => setMessage(toStudentErrorMessage(caught)))
   }
 
   const switchFile = (path: StudentCodeFile['path']): void => {
-    void (async () => { await saveCurrent(); setSelectedPath(path) })().catch((caught) => setMessage(caught instanceof Error ? caught.message : String(caught)))
+    void (async () => { await saveCurrent(); setSelectedPath(path) })().catch((caught) => setMessage(toStudentErrorMessage(caught)))
   }
 
   const checkCode = (): void => {
@@ -148,7 +150,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
 
   const discard = (): void => {
     if (!manualCandidate) return
-    void api.rejectCandidate(manualCandidate.id).then(() => { onCandidateChanged(undefined); setMessage('草稿已放弃，正式项目没有变化。') }).catch((caught) => setMessage(caught instanceof Error ? caught.message : String(caught)))
+    void api.rejectCandidate(manualCandidate.id).then(() => { onCandidateChanged(undefined); setMessage('草稿已放弃，正式项目没有变化。') }).catch((caught) => setMessage(toStudentErrorMessage(caught)))
   }
 
   const explainSelection = (): void => {
@@ -233,10 +235,8 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
             <button type="button" onClick={() => requestDiagnosticHelp(manualCandidate.id, buildDiagnostics, diagnostic)} disabled={busy}>重新解释</button>
             <button type="button" className="button-primary" onClick={() => onRepairStudentCode(manualCandidate.id)} disabled={busy || diagnosticHelp?.state !== 'ready'}><WandSparkles size={14} /> 接受建议并修复草稿</button>
           </div>
-        </div> : (message || diagnostic) && <div className={`editor-feedback ${diagnostic ? 'has-error' : ''}`}>
-          <strong>{diagnostic ? '代码检查发现问题' : '当前进度'}</strong><p>{diagnostic ?? message}</p>
-          {diagnostic && <small>错误只发生在安全草稿里，正式项目没有受影响。</small>}
-        </div>}
+        </div> : diagnostic ? <ProblemCard problem={{ ...toStudentProblem(diagnostic, '代码检查发现问题'), nextStep: `${toStudentProblem(diagnostic, '代码检查发现问题').nextStep} 错误只发生在安全草稿里，正式项目没有受影响。` }} tone="danger" compact />
+          : message && <div className="editor-feedback"><strong>当前进度</strong><p>{message}</p></div>}
       </div>
     </div>
   )
