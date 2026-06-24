@@ -383,10 +383,16 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .compiler-help-heading strong, .compiler-help-heading small { display: block; }
 .compiler-help-heading strong { color: #73371e; font-size: 13px; }
 .compiler-help-heading small { margin-top: 2px; color: #9a6a50; font-size: 9px; }
-.compiler-key-errors { display: grid; align-content: start; gap: 5px; }
-.compiler-key-errors > div { padding: 7px 9px; display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: baseline; gap: 7px; border-left: 3px solid #e67b4b; border-radius: 5px; background: #fff; }
+.compiler-key-errors { display: grid; align-content: start; gap: 6px; }
+.compiler-key-errors > button { padding: 8px 10px; display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: baseline; gap: 3px 8px; border: 1px solid #f1d7c0; border-left: 3px solid #e67b4b; border-radius: 7px; background: #fff; text-align: left; cursor: pointer; }
+.compiler-key-errors > button:hover { border-color: #e7a06f; background: #fffdf9; }
 .compiler-key-errors span { color: #b25a34; font: 800 9px var(--mono); }
-.compiler-key-errors strong { color: #5e3d2d; font: 600 10px/1.5 var(--mono); overflow-wrap: anywhere; }
+.compiler-key-errors strong { color: #5e3d2d; font: 700 11px/1.45 "Microsoft YaHei UI", sans-serif; overflow-wrap: anywhere; }
+.compiler-key-errors small { grid-column: 2; color: #8a6d5d; font-size: 10px; line-height: 1.45; }
+.compiler-full-output { align-self: start; padding: 8px 10px; border: 1px dashed #e4c7ad; border-radius: 8px; background: rgb(255 255 255 / 56%); }
+.compiler-full-output summary { color: #8b5d35; font-size: 11px; font-weight: 800; cursor: pointer; }
+.compiler-full-output div { display: grid; gap: 4px; max-height: 120px; margin-top: 7px; overflow: auto; }
+.compiler-full-output code { padding: 5px 7px; color: #5d412f; border-radius: 5px; background: #fff; font: 10px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .compiler-ai-advice { grid-column: 1 / -1; min-height: 64px; padding: 10px 12px; color: #254d58; border: 1px solid #b9d8d6; border-radius: 10px; background: #f1faf8; }
 .compiler-ai-advice.loading { border-style: dashed; }
 .compiler-ai-advice.failed { color: #8c3f25; border-color: #efc0a2; background: #fff2ec; }
@@ -396,7 +402,12 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .compiler-ai-copy > :first-child { margin-top: 0; }
 .compiler-ai-copy > :last-child { margin-bottom: 0; }
 .compiler-ai-copy code { font-family: var(--mono); }
-.compiler-help-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+.compiler-fix-plan { grid-column: 1 / -1; padding: 10px 12px; color: #5d442f; border: 1px solid #e9caa6; border-radius: 10px; background: #fffdf9; }
+.compiler-fix-plan strong { display: block; color: #71421f; font-size: 12px; }
+.compiler-fix-plan p { margin: 5px 0 0; font-size: 12px; line-height: 1.6; }
+.compiler-fix-plan small { display: block; margin-top: 5px; color: #8c6b55; font-size: 11px; }
+.compiler-help-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.compiler-help-actions > span { margin-right: auto; color: #8b6a54; font-size: 11px; }
 .compiler-help-actions button { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; }
 .code-editor-empty { min-height: 360px; display: grid; place-content: center; justify-items: center; color: #607d89; text-align: center; }
 .code-editor-empty h3 { margin: 10px 0 2px; color: #274d5e; }
@@ -410,7 +421,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .student-editor-toolbar { align-items: flex-start; flex-direction: column; }
   .student-editor-actions { justify-content: flex-start; }
   .compiler-help-card { grid-template-columns: 1fr; }
-  .compiler-ai-advice, .compiler-help-actions { grid-column: 1; }
+  .compiler-ai-advice, .compiler-full-output, .compiler-fix-plan, .compiler-help-actions { grid-column: 1; }
+  .compiler-help-actions { align-items: stretch; flex-direction: column; }
+  .compiler-help-actions > span { margin-right: 0; }
 }
 .diff-code { min-height: 0; overflow: auto; padding: 7px 0 14px; }
 .diff-line { display: grid; grid-template-columns: 20px 38px 38px minmax(max-content, 1fr); min-height: 21px; color: #c7d5df; font: 10px/21px var(--mono); }

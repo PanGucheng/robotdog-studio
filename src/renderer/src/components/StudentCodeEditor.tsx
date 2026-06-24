@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { CandidateDiagnostic, CandidateSnapshot, StudentCodeExplanationRequest, StudentCodeFile, StudentDiagnosticHelp, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
+import { buildStudentDiagnosticCards, formatDiagnosticsForStudentAi } from '../lib/student-diagnostics'
 import { toStudentErrorMessage, toStudentProblem } from '../lib/student-errors'
 import { ProblemCard } from './ProblemCard'
 
@@ -49,11 +50,14 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   const [message, setMessage] = useState<string>()
   const [diagnostic, setDiagnostic] = useState<string>()
   const [aiHelpRequested, setAiHelpRequested] = useState(false)
+  const [repairAttempted, setRepairAttempted] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | undefined>(undefined)
   const monacoRef = useRef<Monaco | undefined>(undefined)
   const selected = files.find((file) => file.path === selectedPath)
   const buildDiagnostics = manualCandidate?.diagnostics ?? []
+  const diagnosticCards = useMemo(() => buildStudentDiagnosticCards(buildDiagnostics), [buildDiagnostics])
+  const keyDiagnostics = diagnosticCards.slice(0, 3)
 
   useEffect(() => {
     if (!workspace) { setFiles([]); setContent(''); return }
@@ -141,11 +145,11 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
       } else {
         setDiagnostic(built.error ?? '编译没有通过，请查看问题说明。')
         setMessage('代码还差一点，修改后可以再次检查。')
-        const firstPath = built.diagnostics?.find((item) => item.path)?.path
+        const firstPath = buildStudentDiagnosticCards(built.diagnostics ?? []).find((item) => item.path)?.path
         if (firstPath) setSelectedPath(firstPath)
         requestDiagnosticHelp(built.id, built.diagnostics ?? [], built.error)
       }
-    })().catch((caught) => setDiagnostic(caught instanceof Error ? caught.message : String(caught)))
+    })().catch((caught) => setDiagnostic(toStudentErrorMessage(caught)))
   }
 
   const discard = (): void => {
@@ -166,7 +170,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
 
   const requestDiagnosticHelp = (candidateId: string, items: CandidateDiagnostic[], fallback?: string): void => {
     setAiHelpRequested(true)
-    onExplainCode({ kind: 'diagnostic', candidateId, content: formatDiagnosticsForAi(items, fallback) })
+    onExplainCode({ kind: 'diagnostic', candidateId, content: formatDiagnosticsForStudentAi(items, fallback) })
   }
 
   if (!workspace) return <div className="code-editor-empty"><Code2 size={28} /><h3>先新建一个学生对话</h3><p>系统会复制代码模板，再让你放心试改。</p></div>
@@ -209,7 +213,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
             language={selected?.language ?? 'c'}
             path={selected?.path}
             value={content}
-            onChange={(value) => { if (selected?.editable && manualCandidate) { setContent(value ?? ''); setDirty(true); setDiagnostic(undefined); setAiHelpRequested(false) } }}
+            onChange={(value) => { if (selected?.editable && manualCandidate) { setContent(value ?? ''); setDirty(true); setDiagnostic(undefined); setAiHelpRequested(false); setRepairAttempted(false) } }}
             options={{
               readOnly: !selected?.editable || !manualCandidate, automaticLayout: true, minimap: { enabled: false },
               readOnlyMessage: { value: !selected?.editable ? '这是接口说明，只能查看。' : '当前正在查看项目原稿。请点击右上角的“开始编写”按钮后再修改。' },
@@ -221,28 +225,37 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           {(!selected?.editable || !manualCandidate) && <div className="editor-readonly-flag"><BookOpen size={13} /> {!selected?.editable ? '接口说明只供参考' : '点击“开始编写”后进入安全草稿'}</div>}
         </div>
         {buildDiagnostics.length > 0 && manualCandidate ? <div className="compiler-help-card">
-          <div className="compiler-help-heading"><span><CircleAlert size={17} /></span><div><strong>代码在这里卡住了</strong><small>错误只在安全草稿里，正式项目没有变化。</small></div></div>
-          <div className="compiler-key-errors">{buildDiagnostics.slice(0, 4).map((item, index) => <div key={`${item.path}-${item.line}-${index}`}>
-            <span>{item.line ? `第 ${item.line} 行` : '代码检查'}</span><strong>{item.message}</strong>
-          </div>)}</div>
+          <div className="compiler-help-heading"><span><CircleAlert size={17} /></span><div><strong>{repairAttempted ? 'AI 修过一次，还差一点' : '代码在这里卡住了'}</strong><small>先看最关键的 {keyDiagnostics.length} 个问题；正式项目没有变化。</small></div></div>
+          <div className="compiler-key-errors">
+            {keyDiagnostics.map((item) => <button type="button" key={item.id} onClick={() => { if (item.path) setSelectedPath(item.path) }}>
+              <span>{item.locationLabel}</span>
+              <strong>{item.studentMessage}</strong>
+              <small>{item.fileLabel} · {item.likelyCause}</small>
+            </button>)}
+          </div>
+          <details className="compiler-full-output">
+            <summary>查看完整编译输出（{buildDiagnostics.length} 条）</summary>
+            <div>{diagnosticCards.map((item) => <code key={item.id}>{item.fileLabel} {item.locationLabel}：{item.diagnostic.message}</code>)}</div>
+          </details>
           <div className={`compiler-ai-advice ${diagnosticHelp?.state ?? (aiHelpRequested ? 'loading' : 'idle')}`}>
-            <div className="compiler-ai-title">{diagnosticHelp?.state === 'loading' || (aiHelpRequested && !diagnosticHelp) ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}<strong>AI 助教怎么说</strong></div>
+            <div className="compiler-ai-title">{diagnosticHelp?.state === 'loading' || (aiHelpRequested && !diagnosticHelp) ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}<strong>老师怎么解释</strong></div>
             {diagnosticHelp?.text ? <div className="compiler-ai-copy"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{diagnosticHelp.text}</ReactMarkdown></div>
-              : diagnosticHelp?.state === 'failed' ? <p>AI 暂时没有解释成功，你可以重新试一次。</p>
+              : diagnosticHelp?.state === 'failed' ? <ProblemCard problem={toStudentProblem('network timeout', 'AI 解释没有完成')} tone="danger" compact />
                 : aiHelpRequested ? <p>正在把编译器的话翻译成容易理解的建议…</p> : <p>让 AI 解释原因，并给出一个最小修改建议。</p>}
           </div>
+          <div className="compiler-fix-plan">
+            <strong>建议怎么改</strong>
+            <p>{keyDiagnostics[0]?.actionHint ?? '先从标出的第一条错误开始，一次只改一个小地方。'}</p>
+            {repairAttempted && <small>AI 已经尝试修过一次。如果仍有错误，可以先看完整输出，再点“重新解释”。</small>}
+          </div>
           <div className="compiler-help-actions">
+            <span>看懂建议后，可以让 AI 只修改安全草稿。</span>
             <button type="button" onClick={() => requestDiagnosticHelp(manualCandidate.id, buildDiagnostics, diagnostic)} disabled={busy}>重新解释</button>
-            <button type="button" className="button-primary" onClick={() => onRepairStudentCode(manualCandidate.id)} disabled={busy || diagnosticHelp?.state !== 'ready'}><WandSparkles size={14} /> 接受建议并修复草稿</button>
+            <button type="button" className="button-primary" onClick={() => { setRepairAttempted(true); onRepairStudentCode(manualCandidate.id) }} disabled={busy || diagnosticHelp?.state !== 'ready'}><WandSparkles size={14} /> 接受建议并修复草稿</button>
           </div>
         </div> : diagnostic ? <ProblemCard problem={{ ...toStudentProblem(diagnostic, '代码检查发现问题'), nextStep: `${toStudentProblem(diagnostic, '代码检查发现问题').nextStep} 错误只发生在安全草稿里，正式项目没有受影响。` }} tone="danger" compact />
           : message && <div className="editor-feedback"><strong>当前进度</strong><p>{message}</p></div>}
       </div>
     </div>
   )
-}
-
-function formatDiagnosticsForAi(items: CandidateDiagnostic[], fallback?: string): string {
-  if (items.length === 0) return fallback ?? '代码没有通过编译。'
-  return items.map((item) => `${item.path ?? '学生代码'}${item.line ? ` 第 ${item.line} 行` : ''}${item.column ? ` 第 ${item.column} 列` : ''}：${item.message}`).join('\n')
 }
