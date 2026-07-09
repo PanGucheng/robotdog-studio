@@ -306,6 +306,45 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .firmware-log-lines span { color: #bfd0df; font: 10px/1.45 var(--mono); white-space: pre-wrap; word-break: break-all; }
 .firmware-log-lines span.warning { color: #f2c96f; }
 .firmware-log-lines span.error { color: #ff938d; }
+.wch-flasher-workbench { grid-template-rows: auto auto auto auto auto; align-content: start; background: linear-gradient(135deg, #f5f9fb 0%, #eef5f7 100%); }
+.wch-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 18px 20px; color: #294657; border: 1px solid #cfe0e7; border-radius: 15px; background: white; box-shadow: 0 10px 30px rgb(35 67 90 / 6%); }
+.wch-hero h2 { margin: 5px 0 5px; color: var(--navy); font: 650 23px "Bahnschrift", "Microsoft YaHei UI", sans-serif; }
+.wch-hero p { margin: 0; color: #687d8b; font-size: 13px; line-height: 1.55; }
+.wch-socket { display: grid; place-items: center; gap: 7px; min-width: 118px; min-height: 84px; color: #587383; border: 1px solid #d0dfe6; border-radius: 18px; background: radial-gradient(circle at 50% 28%, #f9fcfd 0, #eef5f7 70%); font-size: 12px; font-weight: 800; }
+.wch-socket.is-active { color: #9b6800; border-color: #e3c46d; background: #fff7df; }
+.wch-socket.is-ready { color: #08734d; border-color: #b2deca; background: #edf9f3; }
+.wch-step-rail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.wch-step { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 52px; padding: 9px 11px; color: #657b89; border: 1px solid #d5e1e7; border-radius: 12px; background: white; }
+.wch-step strong { display: grid; place-items: center; width: 28px; height: 28px; color: white; border-radius: 50%; background: #9aaeba; font: 800 11px var(--mono); }
+.wch-step span { overflow: hidden; font-size: 12px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.wch-step.active { color: #075f70; border-color: #84c9d5; background: #eef9fb; }
+.wch-step.active strong { background: #087d92; }
+.wch-step.done { color: #0f6f50; border-color: #b8ddce; background: #eef9f4; }
+.wch-step.done strong { background: #35a37a; }
+.wch-grid { display: grid; grid-template-columns: minmax(280px, .95fr) minmax(300px, 1.05fr); gap: 12px; }
+.wch-card { padding: 16px 18px; border: 1px solid #d2e1e7; border-radius: 14px; background: white; box-shadow: 0 8px 26px rgb(35 67 90 / 5%); }
+.wch-card.is-current { border-color: #b8ddce; background: linear-gradient(180deg, #fff 0%, #f4fbf8 100%); }
+.wch-card h3 { display: flex; align-items: center; gap: 8px; margin: 6px 0 12px; color: var(--navy); font: 650 17px "Bahnschrift", "Microsoft YaHei UI", sans-serif; }
+.wch-facts { display: grid; gap: 8px; margin: 0; }
+.wch-facts div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; align-items: start; padding: 9px 10px; border-radius: 9px; background: #f3f7f9; }
+.wch-facts dt { color: #728592; font-size: 11px; }
+.wch-facts dd { min-width: 0; margin: 0; color: #2f4d5f; font: 12px/1.45 var(--mono); word-break: break-all; }
+.wch-artifact { display: grid; gap: 5px; padding: 13px; border: 1px dashed #b9dacb; border-radius: 11px; background: #f4fbf8; }
+.wch-artifact strong { color: var(--navy); font: 14px var(--mono); word-break: break-all; }
+.wch-artifact span, .wch-artifact small { color: #637986; font-size: 12px; }
+.wch-empty-artifact { display: flex; align-items: center; gap: 9px; padding: 13px; color: #687d8b; border-radius: 11px; background: #f3f7f9; font-size: 12px; }
+.wch-empty-artifact button { margin-left: auto; min-height: 34px; padding: 0 11px; color: #075f70; border: 1px solid #a9d7df; border-radius: 8px; background: #eef9fb; font-size: 12px; font-weight: 750; cursor: pointer; }
+.wch-result { display: flex; align-items: center; gap: 9px; padding: 12px 14px; color: #5b7080; border: 1px solid #d5e1e7; border-radius: 12px; background: white; font-size: 13px; line-height: 1.5; }
+.wch-result.ready { color: #08734d; border-color: #b8ddce; background: #eef9f4; }
+.wch-result.failed { color: #a53b32; border-color: #efc3be; background: #fff0ee; }
+.wch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.wch-actions button { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 13px; color: #315264; border: 1px solid #c4d5dd; border-radius: 9px; background: #f8fbfc; font-size: 12px; font-weight: 760; cursor: pointer; }
+.wch-actions .button-primary { color: white; border-color: #087d92; background: #087d92; }
+.wch-actions button:disabled { opacity: .56; cursor: default; }
+.wch-log { border: 1px solid #d2e1e7; border-radius: 12px; background: white; overflow: hidden; }
+.wch-log summary { display: flex; align-items: center; gap: 7px; padding: 11px 13px; color: #385a6d; font-size: 12px; font-weight: 800; cursor: pointer; }
+.wch-log div { display: grid; align-content: start; gap: 4px; max-height: 190px; padding: 12px 13px; overflow: auto; background: var(--navy); }
+.wch-log span { color: #bfd0df; font: 10px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; }
 .recognition-badge.is-ready { color: #08734d; border-color: #b5dfcf; background: #effaf5; }
 
 /* Candidate inspection station: a compact, classroom-friendly code proofing desk. */
@@ -482,6 +521,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .workbench-tabs button { padding-inline: 7px; }
   .metric-row { grid-template-columns: repeat(2, 1fr); }
   .firmware-grid, .artifact-row { grid-template-columns: repeat(2, 1fr); }
+  .wch-grid, .wch-step-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .link-bays { grid-template-columns: 1fr; gap: 8px; }
   .link-bay { border-radius: 10px; }
   .bay-divider { display: none; }
@@ -624,6 +664,7 @@ html[data-ui-scale="175"] .control-dock { gap: 8px; padding-inline: 12px; overfl
   .workbench-tabs button { padding-inline: 7px; }
   .context-bar, .control-dock { gap: 10px; padding-inline: 12px; overflow-x: auto; }
   .metric-row, .firmware-grid, .artifact-row { grid-template-columns: repeat(2, 1fr); }
+  .wch-grid, .wch-step-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .scale-options { grid-template-columns: repeat(2, minmax(145px, 1fr)); }
 }
 
@@ -638,6 +679,8 @@ html[data-ui-scale="175"] .control-dock { gap: 8px; padding-inline: 12px; overfl
   .display-settings { padding: 14px; }
   .settings-status-grid { grid-template-columns: 1fr; }
   .problem-card-body { grid-template-columns: 1fr; }
+  .wch-hero, .wch-grid, .wch-step-rail { grid-template-columns: 1fr; }
+  .wch-socket { min-height: 68px; }
 }
 
 .learning-button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 11px; color: #075f70; border: 1px solid #a9d7df; border-radius: 9px; background: #eef9fb; font-size: 12px; font-weight: 750; cursor: pointer; }

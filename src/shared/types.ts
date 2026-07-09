@@ -473,6 +473,55 @@ export interface RecoverySnapshot {
 
 export type RecoveryEvent = { type: 'snapshot' | 'progress' | 'completed' | 'failed' | 'cancelled'; snapshot: RecoverySnapshot }
 
+export type WchLinkFlashState =
+  | 'idle'
+  | 'probing'
+  | 'target_ready'
+  | 'artifact_missing'
+  | 'flashing'
+  | 'verifying'
+  | 'resetting'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+
+export interface WchLinkProbeInfo {
+  openocdVersion?: string
+  adapterName?: string
+  adapterMode?: string
+  adapterVersion?: string
+  targetExamined: boolean
+  xlen?: number
+  misa?: string
+  flashBanks: Array<{ name: string; driver: string; base: string; size: string }>
+}
+
+export interface WchLinkFlashArtifact {
+  name: string
+  kind: FirmwareBuildArtifact['kind']
+  bytes?: number
+  sha256?: string
+  workspaceId?: string
+  workspaceCommit?: string
+  firmwareBaselineId?: string
+  stale: boolean
+}
+
+export interface WchLinkFlashSnapshot {
+  state: WchLinkFlashState
+  progress: number
+  message: string
+  canCancel: boolean
+  probe?: WchLinkProbeInfo
+  artifact?: WchLinkFlashArtifact
+  logs: string[]
+  error?: string
+  startedAt?: string
+  completedAt?: string
+}
+
+export type WchLinkFlashEvent = { type: 'snapshot' | 'progress' | 'completed' | 'failed' | 'cancelled'; snapshot: WchLinkFlashSnapshot }
+
 export interface RobotDogApi {
   getHealth(): Promise<AppHealth>
   getRuntimeInfo(): Promise<AppRuntimeInfo>
@@ -495,6 +544,10 @@ export interface RobotDogApi {
   getRecovery(): Promise<RecoverySnapshot>
   startRecovery(): Promise<RecoverySnapshot>
   cancelRecovery(): Promise<RecoverySnapshot>
+  getWchLinkFlash(): Promise<WchLinkFlashSnapshot>
+  probeWchLink(): Promise<WchLinkFlashSnapshot>
+  flashWchLink(workspaceId: string): Promise<WchLinkFlashSnapshot>
+  cancelWchLink(): Promise<WchLinkFlashSnapshot>
   listWorkspaces(): Promise<WorkspaceSummary[]>
   createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>
   renameWorkspace(workspaceId: string, name: string): Promise<WorkspaceSummary>
@@ -527,6 +580,7 @@ export interface RobotDogApi {
   onDeviceConnection(listener: (snapshot: DeviceConnectionSnapshot) => void): () => void
   onFirmwareUpdate(listener: (event: FirmwareUpdateEvent) => void): () => void
   onRecovery(listener: (event: RecoveryEvent) => void): () => void
+  onWchLinkFlash(listener: (event: WchLinkFlashEvent) => void): () => void
   onWorkspaceChanged(listener: (workspace: WorkspaceSummary) => void): () => void
   onCandidateChanged(listener: (candidate: CandidateSnapshot) => void): () => void
   onAgentEvent(listener: (event: AgentEvent) => void): () => void

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/channels'
-import type { AgentEvent, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WorkspaceSummary } from '../shared/types'
+import type { AgentEvent, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WchLinkFlashEvent, WorkspaceSummary } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const wrapped = (_event: Electron.IpcRendererEvent, payload: T): void => listener(payload)
@@ -30,6 +30,10 @@ const api: RobotDogApi = {
   getRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryGet),
   startRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryStart),
   cancelRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryCancel),
+  getWchLinkFlash: () => ipcRenderer.invoke(IPC_CHANNELS.wchLinkGet),
+  probeWchLink: () => ipcRenderer.invoke(IPC_CHANNELS.wchLinkProbe),
+  flashWchLink: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.wchLinkFlash, workspaceId),
+  cancelWchLink: () => ipcRenderer.invoke(IPC_CHANNELS.wchLinkCancel),
   listWorkspaces: () => ipcRenderer.invoke(IPC_CHANNELS.workspaceList),
   createWorkspace: (input) => ipcRenderer.invoke(IPC_CHANNELS.workspaceCreate, input),
   renameWorkspace: (workspaceId, name) => ipcRenderer.invoke(IPC_CHANNELS.workspaceRename, workspaceId, name),
@@ -62,6 +66,7 @@ const api: RobotDogApi = {
   onDeviceConnection: (listener) => subscribe<DeviceConnectionSnapshot>(IPC_CHANNELS.deviceConnectionEvent, listener),
   onFirmwareUpdate: (listener) => subscribe<FirmwareUpdateEvent>(IPC_CHANNELS.firmwareUpdateEvent, listener),
   onRecovery: (listener) => subscribe<RecoveryEvent>(IPC_CHANNELS.recoveryEvent, listener),
+  onWchLinkFlash: (listener) => subscribe<WchLinkFlashEvent>(IPC_CHANNELS.wchLinkEvent, listener),
   onWorkspaceChanged: (listener) => subscribe<WorkspaceSummary>(IPC_CHANNELS.workspaceChangedEvent, listener),
   onCandidateChanged: (listener) => subscribe<CandidateSnapshot>(IPC_CHANNELS.candidateChangedEvent, listener),
   onAgentEvent: (listener) => subscribe<AgentEvent>(IPC_CHANNELS.agentEvent, listener)

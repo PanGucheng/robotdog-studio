@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 
 const statusListeners = new Set<(status: RobotStatus) => void>()
 const logListeners = new Set<(entry: LogEntry) => void>()
@@ -7,6 +7,7 @@ const buildListeners = new Set<(event: FirmwareBuildEvent) => void>()
 const connectionListeners = new Set<(snapshot: DeviceConnectionSnapshot) => void>()
 const firmwareUpdateListeners = new Set<(event: FirmwareUpdateEvent) => void>()
 const recoveryListeners = new Set<(event: RecoveryEvent) => void>()
+const wchLinkListeners = new Set<(event: WchLinkFlashEvent) => void>()
 const workspaceListeners = new Set<(workspace: WorkspaceSummary) => void>()
 const candidateListeners = new Set<(candidate: CandidateSnapshot) => void>()
 const agentListeners = new Set<(event: AgentEvent) => void>()
@@ -47,6 +48,7 @@ let firmwareUpdate: FirmwareUpdateSnapshot = {
 }
 
 let recoverySnapshot: RecoverySnapshot = { state: 'idle', progress: 0, message: '教师恢复待命', canCancel: false }
+let wchLinkSnapshot: WchLinkFlashSnapshot = { state: 'idle', progress: 0, message: '浏览器演示可模拟检测烧录器和芯片。', canCancel: false, logs: [] }
 
 let buildSnapshot: FirmwareBuildSnapshot = {
   state: 'idle',
@@ -108,6 +110,11 @@ function emitConnection(): void {
 function emitRecovery(type: RecoveryEvent['type'], patch: Partial<RecoverySnapshot>): void {
   recoverySnapshot = { ...recoverySnapshot, ...patch }
   recoveryListeners.forEach((listener) => listener({ type, snapshot: { ...recoverySnapshot } }))
+}
+
+function emitWchLink(type: WchLinkFlashEvent['type'], patch: Partial<WchLinkFlashSnapshot>): void {
+  wchLinkSnapshot = { ...wchLinkSnapshot, ...patch }
+  wchLinkListeners.forEach((listener) => listener({ type, snapshot: structuredClone(wchLinkSnapshot) }))
 }
 
 async function runBrowserRecovery(token: number): Promise<void> {
@@ -279,6 +286,41 @@ export const browserDemoApi: RobotDogApi = {
     browserRecoveryToken += 1
     emitRecovery('cancelled', { state: 'cancelled', message: '教师恢复已安全取消', canCancel: false, completedAt: new Date().toISOString() })
     return { ...recoverySnapshot }
+  },
+  getWchLinkFlash: async () => structuredClone(wchLinkSnapshot),
+  probeWchLink: async () => {
+    wchLinkSnapshot = { state: 'probing', progress: 12, message: '正在模拟检测 WCH-Link…', canCancel: true, logs: ['Open On-Chip Debugger browser demo'], startedAt: new Date().toISOString() }
+    emitWchLink('snapshot', {})
+    await new Promise((resolve) => setTimeout(resolve, 220))
+    emitWchLink('progress', { progress: 58, message: 'WCH-Link 已响应，正在识别芯片…', logs: [...wchLinkSnapshot.logs, 'Info : WCH-LinkE  mode:RV version 2.18', 'Info : wlink_init ok'] })
+    await new Promise((resolve) => setTimeout(resolve, 220))
+    emitWchLink('completed', {
+      state: 'target_ready',
+      progress: 100,
+      message: 'WCH-LinkE 2.18 已连接，芯片识别成功。',
+      canCancel: false,
+      completedAt: new Date().toISOString(),
+      probe: {
+        openocdVersion: 'Open On-Chip Debugger browser demo',
+        adapterName: 'WCH-LinkE',
+        adapterMode: 'RV',
+        adapterVersion: '2.18',
+        targetExamined: true,
+        xlen: 32,
+        misa: '0x40901105',
+        flashBanks: [{ name: 'wch_riscv.flash', driver: 'wch_riscv', base: '0x00000000', size: '0x00000000' }]
+      },
+      logs: [...wchLinkSnapshot.logs, 'Info : [wch_riscv.cpu.0] Examined RISC-V core; found 1 harts', '[wch_riscv.cpu.0] Target successfully examined.']
+    })
+    return structuredClone(wchLinkSnapshot)
+  },
+  flashWchLink: async () => {
+    emitWchLink('failed', { state: 'failed', progress: 100, message: '浏览器演示暂不写入 Flash；桌面版下一步接入真实烧录。', error: '浏览器演示暂不写入 Flash', canCancel: false, completedAt: new Date().toISOString() })
+    return structuredClone(wchLinkSnapshot)
+  },
+  cancelWchLink: async () => {
+    emitWchLink('cancelled', { state: 'cancelled', message: 'WCH-Link 检测已取消。', canCancel: false, completedAt: new Date().toISOString() })
+    return structuredClone(wchLinkSnapshot)
   },
   listWorkspaces: async () => structuredClone(demoWorkspaces),
   createWorkspace: async (input) => {
@@ -505,6 +547,7 @@ export const browserDemoApi: RobotDogApi = {
   onDeviceConnection: (listener) => { connectionListeners.add(listener); return () => connectionListeners.delete(listener) },
   onFirmwareUpdate: (listener) => { firmwareUpdateListeners.add(listener); return () => firmwareUpdateListeners.delete(listener) },
   onRecovery: (listener) => { recoveryListeners.add(listener); return () => recoveryListeners.delete(listener) },
+  onWchLinkFlash: (listener) => { wchLinkListeners.add(listener); return () => wchLinkListeners.delete(listener) },
   onWorkspaceChanged: (listener) => { workspaceListeners.add(listener); return () => workspaceListeners.delete(listener) },
   onCandidateChanged: (listener) => { candidateListeners.add(listener); return () => candidateListeners.delete(listener) },
   onAgentEvent: (listener) => { agentListeners.add(listener); return () => agentListeners.delete(listener) }

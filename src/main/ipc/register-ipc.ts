@@ -14,10 +14,11 @@ import { ReasonixProcessManager } from '../services/reasonix-process-manager'
 import { AgentHistoryService } from '../services/agent-history-service'
 import { FirmwareBaselineService } from '../services/firmware-baseline-service'
 import { DiagnosticService } from '../services/diagnostic-service'
+import { WchLinkFlashService } from '../services/wch-link-flash-service'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService): () => void {
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, wchLink = new WchLinkFlashService(toolchain)): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -33,6 +34,7 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   const connectionListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.deviceConnectionEvent, payload)
   const updateListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.firmwareUpdateEvent, payload)
   const recoveryListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.recoveryEvent, payload)
+  const wchLinkListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.wchLinkEvent, payload)
   const agentListener = (payload: unknown): void => {
     if (agentHistory) void agentHistory.append(payload as import('../../shared/types').AgentEvent)
     sendToAll(IPC_CHANNELS.agentEvent, payload)
@@ -45,6 +47,7 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   connectivity.on('connection', connectionListener)
   connectivity.on('update', updateListener)
   recovery.on('event', recoveryListener)
+  wchLink.on('event', wchLinkListener)
   agents?.on('event', agentListener)
 
   ipcMain.handle(IPC_CHANNELS.healthGet, async (): Promise<AppHealth> => {
@@ -100,6 +103,13 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     return recovery.start()
   })
   ipcMain.handle(IPC_CHANNELS.recoveryCancel, () => recovery.cancel())
+  ipcMain.handle(IPC_CHANNELS.wchLinkGet, () => wchLink.getSnapshot())
+  ipcMain.handle(IPC_CHANNELS.wchLinkProbe, () => wchLink.probe())
+  ipcMain.handle(IPC_CHANNELS.wchLinkFlash, (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== 'string') throw new Error('请先选择学生对话')
+    return wchLink.flashCurrent()
+  })
+  ipcMain.handle(IPC_CHANNELS.wchLinkCancel, () => wchLink.cancel())
   if (workspaces) {
     ipcMain.handle(IPC_CHANNELS.workspaceList, () => workspaces.list())
     ipcMain.handle(IPC_CHANNELS.workspaceCreate, async (_event, input: unknown) => {
@@ -225,6 +235,7 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
     connectivity.off('connection', connectionListener)
     connectivity.off('update', updateListener)
     recovery.off('event', recoveryListener)
+    wchLink.off('event', wchLinkListener)
     agents?.off('event', agentListener)
     for (const channel of Object.values(IPC_CHANNELS)) {
       ipcMain.removeHandler(channel)

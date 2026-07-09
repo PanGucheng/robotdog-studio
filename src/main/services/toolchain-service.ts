@@ -60,6 +60,10 @@ export class ToolchainService {
     return join(this.getBundledRoot(), 'OpenOCD', 'OpenOCD', 'bin', 'openocd.exe')
   }
 
+  getOpenocdRiscvConfigPath(): string {
+    return join(this.getBundledRoot(), 'OpenOCD', 'OpenOCD', 'bin', 'wch-riscv.cfg')
+  }
+
   async getStatus(): Promise<ToolchainStatus> {
     const root = this.getBundledRoot()
     const [gcc, objcopy, size, openocd] = await Promise.all([

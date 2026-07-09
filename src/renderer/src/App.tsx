@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -53,6 +53,8 @@ const initialUpdate: FirmwareUpdateSnapshot = {
 
 const initialRecovery: RecoverySnapshot = { state: 'idle', progress: 0, message: '教师恢复待命', canCancel: false }
 
+const initialWchLink: WchLinkFlashSnapshot = { state: 'idle', progress: 0, message: '连接 WCH-Link 后，可以先检测烧录器和芯片。', canCancel: false, logs: [] }
+
 export function App(): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const [status, setStatus] = useState(initialStatus)
@@ -64,6 +66,7 @@ export function App(): React.JSX.Element {
   const [connection, setConnection] = useState<DeviceConnectionSnapshot>(initialConnection)
   const [firmwareUpdate, setFirmwareUpdate] = useState<FirmwareUpdateSnapshot>(initialUpdate)
   const [recovery, setRecovery] = useState<RecoverySnapshot>(initialRecovery)
+  const [wchLink, setWchLink] = useState<WchLinkFlashSnapshot>(initialWchLink)
   const [teacherMode, setTeacherMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -93,6 +96,7 @@ export function App(): React.JSX.Element {
     void api.getDeviceConnection().then(setConnection)
     void api.getFirmwareUpdate().then(setFirmwareUpdate)
     void api.getRecovery().then(setRecovery)
+    void api.getWchLinkFlash().then(setWchLink)
     void api.listWorkspaces().then((items) => {
       setWorkspaces(items)
       setActiveWorkspaceId((current) => current ?? items[0]?.id)
@@ -121,6 +125,7 @@ export function App(): React.JSX.Element {
     const offConnection = api.onDeviceConnection(setConnection)
     const offUpdate = api.onFirmwareUpdate((event) => setFirmwareUpdate(event.snapshot))
     const offRecovery = api.onRecovery((event) => setRecovery(event.snapshot))
+    const offWchLink = api.onWchLinkFlash((event) => setWchLink(event.snapshot))
     const offWorkspace = api.onWorkspaceChanged((workspace) => {
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setActiveWorkspaceId(workspace.id)
@@ -146,6 +151,7 @@ export function App(): React.JSX.Element {
       offConnection()
       offUpdate()
       offRecovery()
+      offWchLink()
       offWorkspace()
       offCandidate()
       offAgent()
@@ -192,6 +198,12 @@ export function App(): React.JSX.Element {
   const cancelUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.cancelFirmwareUpdate()) }) }
   const startRecovery = (): void => { void run(async () => { setRecovery(await api.startRecovery()) }) }
   const cancelRecovery = (): void => { void run(async () => { setRecovery(await api.cancelRecovery()) }) }
+  const probeWchLink = (): void => { void run(async () => { setWchLink(await api.probeWchLink()) }) }
+  const flashWchLink = (): void => { void run(async () => {
+    if (!activeWorkspaceId) throw new Error('请先选择学生对话')
+    setWchLink(await api.flashWchLink(activeWorkspaceId))
+  }) }
+  const cancelWchLink = (): void => { void run(async () => { setWchLink(await api.cancelWchLink()) }) }
   const createWorkspace = (): void => {
     void run(async () => {
       const workspace = await api.createWorkspace({ studentDisplayName: '林同学' })
@@ -370,6 +382,7 @@ export function App(): React.JSX.Element {
           connection={connection}
           update={firmwareUpdate}
           recovery={recovery}
+          wchLink={wchLink}
           teacherMode={teacherMode}
           busy={busy || Boolean(agentTurn)}
           candidate={candidate?.workspaceId === activeWorkspaceId ? candidate : undefined}
@@ -395,6 +408,9 @@ export function App(): React.JSX.Element {
           onCancelUpdate={cancelUpdate}
           onStartRecovery={startRecovery}
           onCancelRecovery={cancelRecovery}
+          onProbeWchLink={probeWchLink}
+          onFlashWchLink={flashWchLink}
+          onCancelWchLink={cancelWchLink}
           learningDestination={learningDestination}
           onLearningDestinationHandled={() => setLearningDestination(undefined)}
         />

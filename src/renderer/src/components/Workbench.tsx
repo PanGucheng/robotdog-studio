@@ -1,6 +1,6 @@
-import { Activity, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
+import { Activity, Cable, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WorkspaceHistoryEntry } from '../../../shared/types'
+import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
@@ -12,6 +12,7 @@ import type { WorkspaceSummary } from '../../../shared/types'
 import type { LearningDestination } from './LearningCenter'
 import { toStudentProblem } from '../lib/student-errors'
 import { ProblemCard } from './ProblemCard'
+import { WchLinkFlasherPanel } from './WchLinkFlasherPanel'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -23,6 +24,7 @@ interface WorkbenchProps {
   connection: DeviceConnectionSnapshot
   update: FirmwareUpdateSnapshot
   recovery: RecoverySnapshot
+  wchLink: WchLinkFlashSnapshot
   teacherMode: boolean
   busy: boolean
   candidate?: CandidateSnapshot
@@ -48,6 +50,9 @@ interface WorkbenchProps {
   onCancelUpdate: () => void
   onStartRecovery: () => void
   onCancelRecovery: () => void
+  onProbeWchLink: () => void
+  onFlashWchLink: () => void
+  onCancelWchLink: () => void
   learningDestination?: LearningDestination
   onLearningDestinationHandled(): void
 }
@@ -57,12 +62,13 @@ const tabs = [
   ['CCD 曲线', Activity],
   ['串口日志', TerminalSquare],
   ['编译 / 烧录', Cpu],
+  ['烧录器烧录', Cable],
   ['编写代码', Code2],
   ['修改确认', ShieldCheck],
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, teacherMode, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, learningDestination, onLearningDestinationHandled }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled }: WorkbenchProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
   useEffect(() => { if (candidate?.state === 'build_passed' || (candidate?.state === 'review_ready' && candidate.origin !== 'manual' && !candidate.error)) setActiveTab('修改确认') }, [candidate?.id, candidate?.state, candidate?.error, candidate?.origin])
   useEffect(() => {
@@ -85,6 +91,17 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
 
       {activeTab === '编写代码' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
         <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={onUiScaleChange} />
+      ) : activeTab === '烧录器烧录' ? (
+        <WchLinkFlasherPanel
+          snapshot={wchLink}
+          build={build}
+          workspace={workspace}
+          busy={busy}
+          onProbe={onProbeWchLink}
+          onFlash={onFlashWchLink}
+          onCancel={onCancelWchLink}
+          onGoBuild={() => setActiveTab('编译 / 烧录')}
+        />
       ) : activeTab === '编译 / 烧录' ? (
         <div className="workbench-content firmware-workbench">
           <div className="ccd-summary">
