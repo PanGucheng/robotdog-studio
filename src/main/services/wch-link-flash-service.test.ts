@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseWchLinkProbeOutput } from './wch-link-flash-service'
+import { makeOpenOcdProgramCommand, parseWchLinkProbeOutput } from './wch-link-flash-service'
 
 const successfulProbe = `Open On-Chip Debugger 0.11.0+dev-snapshot (2026-03-12-15:20)
 Info : only one transport option; autoselect 'sdi'
@@ -33,5 +33,16 @@ describe('parseWchLinkProbeOutput', () => {
       adapterVersion: '2.18',
       targetExamined: false
     })
+  })
+})
+
+describe('makeOpenOcdProgramCommand', () => {
+  it('quotes Windows paths for OpenOCD TCL command arguments', () => {
+    expect(makeOpenOcdProgramCommand('D:\\RobotDog\\firmware artifacts\\RobotDog.hex')).toBe('program {D:/RobotDog/firmware artifacts/RobotDog.hex} verify reset exit')
+  })
+
+  it('rejects paths that would break the OpenOCD command envelope', () => {
+    expect(() => makeOpenOcdProgramCommand('D:\\RobotDog\\bad}.hex')).toThrow('OpenOCD')
+    expect(() => makeOpenOcdProgramCommand('D:\\RobotDog\\bad\n.hex')).toThrow('OpenOCD')
   })
 })

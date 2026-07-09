@@ -18,10 +18,24 @@ export function WchLinkFlasherPanel({ snapshot, build, workspace, busy, onProbe,
   const active = activeStates.has(snapshot.state)
   const hex = build.artifacts.find((artifact) => artifact.kind === 'hex')
   const artifactCurrent = build.state === 'completed' && Boolean(workspace && build.proof && build.proof.workspaceId === workspace.id && build.proof.workspaceCommit === workspace.headCommit && build.proof.firmwareBaselineId === workspace.firmwareBaselineId)
-  const canFlash = snapshot.state === 'target_ready' && artifactCurrent && Boolean(hex) && false
+  const targetAvailable = snapshot.state === 'target_ready' || snapshot.state === 'completed'
+  const canFlash = targetAvailable && artifactCurrent && Boolean(hex)
+  const confirmFlash = (): void => {
+    if (!hex) return
+    const accepted = window.confirm([
+      `即将用 WCH-Link 写入当前程序：${hex.name}`,
+      hex.bytes ? `大小：${Math.round(hex.bytes / 1024)} KB` : undefined,
+      hex.sha256 ? `校验：${hex.sha256.slice(0, 12)}…` : undefined,
+      workspace ? `学生对话：${workspace.name}` : undefined,
+      build.proof ? `对应存档：${build.proof.workspaceCommit.slice(0, 7)}` : undefined,
+      '',
+      '这个操作会覆盖芯片中现有程序。烧录过程中请不要断电、拔线或移动 WCH-Link。'
+    ].filter(Boolean).join('\n'))
+    if (accepted) onFlash()
+  }
   const steps = [
     { label: '连接烧录器', done: Boolean(snapshot.probe?.adapterName), active: snapshot.state === 'probing' },
-    { label: '识别芯片', done: Boolean(snapshot.probe?.targetExamined), active: snapshot.state === 'target_ready' },
+    { label: '识别芯片', done: Boolean(snapshot.probe?.targetExamined), active: targetAvailable },
     { label: '当前程序', done: artifactCurrent && Boolean(hex), active: build.state === 'completed' && !artifactCurrent },
     { label: '写入校验', done: snapshot.state === 'completed', active: ['flashing', 'verifying', 'resetting'].includes(snapshot.state) }
   ]
@@ -30,11 +44,11 @@ export function WchLinkFlasherPanel({ snapshot, build, workspace, busy, onProbe,
       <div className="wch-hero">
         <div>
           <span className="eyebrow">WCH-Link 烧录器</span>
-          <h2>{snapshot.state === 'target_ready' ? '烧录器和芯片已经握手' : active ? snapshot.message : '把烧录器接成一盏安全指示灯'}</h2>
-          <p>这里用于调试、首次写入和串口下载不可用时的维护烧录。先检测，不自动写入芯片。</p>
+          <h2>{targetAvailable ? '烧录器和芯片已经握手' : active ? snapshot.message : '把烧录器接成一盏安全指示灯'}</h2>
+          <p>这里用于调试、首次写入和串口下载不可用时的维护烧录。写入前会重新检测并校验当前 HEX。</p>
         </div>
-        <div className={`wch-socket ${snapshot.state === 'target_ready' ? 'is-ready' : active ? 'is-active' : ''}`}>
-          {active ? <LoaderCircle className="spin" size={24} /> : snapshot.state === 'target_ready' ? <CheckCircle2 size={24} /> : <Cable size={24} />}
+        <div className={`wch-socket ${targetAvailable ? 'is-ready' : active ? 'is-active' : ''}`}>
+          {active ? <LoaderCircle className="spin" size={24} /> : targetAvailable ? <CheckCircle2 size={24} /> : <Cable size={24} />}
           <span>{snapshot.probe?.adapterName ?? 'WCH-Link'}</span>
         </div>
       </div>
@@ -79,7 +93,7 @@ export function WchLinkFlasherPanel({ snapshot, build, workspace, busy, onProbe,
         </article>
       </div>
 
-      <div className={`wch-result ${snapshot.state === 'failed' ? 'failed' : snapshot.state === 'target_ready' ? 'ready' : ''}`}>
+      <div className={`wch-result ${snapshot.state === 'failed' ? 'failed' : targetAvailable ? 'ready' : ''}`}>
         <ShieldAlert size={18} />
         <span>{snapshot.message}</span>
       </div>
@@ -88,7 +102,7 @@ export function WchLinkFlasherPanel({ snapshot, build, workspace, busy, onProbe,
         <button type="button" className="button-primary" onClick={onProbe} disabled={busy || active}>
           {active && snapshot.state === 'probing' ? <LoaderCircle className="spin" size={15} /> : <Cable size={15} />} 检测烧录器与芯片
         </button>
-        <button type="button" onClick={onFlash} disabled={!canFlash || busy} title="下一步接入真实写入；当前先开放检测。">
+        <button type="button" onClick={confirmFlash} disabled={!canFlash || busy} title={canFlash ? '写入当前 HEX，并由 OpenOCD 校验后复位。' : '请先检测烧录器，并生成当前工作区的 HEX。'}>
           <Zap size={15} /> 写入当前程序
         </button>
         <button type="button" onClick={onCancel} disabled={!snapshot.canCancel}>

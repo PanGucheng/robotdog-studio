@@ -314,8 +314,26 @@ export const browserDemoApi: RobotDogApi = {
     })
     return structuredClone(wchLinkSnapshot)
   },
-  flashWchLink: async () => {
-    emitWchLink('failed', { state: 'failed', progress: 100, message: '浏览器演示暂不写入 Flash；桌面版下一步接入真实烧录。', error: '浏览器演示暂不写入 Flash', canCancel: false, completedAt: new Date().toISOString() })
+  flashWchLink: async (workspaceId) => {
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    if (buildSnapshot.state !== 'completed' || buildSnapshot.proof?.workspaceId !== workspace.id || buildSnapshot.proof.workspaceCommit !== workspace.headCommit) throw new Error('请先为当前学生对话生成最新 HEX 程序')
+    const hex = buildSnapshot.artifacts.find((artifact) => artifact.kind === 'hex')
+    if (!hex) throw new Error('当前完整固件中没有 HEX 产物')
+    emitWchLink('snapshot', {
+      state: 'flashing',
+      progress: 30,
+      message: `正在模拟写入 ${hex.name}…`,
+      canCancel: false,
+      artifact: { name: hex.name, kind: hex.kind, bytes: hex.bytes, sha256: hex.sha256, workspaceId, workspaceCommit: workspace.headCommit, firmwareBaselineId: workspace.firmwareBaselineId, stale: false },
+      logs: [...wchLinkSnapshot.logs, `program {${hex.path.replaceAll('\\', '/')}} verify reset exit`],
+      startedAt: new Date().toISOString()
+    })
+    await new Promise((resolve) => setTimeout(resolve, 260))
+    emitWchLink('progress', { state: 'verifying', progress: 82, message: '正在模拟校验写入结果…', logs: [...wchLinkSnapshot.logs, 'verified 77709 bytes'] })
+    await new Promise((resolve) => setTimeout(resolve, 220))
+    emitWchLink('progress', { state: 'resetting', progress: 94, message: '校验完成，正在模拟复位目标板…', logs: [...wchLinkSnapshot.logs, 'resetting target'] })
+    await new Promise((resolve) => setTimeout(resolve, 180))
+    emitWchLink('completed', { state: 'completed', progress: 100, message: '写入完成，OpenOCD 校验通过并已复位目标板。', canCancel: false, completedAt: new Date().toISOString() })
     return structuredClone(wchLinkSnapshot)
   },
   cancelWchLink: async () => {

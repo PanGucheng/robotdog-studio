@@ -18,7 +18,7 @@ import { WchLinkFlashService } from '../services/wch-link-flash-service'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, wchLink = new WchLinkFlashService(toolchain)): () => void {
+export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, wchLink = new WchLinkFlashService(toolchain, firmware)): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -107,7 +107,10 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   ipcMain.handle(IPC_CHANNELS.wchLinkProbe, () => wchLink.probe())
   ipcMain.handle(IPC_CHANNELS.wchLinkFlash, (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string') throw new Error('请先选择学生对话')
-    return wchLink.flashCurrent()
+    if (!['idle', 'completed', 'failed', 'cancelled'].includes(connectivity.getUpdate().state)) throw new Error('板载 USB 下载进行中，不能同时使用 WCH-Link 烧录')
+    if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时使用 WCH-Link 烧录')
+    if (firmware.getSnapshot().state === 'running') throw new Error('完整固件正在生成，请等待完成后再烧录')
+    return wchLink.flashCurrent(workspaceId)
   })
   ipcMain.handle(IPC_CHANNELS.wchLinkCancel, () => wchLink.cancel())
   if (workspaces) {
