@@ -3,8 +3,9 @@
 > - 交付对象：下位机/固件开发者
 > - 需求方：RobotDog Studio 上位机项目
 > - 参考工程：`D:\RobotDog\ch32v203-robot-dog`
-> - 参考提交：`0858d821d56daaea6e45740f5b496714fea20aca`
-> - 文档版本：1.0（2026-06-20）
+> - 初始参考提交：`0858d821d56daaea6e45740f5b496714fea20aca`
+> - 最新复审提交：`c4ff3ec7f64cb38dc675d781ea6f6e5d01f32ed9`
+> - 文档版本：1.1（2026-07-11）
 
 ## 1. 目标与范围
 
@@ -12,33 +13,53 @@
 
 第一阶段只要求完成不依赖真实蓝牙、板载 USB 转串口和 IAP 分区的内容：工程整理、学生接口、运行安全、协议核心、可复现构建与测试。真实蓝牙串口绑定、板载有线 IAP 和 WCH-Link 救砖在原理图、实际芯片和 Flash 分区确认后实施，不得在本阶段猜测引脚或地址。
 
-修改必须尽量保留现有功能：五路舵机映射、动作表、CCD 采集、OLED、按键、LED 和调试串口均可复用。允许为模块化和安全性调整内部实现，但不得无说明地改变舵机方向、脉宽范围、动作含义或硬件引脚。
+修改必须尽量保留现有功能：五路舵机映射、动作表、CCD 采集、按键、LED 和调试串口均可复用。OLED 已在最新下位机提交中标记为无用功能并开始移除；若最终固件继续删除 OLED，应在迁移说明中明确“不作为 Studio 必需能力”。允许为模块化和安全性调整内部实现，但不得无说明地改变舵机方向、脉宽范围、动作含义或硬件引脚。
 
 ## 2. 现有工程审查结论
 
 开发开始前应确认以下现状，而不是把它们当成最终接口：
 
-1. `User/main.c` 目前同时包含板级初始化、串口解析、CCD、OLED、动作表、舵机调度、状态机和主循环，文件约 1700 行，职责过重。
-2. 固件上电后会直接循环执行 `walk`，不符合学生产品的安全要求；最终版本必须安全静止启动。
-3. USART3（PB10/PB11，115200 8N1）当前同时承担文本命令与 CCD 输出，可暂作运行态开发串口，但不能据此决定最终 PCB 的蓝牙/IAP 通道。
-4. CCD 128 点 CSV 当前采用阻塞式逐字符发送，可能阻塞 1ms 舵机调度；正式协议输出必须排队并限流。
-5. 当前 `app_state.h` 只有 `BOOT/IDLE/ERROR`，不足以表达手动控制、自动巡线、升级和安全停机状态。
-6. 当前构建依赖 IDE 生成的 `build/obj/compile_commands.json` 及开发机路径，删除 `build/` 后不能作为稳定构建入口。
-7. 工程说明指向 CH32V203RBT，但 `Ld/Link.ld` 当前实际启用 D6 的 64KB Flash / 20KB RAM 配置，启动文件为 `startup_ch32v20x_D6.S`。必须核对实物 MCU 完整型号、启动文件、链接脚本及存储容量；未经核对不得发布。
-8. 当前仓库未看到明确的项目许可证和第三方清单。在固件随 Windows 安装包分发前，必须补齐授权说明。
+1. 截至 `c4ff3ec7f64cb38dc675d781ea6f6e5d01f32ed9`，下位机代码改善了步态与循线原型，但仍不是 RobotDog Studio 可固定集成的 SDK 基线。
+2. `User/main.c` 仍然是约 1816 行的单体文件，同时包含板级初始化、舵机动作表、PWM 控制、串口命令解析、循线决策、CCD 调度、状态机和主循环，职责过重。
+3. 上电后不会直接行走，当前会启动 `stand` 动作并保持站立；这比早期直接运动安全，但仍不是完整的 `BOOT_SAFE/IDLE/MANUAL_REMOTE/AUTONOMOUS_LINE/UPDATE_SAFE/ERROR_SAFE` 安全状态机。
+4. 当前仓库未提供 `Core/Src/student_control.c`、`Core/Inc/student_control.h`、`student-config/line-following.yaml` 或学生桥接层，Studio 的学生代码、AI 修改和 YAML 参数无法接入。
+5. USART3（PB10/PB11，115200 8N1）当前承担调试文本命令与 CCD 输出，可暂作运行态开发串口，但不能据此决定最终 PCB 的蓝牙/IAP 通道。
+6. 当前串口协议仍是 `test/status/action/servo/ccd` 文本命令，没有实现 `@RDS1` 请求/响应、序号、结构化错误码、心跳、租约或设备身份。
+7. 仍暴露 `servo <id> <us>`、`servo all <us>`、`servo deg <id> <deg>` 等直控命令；这些只能保留在调试编译开关中，发布版和学生模式不得开放。
+8. CCD 128 点输出和调试输出仍使用阻塞式 `printf`/逐字符等待 TXE，可能阻塞 1ms 调度；正式协议输出必须使用有界队列、限流和优先级。
+9. 当前 `app_state.h` 只有 `BOOT/IDLE/ERROR`，不足以表达手动控制、自动巡线、升级和安全停机状态。
+10. 当前构建仍以 IDE 工程为主，仓库未提供 `robotdog.firmware.json`、CMake preset 或等价的干净命令行构建入口；删除 `build/` 后不能作为稳定交付入口。
+11. 工程说明指向 CH32V203RBT，但 `Ld/Link.ld` 当前实际启用 D6 的 64KB Flash / 20KB RAM 配置，启动文件为 `startup_ch32v20x_D6.S`。必须核对实物 MCU 完整型号、启动文件、链接脚本及存储容量；未经核对不得发布。
+12. 当前仓库未看到明确的项目许可证和第三方清单。在固件随 RobotDog Studio 安装包分发前，必须补齐授权说明。
+
+### 2.1 最新复审结论（2026-07-11）
+
+`c4ff3ec` 可以作为“动作流畅度和本地循线原型”的参考，但不能直接作为 RobotDog Studio 的固定固件基线。上位机当前临时基线锁定 `0858d821...`，在下位机更新到 `c4ff3ec` 后，Studio 侧临时构建会因 `User/main.c` 完整性哈希变化而拒绝：
+
+```text
+Error: Provisional baseline integrity mismatch: User/main.c
+```
+
+这不是编译错误，而是说明新下位机版本尚未通过 Studio 固件基线验收。即使上位机临时更新哈希，也只能让构建继续尝试，不能代表满足学生接口、安全协议和可复现构建要求。
+
+复审后的处理原则：
+
+1. 暂不要求上位机切换到 `c4ff3ec`。
+2. 下位机开发者应以 `c4ff3ec` 的动作和循线实现为参考，把它拆入受控模块和学生桥接层。
+3. 下一轮交付必须优先补齐学生接口、安全状态机、RDS1 协议核心和命令行构建，而不是继续在 `main.c` 中追加功能。
 
 ## 3. 交付优先级
 
-| 优先级 | 内容 | 本轮是否实施 |
-|---|---|---|
-| P0 | 芯片/链接配置核对、安全静止启动、急停与失控保护 | 是 |
-| P0 | 固定学生接口与受限适配层 | 是 |
-| P0 | 不依赖 IDE 缓存的命令行完整构建 | 是 |
-| P1 | 模块化拆分、传输无关的 RDS1 协议核心、非阻塞遥测 | 是 |
-| P1 | 主机侧单元测试、目标编译测试、构建清单与产物 | 是 |
-| P2 | 真实蓝牙 UART 绑定与现场稳定性验证 | 硬件确认后 |
-| P2 | 板载有线 UART IAP、Bootloader、APP 分区 | 硬件确认后 |
-| P3 | WCH-Link 教师救砖流程 | 硬件确认后 |
+| 优先级 | 内容 | 本阶段要求 | `c4ff3ec` 复审状态 |
+|---|---|---|---|
+| P0 | 芯片/链接配置核对、安全静止启动、急停与失控保护 | 是 | 部分完成：上电站立有改善；芯片/链接核对、租约、心跳、急停抢占仍缺 |
+| P0 | 固定学生接口与受限适配层 | 是 | 未完成：缺 `student_control.*`、YAML 生成头和桥接层 |
+| P0 | 不依赖 IDE 缓存的命令行完整构建 | 是 | 未完成：缺仓库内正式构建入口和固件清单 |
+| P1 | 模块化拆分、传输无关的 RDS1 协议核心、非阻塞遥测 | 是 | 未完成：`main.c` 仍为单体；协议仍是调试文本；TX 仍阻塞 |
+| P1 | 主机侧单元测试、目标编译测试、构建清单与产物 | 是 | 未完成：未看到 PC 可运行测试、`robotdog.firmware.json` 或固定产物清单 |
+| P2 | 真实蓝牙 UART 绑定与现场稳定性验证 | 硬件确认后 | 未进入 |
+| P2 | 板载有线 UART IAP、Bootloader、APP 分区 | 硬件确认后 | 未进入 |
+| P3 | WCH-Link 恢复/调试烧录配合 | 硬件确认后 | 上位机已能用 WCH-Link 烧当前 HEX；固件侧仍需提供完整镜像/版本验证信息 |
 
 ## 4. 必须先完成的基线核对
 
@@ -366,7 +387,7 @@ IAP 和 WCH-Link 项目只有在硬件与分区确定后才进入验收，不得
 - 未看原理图前，不指定蓝牙 UART 和 IAP UART 的最终外设/引脚。
 - 未核对实际芯片和 Bootloader 大小前，不指定 APP 起始地址和 Flash 分区。
 - 不让 APP 直接实现未经保护的整片擦除或任意地址写入。
-- 不把 WCH-Link/OpenOCD 暴露给学生或 AI 自动执行；它属于教师维护路径。
+- WCH-Link/OpenOCD 可以由 RobotDog Studio 提供独立的“烧录器烧录”维护/调试页面，但不得由 AI 自动执行，不得允许学生输入任意 OpenOCD 命令、地址或外部文件路径。固件侧应提供可验证的完整 HEX/版本信息，便于上位机完成写入后核对。
 - 不允许蓝牙与 USB 转串口两个发送端未经硬件隔离直接并联争用。
 - 不要求本阶段证明真实无线/IAP 可用，但必须把协议核心和状态机设计成以后可绑定真实传输。
 - 不改动上位机学生接口契约而不通知 RobotDog Studio 开发者。
@@ -389,15 +410,36 @@ IAP 和 WCH-Link 项目只有在硬件与分区确定后才进入验收，不得
 
 ## 16. 建议开发顺序与提交粒度
 
+`c4ff3ec` 之后建议不要继续把功能堆进 `User/main.c`。下一轮请按以下顺序拆分，每个提交应能独立编译：
+
 1. `chore: verify target memory map and add firmware manifest`
-2. `refactor: split runtime motion ccd and transport modules`
-3. `fix: boot idle and add motion fail-safe`
+   - 给出 MCU 丝印、启动文件、链接脚本、Flash/RAM、工具链参数和许可证结论；
+   - 新增仓库内 `robotdog.firmware.json`。
+2. `refactor: extract motion tables without behavior changes`
+   - 先把现有动作表、舵机缓动、PWM 写入迁入 `robotdog_motion.*`；
+   - 不改变动作含义，便于真机回归。
+3. `refactor: extract ccd driver and runtime scheduler`
+   - 保留 `ccd_line_sensor.*`，但把采样调度和循线决策从 `main.c` 移出；
+   - `main.c` 收敛到初始化和周期调度。
 4. `feat: add stable student control bridge and generated config`
-5. `feat: add transport-independent rds1 protocol core`
-6. `fix: queue and rate-limit ccd telemetry`
-7. `build: add clean wch gcc12 command-line build`
-8. `test: cover protocol student bridge and safety lease`
-9. `docs: add firmware integration and licensing notes`
+   - 新增 `Core/Inc/student_control.h`、`Core/Src/student_control.c`、`Core/Inc/student_config.generated.h`；
+   - 新增 `robotdog_student_bridge.*`，把 `c4ff3ec` 的循线决策接入学生输出校验。
+5. `fix: add runtime modes motion lease and fail-safe stop`
+   - 实现 `BOOT_SAFE/IDLE/MANUAL_REMOTE/AUTONOMOUS_LINE/UPDATE_SAFE/ERROR_SAFE`；
+   - 增加 STOP 抢占、心跳超时、动作租约、非法输出停机和丢线停机。
+6. `feat: add transport-independent rds1 protocol core`
+   - 实现 `HELLO/CAPS/PING/HEARTBEAT/STOP/ACTION/MODE/STATUS/CCD`；
+   - 旧 `test/action/servo/ccd` 文本命令放入 `ROBOTDOG_ENABLE_LEGACY_TEXT`，发布默认关闭。
+7. `fix: queue and rate-limit telemetry`
+   - 替换阻塞式 `printf`/逐字符 TXE 等待；
+   - CCD 默认限流，命令/STOP 应答优先于遥测。
+8. `build: add clean wch gcc12 command-line build`
+   - 提供不依赖 IDE 缓存和开发机绝对路径的构建入口；
+   - 固定输出 ELF/HEX/BIN/MAP 和 size/哈希信息。
+9. `test: cover protocol student bridge and safety lease`
+   - 提供 PC 可运行的协议、学生桥接、安全租约和 YAML 边界测试。
+10. `docs: add firmware integration and licensing notes`
+   - 补迁移说明、实机测试报告、第三方许可和已知限制。
 
 每个提交应能编译，重构提交和行为改变提交尽量分开。特别是动作表迁移时先保持原行为，再单独提交安全启动和租约修改，便于定位实机回归。
 
