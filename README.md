@@ -20,6 +20,33 @@ corepack pnpm test
 corepack pnpm build
 ```
 
+## GitHub 协作开发
+
+本仓库当前定位为私有协作开发仓库，用于上位机、下位机、AI 修改闭环、固件构建与硬件联调的共同开发。新协作者建议使用 recursive clone，确保 Reasonix 子模块同步：
+
+```powershell
+git clone --recurse-submodules <repo-url>
+cd robotdog-studio
+corepack prepare pnpm@11.8.0 --activate
+corepack pnpm install
+corepack pnpm dev
+```
+
+如果已经普通 clone：
+
+```powershell
+git submodule update --init --recursive
+```
+
+协作约定：
+
+- `main` 分支保持可构建；
+- 新功能优先使用 `codex/`、`ui/`、`firmware/`、`docs/`、`release/` 前缀分支；
+- PR 合并前至少运行 `npm run typecheck`、`npm test` 和 `npm run build`；
+- 不提交真实 API Key、`.env`、本地工作区或临时构建产物；
+- 下位机整改任务优先参考 [下位机固件必需改动清单](./docs/firmware-required-changes-brief.md)；
+- GitHub 发布与协作流程详见 [GitHub 私有协作仓库发布计划](./docs/github-private-collaboration-publish-plan.md)。
+
 ## 内置 WCH 固件工具链
 
 RobotDog Studio 按完整版设计交付，用户无需安装 MounRiver Studio 即可编译 CH32V203 固件。

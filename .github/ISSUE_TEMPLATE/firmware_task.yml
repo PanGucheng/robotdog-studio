@@ -1,0 +1,33 @@
+name: 下位机/固件任务
+description: 跟踪 CH32V203 下位机接口、构建、协议和硬件联调
+title: "[Firmware] "
+labels: ["firmware"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: 任务内容
+      description: 请描述本次需要下位机完成什么。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 完成后应该如何确认？
+      placeholder: |
+        - CMake 构建通过
+        - RobotDog.size.txt 已更新
+        - 协议文档已同步
+    validations:
+      required: true
+  - type: input
+    id: firmware_commit
+    attributes:
+      label: 关联下位机提交
+      placeholder: 例如：efaae6c 或完整 40 位 commit hash
+  - type: textarea
+    id: references
+    attributes:
+      label: 相关文档
+      placeholder: 例如：docs/firmware-required-changes-brief.md

@@ -1,0 +1,41 @@
+name: Bug 报告
+description: 报告上位机、AI、烧录、固件构建或界面问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题现象
+      description: 请描述你看到了什么，最好包含复现步骤。
+      placeholder: 例如：点击确认应用后没有变化，终端显示……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望表现
+      description: 你认为它应该如何工作？
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请尽量按步骤列出。
+      placeholder: |
+        1. 打开……
+        2. 点击……
+        3. 输入……
+        4. 看到……
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交
+      placeholder: 例如：v0.1.0-alpha-private / main@abcdef
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或截图
+      description: 可以粘贴终端日志、错误信息或截图。请不要粘贴真实 API Key。
+      render: text
