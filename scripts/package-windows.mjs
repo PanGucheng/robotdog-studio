@@ -30,6 +30,10 @@ const gitRoot = resolve(process.env.ROBOTDOG_PACKAGED_GIT_ROOT ?? 'C:\\Program F
 if (!(await stat(join(gitRoot, 'cmd', 'git.exe')).then((info) => info.isFile(), () => false))) {
   throw new Error(`打包需要 Git for Windows：未找到 ${join(gitRoot, 'cmd', 'git.exe')}`)
 }
+const wchLinkDriverRoot = resolve(process.env.ROBOTDOG_WCHLINK_DRIVER_ROOT ?? 'C:\\WCH.CN\\WCHLinkDrv')
+if (!(await stat(join(wchLinkDriverRoot, 'WCHLinkWDM.INF')).then((info) => info.isFile(), () => false))) {
+  throw new Error(`打包需要 WCH-Link 驱动：未找到 ${join(wchLinkDriverRoot, 'WCHLinkWDM.INF')}`)
+}
 const packagedGitRoot = join(appDir, 'toolchains', 'git')
 await preparePackagedGitRuntime(gitRoot, packagedGitRoot)
 const externalFirmware = resolve(process.env.ROBOTDOG_PACKAGED_FIRMWARE_ROOT ?? (registry.schemaVersion === 2 ? join(root, '.firmware-sources', 'ch32v203-robot-dog') : join(root, '..', 'ch32v203-robot-dog')))
@@ -62,6 +66,7 @@ const extraResources = [
   { from: join(root, 'resources', 'board-profiles'), to: 'board-profiles' },
   { from: join(root, 'resources', reasonixToolPath), to: reasonixToolPath },
   { from: join(root, 'vendor', 'wch'), to: 'toolchains/wch' },
+  { from: wchLinkDriverRoot, to: 'toolchains/wch/drivers/WCHLinkDrv' },
   { from: packagedGitRoot, to: 'toolchains/git' },
   {
     from: externalFirmware,
@@ -108,6 +113,7 @@ for (const artifact of artifacts) console.log(`- ${artifact}`)
 const packagedResourcesRoot = join(root, 'release', 'win-unpacked', 'resources')
 await verifyPackagedFirmwareSource(join(packagedResourcesRoot, baselineTarget))
 await verifyPackagedWorkspaceTemplate(resolvePackagedResource(packagedResourcesRoot, registry.studentTemplate ?? 'resources/workspace-templates/ch32v203-robotdog/2026.06'))
+await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
   await rm(destinationRoot, { recursive: true, force: true })
@@ -169,4 +175,22 @@ async function verifyPackagedWorkspaceTemplate(templateRoot) {
     if (!(await stat(path).then((info) => info.isFile(), () => false))) throw new Error(`打包后的学生模板缺少必要文件：${item}`)
   }
   console.log(`Verified packaged workspace template files: ${required.length} required files (${templateRoot})`)
+}
+
+async function verifyPackagedWchLinkDriver(driverRoot) {
+  const required = [
+    'WCHLinkWDM.INF',
+    'WCHLinkWDM.CAT',
+    'WCHLinkW64.sys',
+    'WCHLinkM64.sys',
+    'WCHLinkWDM.sys',
+    'WCHLinkDll.dll',
+    'SETUP.EXE',
+    'DRVSETUP64/DRVSETUP64.exe'
+  ]
+  for (const item of required) {
+    const path = join(driverRoot, ...item.split('/'))
+    if (!(await stat(path).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 WCH-Link 驱动缺少必要文件：${item}`)
+  }
+  console.log(`Verified packaged WCH-Link driver files: ${required.length} required files (${driverRoot})`)
 }

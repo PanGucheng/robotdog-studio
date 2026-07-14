@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process'
 import { join } from 'node:path'
 import { readFile, stat } from 'node:fs/promises'
 import { app, BrowserWindow, shell } from 'electron'
@@ -15,6 +16,7 @@ import { CandidateBuildService } from './services/candidate-build-service'
 import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
+import type { WchLinkDriverInstallStatus } from '../shared/types'
 
 const robot = new MockRobotService()
 let disposeIpc: (() => void) | undefined
@@ -84,6 +86,7 @@ app.whenReady().then(async () => {
   const workspaceRoot = rootOverride ? join(app.getPath('userData'), 'development', rootOverride.replace(/[^a-zA-Z0-9_-]/g, '_')) : defaultRoot
   const staticRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
   if (app.isPackaged) process.env.ROBOTDOG_GIT_EXE = join(staticRoot, 'toolchains', 'git', 'cmd', 'git.exe')
+  const wchLinkDriver = await installPackagedWchLinkDriver(staticRoot, app.isPackaged)
   const baselineRegistry = await readBaselineRegistry(staticRoot)
   const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, baselineRegistry.studentTemplate, app.isPackaged)
   const baseline = new FirmwareBaselineService({
@@ -117,6 +120,7 @@ app.whenReady().then(async () => {
       mode: 'simulation',
       workspaceCount: (await workspaces.list()).length,
       workspaceTemplate: { root: templateRoot, exists: await directoryExists(templateRoot) },
+      wchLinkDriver,
       toolchain: await toolchain.getStatus(),
       baseline: await baseline.getStatus(),
       agent: await getAgentRuntimeStatus(runtime)
@@ -147,6 +151,57 @@ function resolveStudentTemplateRoot(appRoot: string, staticRoot: string, student
 
 async function directoryExists(path: string): Promise<boolean> {
   return stat(path).then((info) => info.isDirectory(), () => false)
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  return stat(path).then((info) => info.isFile(), () => false)
+}
+
+async function installPackagedWchLinkDriver(staticRoot: string, packaged: boolean): Promise<WchLinkDriverInstallStatus> {
+  const driverRoot = join(staticRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv')
+  const infPath = join(driverRoot, 'WCHLinkWDM.INF')
+  if (!packaged) return { enabled: false, attempted: false, ok: false, driverRoot, infPath, detail: '开发模式不会自动安装 WCH-Link 驱动。' }
+  if (!(await fileExists(infPath))) return { enabled: true, attempted: false, ok: false, driverRoot, infPath, detail: '安装包内没有找到 WCH-Link 驱动 INF。' }
+
+  const attemptedAt = new Date().toISOString()
+  try {
+    const { stdout, stderr } = await execFileCapture('pnputil.exe', ['/add-driver', infPath, '/install'], 30_000)
+    const detail = compactToolOutput(`${stdout}\n${stderr}`) || 'pnputil 已完成 WCH-Link 驱动安装命令。'
+    return { enabled: true, attempted: true, ok: true, driverRoot, infPath, exitCode: 0, detail, attemptedAt }
+  } catch (caught) {
+    const failed = caught as { code?: number | string; stdout?: string; stderr?: string; message?: string }
+    const raw = compactToolOutput(`${failed.stdout ?? ''}\n${failed.stderr ?? ''}\n${failed.message ?? ''}`)
+    const needsAdmin = /access is denied|拒绝访问|administrator|管理员|elevat/i.test(raw)
+    return {
+      enabled: true,
+      attempted: true,
+      ok: false,
+      driverRoot,
+      infPath,
+      exitCode: failed.code ?? 'unknown',
+      detail: needsAdmin ? `静默安装需要管理员权限：${raw}` : (raw || 'pnputil 安装 WCH-Link 驱动失败。'),
+      attemptedAt
+    }
+  }
+}
+
+function execFileCapture(command: string, args: string[], timeout: number): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolveExec, reject) => {
+    execFile(command, args, { windowsHide: true, timeout, encoding: 'utf8' }, (error, stdout, stderr) => {
+      if (error) {
+        const enriched = error as Error & { code?: number | string; stdout?: string; stderr?: string }
+        enriched.stdout = stdout
+        enriched.stderr = stderr
+        reject(enriched)
+        return
+      }
+      resolveExec({ stdout, stderr })
+    })
+  })
+}
+
+function compactToolOutput(text: string): string {
+  return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(-12).join('\n').slice(0, 1800)
 }
 
 async function getAgentRuntimeStatus(runtime: { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }): Promise<import('../shared/types').AgentRuntimeStatus> {

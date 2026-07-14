@@ -80,9 +80,21 @@ export interface AppRuntimeInfo {
   mode: 'simulation' | 'hardware'
   workspaceCount: number
   workspaceTemplate?: { root: string; exists: boolean }
+  wchLinkDriver?: WchLinkDriverInstallStatus
   toolchain: ToolchainStatus
   baseline: FirmwareBaselineStatus
   agent: AgentRuntimeStatus
+}
+
+export interface WchLinkDriverInstallStatus {
+  enabled: boolean
+  attempted: boolean
+  ok: boolean
+  driverRoot: string
+  infPath?: string
+  exitCode?: number | string
+  detail: string
+  attemptedAt?: string
 }
 
 export interface DiagnosticExportResult {

@@ -34,7 +34,7 @@ export class DiagnosticService {
       schemaVersion: 1,
       createdAt,
       privacy: {
-        included: ['应用模式与版本环境', '工具链状态', '固件基线校验', 'AI 运行时状态', '工作区数量'],
+        included: ['应用模式与版本环境', '工具链状态', '固件基线校验', 'AI 运行时状态', '工作区数量', 'WCH-Link 驱动安装状态'],
         excluded: ['API Key', '学生代码', '聊天正文', '候选修改内容', '固件二进制']
       },
       runtime
