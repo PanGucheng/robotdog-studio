@@ -63,7 +63,25 @@ const extraResources = [
   { from: join(root, 'resources', reasonixToolPath), to: reasonixToolPath },
   { from: join(root, 'vendor', 'wch'), to: 'toolchains/wch' },
   { from: packagedGitRoot, to: 'toolchains/git' },
-  { from: externalFirmware, to: baselineTarget, filter: ['Core/**/*', 'Debug/**/*', 'Peripheral/**/*', 'Startup/**/*', 'User/**/*', 'Ld/**/*'] }
+  {
+    from: externalFirmware,
+    to: baselineTarget,
+    filter: [
+      'CMakeLists.txt',
+      'CMakePresets.json',
+      'robotdog.firmware.json',
+      'README.md',
+      'Core/**/*',
+      'Debug/**/*',
+      'Peripheral/**/*',
+      'Startup/**/*',
+      'User/**/*',
+      'Ld/**/*',
+      'cmake/**/*',
+      'student-config/**/*',
+      'tools/**/*'
+    ]
+  }
 ]
 
 const artifacts = await build({
@@ -87,6 +105,7 @@ const artifacts = await build({
 })
 console.log('Windows package artifacts:')
 for (const artifact of artifacts) console.log(`- ${artifact}`)
+await verifyPackagedFirmwareSource(join(root, 'release', 'win-unpacked', 'resources', baselineTarget))
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
   await rm(destinationRoot, { recursive: true, force: true })
@@ -110,4 +129,23 @@ async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
   } finally {
     await rm(probeRoot, { recursive: true, force: true })
   }
+}
+
+async function verifyPackagedFirmwareSource(sourceRoot) {
+  const required = [
+    'CMakeLists.txt',
+    'CMakePresets.json',
+    'robotdog.firmware.json',
+    'cmake/robotdog-wch-gcc12.cmake',
+    'student-config/line-following.yaml',
+    'tools/generate_student_config.py',
+    'tools/run_size.py',
+    'tools/artifact_hashes.py',
+    'tools/source_input_hash.py'
+  ]
+  for (const item of required) {
+    const path = join(sourceRoot, ...item.split('/'))
+    if (!(await stat(path).then((info) => info.isFile(), () => false))) throw new Error(`打包后的固件源码缺少必要文件：${item}`)
+  }
+  console.log(`Verified packaged firmware source files: ${required.length} required files (${sourceRoot})`)
 }
