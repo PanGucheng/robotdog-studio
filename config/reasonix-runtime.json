@@ -1,10 +1,10 @@
 {
-  "version": "v1.9.1",
+  "version": "v1.17.12",
   "source": "https://github.com/esengine/DeepSeek-Reasonix",
-  "sourceCommit": "f944dfb73d19011f4804f7962d5fd667ab7ac94f",
+  "sourceCommit": "afdcd161fe8ece8adc250bd4bf2448c1983efb9d",
   "asset": "reasonix-windows-amd64.zip",
-  "assetSha256": "9b84330fb328eb081a61beac7df54be690e6aa089cc545b5d58a830dfd58a11d",
-  "binarySha256": "6bb152f4bd6362ee441e6ed3f8917aa6350d646b3f7c0097bb0f5cf8ee66acf5",
-  "binaryRelativePath": "resources/tools/reasonix-v1.9.1/bin/reasonix.exe",
+  "assetSha256": "65aad1d45002d3716756ec6e51786e6730517231acdcae2b821480cbcbe8d0d5",
+  "binarySha256": "6fb5e71f299f71b12518fdf61e20d643560849ab48af930acbf38014b806c0ce",
+  "binaryRelativePath": "resources/tools/reasonix-v1.17.12/bin/reasonix.exe",
   "license": "MIT"
 }

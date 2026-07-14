@@ -95,11 +95,12 @@ app.whenReady().then(async () => {
   const toolchain = new ToolchainService()
   const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(toolchain, join(workspaceRoot, 'build-cache')) })
   await candidates.initialize()
-  const reasonixVersion = 'v1.9.1'
+  const reasonixRuntime = await readReasonixRuntimeManifest(app.getAppPath(), staticRoot)
+  const reasonixVersion = reasonixRuntime.version
   const processes = new ReasonixProcessManager({
     version: reasonixVersion,
-    binarySha256: '6bb152f4bd6362ee441e6ed3f8917aa6350d646b3f7c0097bb0f5cf8ee66acf5',
-    binaryPath: join(staticRoot, 'tools', 'reasonix-v1.9.1', 'bin', 'reasonix.exe'),
+    binarySha256: reasonixRuntime.binarySha256,
+    binaryPath: reasonixRuntime.binaryPath,
     sessionDataRoot: join(workspaceRoot, 'reasonix-sessions')
   })
   const secrets = new DeepSeekSecretStore(join(app.getPath('userData'), 'secure', 'deepseek-api-key.bin'))
@@ -166,4 +167,20 @@ async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath:
   if (typeof value.studentTemplate !== 'string' || typeof value.shortCommit !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
   if (!safeRelative(value.studentTemplate)) throw new Error('ACTIVE_BASELINE_REGISTRY_PATH_INVALID')
   return { manifestPath: path, packagedSource: '', studentTemplate: value.studentTemplate, templateVersion: value.shortCommit }
+}
+
+async function readReasonixRuntimeManifest(appRoot: string, staticRoot: string): Promise<{ version: string; binarySha256: string; binaryPath: string }> {
+  const manifest = JSON.parse(await readFile(join(appRoot, 'config', 'reasonix-runtime.json'), 'utf8')) as Record<string, unknown>
+  if (typeof manifest.version !== 'string' || typeof manifest.binarySha256 !== 'string' || typeof manifest.binaryRelativePath !== 'string') {
+    throw new Error('REASONIX_RUNTIME_MANIFEST_INVALID')
+  }
+  const prefix = 'resources/'
+  if (!manifest.binaryRelativePath.startsWith(prefix) || manifest.binaryRelativePath.split(/[\\/]/).includes('..')) {
+    throw new Error('REASONIX_RUNTIME_PATH_INVALID')
+  }
+  return {
+    version: manifest.version,
+    binarySha256: manifest.binarySha256,
+    binaryPath: join(staticRoot, manifest.binaryRelativePath.slice(prefix.length))
+  }
 }

@@ -16,7 +16,7 @@ npm run package:win:test
 release/RobotDog-Studio-0.1.0-PROVISIONAL-Windows-x64.zip
 ```
 
-该 ZIP 内含 Electron 应用、Reasonix v1.9.1、WCH GCC12、WCH OpenOCD、学生模板以及临时 SDK 源码，因此解压后无需另装编译工具。
+该 ZIP 内含 Electron 应用、Reasonix v1.17.12、WCH GCC12、WCH OpenOCD、学生模板以及临时 SDK 源码，因此解压后无需另装编译工具。
 
 ## 双重发布门禁
 

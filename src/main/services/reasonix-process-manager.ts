@@ -12,6 +12,8 @@ export interface ReasonixRuntimeManifest {
   sessionDataRoot?: string
 }
 
+export type ReasonixRuntimeProfile = 'economy' | 'balanced' | 'delivery'
+
 export interface ReasonixProcess {
   client: AcpClient
   stderr: () => string
@@ -21,15 +23,16 @@ export interface ReasonixProcess {
 export class ReasonixProcessManager {
   constructor(private readonly runtime: ReasonixRuntimeManifest) {}
 
-  async start(cwd: string, apiKey: string, profileId?: string): Promise<ReasonixProcess> {
+  async start(cwd: string, apiKey: string, profileId?: string, runtimeProfile: ReasonixRuntimeProfile = 'balanced'): Promise<ReasonixProcess> {
     await this.verifyBinary()
+    if (!isReasonixRuntimeProfile(runtimeProfile)) throw new Error('REASONIX_PROFILE_INVALID')
     const persistent = Boolean(profileId && this.runtime.sessionDataRoot)
-    if (profileId && !/^ws_[a-f0-9]{24}$/.test(profileId)) throw new Error('REASONIX_PROFILE_INVALID')
+    if (profileId && !/^ws_[a-f0-9]{24}$/.test(profileId)) throw new Error('REASONIX_SESSION_PROFILE_INVALID')
     const isolatedHome = persistent ? join(this.runtime.sessionDataRoot!, profileId!) : await mkdtemp(join(tmpdir(), 'robotdog-reasonix-'))
     await mkdir(isolatedHome, { recursive: true })
     let child: ChildProcessWithoutNullStreams
     try {
-      child = spawn(this.runtime.binaryPath, ['acp'], {
+      child = spawn(this.runtime.binaryPath, ['acp', '-profile', runtimeProfile], {
         cwd,
         shell: false,
         windowsHide: true,
@@ -79,6 +82,10 @@ export class ReasonixProcessManager {
     for (const key of keep) if (process.env[key]) env[key] = process.env[key]
     return env
   }
+}
+
+function isReasonixRuntimeProfile(value: string): value is ReasonixRuntimeProfile {
+  return value === 'economy' || value === 'balanced' || value === 'delivery'
 }
 
 function waitForSpawn(child: ChildProcessWithoutNullStreams): Promise<void> {

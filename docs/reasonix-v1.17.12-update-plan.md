@@ -5,6 +5,15 @@
 > 推荐目标：Reasonix CLI `v1.17.12`，不是 Reasonix Desktop `desktop-v1.17.12`。  
 > 当前日期：2026-07-14。
 
+执行状态（2026-07-14）：
+
+- 已在 `codex/update-reasonix-v1.17.12` 分支接入 Reasonix CLI `v1.17.12`；
+- `config/reasonix-runtime.json` 已作为唯一固定运行时清单；
+- `ReasonixProcessManager` 已支持内部 profile 参数，默认不在 UI 暴露；
+- `AgentSessionService` 已按任务类型自动选择 `economy / balanced / delivery`；
+- 已兼容 ACP `plan` update 和 `toolCall.locations` 字段；
+- 已通过 `npm run reasonix:prepare`、`npm run typecheck`、`npm test`、`npm run smoke:electron` 和 `npm run package:win:test`。
+
 ## 1. 结论
 
 建议升级，但不要直接在 `main` 上替换。Reasonix 从 v1.9.1 到 v1.17.12 跨度较大，包含大量 ACP、权限、交付模式、会话、性能和 Windows 体验修复。对 RobotDog Studio 这种依赖 ACP 的受控 AI 修改闭环来说，升级有价值。

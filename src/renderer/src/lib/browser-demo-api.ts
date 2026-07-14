@@ -173,7 +173,7 @@ export const browserDemoApi: RobotDogApi = {
     dataRoot: '浏览器演示数据（不会写入磁盘）', diagnosticsRoot: '浏览器演示诊断', mode: 'simulation', workspaceCount: demoWorkspaces.length,
     toolchain: demoToolchainStatus,
     baseline: await browserDemoApi.getFirmwareBaselineStatus(),
-    agent: { adapter: 'reasonix', version: 'v1.9.1', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示 AI 已就绪' }
+    agent: { adapter: 'reasonix', version: 'v1.17.12', installed: true, apiKeyConfigured: true, ready: true, detail: '浏览器演示 AI 已就绪' }
   }),
   exportDiagnostics: async () => ({
     path: '浏览器演示/robotdog-diagnostics-demo.json', createdAt: new Date().toISOString(), bytes: 1024,

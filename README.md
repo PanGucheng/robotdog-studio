@@ -9,6 +9,7 @@ RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Electron 桌
 ```powershell
 corepack prepare pnpm@11.8.0 --activate
 corepack pnpm install
+corepack pnpm reasonix:prepare
 corepack pnpm dev
 ```
 
@@ -29,6 +30,7 @@ git clone --recurse-submodules <repo-url>
 cd robotdog-studio
 corepack prepare pnpm@11.8.0 --activate
 corepack pnpm install
+corepack pnpm reasonix:prepare
 corepack pnpm dev
 ```
 
@@ -42,7 +44,7 @@ git submodule update --init --recursive
 
 - `main` 分支保持可构建；
 - 新功能优先使用 `codex/`、`ui/`、`firmware/`、`docs/`、`release/` 前缀分支；
-- PR 合并前至少运行 `npm run typecheck`、`npm test` 和 `npm run build`；
+- PR 合并前至少运行 `npm run reasonix:prepare`、`npm run typecheck`、`npm test` 和 `npm run build`；
 - 不提交真实 API Key、`.env`、本地工作区或临时构建产物；
 - 下位机整改任务优先参考 [下位机固件必需改动清单](./docs/firmware-required-changes-brief.md)；
 - GitHub 发布与协作流程详见 [GitHub 私有协作仓库发布计划](./docs/github-private-collaboration-publish-plan.md)。
@@ -93,7 +95,7 @@ npm run firmware:build:ch32v203
 - IAP 二进制帧、CRC32 流解析、固件 SHA-256/板型/Flash 区域校验和稳定设备身份注册。
 - 教师模式完整恢复模拟；学生下载与教师恢复互斥，关键写入阶段禁止强制取消。
 - 蓝牙运行态协议、板载有线 IAP 与 WCH-Link 教师恢复的三通道方案，以及内置 WCH GCC12/OpenOCD 和命令行构建适配。
-- 固定 Reasonix v1.9.1 ACP 运行时、连续会话和 Markdown 对话。
+- 固定 Reasonix v1.17.12 ACP 运行时、连续会话和 Markdown 对话；Reasonix profile 由任务类型自动选择，不暴露给学生界面。
 - 内置面向小学高年级学生的版本化工程提示词；允许的候选文件修改自动执行，整轮结束统一查看一次 Diff。
 - 100%/125%/150%/175% 界面缩放、2K/4K 自动推荐和按缩放后空间重排的高 DPI 工作台。
 - AI 只修改隔离候选工作区；Main 进程再次执行白名单、路径、Diff 和源码树校验。
