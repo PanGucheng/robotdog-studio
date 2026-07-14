@@ -10,7 +10,7 @@
 - 模拟机器马、CCD、动作控制和软件急停；
 - 蓝牙运行态、有线 IAP、WCH-Link 教师恢复的模拟状态机；
 - 内置沁恒 GCC12 / OpenOCD 检测与外部 CH32V203 工程命令行构建；
-- 固定 Reasonix v1.9.1 ACP、连续对话、Markdown、权限审批和取消；
+- 固定 Reasonix v1.17.12 ACP、连续对话、Markdown、权限审批和取消；
 - AI 候选 worktree、Diff 白名单、预检编译、哈希绑定、原子应用、Git 历史与撤销；
 - 应用失败、重启中断、越权修改、候选篡改等自动化恢复测试。
 

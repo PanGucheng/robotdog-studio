@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { join } from 'node:path'
-import { automaticPermissionResponse, ReasonixAcpAdapter } from './reasonix-acp-adapter'
+import { automaticPermissionResponse, ReasonixAcpAdapter, selectReasonixProfile } from './reasonix-acp-adapter'
 
 describe('ReasonixAcpAdapter permission batching', () => {
   const root = join('C:', 'managed', 'candidate')
@@ -22,6 +22,21 @@ describe('ReasonixAcpAdapter permission batching', () => {
     expect(automaticPermissionResponse(root, {
       toolCall: { toolCallId: 'ask-choice', kind: 'question' }, options
     })).toBeUndefined()
+  })
+})
+
+describe('ReasonixAcpAdapter runtime profile selection', () => {
+  it('keeps Reasonix profiles internal and chooses them from task intent', () => {
+    expect(selectReasonixProfile({ taskKind: 'explain_code', readOnly: true })).toBe('economy')
+    expect(selectReasonixProfile({ taskKind: 'explain_diagnostic', readOnly: true })).toBe('economy')
+    expect(selectReasonixProfile({ taskKind: 'modify_code' })).toBe('balanced')
+    expect(selectReasonixProfile({ taskKind: 'repair_compile_error' })).toBe('delivery')
+    expect(selectReasonixProfile({ taskKind: 'teacher_diagnostic' })).toBe('delivery')
+  })
+
+  it('falls back safely for legacy read-only and edit turns', () => {
+    expect(selectReasonixProfile({ readOnly: true })).toBe('economy')
+    expect(selectReasonixProfile({})).toBe('balanced')
   })
 })
 

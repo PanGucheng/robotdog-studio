@@ -2,12 +2,28 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AdapterEvent, AdapterTurnContext, ReasonixAdapter } from './reasonix-adapter'
 import { ReasonixPermissionPolicy } from './reasonix-permission-policy'
-import { ReasonixProcessManager } from './reasonix-process-manager'
+import { ReasonixProcessManager, type ReasonixRuntimeProfile } from './reasonix-process-manager'
 import { buildStudentAgentPrompt } from './student-agent-prompt'
 
-interface UpdateParams { update?: { sessionUpdate?: string; content?: { text?: string }; title?: string; kind?: string; status?: string } }
+interface UpdateParams {
+  update?: {
+    sessionUpdate?: string
+    content?: { text?: string }
+    title?: string
+    kind?: string
+    status?: string
+    entries?: Array<{ id?: string; title?: string; content?: string; status?: string }>
+    steps?: Array<{ id?: string; title?: string; content?: string; status?: string }>
+  }
+}
 interface PermissionParams {
-  toolCall?: { toolCallId?: string; title?: string; kind?: string; rawInput?: Record<string, unknown> }
+  toolCall?: {
+    toolCallId?: string
+    title?: string
+    kind?: string
+    rawInput?: Record<string, unknown>
+    locations?: Array<{ path?: string; line?: number }>
+  }
   options?: Array<{ optionId?: string; name?: string; kind?: string }>
 }
 interface PendingPermission { turnId: string; allowed: Set<string>; resolve: (optionId: string) => void }
@@ -35,7 +51,8 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
     const configPath = join(context.candidateRoot, 'reasonix.toml')
     const originalConfig = await readFile(configPath, 'utf8').catch(() => '')
     await writeFile(configPath, secureConfig, 'utf8')
-    const process = await this.processes.start(context.candidateRoot, apiKey, context.workspaceId)
+    const runtimeProfile = selectReasonixProfile(context)
+    const process = await this.processes.start(context.candidateRoot, apiKey, context.workspaceId, runtimeProfile)
     let sessionId = ''
     let sequence = 0
     let summary = ''
@@ -66,6 +83,13 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
         emit({ type: 'activity', sequence: ++sequence, label: 'Reasonix 正在分析项目', state: 'thinking' })
       } else if (update.sessionUpdate === 'tool_call') {
         emit({ type: 'activity', sequence: ++sequence, label: update.title ?? '正在处理文件', state: update.kind === 'edit' ? 'editing' : 'thinking' })
+      } else if (update.sessionUpdate === 'plan') {
+        const rawSteps = update.steps ?? update.entries ?? []
+        const steps = rawSteps.flatMap((step, index) => {
+          const label = studentPlanLabel(step.title ?? step.content ?? '')
+          return label ? [{ id: step.id ?? `reasonix-plan-${index + 1}`, label }] : []
+        }).slice(0, 6)
+        if (steps.length) emit({ type: 'plan', sequence: ++sequence, steps })
       }
     })
     const cancel = (): void => { if (sessionId) process.client.notify('session/cancel', { sessionId }) }
@@ -142,16 +166,20 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
   }
 }
 
-const secureConfig = `default_model = "deepseek-flash"
+export function selectReasonixProfile(context: Pick<AdapterTurnContext, 'readOnly' | 'taskKind'>): ReasonixRuntimeProfile {
+  if (context.taskKind === 'repair_compile_error' || context.taskKind === 'teacher_diagnostic') return 'delivery'
+  if (context.taskKind === 'explain_code' || context.taskKind === 'explain_diagnostic') return 'economy'
+  if (context.readOnly) return 'economy'
+  return 'balanced'
+}
 
-[[providers]]
-name = "deepseek-flash"
-kind = "openai"
-base_url = "https://api.deepseek.com"
-model = "deepseek-chat"
-api_key_env = "DEEPSEEK_API_KEY"
+function studentPlanLabel(value: string): string {
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (!compact) return ''
+  return compact.length > 48 ? `${compact.slice(0, 47)}…` : compact
+}
 
-[tools]
+const secureConfig = `[tools]
 enabled = ["read_file", "ls", "glob", "grep", "edit_file", "write_file"]
 
 [sandbox]

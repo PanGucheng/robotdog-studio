@@ -150,7 +150,8 @@ export class AgentSessionService extends EventEmitter {
         candidateId,
         candidateRoot,
         message: active.agentMessage ?? snapshot.message,
-        policyVersion: candidateSnapshot.policyVersion
+        policyVersion: candidateSnapshot.policyVersion,
+        taskKind: active.repair ? 'repair_compile_error' : 'modify_code'
       }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
       if (controller.signal.aborted) throw controller.signal.reason
       snapshot.state = 'validating'
@@ -194,7 +195,8 @@ export class AgentSessionService extends EventEmitter {
       if (!explanation) throw new Error('STUDENT_EXPLANATION_CONTEXT_MISSING')
       await this.adapter.runTurn({
         turnId: snapshot.turnId, workspaceId: snapshot.workspaceId, candidateId: snapshot.candidateId ?? `readonly_${snapshot.workspaceId}`,
-        candidateRoot: explanation.root, message: snapshot.message, policyVersion: explanation.policyVersion, readOnly: true
+        candidateRoot: explanation.root, message: snapshot.message, policyVersion: explanation.policyVersion, readOnly: true,
+        taskKind: explanation.kind === 'selection' ? 'explain_code' : 'explain_diagnostic'
       }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
       if (controller.signal.aborted) throw controller.signal.reason
       snapshot.state = 'no_changes'

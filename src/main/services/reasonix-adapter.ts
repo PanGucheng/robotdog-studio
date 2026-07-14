@@ -12,6 +12,7 @@ export interface AdapterTurnContext {
   message: string
   policyVersion?: string
   readOnly?: boolean
+  taskKind?: 'explain_code' | 'explain_diagnostic' | 'modify_code' | 'repair_compile_error' | 'teacher_diagnostic'
 }
 
 export interface ReasonixAdapter {
