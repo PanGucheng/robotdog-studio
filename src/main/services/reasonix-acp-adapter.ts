@@ -179,16 +179,7 @@ function studentPlanLabel(value: string): string {
   return compact.length > 48 ? `${compact.slice(0, 47)}…` : compact
 }
 
-const secureConfig = `default_model = "deepseek-flash"
-
-[[providers]]
-name = "deepseek-flash"
-kind = "openai"
-base_url = "https://api.deepseek.com"
-model = "deepseek-chat"
-api_key_env = "DEEPSEEK_API_KEY"
-
-[tools]
+const secureConfig = `[tools]
 enabled = ["read_file", "ls", "glob", "grep", "edit_file", "write_file"]
 
 [sandbox]
