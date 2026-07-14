@@ -2,6 +2,8 @@
 
 RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Electron 桌面上位机。项目目前已完成安全桌面底座、三通道模拟链路，以及 Reasonix 驱动的受控 AI 修改闭环。
 
+重开 Codex 对话继续开发时，优先阅读 [开发交接文档](./docs/development-handoff-2026-07-14.md)，其中记录了当前仓库状态、活动固件基线、打包验证结果、WCH-Link 驱动现状和下一步开发顺序。
+
 ## 本地开发
 
 需要 Node.js 24 与 Corepack。仓库固定使用 pnpm 11.8.0：
