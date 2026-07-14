@@ -97,6 +97,13 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
     monaco.editor.setModelMarkers(model, 'student-check', markers)
   }, [buildDiagnostics, selectedPath])
 
+  useEffect(() => {
+    if (!shouldClearCompilerIssue(manualCandidate, buildDiagnostics.length)) return
+    setDiagnostic(undefined)
+    setAiHelpRequested(false)
+    setRepairAttempted(false)
+  }, [manualCandidate?.id, manualCandidate?.state, buildDiagnostics.length])
+
   const saveCurrent = async (): Promise<CandidateSnapshot | undefined> => {
     if (!manualCandidate || !selected?.editable || !dirty) return manualCandidate
     setSaving(true)
@@ -140,6 +147,9 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
       const built = await api.buildCandidate(validated.id)
       onCandidateChanged(built)
       if (built.state === 'build_passed') {
+        setDiagnostic(undefined)
+        setAiHelpRequested(false)
+        setRepairAttempted(false)
         setMessage('检查通过！下一步统一查看修改并保存到项目。')
         onReadyForReview()
       } else {
@@ -258,4 +268,10 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
       </div>
     </div>
   )
+}
+
+export function shouldClearCompilerIssue(candidate: CandidateSnapshot | undefined, diagnosticCount: number): boolean {
+  if (!candidate) return false
+  if (candidate.origin !== 'manual') return false
+  return diagnosticCount === 0 || candidate.state === 'build_passed'
 }
