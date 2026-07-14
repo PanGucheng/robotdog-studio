@@ -6,6 +6,18 @@ import { spawnSync } from 'node:child_process'
 const repoRoot = resolve(import.meta.dirname, '..')
 const baselineRoot = join(repoRoot, 'resources', 'firmware-baselines', 'ch32v203-robotdog')
 const registry = JSON.parse(readFileSync(join(baselineRoot, 'active.json'), 'utf8'))
+
+if (registry.schemaVersion === 2) {
+  const commit = registry.activeCommit ?? 'origin/main'
+  const result = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'firmware-verify.mjs'), '--commit', commit], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: 'inherit',
+    windowsHide: true
+  })
+  process.exit(result.status ?? 1)
+}
+
 const manifestPath = join(baselineRoot, registry.manifest)
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
 const firmwareRoot = resolve(process.env.ROBOTDOG_FIRMWARE_ROOT ?? manifest.source.developmentDefaultRoot)

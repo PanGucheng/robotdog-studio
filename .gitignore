@@ -7,6 +7,7 @@ coverage/
 playwright-report/
 test-results/
 .firmware-build/
+.firmware-sources/
 
 # Electron and native build caches
 .electron-vite/

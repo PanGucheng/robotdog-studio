@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "firmwareVersion": "0.2.1",
+  "protocolVersion": 1,
+  "board": "robotdog-ch32v203c8t6",
+  "chip": "CH32V203C8T6",
+  "sourceBaseCommit": "0858d821d56daaea6e45740f5b496714fea20aca",
+  "baselineCommit": "c2329ac2cc419ec4fb4c6e4b7f2da4a614cf7ce0",
+  "reviewedIntegrationCommitShort": "c2329ac",
+  "baselineCommitStatus": "resolved_by_authoritative_git_remote",
+  "memory": {
+    "flashBytes": 65536,
+    "ramBytes": 20480
+  },
+  "build": {
+    "startup": "Startup/startup_ch32v20x_D6.S",
+    "linkerScript": "Ld/Link.ld",
+    "targetFlags": [
+      "-march=rv32imac",
+      "-mabi=ilp32",
+      "-mcmodel=medlow"
+    ],
+    "toolchain": "WCH RISC-V Embedded GCC12",
+    "buildSystem": "CMake + Ninja",
+    "sourceInputHash": "generated at build time by tools/source_input_hash.py",
+    "minimumFlashFreeBytes": 8192
+  },
+  "studentOverlay": {
+    "source": "Core/Src/student_control.c",
+    "header": "Core/Inc/student_control.h",
+    "configInput": "student-config/line-following.yaml",
+    "generatedHeader": "Core/Inc/student_config.generated.h"
+  },
+  "artifacts": {
+    "elf": "RobotDog.elf",
+    "hex": "RobotDog.hex",
+    "bin": "RobotDog.bin",
+    "map": "RobotDog.map",
+    "size": "RobotDog.size.txt",
+    "hashes": "RobotDog.sha256.txt",
+    "sourceInput": "RobotDog.input.json"
+  },
+  "hardwareStatus": {
+    "mcuConfirmed": true,
+    "confirmedMcu": "CH32V203C8T6",
+    "startupFamily": "CH32V20x_D6",
+    "uartDevelopmentAdapter": "USART3 PB10/PB11 115200 8N1",
+    "bluetoothFinalBinding": "not_confirmed",
+    "iapPartition": "not_confirmed"
+  },
+  "licenseStatus": {
+    "projectLicense": "BSD-3-Clause",
+    "projectLicenseFile": "LICENSE",
+    "thirdPartyNoticesFile": "THIRD_PARTY_NOTICES.md",
+    "thirdPartyRedistribution": "WCH source redistribution requires separate review before Studio distribution",
+    "wchLibraryNotice": "Vendor notice restricts source and binary use to microcontrollers manufactured by Nanjing Qinheng Microelectronics.",
+    "toolchainDistribution": "user_install_required"
+  }
+}

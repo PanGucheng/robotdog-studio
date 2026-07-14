@@ -93,6 +93,9 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       if (!toolchain.gcc.ok || !toolchain.objcopy.ok || !toolchain.size.ok) throw new Error('内置 WCH GCC12 工具链不完整')
       if (workspace.firmwareBaselineId !== manifest.id || workspace.baselineCommit !== manifest.source.expectedCommit) throw new Error('工作区绑定的固件基线与当前基线不一致')
       const projectRoot = await this.workspaces.getProjectRootForMain(workspace.id)
+      if (manifest.schemaVersion === 2) {
+        return await this.buildCmakeBaseline({ buildId, temporaryRoot, sourceRoot, sourceHash, manifest, workspace, projectRoot, toolchain })
+      }
       const workspaceSourceHash = await this.fingerprint.calculate(projectRoot)
       const inputHash = createHash('sha256').update(JSON.stringify({
         workspaceCommit: workspace.headCommit, workspaceSourceHash, baselineId: manifest.id,
@@ -197,6 +200,87 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     return this.getSnapshot()
   }
 
+  private async buildCmakeBaseline(context: {
+    buildId: string
+    temporaryRoot: string
+    sourceRoot: string
+    sourceHash: string
+    manifest: Extract<Awaited<ReturnType<FirmwareBaselineService['getManifest']>>, { schemaVersion: 2 }>
+    workspace: Awaited<ReturnType<WorkspaceService['get']>>
+    projectRoot: string
+    toolchain: Awaited<ReturnType<ToolchainService['getStatus']>>
+  }): Promise<FirmwareBuildSnapshot> {
+    const { buildId, temporaryRoot, sourceRoot, sourceHash, manifest, workspace, projectRoot, toolchain } = context
+    const workspaceSourceHash = await this.fingerprint.calculate(projectRoot)
+    const inputHash = createHash('sha256').update(JSON.stringify({
+      workspaceCommit: workspace.headCommit, workspaceSourceHash, baselineId: manifest.id,
+      baselineCommit: manifest.source.expectedCommit, baselineSourceHash: sourceHash,
+      toolchain: toolchain.gcc.version ?? toolchain.gcc.detail, build: manifest.build, live: manifest.live
+    })).digest('hex')
+    const publishedRoot = join(this.outputBase, inputHash)
+    this.redactions = [sourceRoot, projectRoot, temporaryRoot, this.outputBase]
+    this.activeSnapshot = {
+      id: buildId, workspaceId: workspace.id, state: 'running', firmwareRoot: sourceRoot, outputDir: publishedRoot,
+      completedFiles: 0, totalFiles: 2, logs: [], artifacts: [], startedAt: new Date().toISOString()
+    }
+    this.emitSnapshot('snapshot')
+    this.addLog(`正在使用 CMake 构建 ${manifest.label}`)
+
+    const cached = await this.readCachedBuild(publishedRoot, inputHash)
+    if (cached) {
+      this.activeSnapshot = { ...cached, id: buildId, firmwareRoot: sourceRoot, logs: ['输入没有变化，已使用经过哈希校验的 CMake 固件产物。'] }
+      this.emitSnapshot('completed')
+      return this.getSnapshot()
+    }
+
+    const outputRoot = join(temporaryRoot, 'output')
+    const buildRoot = join(temporaryRoot, 'cmake-build')
+    await mkdir(outputRoot, { recursive: true })
+    const toolchainRoot = dirname(dirname(toolchain.gcc.path))
+    await this.runProcess('cmake', [
+      '-S', sourceRoot,
+      '-B', buildRoot,
+      '-G', 'Ninja',
+      '-DCMAKE_BUILD_TYPE=Release',
+      `-DCMAKE_TOOLCHAIN_FILE=${join(sourceRoot, 'cmake', 'robotdog-wch-gcc12.cmake')}`,
+      `-DROBOTDOG_TOOLCHAIN_ROOT=${toolchainRoot}`,
+      `-DROBOTDOG_OUTPUT_DIR=${outputRoot}`,
+      `-DROBOTDOG_STUDENT_OVERLAY=${projectRoot}`
+    ], sourceRoot)
+    this.activeSnapshot.completedFiles = 1
+    this.emitSnapshot('progress')
+    await this.runProcess('cmake', ['--build', buildRoot], sourceRoot)
+    this.activeSnapshot.completedFiles = 2
+    this.emitSnapshot('progress')
+
+    const sizePath = join(outputRoot, manifest.artifacts.size)
+    const size = await parseSizeFile(sizePath)
+    if (!size) throw new Error('无法读取固件 Flash/RAM 占用')
+    const artifacts = await Promise.all([
+      makeArtifact(manifest.artifacts.elf, join(outputRoot, manifest.artifacts.elf), 'elf'),
+      makeArtifact(manifest.artifacts.hex, join(outputRoot, manifest.artifacts.hex), 'hex'),
+      makeArtifact(manifest.artifacts.bin, join(outputRoot, manifest.artifacts.bin), 'bin'),
+      makeArtifact(manifest.artifacts.map, join(outputRoot, manifest.artifacts.map), 'map')
+    ])
+    const completedAt = new Date().toISOString()
+    const proof: FirmwareBuildProof = {
+      schemaVersion: 1, inputHash, workspaceId: workspace.id, workspaceCommit: workspace.headCommit, workspaceSourceHash,
+      firmwareBaselineId: manifest.id, baselineCommit: manifest.source.expectedCommit, baselineSourceHash: sourceHash,
+      toolchain: toolchain.gcc.version ?? toolchain.gcc.detail, board: manifest.target.board, size,
+      artifacts: artifacts.map(({ name, kind, bytes, sha256 }) => ({ name, kind, bytes: bytes ?? 0, sha256: sha256! })),
+      startedAt: this.activeSnapshot.startedAt!, completedAt, releaseEligible: manifest.releaseEligible
+    }
+    await writeFile(join(outputRoot, 'build-proof.json'), `${JSON.stringify(proof, null, 2)}\n`, 'utf8')
+    await rm(publishedRoot, { recursive: true, force: true })
+    await rename(outputRoot, publishedRoot)
+    await rm(temporaryRoot, { recursive: true, force: true })
+    const publishedArtifacts = artifacts.map((artifact) => ({ ...artifact, path: join(publishedRoot, artifact.name) }))
+    this.activeSnapshot = { ...this.activeSnapshot, state: 'completed', currentFile: undefined, outputDir: publishedRoot, artifacts: publishedArtifacts, size, proof, completedAt }
+    this.addLog('完整固件已通过 CMake 生成并完成哈希校验', 'success')
+    this.emitSnapshot('completed')
+    return this.getSnapshot()
+  }
+
   private async copyBaseline(sourceRoot: string, stagingRoot: string): Promise<void> {
     const ignored = new Set(['.git', 'build', '.eide', '.mrs', '.vscode'])
     await cp(sourceRoot, stagingRoot, {
@@ -285,6 +369,23 @@ export function parseSizeOutput(output: string): FirmwareSizeInfo | undefined {
   if (!dataLine) return undefined
   const [text, data, bss, dec, hex] = dataLine.split(/\s+/)
   return { text: Number(text), data: Number(data), bss: Number(bss), dec: Number(dec), hex }
+}
+
+async function parseSizeFile(path: string): Promise<FirmwareSizeInfo | undefined> {
+  const text = await readFile(path, 'utf8')
+  const table = parseSizeOutput(text)
+  if (table) return table
+  const values = Object.fromEntries([...text.matchAll(/^([a-z_]+)=([0-9A-Za-z]+)$/gm)].map((match) => [match[1], match[2]]))
+  const flashUsed = Number(values.flash_used_bytes)
+  const ramUsed = Number(values.ram_used_bytes)
+  if (!Number.isFinite(flashUsed) || !Number.isFinite(ramUsed)) return undefined
+  return {
+    text: flashUsed,
+    data: 0,
+    bss: ramUsed,
+    dec: flashUsed + ramUsed,
+    hex: (flashUsed + ramUsed).toString(16)
+  }
 }
 
 async function makeArtifact(name: string, path: string, kind: FirmwareBuildArtifact['kind']): Promise<FirmwareBuildArtifact> {

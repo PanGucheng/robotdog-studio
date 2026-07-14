@@ -17,6 +17,11 @@
     "package:win": "npm run baseline:release:check && npm run build && node scripts/package-windows.mjs nsis formal",
     "reasonix:prepare": "powershell -ExecutionPolicy Bypass -File scripts/prepare-reasonix.ps1",
     "firmware:build:ch32v203": "node scripts/build-ch32v203-firmware.mjs",
+    "firmware:source:status": "node scripts/firmware-source.mjs status",
+    "firmware:source:fetch": "node scripts/firmware-source.mjs fetch",
+    "firmware:source:prepare": "node scripts/firmware-source.mjs prepare",
+    "firmware:verify": "node scripts/firmware-verify.mjs",
+    "firmware:promote": "node scripts/firmware-promote.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run"

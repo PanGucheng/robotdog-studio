@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "remote": "https://github.com/PanGucheng/ch32v203-robot-dog",
+  "commit": "c897e3a1d82b2e4b59348d4ce75762c62a79c293",
+  "shortCommit": "c897e3a",
+  "firmwareVersion": "0.2.1",
+  "protocolVersion": 1,
+  "defaultBuild": {
+    "size": {
+      "flashUsedBytes": 15020,
+      "flashTotalBytes": 65536,
+      "flashFreeBytes": 50516,
+      "minimumFlashFreeBytes": 8192,
+      "ramUsedBytes": 4172,
+      "ramTotalBytes": 20480,
+      "status": "PASS"
+    },
+    "artifacts": {
+      "elf": {
+        "bytes": 33240,
+        "sha256": "de3c4a73c765192be88735fabe85bf692a43da3c60094bd9718dec636bc2bb96"
+      },
+      "hex": {
+        "bytes": 42286,
+        "sha256": "219b8343b430bd68eaf53ebbee31828fdfffb129c85e39fca15b1ff7697619c2"
+      },
+      "bin": {
+        "bytes": 15020,
+        "sha256": "e2d1cc33ceb7d31ada1983764f5619ec628e05432c5158b4cc1905588ac4201a"
+      },
+      "map": {
+        "bytes": 100331,
+        "sha256": "bfafc2947f50e3dea96c7d8c5c2c5e62a5dfb3b4c753e5abc73c4be72e6ef3ca"
+      },
+      "size": {
+        "bytes": 345,
+        "sha256": "0f1a15d9003e57d63334a391f2315ee8a4bef65fef9e9f309d0a0ebc16008bc6"
+      },
+      "hashes": {
+        "bytes": 320,
+        "sha256": "46dd8e50d209a3f8f2187df027a5e24dbb548b074323df7820da3cafe5af52e3"
+      },
+      "sourceInput": {
+        "bytes": 3885,
+        "sha256": "248148703423ac5af15e1a3e7a2758d660c9c4641d46168a4728b0fcdfd87a8d"
+      }
+    }
+  },
+  "overlayBuild": {
+    "size": {
+      "flashUsedBytes": 15020,
+      "flashTotalBytes": 65536,
+      "flashFreeBytes": 50516,
+      "minimumFlashFreeBytes": 8192,
+      "ramUsedBytes": 4172,
+      "ramTotalBytes": 20480,
+      "status": "PASS"
+    },
+    "artifacts": {
+      "elf": {
+        "bytes": 33240,
+        "sha256": "de3c4a73c765192be88735fabe85bf692a43da3c60094bd9718dec636bc2bb96"
+      },
+      "hex": {
+        "bytes": 42286,
+        "sha256": "219b8343b430bd68eaf53ebbee31828fdfffb129c85e39fca15b1ff7697619c2"
+      },
+      "bin": {
+        "bytes": 15020,
+        "sha256": "e2d1cc33ceb7d31ada1983764f5619ec628e05432c5158b4cc1905588ac4201a"
+      },
+      "map": {
+        "bytes": 101027,
+        "sha256": "6a689518ef6222624e8e4daba22a869714bc2fc28af9b90c891a70885495993c"
+      },
+      "size": {
+        "bytes": 345,
+        "sha256": "15ba833a38b8b1a29a053b31621fca54fb6b9c6b09116d81c04a9c2e6a009386"
+      },
+      "hashes": {
+        "bytes": 320,
+        "sha256": "0197ab13015d6f6029275268887457feb4ae9989a0d7028e55ef6b5560b3708a"
+      },
+      "sourceInput": {
+        "bytes": 3885,
+        "sha256": "248148703423ac5af15e1a3e7a2758d660c9c4641d46168a4728b0fcdfd87a8d"
+      }
+    }
+  },
+  "completedAt": "2026-07-14T03:30:41.616Z"
+}

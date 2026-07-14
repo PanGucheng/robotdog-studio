@@ -126,9 +126,10 @@ export function parseLineConfigText(text: string): { turnStrength: number; lineT
 export function renderStudentConfigHeader(config: { turnStrength: number; lineTarget: number }): string {
   return [
     '#ifndef STUDENT_CONFIG_GENERATED_H', '#define STUDENT_CONFIG_GENERATED_H', '',
-    `#define STUDENT_TURN_STRENGTH ${config.turnStrength}U`, `#define STUDENT_LINE_TARGET ${config.lineTarget}U`, '',
-    '#if STUDENT_TURN_STRENGTH < 1U || STUDENT_TURN_STRENGTH > 30U', '#error "turn_strength must be an integer from 1 to 30"', '#endif',
-    '#if STUDENT_LINE_TARGET > 127U', '#error "line_target must be an integer from 0 to 127"', '#endif', '', '#endif', ''
+    `#define STUDENT_CONFIG_TURN_STRENGTH ${config.turnStrength}U`, `#define STUDENT_CONFIG_LINE_TARGET ${config.lineTarget}U`,
+    '#define STUDENT_TURN_STRENGTH STUDENT_CONFIG_TURN_STRENGTH', '#define STUDENT_LINE_TARGET STUDENT_CONFIG_LINE_TARGET', '',
+    '#if STUDENT_CONFIG_TURN_STRENGTH < 1U || STUDENT_CONFIG_TURN_STRENGTH > 30U', '#error "turn_strength must be an integer from 1 to 30"', '#endif',
+    '#if STUDENT_CONFIG_LINE_TARGET > 127U', '#error "line_target must be an integer from 0 to 127"', '#endif', '', '#endif', ''
   ].join('\n')
 }
 

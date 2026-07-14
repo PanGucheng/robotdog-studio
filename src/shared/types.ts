@@ -134,7 +134,7 @@ export interface WorkspaceSummary {
   activeCandidateId?: string
 }
 
-export interface FirmwareBaselineManifest {
+export interface FirmwareLegacyBaselineManifest {
   schemaVersion: 1
   id: string
   label: string
@@ -149,6 +149,25 @@ export interface FirmwareBaselineManifest {
   artifacts: { elf: string; hex: string; bin: string; map: string }
   integrity: Array<{ path: string; sha256: string }>
 }
+
+export interface FirmwareLiveBaselineManifest {
+  schemaVersion: 2
+  id: string
+  label: string
+  status: 'provisional' | 'release'
+  releaseEligible: boolean
+  replacementPolicy: string
+  source: { repository: string; expectedCommit: string; developmentDefaultRoot: string }
+  target: { board: string; chip: string; startup: string; linkerScript: string; memory: { flashBytes: number; ramBytes: number; confirmed: boolean } }
+  toolchain: { profile: string; arch: string; abi: string; codeModel: string }
+  build: { type: 'cmake'; preset: string; outputDir: string; toolchain: string }
+  studentOverlay: { source: string; header: string; configInput: string; generatedHeader: string }
+  artifacts: { elf: string; hex: string; bin: string; map: string; size: string; hashes: string; sourceInput: string }
+  integrity: Array<{ path: string; sha256: string }>
+  live: { activeCommit: string; shortCommit: string; manifestPath: string; verificationReport?: string; flashFreeBytes?: number; ramUsedBytes?: number }
+}
+
+export type FirmwareBaselineManifest = FirmwareLegacyBaselineManifest | FirmwareLiveBaselineManifest
 
 export interface FirmwareBaselineStatus {
   id: string

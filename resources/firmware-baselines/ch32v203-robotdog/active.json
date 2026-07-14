@@ -1,6 +1,39 @@
 {
-  "schemaVersion": 1,
-  "manifest": "provisional-0858d82/robotdog.firmware.json",
-  "packagedSource": "current/source",
-  "purpose": "临时功能测试；最终下位机 SDK 交付后只需切换此登记文件并通过正式发布门禁。"
+  "schemaVersion": 2,
+  "name": "ch32v203-robotdog",
+  "mode": "development-live-remote",
+  "remote": {
+    "url": "https://github.com/PanGucheng/ch32v203-robot-dog",
+    "branch": "main"
+  },
+  "activeCommit": "c897e3a1d82b2e4b59348d4ce75762c62a79c293",
+  "shortCommit": "c897e3a",
+  "firmwareVersion": "0.2.1",
+  "protocolVersion": 1,
+  "verifiedFirmwareManifest": "snapshots/c897e3a/robotdog.firmware.json",
+  "verificationReport": "snapshots/c897e3a/verification-summary.json",
+  "studentTemplate": "resources/workspace-templates/ch32v203-robotdog/c897e3a",
+  "build": {
+    "type": "cmake",
+    "preset": "robotdog-wch-gcc12",
+    "toolchain": "WCH RISC-V Embedded GCC12",
+    "outputDir": ".firmware-build/ch32v203-robotdog"
+  },
+  "artifacts": {
+    "elf": "RobotDog.elf",
+    "hex": "RobotDog.hex",
+    "bin": "RobotDog.bin",
+    "map": "RobotDog.map",
+    "size": "RobotDog.size.txt",
+    "hashes": "RobotDog.sha256.txt",
+    "sourceInput": "RobotDog.input.json"
+  },
+  "verification": {
+    "minimumFlashFreeBytes": 8192,
+    "flashUsedBytes": 15020,
+    "flashFreeBytes": 50516,
+    "ramUsedBytes": 4172,
+    "lastVerifiedAt": "2026-07-14T03:30:41.616Z",
+    "promotedAt": "2026-07-14T03:34:12.917Z"
+  }
 }

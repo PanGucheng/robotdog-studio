@@ -46,7 +46,8 @@ function createWindow(): void {
           window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo()
         ])
         const existing = await window.robotDog.listWorkspaces()
-        const workspace = existing[0] ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
+        const workspace = existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
+          ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
         const firmware = await window.robotDog.startFirmwareBuild(workspace.id)
         return {
           ok: Boolean(toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4),
@@ -82,14 +83,14 @@ app.whenReady().then(async () => {
   const rootOverride = process.env.ROBOTDOG_WORKSPACE_ROOT
   const workspaceRoot = rootOverride ? join(app.getPath('userData'), 'development', rootOverride.replace(/[^a-zA-Z0-9_-]/g, '_')) : defaultRoot
   const staticRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
-  const templateRoot = join(staticRoot, 'workspace-templates', 'ch32v203-robotdog', '2026.06')
   const baselineRegistry = await readBaselineRegistry(staticRoot)
+  const templateRoot = join(app.isPackaged ? process.resourcesPath : app.getAppPath(), baselineRegistry.studentTemplate)
   const baseline = new FirmwareBaselineService({
-    manifestPath: join(staticRoot, 'firmware-baselines', 'ch32v203-robotdog', baselineRegistry.manifest),
-    packagedSourceRoot: app.isPackaged ? join(process.resourcesPath, 'firmware-baselines', 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined
+    manifestPath: baselineRegistry.manifestPath,
+    packagedSourceRoot: app.isPackaged && baselineRegistry.packagedSource ? join(process.resourcesPath, 'firmware-baselines', 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined
   })
   const baselineManifest = await baseline.getManifest()
-  const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit })
+  const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, templateVersion: baselineRegistry.templateVersion, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit })
   await workspaces.initialize()
   const toolchain = new ToolchainService()
   const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(toolchain, join(workspaceRoot, 'build-cache')) })
@@ -147,11 +148,22 @@ async function getAgentRuntimeStatus(runtime: { secrets: DeepSeekSecretStore; pr
   }
 }
 
-async function readBaselineRegistry(staticRoot: string): Promise<{ manifest: string; packagedSource: string }> {
+async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath: string; packagedSource: string; studentTemplate: string; templateVersion: string }> {
   const path = join(staticRoot, 'firmware-baselines', 'ch32v203-robotdog', 'active.json')
   const value = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
-  if (value.schemaVersion !== 1 || typeof value.manifest !== 'string' || typeof value.packagedSource !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
+  if (value.schemaVersion !== 1 && value.schemaVersion !== 2) throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
   const safeRelative = (item: string): boolean => !item.startsWith('/') && !item.startsWith('\\') && !item.split(/[\\/]/).includes('..')
-  if (!safeRelative(value.manifest) || !safeRelative(value.packagedSource)) throw new Error('ACTIVE_BASELINE_REGISTRY_PATH_INVALID')
-  return { manifest: value.manifest, packagedSource: value.packagedSource }
+  if (value.schemaVersion === 1) {
+    if (typeof value.manifest !== 'string' || typeof value.packagedSource !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
+    if (!safeRelative(value.manifest) || !safeRelative(value.packagedSource)) throw new Error('ACTIVE_BASELINE_REGISTRY_PATH_INVALID')
+    return {
+      manifestPath: join(staticRoot, 'firmware-baselines', 'ch32v203-robotdog', value.manifest),
+      packagedSource: value.packagedSource,
+      studentTemplate: 'resources/workspace-templates/ch32v203-robotdog/2026.06',
+      templateVersion: '2026.06'
+    }
+  }
+  if (typeof value.studentTemplate !== 'string' || typeof value.shortCommit !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
+  if (!safeRelative(value.studentTemplate)) throw new Error('ACTIVE_BASELINE_REGISTRY_PATH_INVALID')
+  return { manifestPath: path, packagedSource: '', studentTemplate: value.studentTemplate, templateVersion: value.shortCommit }
 }

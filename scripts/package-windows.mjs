@@ -20,19 +20,27 @@ await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
 }, null, 2)}\n`)
 
 const baselineTarget = 'firmware-baselines/ch32v203-robotdog/current/source'
-const externalFirmware = resolve(process.env.ROBOTDOG_PACKAGED_FIRMWARE_ROOT ?? join(root, '..', 'ch32v203-robot-dog'))
 const baselineRoot = join(root, 'resources', 'firmware-baselines', 'ch32v203-robotdog')
 const registry = JSON.parse(await readFile(join(baselineRoot, 'active.json'), 'utf8'))
-const manifest = JSON.parse(await readFile(join(baselineRoot, registry.manifest), 'utf8'))
-for (const item of manifest.integrity) {
-  const source = join(externalFirmware, item.path)
-  const actual = createHash('sha256').update(await readFile(source)).digest('hex')
-  if (actual !== item.sha256) throw new Error(`待打包 SDK 与活动基线不一致：${item.path}`)
+const externalFirmware = resolve(process.env.ROBOTDOG_PACKAGED_FIRMWARE_ROOT ?? (registry.schemaVersion === 2 ? join(root, '.firmware-sources', 'ch32v203-robot-dog') : join(root, '..', 'ch32v203-robot-dog')))
+const manifestRef = registry.schemaVersion === 2 ? registry.verifiedFirmwareManifest : registry.manifest
+const manifest = JSON.parse(await readFile(join(baselineRoot, manifestRef), 'utf8'))
+if (registry.schemaVersion === 2) {
+  for (const source of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json', manifest.studentOverlay.source, manifest.studentOverlay.header, manifest.studentOverlay.configInput]) {
+    if (!(await stat(join(externalFirmware, source))).isFile()) throw new Error(`待打包 SDK 缺少源文件：${source}`)
+  }
+  console.log(`Verified live firmware baseline: ${registry.activeCommit} (${externalFirmware})`)
+} else {
+  for (const item of manifest.integrity) {
+    const source = join(externalFirmware, item.path)
+    const actual = createHash('sha256').update(await readFile(source)).digest('hex')
+    if (actual !== item.sha256) throw new Error(`待打包 SDK 与活动基线不一致：${item.path}`)
+  }
+  for (const source of manifest.build.sources) {
+    if (!(await stat(join(externalFirmware, source))).isFile()) throw new Error(`待打包 SDK 缺少源文件：${source}`)
+  }
+  console.log(`Verified packaged firmware baseline: ${manifest.id} (${externalFirmware})`)
 }
-for (const source of manifest.build.sources) {
-  if (!(await stat(join(externalFirmware, source))).isFile()) throw new Error(`待打包 SDK 缺少源文件：${source}`)
-}
-console.log(`Verified packaged firmware baseline: ${manifest.id} (${externalFirmware})`)
 const extraResources = [
   { from: join(root, 'resources', 'workspace-templates'), to: 'workspace-templates' },
   { from: join(root, 'resources', 'firmware-baselines'), to: 'firmware-baselines' },
