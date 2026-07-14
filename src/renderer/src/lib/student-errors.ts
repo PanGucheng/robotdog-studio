@@ -31,6 +31,12 @@ const friendlyProblems: Array<[RegExp, Omit<StudentProblem, 'technicalDetail'>]>
     why: '工作区可能被移动、删除，或本机数据目录没有准备好。',
     nextStep: '请新建一个学生对话继续练习；如果要找回旧项目，请让教师检查数据文件夹。'
   }],
+  [/WORKSPACE_GIT_FAILED|spawn git|git\.exe|git .*failed/i, {
+    title: '学生工作区没有准备好',
+    whatHappened: '系统没有完成新对话的本地代码快照。',
+    why: 'RobotDog Studio 需要一个受控的 Git 工具来保存课堂练习历史。当前包里的 Git 可能缺失、损坏，或被安全软件拦截。',
+    nextStep: '请换用包含内置 Git 的新版测试包；如果仍失败，请让教师展开技术细节检查打包文件是否完整。'
+  }],
   [/BASELINE.*(INVALID|MISMATCH)|固件基线.*(不完整|不一致)|SDK.*(校验|不一致)/i, {
     title: '小马程序模板没有通过校验',
     whatHappened: '完整固件编译已暂停，避免用不确定的 SDK 生成程序。',

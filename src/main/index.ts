@@ -83,6 +83,7 @@ app.whenReady().then(async () => {
   const rootOverride = process.env.ROBOTDOG_WORKSPACE_ROOT
   const workspaceRoot = rootOverride ? join(app.getPath('userData'), 'development', rootOverride.replace(/[^a-zA-Z0-9_-]/g, '_')) : defaultRoot
   const staticRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
+  if (app.isPackaged) process.env.ROBOTDOG_GIT_EXE = join(staticRoot, 'toolchains', 'git', 'cmd', 'git.exe')
   const baselineRegistry = await readBaselineRegistry(staticRoot)
   const templateRoot = join(app.isPackaged ? process.resourcesPath : app.getAppPath(), baselineRegistry.studentTemplate)
   const baseline = new FirmwareBaselineService({

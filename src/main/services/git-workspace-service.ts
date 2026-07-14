@@ -147,12 +147,14 @@ export class GitWorkspaceService {
 
   private async run(cwd: string, args: string[]): Promise<string> {
     try {
-      const { stdout } = await execFileAsync('git', args, {
+      const gitExecutable = process.env.ROBOTDOG_GIT_EXE || 'git'
+      const { stdout } = await execFileAsync(gitExecutable, args, {
         cwd: resolve(cwd),
         windowsHide: true,
         encoding: 'utf8',
         maxBuffer: 2 * 1024 * 1024,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+        shell: false
       })
       return stdout
     } catch (caught) {

@@ -23,6 +23,10 @@ await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
 const baselineTarget = 'firmware-baselines/ch32v203-robotdog/current/source'
 const baselineRoot = join(root, 'resources', 'firmware-baselines', 'ch32v203-robotdog')
 const registry = JSON.parse(await readFile(join(baselineRoot, 'active.json'), 'utf8'))
+const gitRoot = resolve(process.env.ROBOTDOG_PACKAGED_GIT_ROOT ?? 'C:\\Program Files\\Git')
+if (!(await stat(join(gitRoot, 'cmd', 'git.exe')).then((info) => info.isFile(), () => false))) {
+  throw new Error(`打包需要 Git for Windows：未找到 ${join(gitRoot, 'cmd', 'git.exe')}`)
+}
 const externalFirmware = resolve(process.env.ROBOTDOG_PACKAGED_FIRMWARE_ROOT ?? (registry.schemaVersion === 2 ? join(root, '.firmware-sources', 'ch32v203-robot-dog') : join(root, '..', 'ch32v203-robot-dog')))
 const manifestRef = registry.schemaVersion === 2 ? registry.verifiedFirmwareManifest : registry.manifest
 const manifest = JSON.parse(await readFile(join(baselineRoot, manifestRef), 'utf8'))
@@ -53,6 +57,7 @@ const extraResources = [
   { from: join(root, 'resources', 'board-profiles'), to: 'board-profiles' },
   { from: join(root, 'resources', reasonixToolPath), to: reasonixToolPath },
   { from: join(root, 'vendor', 'wch'), to: 'toolchains/wch' },
+  { from: gitRoot, to: 'toolchains/git' },
   { from: externalFirmware, to: baselineTarget, filter: ['Core/**/*', 'Debug/**/*', 'Peripheral/**/*', 'Startup/**/*', 'User/**/*', 'Ld/**/*'] }
 ]
 

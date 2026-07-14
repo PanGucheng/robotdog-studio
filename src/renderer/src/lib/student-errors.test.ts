@@ -19,6 +19,12 @@ describe('toStudentErrorMessage', () => {
     expect(message).toBe('系统正在整理这次修改的前后对比，暂时还不能展示。')
   })
 
+  it('does not describe Git workspace failures as compiler errors', () => {
+    const problem = toStudentProblem('WORKSPACE_GIT_FAILED: error: cannot spawn git.exe')
+    expect(problem.title).toBe('学生工作区没有准备好')
+    expect(problem.whatHappened).not.toContain('编译器')
+  })
+
   it('redacts API-like secrets from technical details', () => {
     const problem = toStudentProblem('request failed api_key=sk-123456789abcdef')
     expect(problem.technicalDetail).toContain('api_key=***')
