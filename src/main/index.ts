@@ -167,7 +167,7 @@ async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath:
   }
   if (typeof value.studentTemplate !== 'string' || typeof value.shortCommit !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
   if (!safeRelative(value.studentTemplate)) throw new Error('ACTIVE_BASELINE_REGISTRY_PATH_INVALID')
-  return { manifestPath: path, packagedSource: '', studentTemplate: value.studentTemplate, templateVersion: value.shortCommit }
+  return { manifestPath: path, packagedSource: 'current/source', studentTemplate: value.studentTemplate, templateVersion: value.shortCommit }
 }
 
 async function readReasonixRuntimeManifest(appRoot: string, staticRoot: string): Promise<{ version: string; binarySha256: string; binaryPath: string }> {
