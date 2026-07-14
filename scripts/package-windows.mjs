@@ -105,7 +105,9 @@ const artifacts = await build({
 })
 console.log('Windows package artifacts:')
 for (const artifact of artifacts) console.log(`- ${artifact}`)
-await verifyPackagedFirmwareSource(join(root, 'release', 'win-unpacked', 'resources', baselineTarget))
+const packagedResourcesRoot = join(root, 'release', 'win-unpacked', 'resources')
+await verifyPackagedFirmwareSource(join(packagedResourcesRoot, baselineTarget))
+await verifyPackagedWorkspaceTemplate(resolvePackagedResource(packagedResourcesRoot, registry.studentTemplate ?? 'resources/workspace-templates/ch32v203-robotdog/2026.06'))
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
   await rm(destinationRoot, { recursive: true, force: true })
@@ -148,4 +150,23 @@ async function verifyPackagedFirmwareSource(sourceRoot) {
     if (!(await stat(path).then((info) => info.isFile(), () => false))) throw new Error(`打包后的固件源码缺少必要文件：${item}`)
   }
   console.log(`Verified packaged firmware source files: ${required.length} required files (${sourceRoot})`)
+}
+
+function resolvePackagedResource(resourcesRoot, resourcePath) {
+  const normalized = String(resourcePath).replace(/\\/g, '/')
+  return normalized.startsWith('resources/') ? join(resourcesRoot, normalized.slice('resources/'.length)) : join(resourcesRoot, normalized)
+}
+
+async function verifyPackagedWorkspaceTemplate(templateRoot) {
+  const required = [
+    'README.md',
+    'Core/Src/student_control.c',
+    'Core/Inc/student_control.h',
+    'student-config/line-following.yaml'
+  ]
+  for (const item of required) {
+    const path = join(templateRoot, ...item.split('/'))
+    if (!(await stat(path).then((info) => info.isFile(), () => false))) throw new Error(`打包后的学生模板缺少必要文件：${item}`)
+  }
+  console.log(`Verified packaged workspace template files: ${required.length} required files (${templateRoot})`)
 }

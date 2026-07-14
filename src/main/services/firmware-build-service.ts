@@ -27,6 +27,36 @@ export interface FirmwareBuildServiceOptions {
 
 type FirmwareBuildServiceEvents = { event: [FirmwareBuildEvent] }
 
+const LIVE_BASELINE_SOURCES = [
+  'Startup/startup_ch32v20x_D6.S',
+  'Core/core_riscv.c',
+  'Debug/debug.c',
+  'User/main.c',
+  'User/system_ch32v20x.c',
+  'User/ch32v20x_it.c',
+  'User/ccd_line_sensor.c',
+  'User/robotdog_types.c',
+  'User/robotdog_safety.c',
+  'User/robotdog_protocol.c',
+  'User/robotdog_text.c',
+  'User/robotdog_tx_queue.c',
+  'User/robotdog_telemetry.c',
+  'User/robotdog_student_bridge.c',
+  'User/robotdog_runtime.c',
+  'User/robotdog_motion.c',
+  'Peripheral/src/ch32v20x_adc.c',
+  'Peripheral/src/ch32v20x_dbgmcu.c',
+  'Peripheral/src/ch32v20x_gpio.c',
+  'Peripheral/src/ch32v20x_misc.c',
+  'Peripheral/src/ch32v20x_rcc.c',
+  'Peripheral/src/ch32v20x_tim.c',
+  'Peripheral/src/ch32v20x_usart.c'
+]
+const LIVE_INCLUDE_DIRECTORIES = ['Core/Inc', 'Core', 'Debug', 'User', 'Peripheral/inc', 'Startup']
+const LIVE_C_FLAGS = ['-Os', '-ffunction-sections', '-fdata-sections', '-fmessage-length=0', '-fsigned-char', '-fno-common', '-DROBOTDOG_ENABLE_LEGACY_TEXT=0']
+const LIVE_STUDENT_C_FLAGS = ['-Wall', '-Wextra', '-Wconversion', '-Werror=implicit-function-declaration', '-Werror=return-type']
+const LIVE_LINK_FLAGS = ['-nostartfiles', '--specs=nano.specs', '--specs=nosys.specs', '-Wl,--gc-sections']
+
 export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvents> {
   private readonly baseline?: FirmwareBaselineService
   private readonly workspaces?: WorkspaceService
@@ -224,7 +254,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       completedFiles: 0, totalFiles: 2, logs: [], artifacts: [], startedAt: new Date().toISOString()
     }
     this.emitSnapshot('snapshot')
-    this.addLog(`正在使用 CMake 构建 ${manifest.label}`)
+    this.addLog(`正在使用内置 WCH GCC 构建 ${manifest.label}`)
 
     const cached = await this.readCachedBuild(publishedRoot, inputHash)
     if (cached) {
@@ -233,34 +263,59 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       return this.getSnapshot()
     }
 
+    const stagingRoot = join(temporaryRoot, 'source')
     const outputRoot = join(temporaryRoot, 'output')
-    const buildRoot = join(temporaryRoot, 'cmake-build')
     await mkdir(outputRoot, { recursive: true })
-    const toolchainRoot = dirname(dirname(toolchain.gcc.path))
-    await this.runProcess('cmake', [
-      '-S', sourceRoot,
-      '-B', buildRoot,
-      '-G', 'Ninja',
-      '-DCMAKE_BUILD_TYPE=Release',
-      `-DCMAKE_TOOLCHAIN_FILE=${join(sourceRoot, 'cmake', 'robotdog-wch-gcc12.cmake')}`,
-      `-DROBOTDOG_TOOLCHAIN_ROOT=${toolchainRoot}`,
-      `-DROBOTDOG_OUTPUT_DIR=${outputRoot}`,
-      `-DROBOTDOG_STUDENT_OVERLAY=${projectRoot}`
-    ], sourceRoot)
-    this.activeSnapshot.completedFiles = 1
-    this.emitSnapshot('progress')
-    await this.runProcess('cmake', ['--build', buildRoot], sourceRoot)
-    this.activeSnapshot.completedFiles = 2
-    this.emitSnapshot('progress')
+    await mkdir(join(outputRoot, 'obj'), { recursive: true })
+    await this.copyBaseline(sourceRoot, stagingRoot)
+    await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay)
 
-    const sizePath = join(outputRoot, manifest.artifacts.size)
-    const size = await parseSizeFile(sizePath)
+    const sources = [...LIVE_BASELINE_SOURCES, manifest.studentOverlay.source]
+    this.activeSnapshot.totalFiles = sources.length + 1
+    const objectFiles: string[] = []
+    for (const [index, source] of sources.entries()) {
+      this.throwIfCancelled()
+      const sourcePath = join(stagingRoot, ...source.split('/'))
+      const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
+      await mkdir(dirname(objectPath), { recursive: true })
+      const includeArgs = LIVE_INCLUDE_DIRECTORIES.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
+      const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
+      const isAssembly = extname(source).toLowerCase() === '.s'
+      const extraFlags = source === manifest.studentOverlay.source ? LIVE_STUDENT_C_FLAGS : []
+      const args = isAssembly
+        ? ['-c', '-x', 'assembler-with-cpp', ...includeArgs, ...targetArgs, sourcePath, '-o', objectPath]
+        : ['-c', '-x', 'c', ...includeArgs, ...targetArgs, ...LIVE_C_FLAGS, ...extraFlags, sourcePath, '-o', objectPath]
+      this.activeSnapshot.currentFile = source
+      this.addLog(`[${index + 1}/${sources.length}] ${source}`)
+      await this.runProcess(toolchain.gcc.path, args, stagingRoot)
+      objectFiles.push(objectPath)
+      this.activeSnapshot.completedFiles = index + 1
+      this.emitSnapshot('progress')
+    }
+
+    const elfPath = join(outputRoot, manifest.artifacts.elf)
+    const hexPath = join(outputRoot, manifest.artifacts.hex)
+    const binPath = join(outputRoot, manifest.artifacts.bin)
+    const mapPath = join(outputRoot, manifest.artifacts.map)
+    this.activeSnapshot.currentFile = `链接 ${manifest.artifacts.elf}`
+    const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
+    await this.runProcess(toolchain.gcc.path, [
+      ...targetArgs, ...LIVE_LINK_FLAGS, `-Wl,-Map=${mapPath}`, '-T', join(stagingRoot, ...manifest.target.linkerScript.split('/')),
+      '-o', elfPath, ...objectFiles
+    ], stagingRoot)
+    await this.runProcess(toolchain.objcopy.path, ['-O', 'ihex', elfPath, hexPath], stagingRoot)
+    await this.runProcess(toolchain.objcopy.path, ['-O', 'binary', elfPath, binPath], stagingRoot)
+    const sizeOutput = await this.runProcess(toolchain.size.path, [elfPath], stagingRoot)
+    await writeFile(join(outputRoot, manifest.artifacts.size), sizeOutput, 'utf8')
+    const size = parseSizeOutput(sizeOutput)
     if (!size) throw new Error('无法读取固件 Flash/RAM 占用')
+    if (size.text + size.data > manifest.target.memory.flashBytes) throw new Error('固件超过临时基线声明的 Flash 容量')
+    if (size.data + size.bss > manifest.target.memory.ramBytes) throw new Error('固件超过临时基线声明的 RAM 容量')
     const artifacts = await Promise.all([
-      makeArtifact(manifest.artifacts.elf, join(outputRoot, manifest.artifacts.elf), 'elf'),
-      makeArtifact(manifest.artifacts.hex, join(outputRoot, manifest.artifacts.hex), 'hex'),
-      makeArtifact(manifest.artifacts.bin, join(outputRoot, manifest.artifacts.bin), 'bin'),
-      makeArtifact(manifest.artifacts.map, join(outputRoot, manifest.artifacts.map), 'map')
+      makeArtifact(manifest.artifacts.elf, elfPath, 'elf'),
+      makeArtifact(manifest.artifacts.hex, hexPath, 'hex'),
+      makeArtifact(manifest.artifacts.bin, binPath, 'bin'),
+      makeArtifact(manifest.artifacts.map, mapPath, 'map')
     ])
     const completedAt = new Date().toISOString()
     const proof: FirmwareBuildProof = {
@@ -276,7 +331,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     await rm(temporaryRoot, { recursive: true, force: true })
     const publishedArtifacts = artifacts.map((artifact) => ({ ...artifact, path: join(publishedRoot, artifact.name) }))
     this.activeSnapshot = { ...this.activeSnapshot, state: 'completed', currentFile: undefined, outputDir: publishedRoot, artifacts: publishedArtifacts, size, proof, completedAt }
-    this.addLog('完整固件已通过 CMake 生成并完成哈希校验', 'success')
+    this.addLog('完整固件已通过内置 WCH GCC 生成并完成哈希校验', 'success')
     this.emitSnapshot('completed')
     return this.getSnapshot()
   }

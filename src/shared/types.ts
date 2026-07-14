@@ -79,6 +79,7 @@ export interface AppRuntimeInfo {
   diagnosticsRoot: string
   mode: 'simulation' | 'hardware'
   workspaceCount: number
+  workspaceTemplate?: { root: string; exists: boolean }
   toolchain: ToolchainStatus
   baseline: FirmwareBaselineStatus
   agent: AgentRuntimeStatus

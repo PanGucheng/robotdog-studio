@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc/register-ipc'
 import { MockRobotService } from './services/mock-robot-service'
@@ -85,7 +85,7 @@ app.whenReady().then(async () => {
   const staticRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
   if (app.isPackaged) process.env.ROBOTDOG_GIT_EXE = join(staticRoot, 'toolchains', 'git', 'cmd', 'git.exe')
   const baselineRegistry = await readBaselineRegistry(staticRoot)
-  const templateRoot = join(app.isPackaged ? process.resourcesPath : app.getAppPath(), baselineRegistry.studentTemplate)
+  const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, baselineRegistry.studentTemplate, app.isPackaged)
   const baseline = new FirmwareBaselineService({
     manifestPath: baselineRegistry.manifestPath,
     packagedSourceRoot: app.isPackaged && baselineRegistry.packagedSource ? join(process.resourcesPath, 'firmware-baselines', 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined
@@ -116,6 +116,7 @@ app.whenReady().then(async () => {
     getRuntimeInfo: async () => ({
       mode: 'simulation',
       workspaceCount: (await workspaces.list()).length,
+      workspaceTemplate: { root: templateRoot, exists: await directoryExists(templateRoot) },
       toolchain: await toolchain.getStatus(),
       baseline: await baseline.getStatus(),
       agent: await getAgentRuntimeStatus(runtime)
@@ -137,6 +138,16 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => disposeIpc?.())
+
+function resolveStudentTemplateRoot(appRoot: string, staticRoot: string, studentTemplate: string, packaged: boolean): string {
+  const normalized = studentTemplate.replace(/\\/g, '/')
+  if (packaged && normalized.startsWith('resources/')) return join(staticRoot, normalized.slice('resources/'.length))
+  return join(packaged ? staticRoot : appRoot, studentTemplate)
+}
+
+async function directoryExists(path: string): Promise<boolean> {
+  return stat(path).then((info) => info.isDirectory(), () => false)
+}
 
 async function getAgentRuntimeStatus(runtime: { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }): Promise<import('../shared/types').AgentRuntimeStatus> {
   const [installed, apiKeyConfigured] = await Promise.all([
