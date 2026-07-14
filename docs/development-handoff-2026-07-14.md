@@ -97,8 +97,8 @@ sourceCommit: afdcd161fe8ece8adc250bd4bf2448c1983efb9d
 - `src/main/services/student-agent-prompt.ts`
 - `src/main/services/reasonix-permission-policy.ts`
 - `src/renderer/src/components/ChatPanel.tsx`
-- `docs/reasonix-v1.17.12-update-plan.md`
-- `docs/ai-workspace-reasonix-plan.md`
+- `docs/archive/2026-07-14-completed-plans/reasonix-v1.17.12-update-plan.md`
+- `docs/archive/2026-07-14-completed-plans/ai-workspace-reasonix-plan.md`
 
 ### 3.3 学生代码编辑与候选修改
 
@@ -168,8 +168,8 @@ npm run firmware:promote
 - `src/main/services/firmware-build-service.ts`
 - `resources/firmware-baselines/ch32v203-robotdog/active.json`
 - `resources/workspace-templates/ch32v203-robotdog/c897e3a/`
-- `docs/live-firmware-baseline-integration-plan.md`
-- `docs/firmware-integration.md`
+- `docs/archive/2026-07-14-completed-plans/live-firmware-baseline-integration-plan.md`
+- `docs/archive/2026-07-14-completed-plans/firmware-integration.md`
 
 ### 3.5 Windows 离线测试包
 
@@ -530,16 +530,17 @@ npm run package:win:test
 ## 7. 重要文档索引
 
 - 总体计划：`IMPLEMENTATION_PLAN.md`
-- 架构边界：`docs/architecture.md`
-- AI 修改闭环：`docs/ai-workspace-reasonix-plan.md`
-- 固件集成：`docs/firmware-integration.md`
-- 活动固件基线：`docs/live-firmware-baseline-integration-plan.md`
-- Windows 打包：`docs/windows-packaging-and-baseline-switch.md`
-- WCH-Link 烧录页：`docs/wch-link-flasher-page-plan.md`
-- 三通道连接方案：`docs/three-channel-connection-plan.md`
-- 下位机开发交付简版：`docs/firmware-required-changes-brief.md`
-- 下位机详细修改要求：`docs/firmware-developer-modification-requirements.md`
-- Reasonix 更新计划：`docs/reasonix-v1.17.12-update-plan.md`
+- 当前架构边界：`docs/architecture.md`
+- 当前 Windows 打包：`docs/windows-packaging-and-baseline-switch.md`
+- 当前 WCH-Link 烧录页：`docs/wch-link-flasher-page-plan.md`
+- 当前下位机开发交付简版：`docs/firmware-required-changes-brief.md`
+- 当前下位机详细修改要求：`docs/firmware-developer-modification-requirements.md`
+- 归档文档索引：`docs/archive/README.md`
+- 历史 AI 修改闭环计划：`docs/archive/2026-07-14-completed-plans/ai-workspace-reasonix-plan.md`
+- 历史固件集成计划：`docs/archive/2026-07-14-completed-plans/firmware-integration.md`
+- 历史活动固件基线计划：`docs/archive/2026-07-14-completed-plans/live-firmware-baseline-integration-plan.md`
+- 历史三通道连接方案：`docs/archive/2026-07-14-completed-plans/three-channel-connection-plan.md`
+- 历史 Reasonix 更新计划：`docs/archive/2026-07-14-completed-plans/reasonix-v1.17.12-update-plan.md`
 
 ## 8. 重开对话建议提示词
 
@@ -557,4 +558,3 @@ npm run package:win:test
 4. 不要在未确认下位机最终 SDK 前移除 `PROVISIONAL` 门禁；
 5. 不要为了静默安装驱动而吞掉诊断信息；
 6. 不要让 AI 自动触发真实烧录。
-

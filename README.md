@@ -49,7 +49,7 @@ git submodule update --init --recursive
 - PR 合并前至少运行 `npm run reasonix:prepare`、`npm run typecheck`、`npm test` 和 `npm run build`；
 - 不提交真实 API Key、`.env`、本地工作区或临时构建产物；
 - 下位机整改任务优先参考 [下位机固件必需改动清单](./docs/firmware-required-changes-brief.md)；
-- GitHub 发布与协作流程详见 [GitHub 私有协作仓库发布计划](./docs/github-private-collaboration-publish-plan.md)。
+- 历史发布计划和已完成阶段计划已归档到 [docs/archive](./docs/archive/README.md)。
 
 ## 内置 WCH 固件工具链
 
@@ -105,9 +105,9 @@ npm run firmware:build:ch32v203
 - 通过预检的候选可原子应用到正式工作区并创建 Git 检查点；历史可见，撤销使用新的 Revert 提交，不改写历史。
 - 应用中断、候选篡改、构建失败和提交失败均有恢复路径，重启后会对账候选状态。
 
-候选预检当前编译学生可编辑的 C 单元并校验参数文件，不等同于生成可下载的完整固件。真实蓝牙串口、有线 IAP、WCH-Link 恢复及完整固件模板映射继续按 [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) 接入。三通道设计详见 [连接与固件下载计划](./docs/three-channel-connection-plan.md)，AI 安全边界详见 [AI 修改闭环计划](./docs/ai-workspace-reasonix-plan.md)。
+候选预检当前编译学生可编辑的 C 单元并校验参数文件；完整固件生成、Windows 离线测试包和 WCH-Link 烧录页已进入联调阶段。当前开发入口见 [开发交接文档](./docs/development-handoff-2026-07-14.md)，历史三通道设计与 AI 修改闭环计划已归档到 [docs/archive](./docs/archive/README.md)。
 
-下一阶段将优先完成固定固件基线、完整固件产物和 Windows 离线测试版，详见 [下一阶段详细计划](./docs/software-release-next-plan.md)。交付下位机开发者的具体改造接口与验收要求见 [下位机固件修改要求](./docs/firmware-developer-modification-requirements.md)。
+交付下位机开发者的具体改造接口与验收要求见 [下位机固件修改要求](./docs/firmware-developer-modification-requirements.md)。
 
 ## 重要安全说明
 

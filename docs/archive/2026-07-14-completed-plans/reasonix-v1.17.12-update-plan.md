@@ -401,7 +401,7 @@ reasonix v1.17.12
 - `README.md`
   - Reasonix v1.9.1 → v1.17.12
 
-- `docs/ai-workspace-reasonix-plan.md`
+- `docs/archive/2026-07-14-completed-plans/ai-workspace-reasonix-plan.md`
   - 更新阶段 D 状态和固定版本说明
 
 可选新增：
