@@ -125,7 +125,17 @@ v1.17.12 的 `reasonix.exe acp` 新增：
 | 普通 AI 修改学生代码 | `balanced` | 默认平衡模式，适合课堂常规修改 |
 | 编译失败后让 AI 修复、复杂多步修改 | `delivery` | 更重视完成度和验证，适合较复杂任务 |
 
-第一阶段可以先全部使用默认 `balanced`，只把 `profile` 作为配置项留好。第二阶段再根据任务类型动态选择。
+产品决策：界面不提供 profile 手动选择。`economy / balanced / delivery` 是内部执行档位，不应暴露给学生或普通教师用户。RobotDog Studio 根据任务类型自动选择：
+
+| 任务类型 | 内部 profile | 用户可见表达 |
+|---|---|---|
+| 解释选中代码 | `economy` | 快速解释代码 |
+| 解释编译错误 | `economy` 或 `balanced` | 解释错误原因 |
+| 普通学生参数/代码修改 | `balanced` | AI 修改 |
+| 编译失败后一键修复 | `delivery` | 认真修复并检查 |
+| 教师诊断复杂问题 | `delivery` | 深度诊断 |
+
+第一阶段可以先全部使用默认 `balanced`，但代码结构应预留自动选择函数。第二阶段再根据任务类型动态选择。除非进入隐藏的开发/诊断模式，不在 UI 中显示或允许修改 `profile`。
 
 需要改动：
 
@@ -146,7 +156,9 @@ v1.17.12 的 `reasonix.exe acp` 新增：
 
 - `economy/balanced/delivery` 都能启动；
 - 错误 profile 被拒绝；
-- UI 和日志能显示当前 profile。
+- 默认学生界面没有 profile 下拉框或英文档位名；
+- 日志或诊断导出可以记录内部 profile，便于开发排查；
+- 任务类型到 profile 的映射有单元测试。
 
 ### 4.2 ACP plan updates
 
@@ -459,6 +471,8 @@ npm run smoke:electron
 
 ```text
 economy / balanced / delivery 三种 profile 启动是否正常
+普通用户界面不出现 profile 选择控件
+解释/修改/修复任务能自动选择预期 profile
 ```
 
 ## 7. 回滚方案
