@@ -251,6 +251,7 @@ describe('CandidateService', () => {
       }
     }
     const interruptedWorkspaces = new InterruptedWorkspaceService({ rootDir: dataRoot, templateRoot })
+    await interruptedWorkspaces.initialize()
     const service = new CandidateService({ rootDir: dataRoot, workspaces: interruptedWorkspaces, builder: passingBuilder })
     const candidate = await service.create(workspaceId)
     await writeFile(join(dataRoot, 'candidates', candidate.id, 'student-config', 'line-following.yaml'), 'turn_strength: 16\n')
