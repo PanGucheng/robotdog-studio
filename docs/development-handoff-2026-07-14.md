@@ -171,9 +171,9 @@ npm run firmware:promote
 - `docs/archive/2026-07-14-completed-plans/live-firmware-baseline-integration-plan.md`
 - `docs/archive/2026-07-14-completed-plans/firmware-integration.md`
 
-### 3.5 Windows 离线测试包
+### 3.5 Windows 离线测试包与安装器
 
-当前测试包命令：
+当前测试包命令（便携 ZIP，解压即用）：
 
 ```powershell
 npm run package:win:test
@@ -184,6 +184,20 @@ npm run package:win:test
 ```text
 release/RobotDog-Studio-0.1.0-PROVISIONAL-Windows-x64.zip
 ```
+
+临时 NSIS 安装器命令（安装器提权，应用普通权限）：
+
+```powershell
+npm run package:win:nsis:test
+```
+
+当前输出：
+
+```text
+release/RobotDog-Studio-0.1.0-PROVISIONAL-Windows-x64.exe
+```
+
+NSIS 安装器为 per-machine 管理员安装，安装过程中自动安装 WCH-Link 驱动；应用 EXE 配置为 `asInvoker` 普通权限运行。ZIP 便携包保留用于快速测试。
 
 当前测试包包含：
 
@@ -208,6 +222,7 @@ npm run package:win
 
 - `scripts/package-windows.mjs`
 - `scripts/check-release-baseline.mjs`
+- `build/installer.nsh`
 - `docs/windows-packaging-and-baseline-switch.md`
 
 ### 3.6 WCH-Link 烧录页
@@ -255,7 +270,7 @@ OpenOCD 退出码 3221225477
 
 ### 4.2 当前实现
 
-最新提交 `cd07fda` 做了临时可验证实现：
+最新提交 `cd07fda` 做了临时可验证实现，后续已重构为安装器方案：
 
 - 打包脚本默认从本机路径读取驱动：
 
@@ -275,12 +290,14 @@ OpenOCD 退出码 3221225477
   resources/toolchains/wch/drivers/WCHLinkDrv
   ```
 
-- 打包版启动时调用：
+- **NSIS 安装器**在安装阶段调用：
 
   ```powershell
   pnputil.exe /add-driver WCHLinkWDM.INF /install
   ```
 
+- 安装器为 per-machine 管理员安装（UAC 提权），应用 EXE 以 `asInvoker` 普通权限运行。
+- 应用启动时只做只读诊断（检查 INF 是否存在），不再自行调用 pnputil。
 - 安装结果进入运行时诊断：
 
   ```text
@@ -290,7 +307,8 @@ OpenOCD 退出码 3221225477
 相关代码目前在：
 
 - `scripts/package-windows.mjs`
-- `src/main/index.ts`
+- `build/installer.nsh`（customInstall 宏）
+- `src/main/index.ts`（只读诊断）
 - `src/main/services/diagnostic-service.ts`
 - `src/shared/types.ts`
 
@@ -300,23 +318,21 @@ OpenOCD 退出码 3221225477
 
 1. 驱动文件尚未正式纳入仓库；
 2. 还没有 `vendor/wch/drivers/WCHLinkDrv/driver-manifest.json`；
-3. 驱动安装逻辑还写在 `src/main/index.ts`，没有抽成服务；
-4. EXE 还没有声明 `requireAdministrator`；
-5. 学生仍可能需要手动右键“以管理员身份运行”；
-6. 烧录页还没有单独的“安装 / 修复 WCH-Link 驱动”按钮；
-7. 正式安装器方案还没有实现。
+3. 烧录页还没有单独的"安装 / 修复 WCH-Link 驱动"按钮。
 
-### 4.4 用户最新决策
+### 4.4 已完成的安装器方案
 
-用户不希望学生手动选择管理员启动。短期测试方案改为：
+NSIS 安装器方案已实现：
 
-```text
-整个程序启动时请求管理员权限
-```
+- 安装器为 per-machine 管理员安装（UAC 提权），在安装阶段自动调用 pnputil 安装驱动；
+- 应用 EXE 配置为 `asInvoker`，以普通权限运行，不自行请求管理员权限；
+- 便携 ZIP 包保留，用于快速测试；
+- 驱动安装失败时安装器显示中文错误并终止，不会被静默吞掉。
 
-也就是 Windows 双击 EXE 后自动弹 UAC。授权后程序启动，并在启动阶段安装 / 修复 WCH-Link 驱动。
+下一轮开发建议：
 
-下一轮开发应优先实现这个决策。
+- 将 WCH-Link 驱动正式纳入仓库；
+- 烧录页增加驱动状态显示和修复入口。
 
 ## 5. 下一轮建议开发顺序
 

@@ -20,19 +20,6 @@ export function WchLinkFlasherPanel({ snapshot, build, workspace, busy, onProbe,
   const artifactCurrent = build.state === 'completed' && Boolean(workspace && build.proof && build.proof.workspaceId === workspace.id && build.proof.workspaceCommit === workspace.headCommit && build.proof.firmwareBaselineId === workspace.firmwareBaselineId)
   const targetAvailable = snapshot.state === 'target_ready' || snapshot.state === 'completed'
   const canFlash = targetAvailable && artifactCurrent && Boolean(hex)
-  const confirmFlash = (): void => {
-    if (!hex) return
-    const accepted = window.confirm([
-      `即将用 WCH-Link 写入当前程序：${hex.name}`,
-      hex.bytes ? `大小：${Math.round(hex.bytes / 1024)} KB` : undefined,
-      hex.sha256 ? `校验：${hex.sha256.slice(0, 12)}…` : undefined,
-      workspace ? `学生对话：${workspace.name}` : undefined,
-      build.proof ? `对应存档：${build.proof.workspaceCommit.slice(0, 7)}` : undefined,
-      '',
-      '这个操作会覆盖芯片中现有程序。烧录过程中请不要断电、拔线或移动 WCH-Link。'
-    ].filter(Boolean).join('\n'))
-    if (accepted) onFlash()
-  }
   const steps = [
     { label: '连接烧录器', done: Boolean(snapshot.probe?.adapterName), active: snapshot.state === 'probing' },
     { label: '识别芯片', done: Boolean(snapshot.probe?.targetExamined), active: targetAvailable },
@@ -102,7 +89,7 @@ export function WchLinkFlasherPanel({ snapshot, build, workspace, busy, onProbe,
         <button type="button" className="button-primary" onClick={onProbe} disabled={busy || active}>
           {active && snapshot.state === 'probing' ? <LoaderCircle className="spin" size={15} /> : <Cable size={15} />} 检测烧录器与芯片
         </button>
-        <button type="button" onClick={confirmFlash} disabled={!canFlash || busy} title={canFlash ? '写入当前 HEX，并由 OpenOCD 校验后复位。' : '请先检测烧录器，并生成当前工作区的 HEX。'}>
+        <button type="button" onClick={onFlash} disabled={!canFlash || busy} title={canFlash ? '写入当前 HEX，并由 OpenOCD 校验后复位。' : '请先检测烧录器，并生成当前工作区的 HEX。'}>
           <Zap size={15} /> 写入当前程序
         </button>
         <button type="button" onClick={onCancel} disabled={!snapshot.canCancel}>

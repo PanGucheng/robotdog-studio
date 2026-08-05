@@ -2,9 +2,9 @@
 
 ## 当前可用状态
 
-当前活动固件基线是 `ch32v203-robotdog-provisional-0858d82`，来源为 `D:\RobotDog\ch32v203-robot-dog`。它已经完成真实 WCH GCC12 全量编译和打包后 EXE 自检，但仍属于“临时功能测试”，不能作为比赛发布固件。
+当前活动固件基线来自远端仓库 `PanGucheng/ch32v203-robot-dog` 的提交 `c897e3a`，固件版本为 `0.2.1`，使用 CMake 与内置 WCH GCC12 构建。它已经完成全量编译和打包后 EXE 自检，但活动注册表仍是 `development-live-remote` 模式，因此只能用于临时功能测试，不能作为比赛正式发布固件。
 
-临时离线包命令：
+临时离线包命令（便携 ZIP，用户解压即用）：
 
 ```powershell
 npm run package:win:test
@@ -17,6 +17,20 @@ release/RobotDog-Studio-0.1.0-PROVISIONAL-Windows-x64.zip
 ```
 
 该 ZIP 内含 Electron 应用、Reasonix v1.17.12、WCH GCC12、WCH OpenOCD、学生模板以及临时 SDK 源码，因此解压后无需另装编译工具。
+
+临时 NSIS 安装器命令（安装器提权管理员安装，应用普通权限运行）：
+
+```powershell
+npm run package:win:nsis:test
+```
+
+输出文件：
+
+```text
+release/RobotDog-Studio-0.1.0-PROVISIONAL-Windows-x64.exe
+```
+
+NSIS 安装器为 per-machine 管理员安装。安装过程中自动调用 `pnputil.exe /add-driver` 安装包内 WCH-Link 驱动；安装成功后应用以 `asInvoker` 普通权限运行，不再自行安装驱动。ZIP 便携包仍保留，用于快速测试。
 
 ## 双重发布门禁
 

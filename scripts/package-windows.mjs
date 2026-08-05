@@ -10,6 +10,10 @@ const execFileAsync = promisify(execFile)
 const root = process.cwd()
 const target = process.argv[2] === 'nsis' ? 'nsis' : 'zip'
 const formal = process.argv[3] === 'formal'
+const installerInclude = join(root, 'build', 'installer.nsh')
+if (target === 'nsis' && !(await stat(installerInclude).then((info) => info.isFile(), () => false))) {
+  throw new Error(`NSIS 安装器脚本缺失：${installerInclude}`)
+}
 const temporaryRoot = resolve(tmpdir())
 const appDir = resolve(temporaryRoot, 'robotdog-studio-package-stage')
 if (!appDir.startsWith(temporaryRoot)) throw new Error('打包临时目录越界')
@@ -103,7 +107,18 @@ const artifacts = await build({
     directories: { output: join(root, 'release') },
     files: ['out/**/*', 'config/**/*', 'package.json'],
     extraResources,
-    win: { executableName: formal ? 'RobotDogStudio' : 'RobotDogStudio-Test' },
+    win: {
+      executableName: formal ? 'RobotDogStudio' : 'RobotDogStudio-Test',
+      requestedExecutionLevel: 'asInvoker'
+    },
+    ...(target === 'nsis' ? {
+      nsis: {
+        perMachine: true,
+        oneClick: false,
+        allowToChangeInstallationDirectory: true,
+        include: installerInclude
+      }
+    } : {}),
     artifactName: formal ? 'RobotDog-Studio-${version}-Windows-${arch}.${ext}' : 'RobotDog-Studio-${version}-PROVISIONAL-Windows-${arch}.${ext}',
     publish: null
   }

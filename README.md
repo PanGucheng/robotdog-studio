@@ -23,6 +23,22 @@ corepack pnpm test
 corepack pnpm build
 ```
 
+## Windows 打包
+
+便携测试包（ZIP，解压即用）：
+
+```powershell
+npm run package:win:test
+```
+
+NSIS 安装器测试包（安装器提权安装，自动安装 WCH-Link 驱动）：
+
+```powershell
+npm run package:win:nsis:test
+```
+
+NSIS 安装器为 per-machine 管理员安装，安装过程中自动调用 pnputil 安装 WCH-Link 驱动。应用以普通权限运行，不自行请求管理员权限。更多打包说明见 [Windows 打包与 SDK 切换](./docs/windows-packaging-and-baseline-switch.md)。
+
 ## GitHub 协作开发
 
 本仓库当前定位为私有协作开发仓库，用于上位机、下位机、AI 修改闭环、固件构建与硬件联调的共同开发。新协作者建议使用 recursive clone，确保 Reasonix 子模块同步：
