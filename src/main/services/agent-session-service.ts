@@ -97,6 +97,7 @@ export class AgentSessionService extends EventEmitter {
     const candidate = await this.candidates.get(candidateId)
     if (candidate.workspaceId !== validWorkspaceId || candidate.origin !== 'manual') throw new Error('MANUAL_DRAFT_MISMATCH')
     if (!candidate.diagnostics?.length) throw new Error('STUDENT_REPAIR_DIAGNOSTIC_MISSING')
+    await this.waitForDiagnosticExplanation(validWorkspaceId, candidate.id)
     if (this.active) throw new Error('AGENT_BUSY')
     const turnId = `turn_${randomBytes(12).toString('hex')}`
     const displayMessage = '接受 AI 建议，修复这次编译错误'
@@ -117,6 +118,13 @@ export class AgentSessionService extends EventEmitter {
     })
     active.done = this.run(active).finally(() => { if (this.active?.snapshot.turnId === turnId) this.active = undefined })
     return structuredClone(snapshot)
+  }
+
+  private async waitForDiagnosticExplanation(workspaceId: string, candidateId: string): Promise<void> {
+    const active = this.active
+    if (!active || !active.readOnly || active.explanation?.kind !== 'diagnostic'
+      || active.snapshot.workspaceId !== workspaceId || active.snapshot.candidateId !== candidateId) return
+    await active.done
   }
 
   async cancel(turnId?: string): Promise<boolean> {

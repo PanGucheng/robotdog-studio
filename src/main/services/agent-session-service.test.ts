@@ -161,6 +161,45 @@ describe('AgentSessionService', () => {
     expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'Core', 'Src', 'student_control.c'), 'utf8')).not.toContain('AI 修复')
   })
 
+  it('queues an accepted repair behind the matching diagnostic explanation', async () => {
+    let buildNumber = 0
+    const builder: CandidateBuilder = {
+      async build(input) {
+        buildNumber += 1
+        if (buildNumber === 1) throw new CandidateBuildError([{
+          path: 'Core/Src/student_control.c', line: 2, column: 39, severity: 'error', message: "expected ';' before '}' token"
+        }], 'raw compiler log')
+        return {
+          candidateId: input.candidateId, sourceTreeHash: input.sourceTreeHash, diffHash: input.diffHash,
+          compiler: 'test WCH GCC', objectSha256: 'b'.repeat(64), completedAt: new Date().toISOString(),
+          checks: [{ id: 'c-source', label: '学生控制代码', detail: '测试编译通过' }]
+        }
+      }
+    }
+    const repairCandidates = new CandidateService({ rootDir: dataRoot, workspaces, builder })
+    const draft = await repairCandidates.openManualDraft(workspaceId)
+    await repairCandidates.writeManualDraft(draft.id, 'Core/Src/student_control.c', 'void StudentControl_Update(void) { broken }\n')
+    await repairCandidates.validate(draft.id)
+    expect((await repairCandidates.build(draft.id)).diagnostics).toHaveLength(1)
+    const adapter = new SequencedRepairFixtureAdapter()
+    const service = new AgentSessionService(repairCandidates, adapter)
+
+    await service.explainStudentCode(workspaceId, {
+      kind: 'diagnostic', candidateId: draft.id, content: 'student_control.c:2: error: expected ;'
+    })
+    let repairSettled = false
+    const repair = service.repairStudentCode(workspaceId, draft.id).finally(() => { repairSettled = true })
+    await adapter.waitForExplanation()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(repairSettled).toBe(false)
+    expect(service.getActive()?.candidateId).toBe(draft.id)
+    adapter.finishExplanation()
+
+    await expect(repair).resolves.toMatchObject({ candidateId: draft.id })
+    await waitUntilIdle(service)
+    expect((await repairCandidates.get(draft.id)).state).toBe('build_passed')
+  })
+
   it('pauses for a visible permission and resumes only after the matching response', async () => {
     const adapter = new PermissionFixtureAdapter()
     const service = new AgentSessionService(candidates, adapter)
@@ -211,6 +250,29 @@ class RepairFixtureAdapter implements ReasonixAdapter {
     emit({ type: 'assistant_delta', sequence: 2, text: '我补好了缺少的语句结构。' })
     return { summary: '修复完成。' }
   }
+}
+
+class SequencedRepairFixtureAdapter implements ReasonixAdapter {
+  readonly kind = 'reasonix' as const
+  private explanationStarted?: () => void
+  private explanationFinished?: () => void
+  private readonly started = new Promise<void>((resolve) => { this.explanationStarted = resolve })
+  private readonly finished = new Promise<void>((resolve) => { this.explanationFinished = resolve })
+
+  async runTurn(context: AdapterTurnContext, emit: (event: AdapterEvent | unknown) => void): Promise<{ summary: string }> {
+    if (context.readOnly) {
+      this.explanationStarted?.()
+      await this.finished
+      emit({ type: 'assistant_delta', sequence: 1, text: '补上缺少的分号即可。' })
+      return { summary: '解释完成。' }
+    }
+    expect(context.taskKind).toBe('repair_compile_error')
+    await writeFile(join(context.candidateRoot, 'Core', 'Src', 'student_control.c'), 'void StudentControl_Update(void) { /* AI 修复 */ }\n')
+    return { summary: '修复完成。' }
+  }
+
+  waitForExplanation(): Promise<void> { return this.started }
+  finishExplanation(): void { this.explanationFinished?.() }
 }
 
 async function waitUntilIdle(service: AgentSessionService): Promise<void> {
