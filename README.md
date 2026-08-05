@@ -1,8 +1,8 @@
 # RobotDog Studio
 
-RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Electron 桌面上位机。项目目前已完成安全桌面底座、三通道模拟链路，以及 Reasonix 驱动的受控 AI 修改闭环。
+RobotDog Studio 是共用一套核心能力、分别面向中小学巡线教学和大学单片机入门的 Electron 桌面上位机。当前产品演进以 [双发行版教学改造总纲](./docs/dual-edition-teaching-plan.md) 为准；两个发行版来自同一仓库，但使用独立安装身份和数据目录。
 
-重开 Codex 对话继续开发时，优先阅读 [开发交接文档](./docs/development-handoff-2026-07-14.md)，其中记录了当前仓库状态、活动固件基线、打包验证结果、WCH-Link 驱动现状和下一步开发顺序。
+重开 Codex 对话继续开发时，先阅读双发行版总纲，再阅读 [开发交接文档](./docs/development-handoff-2026-07-14.md)。交接文档记录的是 2026-07-14 时点的实现状态，其中单发行版产品描述已由新总纲取代。
 
 ## 本地开发
 
@@ -12,7 +12,8 @@ RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Electron 桌
 corepack prepare pnpm@11.8.0 --activate
 corepack pnpm install
 corepack pnpm reasonix:prepare
-corepack pnpm dev
+corepack pnpm dev:fun
+corepack pnpm dev:mcu
 ```
 
 验证命令：
@@ -25,19 +26,21 @@ corepack pnpm build
 
 ## Windows 打包
 
-便携测试包（ZIP，解压即用）：
+两个便携测试包（ZIP，解压即用）：
 
 ```powershell
-npm run package:win:test
+npm run package:win:fun:test
+npm run package:win:mcu:test
 ```
 
-NSIS 安装器测试包（安装器提权安装，自动安装 WCH-Link 驱动）：
+两个 NSIS 安装器测试包（安装器提权安装，自动安装 WCH-Link 驱动）：
 
 ```powershell
-npm run package:win:nsis:test
+npm run package:win:fun:nsis:test
+npm run package:win:mcu:nsis:test
 ```
 
-NSIS 安装器为 per-machine 管理员安装，安装过程中自动调用 pnputil 安装 WCH-Link 驱动。应用以普通权限运行，不自行请求管理员权限。更多打包说明见 [Windows 打包与 SDK 切换](./docs/windows-packaging-and-baseline-switch.md)。
+旧命令 `package:win:test` 和 `package:win:nsis:test` 保留为趣味巡线版兼容入口。NSIS 安装器为 per-machine 管理员安装，安装过程中自动调用 pnputil 安装 WCH-Link 驱动。应用以普通权限运行，不自行请求管理员权限。更多打包说明见 [Windows 打包与 SDK 切换](./docs/windows-packaging-and-baseline-switch.md)，实际点击与硬件验收见 [双发行版人工验收清单](./docs/dual-edition-manual-acceptance.md)。
 
 ## GitHub 协作开发
 

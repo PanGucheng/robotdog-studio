@@ -6,7 +6,7 @@ import { GitWorkspaceService } from './git-workspace-service'
 
 const policySchema = z.object({
   schemaVersion: z.literal(1),
-  policyProfile: z.literal('student-v1'),
+  policyProfile: z.enum(['student-v1', 'mcu-foundations-v1']),
   allowedEditGlobs: z.array(z.string().min(1)).min(1).max(64),
   deniedGlobs: z.array(z.string().min(1)).max(128),
   maxChangedFiles: z.number().int().min(1).max(100),
@@ -23,7 +23,7 @@ export class PatchPolicyService {
   constructor(private readonly git = new GitWorkspaceService()) {}
 
   async validate(candidateRoot: string): Promise<PatchValidationReport> {
-    const policy = policySchema.parse(JSON.parse(await readFile(join(candidateRoot, 'robotdog.project.json'), 'utf8')))
+    const policy = await this.readPolicy(candidateRoot)
     const changes = await this.git.changedFiles(candidateRoot)
     const violations: PatchViolation[] = []
     const warnings: PatchViolation[] = []
@@ -93,6 +93,23 @@ export class PatchPolicyService {
       changedFiles: files.length,
       patchBytes
     })
+  }
+
+  async isEditablePath(candidateRoot: string, input: string): Promise<boolean> {
+    let path: string
+    try { path = this.normalizeRelativePath(input) } catch { return false }
+    const policy = await this.readPolicy(candidateRoot)
+    const denied = [...alwaysDenied, ...policy.deniedGlobs].some((glob) => matchesGlob(path, glob))
+    return !denied && policy.allowedEditGlobs.some((glob) => matchesGlob(path, glob))
+  }
+
+  async getPolicyVersion(candidateRoot: string): Promise<string> {
+    const policy = await this.readPolicy(candidateRoot)
+    return `${policy.policyProfile}:${policy.schemaVersion}`
+  }
+
+  private async readPolicy(candidateRoot: string): Promise<z.infer<typeof policySchema>> {
+    return policySchema.parse(JSON.parse(await readFile(join(candidateRoot, 'robotdog.project.json'), 'utf8')))
   }
 
   private normalizeRelativePath(input: string): string {

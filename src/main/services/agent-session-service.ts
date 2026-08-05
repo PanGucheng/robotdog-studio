@@ -4,14 +4,14 @@ import { z } from 'zod'
 import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, StudentCodeExplanationRequest, StudentPlanStep } from '../../shared/types'
 import { CandidateService, type ManualRepairBackup } from './candidate-service'
 import type { AdapterEvent, ReasonixAdapter } from './reasonix-adapter'
-import { buildStudentCodeExplanationPrompt, STUDENT_AGENT_PROMPT_SHA256, STUDENT_AGENT_PROMPT_VERSION } from './student-agent-prompt'
+import { buildStudentCodeExplanationPrompt, getStudentAgentPromptIdentity } from './student-agent-prompt'
 
 const workspaceIdSchema = z.string().regex(/^ws_[a-f0-9]{24}$/)
 const messageSchema = z.string().trim().min(1).max(2_000)
 const explanationRequestSchema = z.object({
   kind: z.enum(['selection', 'diagnostic']),
   candidateId: z.string().regex(/^cand_[a-f0-9]{24}$/).optional(),
-  selectedPath: z.enum(['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'student-config/line-following.yaml']).optional(),
+  selectedPath: z.string().min(1).max(240).refine((value) => !value.includes('\\') && !value.split('/').some((part) => !part || part === '.' || part === '..')).optional(),
   content: z.string().trim().min(1).max(4_000)
 }).strict()
 
@@ -40,6 +40,7 @@ export class AgentSessionService extends EventEmitter {
     const validMessage = messageSchema.parse(message)
     if (this.active) throw new Error('AGENT_BUSY')
     const candidate = await this.candidates.create(validWorkspaceId)
+    const promptIdentity = getStudentAgentPromptIdentity(candidate.policyVersion)
     const turnId = `turn_${randomBytes(12).toString('hex')}`
     const snapshot: AgentTurnSnapshot = {
       turnId,
@@ -47,15 +48,15 @@ export class AgentSessionService extends EventEmitter {
       candidateId: candidate.id,
       state: 'preparing',
       message: validMessage,
-      promptVersion: STUDENT_AGENT_PROMPT_VERSION,
-      promptHash: STUDENT_AGENT_PROMPT_SHA256,
+      promptVersion: promptIdentity.version,
+      promptHash: promptIdentity.hash,
       startedAt: new Date().toISOString()
     }
     const active: ActiveTurn = { snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0 }
     this.active = active
     this.publish(active, {
       type: 'turn_started', workspaceId: validWorkspaceId, candidateId: candidate.id, message: validMessage,
-      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256
+      promptVersion: promptIdentity.version, promptHash: promptIdentity.hash
     })
     active.done = this.run(active).finally(() => {
       if (this.active?.snapshot.turnId === turnId) this.active = undefined
@@ -69,14 +70,15 @@ export class AgentSessionService extends EventEmitter {
     if (request.kind === 'selection' && !request.selectedPath) throw new Error('STUDENT_EXPLAIN_PATH_REQUIRED')
     if (this.active) throw new Error('AGENT_BUSY')
     const context = await this.candidates.getStudentCodeContextForMain(validWorkspaceId, request.candidateId)
+    const promptIdentity = getStudentAgentPromptIdentity(context.policyVersion)
     const snippets = context.files
       .filter((file) => request.kind === 'selection' ? file.path === request.selectedPath : file.editable)
       .map((file) => ({ path: file.path, content: file.content.slice(0, 8_000) }))
     const turnId = `turn_${randomBytes(12).toString('hex')}`
     const snapshot: AgentTurnSnapshot = {
       turnId, workspaceId: validWorkspaceId, candidateId: request.candidateId, state: 'preparing',
-      message: buildStudentCodeExplanationPrompt(request.kind, request.content, snippets),
-      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256, startedAt: new Date().toISOString()
+      message: buildStudentCodeExplanationPrompt(request.kind, request.content, snippets, { policyVersion: context.policyVersion }),
+      promptVersion: promptIdentity.version, promptHash: promptIdentity.hash, startedAt: new Date().toISOString()
     }
     const active: ActiveTurn = {
       snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0, readOnly: true,
@@ -86,7 +88,7 @@ export class AgentSessionService extends EventEmitter {
     this.publish(active, {
       type: 'turn_started', workspaceId: validWorkspaceId, candidateId: request.candidateId,
       message: request.kind === 'selection' ? '请解释我选中的代码' : '请解释刚才的编译错误',
-      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256
+      promptVersion: promptIdentity.version, promptHash: promptIdentity.hash
     })
     active.done = this.runExplanation(active).finally(() => { if (this.active?.snapshot.turnId === turnId) this.active = undefined })
     return structuredClone(snapshot)
@@ -95,6 +97,7 @@ export class AgentSessionService extends EventEmitter {
   async repairStudentCode(workspaceId: string, candidateId: string): Promise<AgentTurnSnapshot> {
     const validWorkspaceId = workspaceIdSchema.parse(workspaceId)
     const candidate = await this.candidates.get(candidateId)
+    const promptIdentity = getStudentAgentPromptIdentity(candidate.policyVersion)
     if (candidate.workspaceId !== validWorkspaceId || candidate.origin !== 'manual') throw new Error('MANUAL_DRAFT_MISMATCH')
     if (!candidate.diagnostics?.length) throw new Error('STUDENT_REPAIR_DIAGNOSTIC_MISSING')
     await this.waitForDiagnosticExplanation(validWorkspaceId, candidate.id)
@@ -103,7 +106,7 @@ export class AgentSessionService extends EventEmitter {
     const displayMessage = '接受 AI 建议，修复这次编译错误'
     const snapshot: AgentTurnSnapshot = {
       turnId, workspaceId: validWorkspaceId, candidateId: candidate.id, state: 'preparing', message: displayMessage,
-      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256, startedAt: new Date().toISOString()
+      promptVersion: promptIdentity.version, promptHash: promptIdentity.hash, startedAt: new Date().toISOString()
     }
     const repairBackup = await this.candidates.createManualRepairBackupForMain(candidate.id)
     const active: ActiveTurn = {
@@ -114,7 +117,7 @@ export class AgentSessionService extends EventEmitter {
     this.active = active
     this.publish(active, {
       type: 'turn_started', workspaceId: validWorkspaceId, candidateId: candidate.id, message: displayMessage,
-      promptVersion: STUDENT_AGENT_PROMPT_VERSION, promptHash: STUDENT_AGENT_PROMPT_SHA256
+      promptVersion: promptIdentity.version, promptHash: promptIdentity.hash
     })
     active.done = this.run(active).finally(() => { if (this.active?.snapshot.turnId === turnId) this.active = undefined })
     return structuredClone(snapshot)

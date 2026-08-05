@@ -26,6 +26,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgb(0 168 198 
 button:disabled { cursor: not-allowed; opacity: 0.45; }
 
 .studio-shell { display: grid; grid-template-rows: 78px 38px minmax(0, 1fr) 78px; width: calc(100% / var(--ui-scale)); height: calc(100% / var(--ui-scale)); background: var(--canvas); transform: scale(var(--ui-scale)); transform-origin: top left; container-type: inline-size; }
+.studio-shell.is-mcu { grid-template-rows: 78px 38px minmax(0, 1fr); }
 .topbar { display: grid; grid-template-columns: minmax(290px, 0.85fr) minmax(500px, 1.45fr) minmax(390px, 1fr); align-items: center; gap: 20px; padding: 0 22px; color: white; background: var(--navy); box-shadow: 0 5px 22px rgb(16 36 58 / 18%); z-index: 5; }
 .brand-block, .topbar-actions, .dock-group, .student-pill, .connection-pill, .model-chip, .change-status, .chart-legend span, .context-bar span, .log-strip-title { display: flex; align-items: center; }
 .brand-block { gap: 12px; min-width: 0; }
@@ -63,6 +64,8 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .workspace-picker select { max-width: 240px; padding: 4px 25px 4px 7px; color: #294455; border: 1px solid #c7d5df; border-radius: 6px; background: #f8fbfd; font-size: 10px; font-weight: 700; }
 .workspace-picker button { display: flex; align-items: center; gap: 3px; padding: 4px 7px; color: #087d92; border: 1px solid #afd4dc; border-radius: 6px; background: #f5fcfd; font-size: 9px; font-weight: 800; cursor: pointer; }
 .context-bar .checkpoint-tag { padding: 3px 6px; color: #667887; border: 1px dashed #b8c8d3; border-radius: 5px; background: #f7fafc; font: 9px var(--mono); }
+.context-bar .edition-tag { padding: 3px 7px; border: 1px solid #afd4dc; border-radius: 5px; background: #f5fcfd; color: #087d92; font-weight: 800; letter-spacing: .04em; }
+.context-bar .edition-mcu-foundations { color: #76520c; border-color: #e0c27a; background: #fff8e7; font-family: var(--mono); }
 .context-bar .simulation-flag { margin-left: auto; color: #1d6c7c; font: 10px var(--mono); letter-spacing: 0.08em; }
 .context-bar .inline-error { color: var(--red); font-weight: 700; }
 

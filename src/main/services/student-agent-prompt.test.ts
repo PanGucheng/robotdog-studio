@@ -31,4 +31,12 @@ describe('student agent prompt', () => {
     expect(prompt).toContain('"kind":"selection"')
     expect(prompt).toContain('if (line > 64)')
   })
+
+  it('selects the MCU teaching contract from the trusted policy version', () => {
+    const prompt = buildStudentAgentPrompt('解释 experiment.c', { policyVersion: 'mcu-foundations-v1:1' })
+    expect(prompt).toContain('单片机入门助教')
+    expect(prompt).toContain('App/Src')
+    expect(prompt).toContain('不默认替学生完成整个实验')
+    expect(prompt).not.toContain('小学高年级')
+  })
 })

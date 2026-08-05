@@ -6,7 +6,7 @@ interface PermissionParams {
 }
 
 export class ReasonixPermissionPolicy {
-  constructor(private readonly candidateRoot: string) {}
+  constructor(private readonly candidateRoot: string, private readonly policyVersion = 'student-v1:1') {}
 
   decide(value: unknown): { outcome: { outcome: 'selected' | 'cancelled'; optionId?: string } } {
     const params = (value ?? {}) as PermissionParams
@@ -41,6 +41,9 @@ export class ReasonixPermissionPolicy {
     const rel = relative(this.candidateRoot, target)
     const normalized = rel.replaceAll('\\', '/').toLowerCase()
     if (isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)) return false
+    if (this.policyVersion.startsWith('mcu-foundations-v1:')) {
+      return /^app\/(?:src|inc)\/(?:[^/]+\/)*[^/]+\.(?:c|h)$/.test(normalized)
+    }
     return /^student-config\/[^/]+\.yaml$/.test(normalized) || normalized === 'core/src/student_control.c' || normalized === 'core/inc/student_control.h'
   }
 

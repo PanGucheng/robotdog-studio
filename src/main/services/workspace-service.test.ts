@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { GitWorkspaceService } from './git-workspace-service'
 import { WorkspaceService } from './workspace-service'
+import { EDITION_PROFILES } from '../../shared/edition'
 
 describe('WorkspaceService', () => {
   let sandbox: string
@@ -27,6 +28,7 @@ describe('WorkspaceService', () => {
     const created = await service.create({ name: '巡线 基础训练', studentDisplayName: '林同学' })
 
     expect(created.name).toBe('巡线 基础训练')
+    expect(created.learningPath).toBe('fun-line-following')
     expect(created.headCommit).toMatch(/^[a-f0-9]{40}$/)
     expect(await service.list()).toEqual([created])
     expect((await service.history(created.id))[0]).toMatchObject({ message: 'chore: initialize student workspace' })
@@ -85,5 +87,32 @@ describe('WorkspaceService', () => {
     await mkdir(join(dataRoot, 'workspaces', 'ws_aaaaaaaaaaaaaaaaaaaaaaaa'), { recursive: true })
     expect(await service.list()).toEqual([])
     await expect(service.get('ws_aaaaaaaaaaaaaaaaaaaaaaaa')).rejects.toThrow()
+  })
+
+  it('migrates v1 metadata to the fun edition without changing the Git project', async () => {
+    const service = new WorkspaceService({ rootDir: dataRoot, templateRoot })
+    const created = await service.create({ name: '旧巡线项目', studentDisplayName: '小林' })
+    const metadataPath = join(dataRoot, 'workspaces', created.id, 'workspace.json')
+    const metadata = JSON.parse(await readFile(metadataPath, 'utf8'))
+    delete metadata.learningPath
+    metadata.schemaVersion = 1
+    await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`)
+
+    const migrated = await service.get(created.id)
+    expect(migrated.learningPath).toBe('fun-line-following')
+    expect(JSON.parse(await readFile(metadataPath, 'utf8')).schemaVersion).toBe(2)
+    expect(JSON.parse(await readFile(`${metadataPath}.v1.bak`, 'utf8')).schemaVersion).toBe(1)
+    expect((await service.history(created.id))[0].commit).toBe(created.headCommit)
+  })
+
+  it('creates MCU projects from its own edition and refuses them in the fun edition', async () => {
+    const mcu = new WorkspaceService({ rootDir: dataRoot, templateRoot, edition: EDITION_PROFILES['mcu-foundations'] })
+    const created = await mcu.create({ studentDisplayName: '陈同学' })
+    expect(created.name).toMatch(/单片机练习$/)
+    expect(created).toMatchObject({ learningPath: 'mcu-foundations', templateId: 'ch32v203-mcu-foundations' })
+    expect(JSON.parse(await readFile(join(dataRoot, 'workspaces', created.id, 'project', 'robotdog.project.json'), 'utf8')).policyProfile).toBe('mcu-foundations-v1')
+
+    const fun = new WorkspaceService({ rootDir: dataRoot, templateRoot })
+    await expect(fun.get(created.id)).rejects.toThrow('WORKSPACE_EDITION_MISMATCH')
   })
 })

@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { join, relative } from 'node:path'
 import { promisify } from 'node:util'
 import type { CandidateBuildProof, CandidateDiagnostic } from '../../shared/types'
+import type { EditionId } from '../../shared/edition'
 import { ToolchainService } from './toolchain-service'
 
 const execFileAsync = promisify(execFile)
@@ -13,6 +14,7 @@ export interface CandidateBuildInput {
   candidateRoot: string
   sourceTreeHash: string
   diffHash: string
+  learningPath?: EditionId
 }
 
 export interface CandidateBuilder {
@@ -33,6 +35,7 @@ export class CandidateBuildService implements CandidateBuilder {
     const status = await this.toolchain.getStatus()
     if (!status.gcc.ok) throw new Error(`候选编译不可用：${status.gcc.detail}`)
     const outputDir = join(this.cacheRoot, input.candidateId)
+    if (input.learningPath === 'mcu-foundations') return this.buildMcuProject(input, status.gcc.path, status.gcc.version ?? status.gcc.detail, outputDir)
     const objectPath = join(outputDir, 'student_control.o')
     await rm(outputDir, { recursive: true, force: true })
     await mkdir(outputDir, { recursive: true })
@@ -73,16 +76,50 @@ export class CandidateBuildService implements CandidateBuilder {
       ]
     }
   }
+
+  private async buildMcuProject(input: CandidateBuildInput, gccPath: string, compiler: string, outputDir: string): Promise<CandidateBuildProof> {
+    await rm(outputDir, { recursive: true, force: true })
+    await mkdir(outputDir, { recursive: true })
+    const sourcePaths = [
+      join(input.candidateRoot, 'Core', 'Src', 'student_control.c'),
+      ...await collectCFiles(join(input.candidateRoot, 'App', 'Src'))
+    ]
+    if (sourcePaths.length < 2) throw new CandidateBuildError([{ severity: 'error', message: '单片机教学目录中没有找到实验源文件。' }], 'MCU_SOURCE_MISSING')
+    const includePaths = [join(input.candidateRoot, 'Core', 'Inc'), join(input.candidateRoot, 'App', 'Inc')]
+    const objectHash = createHash('sha256')
+    try {
+      for (const [index, sourcePath] of sourcePaths.entries()) {
+        const objectPath = join(outputDir, `${index}-${sourcePath.split(/[\\/]/).at(-1)}.o`)
+        await execFileAsync(gccPath, [
+          '-march=rv32imac', '-mabi=ilp32', '-ffreestanding', '-fno-builtin',
+          '-Wall', '-Wextra', '-Wconversion', '-Werror=implicit-function-declaration',
+          ...includePaths.flatMap((path) => ['-I', path]), '-c', sourcePath, '-o', objectPath
+        ], { cwd: input.candidateRoot, windowsHide: true, timeout: 60_000, maxBuffer: 1024 * 1024 })
+        objectHash.update(await readFile(objectPath))
+      }
+    } catch (caught) {
+      const detail = redactBuildPath(buildErrorDetail(caught), input.candidateRoot)
+      throw new CandidateBuildError(parseCompilerDiagnostics(detail), detail)
+    }
+    return {
+      candidateId: input.candidateId,
+      sourceTreeHash: input.sourceTreeHash,
+      diffHash: input.diffHash,
+      compiler,
+      objectSha256: objectHash.digest('hex'),
+      completedAt: new Date().toISOString(),
+      checks: [{ id: 'project-sources', label: '单片机实验源码', detail: `${sourcePaths.length} 个 C 源文件通过 WCH GCC 编译` }]
+    }
+  }
 }
 
 export function parseCompilerDiagnostics(detail: string): CandidateDiagnostic[] {
   const diagnostics: CandidateDiagnostic[] = []
-  const pattern = /([^\r\n]*?(?:student_control\.[ch]|student_config\.generated\.h)):(\d+)(?::(\d+))?:\s*(fatal error|error|warning):\s*([^\r\n]+)/gi
+  const pattern = /([^\r\n:]*?\.(?:c|h)):(\d+)(?::(\d+))?:\s*(fatal error|error|warning):\s*([^\r\n]+)/gi
   for (const match of detail.matchAll(pattern)) {
-    const source = match[1].replaceAll('\\', '/').toLowerCase()
-    const path = source.endsWith('student_control.c') ? 'Core/Src/student_control.c' as const
-      : source.endsWith('student_control.h') ? 'Core/Inc/student_control.h' as const
-        : undefined
+    const source = match[1].replaceAll('\\', '/').replace(/^\[候选项目\]\/?/i, '')
+    const knownStart = source.search(/(?:Core|App|student-config)\//i)
+    const path = knownStart >= 0 ? source.slice(knownStart) : undefined
     diagnostics.push({
       path,
       line: Number(match[2]),
@@ -95,7 +132,21 @@ export function parseCompilerDiagnostics(detail: string): CandidateDiagnostic[] 
   if (diagnostics.length > 0) return diagnostics
   const fallback = detail.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
     .find((line) => /error|undefined|failed|expected/i.test(line)) ?? '编译器没有认出这段代码。'
-  return [{ path: 'Core/Src/student_control.c', severity: 'error', message: cleanCompilerMessage(fallback) }]
+  return [{ severity: 'error', message: cleanCompilerMessage(fallback) }]
+}
+
+async function collectCFiles(root: string): Promise<string[]> {
+  const results: string[] = []
+  const visit = async (directory: string): Promise<void> => {
+    const entries = await readdir(directory, { withFileTypes: true })
+    for (const entry of entries) {
+      const path = join(directory, entry.name)
+      if (entry.isDirectory()) await visit(path)
+      else if (entry.isFile() && entry.name.toLowerCase().endsWith('.c')) results.push(path)
+    }
+  }
+  await visit(root)
+  return results.sort((left, right) => relative(root, left).localeCompare(relative(root, right), 'en-US'))
 }
 
 function cleanCompilerMessage(message: string): string {

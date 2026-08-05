@@ -1,15 +1,30 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { Arch, build, Platform } from 'electron-builder'
 
 const execFileAsync = promisify(execFile)
 const root = process.cwd()
-const target = process.argv[2] === 'nsis' ? 'nsis' : 'zip'
-const formal = process.argv[3] === 'formal'
+const editionAliases = { fun: 'fun-line-following', mcu: 'mcu-foundations', 'fun-line-following': 'fun-line-following', 'mcu-foundations': 'mcu-foundations' }
+const legacyInvocation = process.argv[2] === 'zip' || process.argv[2] === 'nsis'
+const editionId = legacyInvocation ? 'fun-line-following' : editionAliases[process.argv[2]]
+if (!editionId) throw new Error('Usage: node scripts/package-windows.mjs <fun|mcu> <zip|nsis> <provisional|formal>')
+const targetArg = legacyInvocation ? process.argv[2] : process.argv[3]
+const releaseArg = legacyInvocation ? process.argv[3] : process.argv[4]
+const target = targetArg === 'nsis' ? 'nsis' : 'zip'
+const formal = releaseArg === 'formal'
+const edition = editionId === 'mcu-foundations' ? {
+  appId: 'cn.robotdog.studio.mcu', productName: 'RobotDog Studio 单片机入门版', executableName: 'RobotDogStudio-MCU', artifactSlug: 'RobotDog-Studio-MCU',
+  templateBase: 'resources/workspace-templates/ch32v203-mcu-foundations'
+} : {
+  appId: 'cn.robotdog.studio.fun', productName: 'RobotDog Studio 趣味巡线版', executableName: 'RobotDogStudio-Fun', artifactSlug: 'RobotDog-Studio-Fun',
+  templateBase: 'resources/workspace-templates/ch32v203-robotdog'
+}
+const packageOutputRoot = join(root, 'release', `.stage-${editionId}-${target}`)
+await rm(packageOutputRoot, { recursive: true, force: true })
 const installerInclude = join(root, 'build', 'installer.nsh')
 if (target === 'nsis' && !(await stat(installerInclude).then((info) => info.isFile(), () => false))) {
   throw new Error(`NSIS 安装器脚本缺失：${installerInclude}`)
@@ -21,6 +36,7 @@ await rm(appDir, { recursive: true, force: true })
 await mkdir(appDir, { recursive: true })
 await cp(join(root, 'out'), join(appDir, 'out'), { recursive: true })
 await cp(join(root, 'config'), join(appDir, 'config'), { recursive: true })
+await writeFile(join(appDir, 'config', 'edition.json'), `${JSON.stringify({ schemaVersion: 1, edition: editionId }, null, 2)}\n`)
 await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
   name: 'robotdog-studio-packaged', version: '0.1.0',
   description: formal ? 'RobotDog Studio offline package' : 'RobotDog Studio provisional offline test package',
@@ -30,6 +46,9 @@ await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
 const baselineTarget = 'firmware-baselines/ch32v203-robotdog/current/source'
 const baselineRoot = join(root, 'resources', 'firmware-baselines', 'ch32v203-robotdog')
 const registry = JSON.parse(await readFile(join(baselineRoot, 'active.json'), 'utf8'))
+const selectedTemplate = editionId === 'fun-line-following'
+  ? (registry.studentTemplate ?? 'resources/workspace-templates/ch32v203-robotdog/2026.06')
+  : `${edition.templateBase}/${registry.shortCommit ?? '2026.06'}`
 const gitRoot = resolve(process.env.ROBOTDOG_PACKAGED_GIT_ROOT ?? 'C:\\Program Files\\Git')
 if (!(await stat(join(gitRoot, 'cmd', 'git.exe')).then((info) => info.isFile(), () => false))) {
   throw new Error(`打包需要 Git for Windows：未找到 ${join(gitRoot, 'cmd', 'git.exe')}`)
@@ -65,7 +84,7 @@ if (registry.schemaVersion === 2) {
   console.log(`Verified packaged firmware baseline: ${manifest.id} (${externalFirmware})`)
 }
 const extraResources = [
-  { from: join(root, 'resources', 'workspace-templates'), to: 'workspace-templates' },
+  { from: resolve(root, selectedTemplate), to: selectedTemplate.replace(/^resources[\\/]/, '').replaceAll('\\', '/') },
   { from: join(root, 'resources', 'firmware-baselines'), to: 'firmware-baselines' },
   { from: join(root, 'resources', 'board-profiles'), to: 'board-profiles' },
   { from: join(root, 'resources', reasonixToolPath), to: reasonixToolPath },
@@ -97,18 +116,18 @@ const artifacts = await build({
   projectDir: appDir,
   targets: Platform.WINDOWS.createTarget([target], Arch.x64),
   config: {
-    appId: 'cn.robotdog.studio',
+    appId: edition.appId,
     electronVersion: '42.4.1',
-    productName: formal ? 'RobotDog Studio' : 'RobotDog Studio 临时测试版',
+    productName: formal ? edition.productName : `${edition.productName} 临时测试版`,
     copyright: 'Copyright © 2026 RobotDog Studio contributors',
     asar: true,
     npmRebuild: false,
     compression: 'normal',
-    directories: { output: join(root, 'release') },
+    directories: { output: packageOutputRoot },
     files: ['out/**/*', 'config/**/*', 'package.json'],
     extraResources,
     win: {
-      executableName: formal ? 'RobotDogStudio' : 'RobotDogStudio-Test',
+      executableName: formal ? edition.executableName : `${edition.executableName}-Test`,
       requestedExecutionLevel: 'asInvoker'
     },
     ...(target === 'nsis' ? {
@@ -119,15 +138,20 @@ const artifacts = await build({
         include: installerInclude
       }
     } : {}),
-    artifactName: formal ? 'RobotDog-Studio-${version}-Windows-${arch}.${ext}' : 'RobotDog-Studio-${version}-PROVISIONAL-Windows-${arch}.${ext}',
+    artifactName: formal ? `${edition.artifactSlug}-\${version}-Windows-\${arch}.\${ext}` : `${edition.artifactSlug}-\${version}-PROVISIONAL-Windows-\${arch}.\${ext}`,
     publish: null
   }
 })
 console.log('Windows package artifacts:')
-for (const artifact of artifacts) console.log(`- ${artifact}`)
-const packagedResourcesRoot = join(root, 'release', 'win-unpacked', 'resources')
+for (const artifact of artifacts) {
+  const destination = join(root, 'release', basename(artifact))
+  await rm(destination, { force: true })
+  await rename(artifact, destination)
+  console.log(`- ${destination}`)
+}
+const packagedResourcesRoot = join(packageOutputRoot, 'win-unpacked', 'resources')
 await verifyPackagedFirmwareSource(join(packagedResourcesRoot, baselineTarget))
-await verifyPackagedWorkspaceTemplate(resolvePackagedResource(packagedResourcesRoot, registry.studentTemplate ?? 'resources/workspace-templates/ch32v203-robotdog/2026.06'))
+await verifyPackagedWorkspaceTemplate(resolvePackagedResource(packagedResourcesRoot, selectedTemplate), editionId)
 await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
@@ -178,8 +202,15 @@ function resolvePackagedResource(resourcesRoot, resourcePath) {
   return normalized.startsWith('resources/') ? join(resourcesRoot, normalized.slice('resources/'.length)) : join(resourcesRoot, normalized)
 }
 
-async function verifyPackagedWorkspaceTemplate(templateRoot) {
-  const required = [
+async function verifyPackagedWorkspaceTemplate(templateRoot, currentEdition) {
+  const required = currentEdition === 'mcu-foundations' ? [
+    'README.md',
+    'App/Src/experiment.c',
+    'App/Inc/experiment.h',
+    'Core/Src/student_control.c',
+    'Core/Inc/student_control.h',
+    'student-config/line-following.yaml'
+  ] : [
     'README.md',
     'Core/Src/student_control.c',
     'Core/Inc/student_control.h',

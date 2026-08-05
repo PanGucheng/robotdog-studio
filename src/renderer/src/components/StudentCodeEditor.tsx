@@ -183,12 +183,13 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
     onExplainCode({ kind: 'diagnostic', candidateId, content: formatDiagnosticsForStudentAi(items, fallback) })
   }
 
-  if (!workspace) return <div className="code-editor-empty"><Code2 size={28} /><h3>先新建一个学生对话</h3><p>系统会复制代码模板，再让你放心试改。</p></div>
+  if (!workspace) return <div className="code-editor-empty"><Code2 size={28} /><h3>先新建一个项目</h3><p>系统会复制当前版本的教学模板，再让你在安全草稿中试改。</p></div>
+  const mcu = workspace.learningPath === 'mcu-foundations'
 
   return (
     <div className="student-code-studio">
       <aside className="student-file-rail">
-        <div className="editor-rail-heading"><span>代码赛道</span><strong>{manualCandidate ? '安全草稿' : '项目原稿'}</strong></div>
+        <div className="editor-rail-heading"><span>{mcu ? '工程文件' : '代码赛道'}</span><strong>{manualCandidate ? '安全草稿' : '项目原稿'}</strong></div>
         {(['控制逻辑', '参数设置', '参考接口'] as const).map((group) => (
           <div className="student-file-group" key={group}>
             <span>{group}</span>
@@ -200,7 +201,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
             ))}
           </div>
         ))}
-        <div className="editor-safety-note"><ShieldCheck size={16} /><span>只会保存学生代码，硬件和烧录设置不会被改动。</span></div>
+        <div className="editor-safety-note"><ShieldCheck size={16} /><span>{mcu ? '只会保存 App 教学目录，启动、链接和烧录设置保持受保护。' : '只会保存学生代码，硬件和烧录设置不会被改动。'}</span></div>
       </aside>
 
       <div className="student-editor-main">

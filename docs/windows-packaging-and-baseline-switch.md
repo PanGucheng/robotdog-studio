@@ -7,13 +7,15 @@
 临时离线包命令（便携 ZIP，用户解压即用）：
 
 ```powershell
-npm run package:win:test
+npm run package:win:fun:test
+npm run package:win:mcu:test
 ```
 
 输出文件固定带有 `PROVISIONAL`：
 
 ```text
-release/RobotDog-Studio-0.1.0-PROVISIONAL-Windows-x64.zip
+release/RobotDog-Studio-Fun-0.1.0-PROVISIONAL-Windows-x64.zip
+release/RobotDog-Studio-MCU-0.1.0-PROVISIONAL-Windows-x64.zip
 ```
 
 该 ZIP 内含 Electron 应用、Reasonix v1.17.12、WCH GCC12、WCH OpenOCD、学生模板以及临时 SDK 源码，因此解压后无需另装编译工具。
@@ -21,23 +23,26 @@ release/RobotDog-Studio-0.1.0-PROVISIONAL-Windows-x64.zip
 临时 NSIS 安装器命令（安装器提权管理员安装，应用普通权限运行）：
 
 ```powershell
-npm run package:win:nsis:test
+npm run package:win:fun:nsis:test
+npm run package:win:mcu:nsis:test
 ```
 
 输出文件：
 
 ```text
-release/RobotDog-Studio-0.1.0-PROVISIONAL-Windows-x64.exe
+release/RobotDog-Studio-Fun-0.1.0-PROVISIONAL-Windows-x64.exe
+release/RobotDog-Studio-MCU-0.1.0-PROVISIONAL-Windows-x64.exe
 ```
 
 NSIS 安装器为 per-machine 管理员安装。安装过程中自动调用 `pnputil.exe /add-driver` 安装包内 WCH-Link 驱动；安装成功后应用以 `asInvoker` 普通权限运行，不再自行安装驱动。ZIP 便携包仍保留，用于快速测试。
 
 ## 双重发布门禁
 
-正式包命令是：
+两个正式包命令是：
 
 ```powershell
-npm run package:win
+npm run package:win:fun
+npm run package:win:mcu
 ```
 
 在最终 SDK 未交付时，此命令必须失败。门禁至少要求：
@@ -61,7 +66,7 @@ npm run package:win
    ```
 
 4. 先运行 `npm run baseline:release:check`，再运行 `npm run firmware:build:ch32v203`。
-5. 运行 `npm run package:win`。打包脚本会再次核对 SDK 哈希，随后生成不带 `PROVISIONAL` 的正式包。
+5. 从同一提交依次运行 `npm run package:win:fun` 和 `npm run package:win:mcu`。打包脚本会再次核对 SDK 哈希，随后分别生成不带 `PROVISIONAL` 的正式包。
 6. 在干净 Windows 电脑上执行首次启动、创建对话、手动编辑、AI 修改、统一确认、完整编译和硬件下载验收。
 
 活动基线登记与学生工作区相互独立：切换 SDK 不会覆盖已有学生代码；新对话仍从只读模板复制到独立工作区。

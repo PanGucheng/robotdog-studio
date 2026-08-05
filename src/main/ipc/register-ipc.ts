@@ -15,10 +15,11 @@ import { AgentHistoryService } from '../services/agent-history-service'
 import { FirmwareBaselineService } from '../services/firmware-baseline-service'
 import { DiagnosticService } from '../services/diagnostic-service'
 import { WchLinkFlashService } from '../services/wch-link-flash-service'
+import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, wchLink = new WchLinkFlashService(toolchain, firmware)): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, wchLink = new WchLinkFlashService(toolchain, firmware)): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -49,6 +50,8 @@ export function registerIpc(robot: MockRobotService, toolchain = new ToolchainSe
   recovery.on('event', recoveryListener)
   wchLink.on('event', wchLinkListener)
   agents?.on('event', agentListener)
+
+  ipcMain.handle(IPC_CHANNELS.editionProfileGet, () => structuredClone(edition))
 
   ipcMain.handle(IPC_CHANNELS.healthGet, async (): Promise<AppHealth> => {
     const toolchainStatus = await toolchain.getStatus()

@@ -1,9 +1,13 @@
 import { spawn } from 'node:child_process'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import electron from 'electron'
 
+const smokeUserData = await mkdtemp(join(tmpdir(), 'robotdog-studio-smoke-'))
 const child = spawn(electron, ['.'], {
   cwd: process.cwd(),
-  env: { ...process.env, ROBOTDOG_SMOKE_TEST: '1' },
+  env: { ...process.env, ROBOTDOG_SMOKE_TEST: '1', ROBOTDOG_SMOKE_USER_DATA: smokeUserData },
   windowsHide: true,
   stdio: ['ignore', 'pipe', 'pipe']
 })
@@ -29,13 +33,19 @@ child.on('error', (error) => {
   settled = true
   console.error(error)
   process.exitCode = 1
+  void cleanup()
 })
 
-child.on('exit', (code) => {
+child.on('exit', async (code) => {
   clearTimeout(timeout)
   settled = true
   if (code !== 0 || !output.includes('ROBOTDOG_SMOKE_OK')) {
     console.error(`\nElectron smoke test failed with exit code ${code}.\n${output}`)
     process.exitCode = 1
   }
+  await cleanup()
 })
+
+async function cleanup() {
+  await rm(smokeUserData, { recursive: true, force: true })
+}

@@ -1,5 +1,7 @@
 # RobotDog Studio 执行计划
 
+> **文档状态说明（2026-08-06）**：本文件保留早期核心能力、固件和三通道实施背景。当前双发行版产品决策、阶段划分与迁移边界以 [`docs/dual-edition-teaching-plan.md`](./docs/dual-edition-teaching-plan.md) 为准；两者冲突时以新总纲为准。
+
 ## 1. 项目目标与已确认决策
 
 RobotDog Studio 是面向中小学机器马巡线教学与比赛的 Windows 11 桌面上位机。核心闭环为：学生提出需求，AI 生成受控修改，用户查看 Diff，系统编译并在安全确认后烧录，随后通过串口控制机器马并图形化展示 CCD、状态和日志。

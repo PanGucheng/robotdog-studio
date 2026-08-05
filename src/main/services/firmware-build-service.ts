@@ -152,17 +152,19 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const outputRoot = join(temporaryRoot, 'output')
       await mkdir(this.outputBase, { recursive: true })
       await this.copyBaseline(sourceRoot, stagingRoot)
-      await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay)
+      await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay, workspace.learningPath)
       await mkdir(join(outputRoot, 'obj'), { recursive: true })
 
-      const sources = [...manifest.build.sources, manifest.studentOverlay.source]
+      const teachingSources = workspace.learningPath === 'mcu-foundations' ? await this.collectMcuSources(projectRoot) : []
+      const sources = [...manifest.build.sources, manifest.studentOverlay.source, ...teachingSources]
       const objectFiles: string[] = []
       for (const [index, source] of sources.entries()) {
         this.throwIfCancelled()
         const sourcePath = join(stagingRoot, ...source.split('/'))
         const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
         await mkdir(dirname(objectPath), { recursive: true })
-        const includeArgs = manifest.build.includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
+        const includeDirectories = workspace.learningPath === 'mcu-foundations' ? [...manifest.build.includeDirectories, 'App/Inc'] : manifest.build.includeDirectories
+        const includeArgs = includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
         const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
         const isAssembly = extname(source).toLowerCase() === '.s'
         const args = isAssembly
@@ -268,9 +270,10 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     await mkdir(outputRoot, { recursive: true })
     await mkdir(join(outputRoot, 'obj'), { recursive: true })
     await this.copyBaseline(sourceRoot, stagingRoot)
-    await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay)
+    await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay, workspace.learningPath)
 
-    const sources = [...LIVE_BASELINE_SOURCES, manifest.studentOverlay.source]
+    const teachingSources = workspace.learningPath === 'mcu-foundations' ? await this.collectMcuSources(projectRoot) : []
+    const sources = [...LIVE_BASELINE_SOURCES, manifest.studentOverlay.source, ...teachingSources]
     this.activeSnapshot.totalFiles = sources.length + 1
     const objectFiles: string[] = []
     for (const [index, source] of sources.entries()) {
@@ -278,7 +281,8 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const sourcePath = join(stagingRoot, ...source.split('/'))
       const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
       await mkdir(dirname(objectPath), { recursive: true })
-      const includeArgs = LIVE_INCLUDE_DIRECTORIES.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
+      const includeDirectories = workspace.learningPath === 'mcu-foundations' ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc'] : LIVE_INCLUDE_DIRECTORIES
+      const includeArgs = includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
       const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
       const isAssembly = extname(source).toLowerCase() === '.s'
       const extraFlags = source === manifest.studentOverlay.source ? LIVE_STUDENT_C_FLAGS : []
@@ -344,7 +348,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     })
   }
 
-  private async applyStudentOverlay(projectRoot: string, stagingRoot: string, overlay: { source: string; header: string; configInput: string; generatedHeader: string }): Promise<void> {
+  private async applyStudentOverlay(projectRoot: string, stagingRoot: string, overlay: { source: string; header: string; configInput: string; generatedHeader: string }, learningPath: import('../../shared/edition').EditionId): Promise<void> {
     for (const path of [overlay.source, overlay.header]) {
       const target = join(stagingRoot, ...path.split('/'))
       await mkdir(dirname(target), { recursive: true })
@@ -354,6 +358,25 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     const generatedPath = join(stagingRoot, ...overlay.generatedHeader.split('/'))
     await mkdir(dirname(generatedPath), { recursive: true })
     await writeFile(generatedPath, renderStudentConfigHeader(config), 'utf8')
+    if (learningPath === 'mcu-foundations') {
+      await cp(join(projectRoot, 'App'), join(stagingRoot, 'App'), { recursive: true, errorOnExist: false, force: true, verbatimSymlinks: true })
+    }
+  }
+
+  private async collectMcuSources(projectRoot: string): Promise<string[]> {
+    const appRoot = join(projectRoot, 'App', 'Src')
+    const results: string[] = []
+    const visit = async (directory: string): Promise<void> => {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const absolute = join(directory, entry.name)
+        if (entry.isSymbolicLink()) throw new Error('单片机教学目录中不允许使用链接。')
+        if (entry.isDirectory()) await visit(absolute)
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith('.c')) results.push(relative(projectRoot, absolute).replaceAll('\\', '/'))
+      }
+    }
+    await visit(appRoot)
+    if (results.length === 0) throw new Error('单片机教学目录中没有可编译的 C 源文件。')
+    return results.sort((left, right) => left.localeCompare(right, 'en-US'))
   }
 
   private async readCachedBuild(root: string, inputHash: string): Promise<FirmwareBuildSnapshot | undefined> {

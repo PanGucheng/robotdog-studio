@@ -29,12 +29,12 @@ interface PermissionParams {
 interface PendingPermission { turnId: string; allowed: Set<string>; resolve: (optionId: string) => void }
 type PermissionResponse = { outcome: { outcome: 'selected' | 'cancelled'; optionId?: string } }
 
-export function automaticPermissionResponse(candidateRoot: string, value: unknown): PermissionResponse | undefined {
+export function automaticPermissionResponse(candidateRoot: string, value: unknown, policyVersion?: string): PermissionResponse | undefined {
   const params = (value ?? {}) as PermissionParams
   const requestId = params.toolCall?.toolCallId ?? ''
   if (requestId.startsWith('ask-')) return undefined
   if (!requestId) return { outcome: { outcome: 'cancelled' } }
-  const policy = new ReasonixPermissionPolicy(candidateRoot)
+  const policy = new ReasonixPermissionPolicy(candidateRoot, policyVersion)
   return policy.assess(value).allowed ? policy.decide(value) : { outcome: { outcome: 'cancelled' } }
 }
 
@@ -60,7 +60,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
       const params = (value ?? {}) as PermissionParams
       const requestId = params.toolCall?.toolCallId ?? ''
       if (context.readOnly) return { outcome: { outcome: 'cancelled' } }
-      const automatic = automaticPermissionResponse(context.candidateRoot, value)
+      const automatic = automaticPermissionResponse(context.candidateRoot, value, context.policyVersion)
       if (automatic) return automatic
       const options = (params.options ?? []).flatMap((option) => {
         if (!option.optionId || !option.name) return []

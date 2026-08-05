@@ -32,6 +32,13 @@ describe('ReasonixPermissionPolicy', () => {
     expect(policy.assess({ toolCall: { kind: 'edit', title: 'write_file Core/Src/main.c' }, options }).allowed).toBe(false)
   })
 
+  it('uses the MCU teaching directories without opening protected Core files', () => {
+    const mcu = new ReasonixPermissionPolicy(root, 'mcu-foundations-v1:1')
+    expect(mcu.assess({ toolCall: { kind: 'edit', rawInput: { path: 'App/Src/experiment.c' } }, options }).allowed).toBe(true)
+    expect(mcu.assess({ toolCall: { kind: 'edit', rawInput: { path: 'App/Inc/helpers/math.h' } }, options }).allowed).toBe(true)
+    expect(mcu.assess({ toolCall: { kind: 'edit', rawInput: { path: 'Core/Src/student_control.c' } }, options }).allowed).toBe(false)
+  })
+
   it.each([
     { toolCall: { kind: 'execute', rawInput: { command: 'git status' } }, options },
     { toolCall: { kind: 'edit', rawInput: { path: '../outside.txt' } }, options },

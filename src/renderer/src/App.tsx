@@ -10,6 +10,7 @@ import { getRobotApi } from './lib/browser-demo-api'
 import { applyUiScale, readUiScale, type UiScale } from './lib/ui-scale'
 import { LearningCenter, type LearningDestination } from './components/LearningCenter'
 import { toStudentErrorMessage } from './lib/student-errors'
+import { EDITION_PROFILES, type AppEditionProfile } from '../../shared/edition'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -58,6 +59,7 @@ const initialWchLink: WchLinkFlashSnapshot = { state: 'idle', progress: 0, messa
 export function App(): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const [status, setStatus] = useState(initialStatus)
+  const [edition, setEdition] = useState<AppEditionProfile>(EDITION_PROFILES['fun-line-following'])
   const [frame, setFrame] = useState(initialFrame)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [toolchain, setToolchain] = useState<ToolchainStatus>()
@@ -88,6 +90,7 @@ export function App(): React.JSX.Element {
   useEffect(() => { applyUiScale(uiScale) }, [uiScale])
 
   useEffect(() => {
+    void api.getEditionProfile().then(setEdition).catch((caught) => setError(toStudentErrorMessage(caught)))
     void api.getStatus().then(setStatus)
     void api.getToolchainStatus().then(setToolchain).catch((caught) => {
       setError(toStudentErrorMessage(caught))
@@ -206,14 +209,14 @@ export function App(): React.JSX.Element {
   const cancelWchLink = (): void => { void run(async () => { setWchLink(await api.cancelWchLink()) }) }
   const createWorkspace = (): void => {
     void run(async () => {
-      const workspace = await api.createWorkspace({ studentDisplayName: '林同学' })
+      const workspace = await api.createWorkspace({ studentDisplayName: activeWorkspace?.studentDisplayName ?? (edition.id === 'fun-line-following' ? '林同学' : '学习者') })
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setActiveWorkspaceId(workspace.id)
     })
   }
   const renameWorkspace = (): void => {
     if (!activeWorkspace) return
-    const name = window.prompt('给这次对话起一个容易辨认的名字', activeWorkspace.name)?.trim()
+    const name = window.prompt('给这个项目起一个容易辨认的名字', activeWorkspace.name)?.trim()
     if (!name || name === activeWorkspace.name) return
     void run(async () => {
       const updated = await api.renameWorkspace(activeWorkspace.id, name)
@@ -226,7 +229,7 @@ export function App(): React.JSX.Element {
   const diagnosticHelp = useMemo(() => buildDiagnosticHelp(agentEvents, candidate?.id), [agentEvents, candidate?.id])
   const navigateFromLearning = (destination: LearningDestination): void => {
     setLearningDestination(destination)
-    if (destination === 'chat') setTimeout(() => document.querySelector<HTMLTextAreaElement>('[aria-label="告诉 AI 你希望机器马做什么"]')?.focus(), 0)
+    if (destination === 'chat') setTimeout(() => document.querySelector<HTMLTextAreaElement>('[aria-label="告诉 AI 你想学习或修改什么"]')?.focus(), 0)
   }
   const closeLearning = (): void => {
     localStorage.setItem('robotdog.learning-intro-seen.v1', '1')
@@ -327,14 +330,14 @@ export function App(): React.JSX.Element {
   }
 
   return (
-    <main className="studio-shell">
+    <main className={`studio-shell ${edition.id === 'mcu-foundations' ? 'is-mcu' : ''}`}>
       <header className="topbar">
         <div className="brand-block">
           <button type="button" className="menu-button" aria-label="打开项目菜单"><Menu size={20} /></button>
           <div className="brand-mark" aria-hidden="true"><span /><span /><span /><span /></div>
           <div>
             <h1>RobotDog <em>Studio</em></h1>
-            <p>巡线教学工作台</p>
+            <p>{edition.subtitle}</p>
           </div>
         </div>
 
@@ -345,9 +348,9 @@ export function App(): React.JSX.Element {
             <span /> {statusLabel}
           </div>
           <button type="button" className={`student-pill ${teacherMode ? 'is-teacher' : ''}`} onClick={() => setTeacherMode((current) => !current)} title="切换学生/教师演示模式">
-            <CircleUserRound size={17} /> {teacherMode ? '教师模式' : '林同学'}
+            <CircleUserRound size={17} /> {teacherMode ? '教师模式' : activeWorkspace?.studentDisplayName ?? '学习者'}
           </button>
-          <button type="button" className="learning-button" onClick={() => setLearningOpen(true)}><HelpCircle size={16} /> 操作示范</button>
+          {edition.id === 'fun-line-following' && <button type="button" className="learning-button" onClick={() => setLearningOpen(true)}><HelpCircle size={16} /> 操作示范</button>}
           <button type="button" className="emergency-button" onClick={() => action('stop')} disabled={!connected}>
             <ShieldAlert size={18} /> 急停
           </button>
@@ -357,13 +360,14 @@ export function App(): React.JSX.Element {
       <div className="context-bar">
         <span className="workspace-picker"><GraduationCap size={15} />
           {workspaces.length > 0 ? (
-            <select aria-label="当前学生对话" value={activeWorkspaceId} onChange={(event) => setActiveWorkspaceId(event.target.value)}>
+            <select aria-label="当前项目" value={activeWorkspaceId} onChange={(event) => setActiveWorkspaceId(event.target.value)}>
               {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}</option>)}
             </select>
-          ) : <strong>还没有学生对话</strong>}
-          {activeWorkspace && <button type="button" onClick={renameWorkspace} disabled={busy} title="修改当前对话名称"><Pencil size={13} /> 重命名</button>}
-          <button type="button" onClick={createWorkspace} disabled={busy} title="复制代码模板并创建独立工作区"><Plus size={13} /> 新对话</button>
+          ) : <strong>还没有项目</strong>}
+          {activeWorkspace && <button type="button" onClick={renameWorkspace} disabled={busy} title="修改当前项目名称"><Pencil size={13} /> 重命名</button>}
+          <button type="button" onClick={createWorkspace} disabled={busy} title="从当前版本模板创建独立项目"><Plus size={13} /> 新建项目</button>
         </span>
+        <span className={`edition-tag edition-${edition.id}`}>{edition.shortName}</span>
         {activeWorkspace && <span className="checkpoint-tag">存档 {activeWorkspace.headCommit.slice(0, 7)}</span>}
         <span>固件：{status.firmware}</span>
         <span className="simulation-flag">SIMULATION · {teacherMode ? '教师维护' : '学生工作台'}</span>
@@ -371,7 +375,7 @@ export function App(): React.JSX.Element {
       </div>
 
       <div className="studio-grid">
-        <ChatPanel workspace={activeWorkspace} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onPermission={respondAgentPermission} />
+        <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onPermission={respondAgentPermission} />
         <Workbench
           frame={frame}
           status={status}
@@ -384,6 +388,7 @@ export function App(): React.JSX.Element {
           recovery={recovery}
           wchLink={wchLink}
           teacherMode={teacherMode}
+          edition={edition}
           busy={busy || Boolean(agentTurn)}
           candidate={candidate?.workspaceId === activeWorkspaceId ? candidate : undefined}
           workspace={activeWorkspace}
@@ -416,8 +421,8 @@ export function App(): React.JSX.Element {
         />
       </div>
 
-      <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />
-      <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />
+      {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
+      {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
     </main>
   )
 }

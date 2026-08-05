@@ -6,9 +6,11 @@ import type { AgentEvent, AgentRuntimeStatus, CandidateSnapshot, WorkspaceSummar
 import { getRobotApi } from '../lib/browser-demo-api'
 import { toStudentErrorMessage, toStudentProblem } from '../lib/student-errors'
 import { ProblemCard } from './ProblemCard'
+import type { AppEditionProfile } from '../../../shared/edition'
 
 interface ChatPanelProps {
   workspace?: WorkspaceSummary
+  edition: AppEditionProfile
   events: AgentEvent[]
   candidate?: CandidateSnapshot
   running: boolean
@@ -29,7 +31,7 @@ interface ConversationTurn {
   summary?: string
 }
 
-export function ChatPanel({ workspace, events, candidate, running, onPrompt, onCancel, onReject, onPermission }: ChatPanelProps): React.JSX.Element {
+export function ChatPanel({ workspace, edition, events, candidate, running, onPrompt, onCancel, onReject, onPermission }: ChatPanelProps): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [showReview, setShowReview] = useState(false)
   const [showRuntime, setShowRuntime] = useState(false)
@@ -67,7 +69,7 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
   return (
     <section className="chat-panel">
       <div className="section-heading">
-        <div><span className="eyebrow">AI 助教</span><h2>把想法说给小马听</h2></div>
+        <div><span className="eyebrow">AI 助教</span><h2>{edition.id === 'mcu-foundations' ? '和助教讨论代码与实验' : '把想法说给小马听'}</h2></div>
         <button type="button" className={`model-chip ${runtime?.ready ? 'ready' : ''}`} onClick={() => setShowRuntime((value) => !value)} aria-expanded={showRuntime}>
           {runtime?.ready ? <Sparkles size={14} /> : <Settings2 size={14} />} {runtime?.adapter === 'reasonix' ? `Reasonix ${runtime.version}` : '模拟教学'}
         </button>
@@ -99,7 +101,7 @@ export function ChatPanel({ workspace, events, candidate, running, onPrompt, onC
       </div>
 
       <div className="prompt-box">
-        <textarea aria-label="告诉 AI 你希望机器马做什么" placeholder={workspace ? '继续追问，或提出下一步修改…' : '请先新建一个训练项目'} rows={3} value={message} disabled={!workspace || running} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
+        <textarea aria-label="告诉 AI 你想学习或修改什么" placeholder={workspace ? '继续追问，或提出下一步修改…' : '请先新建一个项目'} rows={3} value={message} disabled={!workspace || running} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
         <div className="prompt-footer">
           <span>{running ? 'AI 正在安全副本中工作' : turns.length > 0 ? `已保留 ${turns.length} 轮上下文` : 'Enter 发送 · Shift+Enter 换行'}</span>
           {running ? <button type="button" className="cancel-agent" aria-label="停止本次修改" onClick={onCancel}><Square size={14} /></button> : <button type="button" aria-label="发送消息" onClick={submit} disabled={!message.trim() || !workspace}><ArrowUp size={18} /></button>}

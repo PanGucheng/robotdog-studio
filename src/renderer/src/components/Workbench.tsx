@@ -13,6 +13,7 @@ import type { LearningDestination } from './LearningCenter'
 import { toStudentProblem } from '../lib/student-errors'
 import { ProblemCard } from './ProblemCard'
 import { WchLinkFlasherPanel } from './WchLinkFlasherPanel'
+import type { AppEditionProfile } from '../../../shared/edition'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -26,6 +27,7 @@ interface WorkbenchProps {
   recovery: RecoverySnapshot
   wchLink: WchLinkFlashSnapshot
   teacherMode: boolean
+  edition: AppEditionProfile
   busy: boolean
   candidate?: CandidateSnapshot
   workspace?: WorkspaceSummary
@@ -57,7 +59,7 @@ interface WorkbenchProps {
   onLearningDestinationHandled(): void
 }
 
-const tabs = [
+const funTabs = [
   ['巡线参数', Gauge],
   ['CCD 曲线', Activity],
   ['串口日志', TerminalSquare],
@@ -68,8 +70,19 @@ const tabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled }: WorkbenchProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('CCD 曲线')
+const mcuTabs = [
+  ['工程代码', Code2],
+  ['编译与问题', Cpu],
+  ['修改确认', ShieldCheck],
+  ['烧录与运行', Cable],
+  ['程序资源', Gauge],
+  ['设置', Settings2]
+] as const
+
+export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled }: WorkbenchProps): React.JSX.Element {
+  const tabs = edition.id === 'mcu-foundations' ? mcuTabs : funTabs
+  const [activeTab, setActiveTab] = useState<string>(edition.id === 'mcu-foundations' ? '工程代码' : 'CCD 曲线')
+  useEffect(() => { setActiveTab(edition.id === 'mcu-foundations' ? '工程代码' : 'CCD 曲线') }, [edition.id])
   useEffect(() => { if (candidate?.state === 'build_passed' || (candidate?.state === 'review_ready' && candidate.origin !== 'manual' && !candidate.error)) setActiveTab('修改确认') }, [candidate?.id, candidate?.state, candidate?.error, candidate?.origin])
   useEffect(() => {
     if (learningDestination && learningDestination !== 'chat') { setActiveTab(learningDestination); onLearningDestinationHandled() }
@@ -79,6 +92,7 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
   const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
   const artifactCurrent = build.state === 'completed' && Boolean(workspace && build.proof && build.proof.workspaceId === workspace.id && build.proof.workspaceCommit === workspace.headCommit && build.proof.firmwareBaselineId === workspace.firmwareBaselineId)
   const effectiveBuildState = build.state === 'completed' && !artifactCurrent ? 'idle' : build.state
+  const isMcu = edition.id === 'mcu-foundations'
   return (
     <section className="workbench">
       <nav className="workbench-tabs" aria-label="工作台标签">
@@ -89,9 +103,9 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
         ))}
       </nav>
 
-      {activeTab === '编写代码' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
+      {['编写代码', '工程代码'].includes(activeTab) ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
         <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={onUiScaleChange} />
-      ) : activeTab === '烧录器烧录' ? (
+      ) : ['烧录器烧录', '烧录与运行'].includes(activeTab) ? (
         <WchLinkFlasherPanel
           snapshot={wchLink}
           build={build}
@@ -100,15 +114,27 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
           onProbe={onProbeWchLink}
           onFlash={onFlashWchLink}
           onCancel={onCancelWchLink}
-          onGoBuild={() => setActiveTab('编译 / 烧录')}
+          onGoBuild={() => setActiveTab(edition.id === 'mcu-foundations' ? '编译与问题' : '编译 / 烧录')}
         />
-      ) : activeTab === '编译 / 烧录' ? (
+      ) : activeTab === '程序资源' ? (
+        <div className="workbench-content firmware-workbench">
+          <div className="ccd-summary">
+            <div><span className="eyebrow">程序资源</span><h2>{build.size ? '查看代码与数据如何占用芯片存储' : '生成程序后查看资源占用'}</h2><p>text 和 data 主要占用 Flash，data 和 bss 会占用运行时 RAM。</p></div>
+          </div>
+          {build.size ? <div className="metric-row firmware-size-row">
+            <article><span>text</span><strong>{build.size.text}</strong><small>程序代码</small></article>
+            <article><span>data</span><strong>{build.size.data}</strong><small>已初始化数据</small></article>
+            <article><span>bss</span><strong>{build.size.bss}</strong><small>未初始化数据</small></article>
+            <article><span>total</span><strong>{build.size.dec}</strong><small>总体积</small></article>
+          </div> : <article className="empty-artifacts"><FileArchive size={18} /> 先到“编译与问题”生成程序，再回来观察资源变化。</article>}
+        </div>
+      ) : ['编译 / 烧录', '编译与问题'].includes(activeTab) ? (
         <div className="workbench-content firmware-workbench">
           <div className="ccd-summary">
             <div>
-              <span className="eyebrow">编译与安全下载</span>
-              <h2>{update.state === 'completed' ? '新程序已在小马上运行' : build.state === 'running' ? `正在生成：${build.currentFile ?? '准备中'}` : artifactCurrent ? '小马程序已准备好' : build.state === 'completed' ? '代码已变化，需要重新生成程序' : '无线调试，有线下载'}</h2>
-              <p>蓝牙负责地面调试，板载 USB 负责稳定下载；WCH-Link 只在教师恢复时使用。</p>
+              <span className="eyebrow">{isMcu ? '编译、烧录与验证' : '编译与安全下载'}</span>
+              <h2>{update.state === 'completed' ? (isMcu ? '新程序已写入开发板' : '新程序已在小马上运行') : build.state === 'running' ? `正在生成：${build.currentFile ?? '准备中'}` : artifactCurrent ? (isMcu ? '实验程序已准备好' : '小马程序已准备好') : build.state === 'completed' ? '代码已变化，需要重新生成程序' : (isMcu ? '先编译，再连接开发板验证' : '无线调试，有线下载')}</h2>
+              <p>{isMcu ? '编译日志用于定位 C 代码问题；烧录仍需学生确认，WCH-Link 用于有线写入与恢复。' : '蓝牙负责地面调试，板载 USB 负责稳定下载；WCH-Link 只在教师恢复时使用。'}</p>
             </div>
             <div className={`recognition-badge ${toolchainReady ? 'is-ready' : ''}`}>
               <span className={toolchainReady ? 'valid-dot' : 'invalid-dot'} />

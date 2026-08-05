@@ -15,7 +15,7 @@ const candidateStateSchema = z.enum([
   'awaiting_apply', 'applying', 'applied', 'rejected', 'cancelled', 'failed', 'stale', 'conflict'
 ])
 const candidateDiagnosticSchema = z.object({
-  path: z.enum(['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'student-config/line-following.yaml']).optional(),
+  path: z.string().min(1).max(240).refine(isSafeRelativePath).optional(),
   line: z.number().int().positive().max(1_000_000).optional(),
   column: z.number().int().positive().max(1_000_000).optional(),
   severity: z.enum(['error', 'warning']),
@@ -55,7 +55,7 @@ export interface CandidateServiceOptions {
 
 export interface ManualRepairBackup {
   snapshot: CandidateSnapshot
-  files: Array<{ path: 'Core/Src/student_control.c' | 'student-config/line-following.yaml'; content: string }>
+  files: Array<{ path: string; content: string }>
 }
 
 export class CandidateService {
@@ -97,6 +97,7 @@ export class CandidateService {
     try {
       await this.git.addDetachedWorktree(projectRoot, candidateRoot, baseCommit)
       worktreeCreated = true
+      const policyVersion = await this.policy.getPolicyVersion(candidateRoot)
       const snapshot: CandidateSnapshot = {
         id,
         workspaceId,
@@ -104,7 +105,7 @@ export class CandidateService {
         state: 'agent_running',
         baseCommit,
         baseTreeHash,
-        policyVersion: 'student-v1:1',
+        policyVersion,
         createdAt: now.toISOString(),
         expiresAt: new Date(now.getTime() + this.lifetimeMs).toISOString(),
         updatedAt: now.toISOString()
@@ -141,18 +142,20 @@ export class CandidateService {
       if (candidate.workspaceId !== workspace.id) throw new Error('CANDIDATE_WORKSPACE_MISMATCH')
       root = this.candidateRoot(candidate.id)
     }
-    const descriptors: Array<Omit<StudentCodeFile, 'content'>> = [
-      { path: 'Core/Src/student_control.c', label: '小马怎么走', group: '控制逻辑', language: 'c', editable: true },
-      { path: 'student-config/line-following.yaml', label: '巡线参数', group: '参数设置', language: 'yaml', editable: true },
-      { path: 'Core/Inc/student_control.h', label: '输入和动作说明', group: '参考接口', language: 'c', editable: false }
-    ]
+    const descriptors = workspace.learningPath === 'mcu-foundations'
+      ? await this.listMcuDescriptors(root)
+      : [
+          { path: 'Core/Src/student_control.c', label: '小马怎么走', group: '控制逻辑', language: 'c' as const, editable: true },
+          { path: 'student-config/line-following.yaml', label: '巡线参数', group: '参数设置', language: 'yaml' as const, editable: true },
+          { path: 'Core/Inc/student_control.h', label: '输入和动作说明', group: '参考接口', language: 'c' as const, editable: false }
+        ]
     return Promise.all(descriptors.map(async (file) => ({ ...file, content: await readFile(join(root, ...file.path.split('/')), 'utf8') })))
   }
 
   async getStudentCodeContextForMain(workspaceId: string, candidateId?: string): Promise<{ root: string; policyVersion: string; files: StudentCodeFile[] }> {
     await this.workspaces.get(workspaceId)
     let root = await this.workspaces.getProjectRootForMain(workspaceId)
-    let policyVersion = 'student-v1:1'
+    let policyVersion = await this.policy.getPolicyVersion(root)
     if (candidateId) {
       const candidate = await this.get(candidateId)
       if (candidate.workspaceId !== workspaceId || candidate.origin !== 'manual') throw new Error('MANUAL_DRAFT_MISMATCH')
@@ -165,11 +168,13 @@ export class CandidateService {
   async writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot> {
     const snapshot = await this.get(candidateId)
     if (snapshot.origin !== 'manual' || !activeStates.has(snapshot.state)) throw new Error('MANUAL_DRAFT_NOT_ACTIVE')
-    if (!['Core/Src/student_control.c', 'student-config/line-following.yaml'].includes(path)) throw new Error('这个参考文件只能查看，不能修改。')
+    const listedFile = (await this.listStudentCodeFiles(snapshot.workspaceId, candidateId)).find((file) => file.path === path)
+    if (!isSafeRelativePath(path) || !listedFile?.editable || !(await this.policy.isEditablePath(this.candidateRoot(candidateId), path))) throw new Error('这个参考文件只能查看，不能修改。')
     const bytes = Buffer.byteLength(content, 'utf8')
     if (bytes > 64_000 || content.includes('\0')) throw new Error('代码内容过大或包含不支持的字符。')
     const target = join(this.candidateRoot(candidateId), ...path.split('/'))
     const temporary = `${target}.manual.tmp`
+    await mkdir(dirname(target), { recursive: true })
     await writeFile(temporary, content, 'utf8')
     await rename(temporary, target)
     return this.update(snapshot, {
@@ -191,9 +196,10 @@ export class CandidateService {
     const snapshot = await this.get(candidateId)
     if (snapshot.origin !== 'manual' || !activeStates.has(snapshot.state)) throw new Error('MANUAL_REPAIR_NOT_READY')
     const root = this.candidateRoot(candidateId)
+    const editableFiles = (await this.listStudentCodeFiles(snapshot.workspaceId, candidateId)).filter((file) => file.editable)
     return {
       snapshot,
-      files: await Promise.all((['Core/Src/student_control.c', 'student-config/line-following.yaml'] as const).map(async (path) => ({
+      files: await Promise.all(editableFiles.map(async ({ path }) => ({
         path, content: await readFile(join(root, ...path.split('/')), 'utf8')
       })))
     }
@@ -203,7 +209,11 @@ export class CandidateService {
     const current = await this.get(backup.snapshot.id)
     if (current.workspaceId !== backup.snapshot.workspaceId || current.origin !== 'manual') throw new Error('MANUAL_REPAIR_BACKUP_MISMATCH')
     const root = this.candidateRoot(current.id)
-    for (const file of backup.files) await writeFile(join(root, ...file.path.split('/')), file.content, 'utf8')
+    for (const file of backup.files) {
+      const target = join(root, ...file.path.split('/'))
+      await mkdir(dirname(target), { recursive: true })
+      await writeFile(target, file.content, 'utf8')
+    }
     const restored = candidateSchema.parse({ ...backup.snapshot, updatedAt: new Date().toISOString() })
     await this.writeSnapshot(restored)
     return structuredClone(restored)
@@ -254,7 +264,8 @@ export class CandidateService {
     try {
       const proof = await this.builder.build({
         candidateId, candidateRoot: this.candidateRoot(candidateId),
-        sourceTreeHash: snapshot.sourceTreeHash!, diffHash: snapshot.diffHash!
+        sourceTreeHash: snapshot.sourceTreeHash!, diffHash: snapshot.diffHash!,
+        learningPath: (await this.workspaces.get(snapshot.workspaceId)).learningPath
       })
       const currentTreeHash = await this.fingerprint.calculate(this.candidateRoot(candidateId))
       if (currentTreeHash !== proof.sourceTreeHash || proof.diffHash !== snapshot.diffHash) throw new Error('CANDIDATE_CHANGED_DURING_BUILD')
@@ -398,6 +409,39 @@ export class CandidateService {
     await rename(temporaryPath, path)
   }
 
+  private async listMcuDescriptors(root: string): Promise<Array<Omit<StudentCodeFile, 'content'>>> {
+    const descriptors: Array<Omit<StudentCodeFile, 'content'>> = [
+      { path: 'Core/Src/student_control.c', label: '安全运行适配', group: '只读底层', language: 'c', editable: false },
+      { path: 'Core/Inc/student_control.h', label: '实验输入与输出', group: '只读接口', language: 'c', editable: false }
+    ]
+    for (const directory of ['App/Inc', 'App/Src']) {
+      const paths = await this.listMcuTeachingFiles(root, directory)
+      for (const path of paths) {
+        descriptors.push({
+          path,
+          label: path.slice(path.lastIndexOf('/') + 1),
+          group: directory.endsWith('/Inc') ? '头文件' : '源文件',
+          language: 'c',
+          editable: await this.policy.isEditablePath(root, path)
+        })
+      }
+    }
+    return descriptors
+  }
+
+  private async listMcuTeachingFiles(root: string, relativeDirectory: string): Promise<string[]> {
+    const absolute = join(root, ...relativeDirectory.split('/'))
+    const entries = await readdir(absolute, { withFileTypes: true }).catch(() => [])
+    const paths: string[] = []
+    for (const entry of entries) {
+      if (entry.isSymbolicLink()) throw new Error('STUDENT_CODE_LINK_DENIED')
+      const relativePath = `${relativeDirectory}/${entry.name}`
+      if (entry.isDirectory()) paths.push(...await this.listMcuTeachingFiles(root, relativePath))
+      else if (entry.isFile() && /\.(?:c|h)$/i.test(entry.name)) paths.push(relativePath)
+    }
+    return paths.sort((left, right) => left.localeCompare(right, 'zh-CN'))
+  }
+
   private candidateRoot(candidateId: string): string {
     candidateIdSchema.parse(candidateId)
     return join(this.candidatesDir, candidateId)
@@ -415,4 +459,10 @@ function calculateDiffHash(validation: PatchValidationReport, sourceTreeHash: st
 
 async function exists(path: string): Promise<boolean> {
   return access(path).then(() => true).catch(() => false)
+}
+
+function isSafeRelativePath(path: string): boolean {
+  if (!path || path.includes('\\') || path.includes('\0') || path.startsWith('/') || /^[A-Za-z]:/.test(path)) return false
+  const parts = path.split('/')
+  return parts.every((part) => Boolean(part) && part !== '.' && part !== '..')
 }

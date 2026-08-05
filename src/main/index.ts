@@ -1,5 +1,6 @@
 import { join } from 'node:path'
-import { readFile, stat } from 'node:fs/promises'
+import { cp, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc/register-ipc'
 import { MockRobotService } from './services/mock-robot-service'
@@ -15,8 +16,13 @@ import { CandidateBuildService } from './services/candidate-build-service'
 import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
+import { DEFAULT_EDITION_ID, getEditionProfile, parseEditionId } from '../shared/edition'
 
 const robot = new MockRobotService()
+const edition = getEditionProfile(readEditionId())
+app.setName(edition.productName)
+const smokeUserData = process.env.ROBOTDOG_SMOKE_TEST === '1' ? process.env.ROBOTDOG_SMOKE_USER_DATA : undefined
+app.setPath('userData', smokeUserData ? smokeUserData : join(app.getPath('appData'), edition.userDataDirectoryName))
 let disposeIpc: (() => void) | undefined
 
 function createWindow(): void {
@@ -28,7 +34,7 @@ function createWindow(): void {
     minHeight: 700,
     show: false,
     backgroundColor: '#f4f7fa',
-    title: 'RobotDog Studio',
+    title: edition.productName,
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -42,15 +48,16 @@ function createWindow(): void {
     window.webContents.once('did-finish-load', async () => {
       const result = await window.webContents.executeJavaScript(`(async () => {
         if (!window.robotDog) return { ok: false, reason: 'preload missing' }
-        const [toolchain, baseline, runtime] = await Promise.all([
-          window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo()
+        const [toolchain, baseline, runtime, activeEdition] = await Promise.all([
+          window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo(), window.robotDog.getEditionProfile()
         ])
         const existing = await window.robotDog.listWorkspaces()
         const workspace = existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
           ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
         const firmware = await window.robotDog.startFirmwareBuild(workspace.id)
         return {
-          ok: Boolean(toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4),
+          edition: activeEdition.id,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
           releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
           firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind)
@@ -79,6 +86,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  await migrateLegacyUserDataIfNeeded()
   const defaultRoot = join(app.getPath('userData'), 'managed-data')
   const rootOverride = process.env.ROBOTDOG_WORKSPACE_ROOT
   const workspaceRoot = rootOverride ? join(app.getPath('userData'), 'development', rootOverride.replace(/[^a-zA-Z0-9_-]/g, '_')) : defaultRoot
@@ -86,13 +94,16 @@ app.whenReady().then(async () => {
   if (app.isPackaged) process.env.ROBOTDOG_GIT_EXE = join(staticRoot, 'toolchains', 'git', 'cmd', 'git.exe')
   const wchLinkDriver = await readWchLinkDriverStatus(staticRoot, app.isPackaged)
   const baselineRegistry = await readBaselineRegistry(staticRoot)
-  const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, baselineRegistry.studentTemplate, app.isPackaged)
+  const templateResource = edition.id === 'fun-line-following'
+    ? baselineRegistry.studentTemplate
+    : `resources/workspace-templates/ch32v203-mcu-foundations/${baselineRegistry.templateVersion}`
+  const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, templateResource, app.isPackaged)
   const baseline = new FirmwareBaselineService({
     manifestPath: baselineRegistry.manifestPath,
     packagedSourceRoot: app.isPackaged && baselineRegistry.packagedSource ? join(process.resourcesPath, 'firmware-baselines', 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined
   })
   const baselineManifest = await baseline.getManifest()
-  const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, templateVersion: baselineRegistry.templateVersion, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit })
+  const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, templateVersion: baselineRegistry.templateVersion, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit, edition })
   await workspaces.initialize()
   const toolchain = new ToolchainService()
   const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(toolchain, join(workspaceRoot, 'build-cache')) })
@@ -124,7 +135,7 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  disposeIpc = registerIpc(robot, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics)
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -217,5 +228,37 @@ async function readReasonixRuntimeManifest(appRoot: string, staticRoot: string):
     version: manifest.version,
     binarySha256: manifest.binarySha256,
     binaryPath: join(staticRoot, manifest.binaryRelativePath.slice(prefix.length))
+  }
+}
+
+function readEditionId(): import('../shared/edition').EditionId {
+  if (process.env.ROBOTDOG_EDITION) return parseEditionId(process.env.ROBOTDOG_EDITION)
+  try {
+    const value = JSON.parse(readFileSync(join(app.getAppPath(), 'config', 'edition.json'), 'utf8')) as Record<string, unknown>
+    if (value.schemaVersion !== 1) throw new Error('ROBOTDOG_EDITION_CONFIG_INVALID')
+    return parseEditionId(value.edition)
+  } catch (caught) {
+    if (!app.isPackaged) return DEFAULT_EDITION_ID
+    throw caught
+  }
+}
+
+async function migrateLegacyUserDataIfNeeded(): Promise<void> {
+  if (edition.id !== 'fun-line-following') return
+  const targetRoot = app.getPath('userData')
+  const targetManaged = join(targetRoot, 'managed-data')
+  if (await stat(targetManaged).then((info) => info.isDirectory(), () => false)) return
+  const legacyRoot = join(app.getPath('appData'), 'robotdog-studio')
+  const legacyManaged = join(legacyRoot, 'managed-data')
+  if (!(await stat(legacyManaged).then((info) => info.isDirectory(), () => false))) return
+  await mkdir(targetRoot, { recursive: true })
+  const temporaryManaged = join(targetRoot, '.legacy-managed-data-migrating')
+  await rm(temporaryManaged, { recursive: true, force: true })
+  await cp(legacyManaged, temporaryManaged, { recursive: true, verbatimSymlinks: true })
+  await rename(temporaryManaged, targetManaged)
+  const legacySecret = join(legacyRoot, 'secure')
+  const targetSecret = join(targetRoot, 'secure')
+  if (await stat(legacySecret).then((info) => info.isDirectory(), () => false)) {
+    await cp(legacySecret, targetSecret, { recursive: true, errorOnExist: true, force: false }).catch(() => undefined)
   }
 }

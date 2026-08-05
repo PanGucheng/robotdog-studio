@@ -1,4 +1,5 @@
 export const IPC_CHANNELS = {
+  editionProfileGet: 'app:edition-profile:get',
   healthGet: 'app:health:get',
   runtimeInfoGet: 'app:runtime-info:get',
   diagnosticsExport: 'app:diagnostics:export',

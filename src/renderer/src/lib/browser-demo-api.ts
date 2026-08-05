@@ -1,4 +1,5 @@
 import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import { EDITION_PROFILES } from '../../../shared/edition'
 
 const statusListeners = new Set<(status: RobotStatus) => void>()
 const logListeners = new Set<(entry: LogEntry) => void>()
@@ -17,6 +18,7 @@ let browserAgentTurn: AgentTurnSnapshot | undefined
 
 let demoWorkspaces: WorkspaceSummary[] = [{
   id: 'ws_0123456789abcdef01234567', name: '巡线基础训练', studentDisplayName: '林同学',
+  learningPath: 'fun-line-following',
   templateId: 'ch32v203-robotdog', templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: new Date().toISOString(), headCommit: '86d826a000000000000000000000000000000000',
   state: 'ready', updatedAt: new Date().toISOString()
 }]
@@ -168,6 +170,7 @@ async function runBrowserFirmwareUpdate(token: number): Promise<void> {
 }
 
 export const browserDemoApi: RobotDogApi = {
+  getEditionProfile: async () => structuredClone(EDITION_PROFILES['fun-line-following']),
   getHealth: async () => ({ appVersion: '0.1.0', platform: 'browser', mode: 'simulation', checks: [] }),
   getRuntimeInfo: async () => ({
     dataRoot: '浏览器演示数据（不会写入磁盘）', diagnosticsRoot: '浏览器演示诊断', mode: 'simulation', workspaceCount: demoWorkspaces.length,
@@ -348,7 +351,7 @@ export const browserDemoApi: RobotDogApi = {
     for (let index = 2; demoWorkspaces.some((item) => item.name === name); index += 1) name = `${baseName}（${index}）`
     const workspace: WorkspaceSummary = {
       id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
-      name, studentDisplayName: input.studentDisplayName.trim(), templateId: 'ch32v203-robotdog',
+      name, studentDisplayName: input.studentDisplayName.trim(), learningPath: 'fun-line-following', templateId: 'ch32v203-robotdog',
       templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: now.toISOString(), headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: now.toISOString()
     }
     demoWorkspaces = [workspace, ...demoWorkspaces]

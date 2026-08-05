@@ -1,3 +1,5 @@
+import type { AppEditionProfile, EditionId } from './edition'
+
 export type ConnectionState = 'disconnected' | 'connecting' | 'ready' | 'error'
 
 export type RuntimeLinkState = 'disconnected' | 'discovering' | 'connecting' | 'handshaking' | 'ready' | 'degraded' | 'retrying' | 'error'
@@ -110,15 +112,15 @@ export type WorkspaceState = 'ready' | 'candidate_active' | 'applying' | 'error'
 export interface CreateWorkspaceInput {
   name?: string
   studentDisplayName: string
-  templateId?: 'ch32v203-robotdog'
 }
 
 export interface WorkspaceMetadata {
-  schemaVersion: 1
+  schemaVersion: 2
   id: string
   name: string
   studentDisplayName: string
-  templateId: 'ch32v203-robotdog'
+  learningPath: EditionId
+  templateId: 'ch32v203-robotdog' | 'ch32v203-mcu-foundations'
   templateVersion: string
   firmwareBaselineId: string
   baselineCommit: string
@@ -127,7 +129,7 @@ export interface WorkspaceMetadata {
   updatedAt: string
   activeBranch: 'main'
   lastCheckpoint: string
-  policyProfile: 'student-v1'
+  policyProfile: 'student-v1' | 'mcu-foundations-v1'
   state: WorkspaceState
   activeCandidateId?: string
 }
@@ -136,7 +138,8 @@ export interface WorkspaceSummary {
   id: string
   name: string
   studentDisplayName: string
-  templateId: 'ch32v203-robotdog'
+  learningPath: EditionId
+  templateId: 'ch32v203-robotdog' | 'ch32v203-mcu-foundations'
   templateVersion: string
   firmwareBaselineId: string
   baselineCommit: string
@@ -245,7 +248,7 @@ export interface CandidateSnapshot {
 }
 
 export interface CandidateDiagnostic {
-  path?: StudentCodeFile['path']
+  path?: string
   line?: number
   column?: number
   severity: 'error' | 'warning'
@@ -253,10 +256,10 @@ export interface CandidateDiagnostic {
 }
 
 export interface StudentCodeFile {
-  path: 'Core/Src/student_control.c' | 'Core/Inc/student_control.h' | 'student-config/line-following.yaml'
+  path: string
   label: string
-  group: '控制逻辑' | '参数设置' | '参考接口'
-  language: 'c' | 'yaml'
+  group: string
+  language: 'c' | 'yaml' | 'markdown'
   editable: boolean
   content: string
 }
@@ -264,7 +267,7 @@ export interface StudentCodeFile {
 export interface StudentCodeExplanationRequest {
   kind: 'selection' | 'diagnostic'
   candidateId?: string
-  selectedPath?: StudentCodeFile['path']
+  selectedPath?: string
   content: string
 }
 
@@ -281,7 +284,7 @@ export interface CandidateBuildProof {
   compiler: string
   objectSha256: string
   completedAt: string
-  checks: Array<{ id: 'c-source' | 'line-config'; label: string; detail: string }>
+  checks: Array<{ id: string; label: string; detail: string }>
 }
 
 export interface CandidateDiffFile {
@@ -555,6 +558,7 @@ export interface WchLinkFlashSnapshot {
 export type WchLinkFlashEvent = { type: 'snapshot' | 'progress' | 'completed' | 'failed' | 'cancelled'; snapshot: WchLinkFlashSnapshot }
 
 export interface RobotDogApi {
+  getEditionProfile(): Promise<AppEditionProfile>
   getHealth(): Promise<AppHealth>
   getRuntimeInfo(): Promise<AppRuntimeInfo>
   exportDiagnostics(): Promise<DiagnosticExportResult>
