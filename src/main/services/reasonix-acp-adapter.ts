@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AdapterEvent, AdapterTurnContext, ReasonixAdapter } from './reasonix-adapter'
 import { ReasonixPermissionPolicy } from './reasonix-permission-policy'
-import { ReasonixProcessManager, type ReasonixRuntimeProfile } from './reasonix-process-manager'
+import { ReasonixProcessManager, ROBOTDOG_DEEPSEEK_MODEL_ID, type ReasonixRuntimeProfile } from './reasonix-process-manager'
 import { buildStudentAgentPrompt } from './student-agent-prompt'
 
 interface UpdateParams {
@@ -97,6 +97,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
     try {
       await process.client.request('initialize', { protocolVersion: 1, clientInfo: { name: 'robotdog-studio', title: 'RobotDog Studio', version: '0.1.0' } })
       sessionId = await this.openWorkspaceSession(process.client, context.workspaceId, context.candidateRoot)
+      await process.client.request('session/set_model', { sessionId, modelId: ROBOTDOG_DEEPSEEK_MODEL_ID })
       if (signal.aborted) throw signal.reason
       emit({ type: 'activity', sequence: ++sequence, label: context.readOnly ? 'Reasonix 正在用中文解释错误' : 'Reasonix 已连接，正在修改候选副本', state: context.readOnly ? 'thinking' : 'editing' })
       const result = await process.client.request<{ stopReason: string }>('session/prompt', {

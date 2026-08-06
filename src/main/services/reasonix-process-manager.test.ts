@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
-import { ReasonixProcessManager } from './reasonix-process-manager'
+import { ReasonixProcessManager, ROBOTDOG_DEEPSEEK_MODEL_ID } from './reasonix-process-manager'
 
 describe('ReasonixProcessManager', () => {
   it('verifies the pinned binary hash and rejects tampering', async () => {
@@ -32,9 +32,17 @@ describe('ReasonixProcessManager', () => {
         protocolVersion: 1,
         clientInfo: { name: 'robotdog-test', title: 'RobotDog Test', version: '0.0.0' }
       })).resolves.toMatchObject({ agentInfo: { version: 'v1.17.12' } })
-      await expect(process.client.request('session/new', { cwd: projectRoot, mcpServers: [] })).resolves.toMatchObject({
-        models: { currentModelId: 'deepseek/deepseek-chat' }
+      const session = await process.client.request<{ sessionId: string; models: { currentModelId: string; availableModels: Array<{ modelId: string }> } }>('session/new', { cwd: projectRoot, mcpServers: [] })
+      expect(session).toMatchObject({
+        models: {
+          currentModelId: ROBOTDOG_DEEPSEEK_MODEL_ID,
+          availableModels: [{ modelId: ROBOTDOG_DEEPSEEK_MODEL_ID }]
+        }
       })
+      await expect(process.client.request('session/set_model', {
+        sessionId: session.sessionId,
+        modelId: ROBOTDOG_DEEPSEEK_MODEL_ID
+      })).resolves.toBeDefined()
     } finally {
       await process.stop()
       await rm(projectRoot, { recursive: true, force: true })
