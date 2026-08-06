@@ -11,7 +11,7 @@
 3. 在 `resources/workspace-templates/ch32v203-mcu-lessons/<templateId>` 创建完整独立模板。
 4. 只把教学文件放入 `App/Src`、`App/Inc`；安全适配层放入 `Core` 并保持只读。
 5. 为课次填写最小的 `editableGlobs`、`readableFiles`、`deniedGlobs`，不能开放启动、链接、Bootloader、Flash 或通信配置。
-6. 使用固定完成检查：文件存在、候选编译、完整构建、问题回答。不要加入脚本或标准答案逐字比较。
+6. 使用固定完成检查：文件存在、指定教学文件已应用修改、候选编译、完整构建、问题回答。问题步骤必须填写对应 `questionId`，人工观察检查必须填写对应观察步骤的 `stepId`；不要加入脚本或标准答案逐字比较。
 7. 递增课程唯一的 `contentVersion`，运行 `npm run courses:validate`、相关测试和 MCU 冒烟。
 
 新增第四课不应修改课程中心或实验任务页组件；除 `lessonOrder` 注册外，主要变化应限于 manifest、模板、测试夹具和课程文字。
@@ -35,9 +35,15 @@
   "editableGlobs": ["App/Src/experiment.c", "App/Inc/experiment.h"],
   "readableFiles": ["Core/Src/student_control.c", "README.md"],
   "deniedGlobs": ["Core/**", "Startup/**", "Ld/**"],
-  "steps": [],
-  "completionChecks": [],
-  "reflectionQuestions": [],
+  "steps": [
+    { "stepId": "edit-example", "type": "edit", "title": "修改示例", "instruction": "完成一个小修改" },
+    { "stepId": "reflect-example", "type": "question", "questionId": "why-example", "title": "总结", "instruction": "说明修改原因" }
+  ],
+  "completionChecks": [
+    { "type": "student-change-applied", "target": "App/Src/experiment.c" },
+    { "type": "question-answered", "target": "why-example" }
+  ],
+  "reflectionQuestions": [{ "questionId": "why-example", "prompt": "为什么这样修改？" }],
   "aiContext": { "teachingFocus": "本课提示边界", "hints": [] },
   "status": "draft"
 }

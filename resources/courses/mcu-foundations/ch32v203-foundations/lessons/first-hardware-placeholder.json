@@ -52,7 +52,7 @@
     }
   ],
   "completionChecks": [
-    { "type": "manual-observation-confirmed" }
+    { "type": "manual-observation-confirmed", "target": "hardware-observation" }
   ],
   "reflectionQuestions": [],
   "aiContext": {

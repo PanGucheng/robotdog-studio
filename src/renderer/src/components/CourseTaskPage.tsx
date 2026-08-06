@@ -134,9 +134,9 @@ function handleStepAction(type: CourseLesson['steps'][number]['type'], stepId: s
 function operationHint(type: CourseLesson['steps'][number]['type'], progress: CourseProgressSnapshot): string {
   const kind = type === 'candidate-build' ? 'candidate-build' : type === 'firmware-build' ? 'firmware-build' : 'flash'
   const operation = progress.operations[kind]
-  return operation.state === 'not-run' ? '尚未执行' : `${operation.state === 'passed' ? '已通过' : '未通过'}${operation.checkedAt ? ` · ${new Date(operation.checkedAt).toLocaleString('zh-CN')}` : ''}`
+  return operation.state === 'not-run' ? '尚未执行' : `${operation.state === 'passed' ? '已通过' : operation.state === 'stale' ? '代码已变化，请重新检查' : '未通过'}${operation.checkedAt ? ` · ${new Date(operation.checkedAt).toLocaleString('zh-CN')}` : ''}`
 }
 
 function OperationRow({ icon, label, operation }: { icon: ReactNode; label: string; operation: CourseProgressSnapshot['operations'][CourseOperationKind] }): React.JSX.Element {
-  return <div className={`course-operation-row is-${operation.state}`}>{icon}<span><strong>{label}</strong><small>{operation.state === 'not-run' ? '尚未执行' : operation.state === 'passed' ? '最近一次通过' : '最近一次未通过'}{operation.checkedAt ? ` · ${new Date(operation.checkedAt).toLocaleString('zh-CN')}` : ''}</small></span></div>
+  return <div className={`course-operation-row is-${operation.state}`}>{icon}<span><strong>{label}</strong><small>{operation.state === 'not-run' ? '尚未执行' : operation.state === 'passed' ? '最近一次通过' : operation.state === 'stale' ? '代码已变化，请重新检查' : '最近一次未通过'}{operation.checkedAt ? ` · ${new Date(operation.checkedAt).toLocaleString('zh-CN')}` : ''}</small></span></div>
 }

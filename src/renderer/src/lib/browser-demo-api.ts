@@ -30,6 +30,7 @@ const workspaceListeners = new Set<(workspace: WorkspaceSummary) => void>()
 const candidateListeners = new Set<(candidate: CandidateSnapshot) => void>()
 const agentListeners = new Set<(event: AgentEvent) => void>()
 const demoCandidates = new Map<string, CandidateSnapshot>()
+const demoCandidateChangedFiles = new Map<string, string[]>()
 let browserAgentToken = 0
 let browserAgentTurn: AgentTurnSnapshot | undefined
 
@@ -55,7 +56,7 @@ function getDemoLessonProgress(workspaceId: string): { workspace: WorkspaceSumma
     const now = new Date().toISOString()
     progress = {
       schemaVersion: 1, workspaceId, courseId: binding.courseId, lessonId: binding.lessonId, contentVersion: binding.contentVersion,
-      steps: lesson.steps.map((step) => ({ stepId: step.stepId, completed: false })), answers: {}, observations: {},
+      steps: lesson.steps.map((step) => ({ stepId: step.stepId, completed: false })), answers: {}, observations: {}, appliedFiles: [],
       operations: { 'candidate-build': { state: 'not-run' }, 'firmware-build': { state: 'not-run' }, flash: { state: 'not-run' } },
       checks: [], completedSteps: 0, totalSteps: lesson.steps.length, completionPercent: 0, state: 'not-started', createdAt: now, updatedAt: now
     }
@@ -69,17 +70,34 @@ function deriveDemoProgress(progress: CourseProgressSnapshot, lesson: CourseLess
   const availableFiles = new Set([...lesson.editableGlobs, ...lesson.readableFiles])
   const checks = lesson.completionChecks.map((check) => {
     if (check.type === 'file-exists') return { ...check, passed: Boolean(check.target && availableFiles.has(check.target)), label: check.target ? `文件存在：${check.target}` : '指定文件存在' }
+    if (check.type === 'student-change-applied') return { ...check, passed: check.target ? progress.appliedFiles.includes(check.target) : progress.appliedFiles.length > 0, label: check.target ? `已保存教学文件修改：${check.target}` : '已保存一次代码修改' }
     if (check.type === 'candidate-build-passed') return { ...check, passed: progress.operations['candidate-build'].state === 'passed', label: '候选代码编译通过' }
     if (check.type === 'firmware-build-passed') return { ...check, passed: progress.operations['firmware-build'].state === 'passed', label: '完整程序生成成功' }
     if (check.type === 'flash-succeeded') return { ...check, passed: progress.operations.flash.state === 'passed', label: '最近一次烧录成功' }
-    if (check.type === 'manual-observation-confirmed') return { ...check, passed: Object.values(progress.observations).some(Boolean), label: '已经记录人工观察' }
+    if (check.type === 'manual-observation-confirmed') return { ...check, passed: Boolean(check.target && progress.observations[check.target]?.trim()), label: check.target ? `已经记录观察：${check.target}` : '已经记录指定观察' }
     return { ...check, passed: Boolean(check.target && progress.answers[check.target]?.trim()), label: check.target ? `已回答：${check.target}` : '思考题已回答' }
   })
   const completedSteps = progress.steps.filter((step) => step.completed).length
   const complete = completedSteps === progress.steps.length && checks.every((check) => check.passed)
-  const failed = Object.values(progress.operations).some((operation) => operation.state === 'failed')
-  const changed = completedSteps > 0 || Object.keys(progress.answers).length > 0 || Object.keys(progress.observations).length > 0 || Object.values(progress.operations).some((operation) => operation.state !== 'not-run')
-  return { ...progress, checks, completedSteps, totalSteps: progress.steps.length, completionPercent: progress.steps.length ? Math.round(completedSteps / progress.steps.length * 100) : 0, state: complete ? 'completed' : failed ? 'needs-attention' : changed ? 'in-progress' : 'not-started', completedAt: complete ? progress.completedAt ?? new Date().toISOString() : undefined }
+  const needsAttention = Object.values(progress.operations).some((operation) => operation.state === 'failed' || operation.state === 'stale')
+  const changed = completedSteps > 0 || progress.appliedFiles.length > 0 || Object.keys(progress.answers).length > 0 || Object.keys(progress.observations).length > 0 || Object.values(progress.operations).some((operation) => operation.state !== 'not-run')
+  return { ...progress, checks, completedSteps, totalSteps: progress.steps.length, completionPercent: progress.steps.length ? Math.round(completedSteps / progress.steps.length * 100) : 0, state: complete ? 'completed' : needsAttention ? 'needs-attention' : changed ? 'in-progress' : 'not-started', completedAt: complete ? progress.completedAt ?? new Date().toISOString() : undefined }
+}
+
+function recordDemoSourceChange(workspaceId: string, kind: 'candidate-applied' | 'workspace-undone', changedFiles: string[] = []): void {
+  const { lesson, progress } = getDemoLessonProgress(workspaceId)
+  const now = new Date().toISOString()
+  const invalidated: CourseOperationKind[] = kind === 'candidate-applied' ? ['firmware-build', 'flash'] : ['candidate-build', 'firmware-build', 'flash']
+  for (const operationKind of invalidated) {
+    if (progress.operations[operationKind].state === 'not-run') continue
+    progress.operations[operationKind] = { state: 'stale', checkedAt: now, detail: '学生代码已变化，请重新检查。' }
+    const type = operationKind === 'candidate-build' ? 'candidate-build' : operationKind === 'firmware-build' ? 'firmware-build' : 'flash'
+    progress.steps = progress.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === type ? { stepId: step.stepId, completed: false } : step)
+  }
+  progress.appliedFiles = kind === 'candidate-applied' ? [...new Set([...progress.appliedFiles, ...changedFiles])] : []
+  progress.updatedAt = now
+  progress.completedAt = undefined
+  demoProgress.set(workspaceId, deriveDemoProgress(progress, lesson))
 }
 
 function recordDemoOperation(workspaceId: string, kind: CourseOperationKind, passed: boolean, detail: string): void {
@@ -285,7 +303,8 @@ export const browserDemoApi: RobotDogApi = {
       const answer = input.answer.trim()
       if (answer) progress.answers[input.questionId] = answer
       else delete progress.answers[input.questionId]
-      const questionStep = lesson.steps.find((step) => step.type === 'question')?.stepId
+      const questionStep = lesson.steps.find((step) => step.type === 'question' && step.questionId === input.questionId)?.stepId
+      if (!questionStep) throw new Error('问题没有关联实验步骤')
       progress.steps = progress.steps.map((step) => step.stepId === questionStep ? { stepId: step.stepId, completed: Boolean(answer), completedAt: answer ? now : undefined } : step)
     } else {
       const observation = input.observation.trim()
@@ -514,6 +533,7 @@ export const browserDemoApi: RobotDogApi = {
     const reverted = { ...workspace, headCommit: commit, updatedAt: new Date().toISOString() }
     demoWorkspaces = demoWorkspaces.map((item) => item.id === workspaceId ? reverted : item)
     demoHistories.set(workspaceId, [{ commit, shortCommit: commit.slice(0, 7), message: `Revert "${history[0].message}"`, createdAt: new Date().toISOString() }, ...history])
+    if (workspace.courseBinding) recordDemoSourceChange(workspaceId, 'workspace-undone')
     workspaceListeners.forEach((listener) => listener(structuredClone(reverted)))
     return structuredClone(reverted)
   },
@@ -553,8 +573,10 @@ export const browserDemoApi: RobotDogApi = {
     return manual
   },
   writeManualDraft: async (candidateId, path, _content) => {
-    if (!['Core/Src/student_control.c', 'student-config/line-following.yaml'].includes(path)) throw new Error('参考文件不能修改')
     const candidate = await browserDemoApi.getCandidate(candidateId)
+    const files = await browserDemoApi.listStudentCodeFiles(candidate.workspaceId, candidateId)
+    if (!files.some((file) => file.path === path && file.editable)) throw new Error('参考文件不能修改')
+    demoCandidateChangedFiles.set(candidateId, [...new Set([...(demoCandidateChangedFiles.get(candidateId) ?? []), path])])
     const updated = { ...candidate, origin: 'manual' as const, state: 'agent_running' as const, updatedAt: new Date().toISOString() }
     demoCandidates.set(candidateId, updated)
     candidateListeners.forEach((listener) => listener(structuredClone(updated)))
@@ -586,7 +608,7 @@ export const browserDemoApi: RobotDogApi = {
   },
   validateCandidate: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
-    const files = candidate.origin === 'manual' ? [{ path: 'Core/Src/student_control.c', status: 'modified' as const, bytes: 180, additions: 1, deletions: 1 }] : []
+    const files = candidate.origin === 'manual' ? (demoCandidateChangedFiles.get(candidateId) ?? []).map((path) => ({ path, status: 'modified' as const, bytes: 180, additions: 1, deletions: 1 })) : []
     const validated = { ...candidate, state: candidate.origin === 'manual' ? 'review_ready' as const : 'no_changes' as const, updatedAt: new Date().toISOString(), sourceTreeHash: candidate.origin === 'manual' ? '4'.repeat(64) : candidate.baseTreeHash, diffHash: candidate.origin === 'manual' ? '5'.repeat(64) : '0'.repeat(64), validation: { valid: true, policyVersion: 'student-v1:1', files, violations: [], warnings: [], changedFiles: files.length, patchBytes: files.length ? 180 : 0 } }
     demoCandidates.set(candidateId, validated)
     candidateListeners.forEach((listener) => listener(structuredClone(validated)))
@@ -615,6 +637,7 @@ export const browserDemoApi: RobotDogApi = {
     demoHistories.set(ready.id, [{ commit, shortCommit: commit.slice(0, 7), message: `feat(student): apply ${candidate.origin === 'manual' ? 'manual draft' : 'AI candidate'} ${candidateId.slice(5, 13)}`, createdAt: new Date().toISOString() }, ...history])
     candidateListeners.forEach((listener) => listener(structuredClone(applied)))
     workspaceListeners.forEach((listener) => listener(structuredClone(ready)))
+    if (workspace.courseBinding) recordDemoSourceChange(workspace.id, 'candidate-applied', candidate.validation?.files.map((file) => file.path) ?? [])
     return structuredClone(applied)
   },
   rejectCandidate: async (candidateId) => {

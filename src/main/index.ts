@@ -64,7 +64,8 @@ function createWindow(): void {
           if (!attempt || !lessonSummary) return undefined
           const lesson = await window.robotDog.getCourseLesson(attempt.courseBinding.courseId, attempt.courseBinding.lessonId)
           const files = await window.robotDog.listStudentCodeFiles(attempt.id)
-          const editable = files.find((file) => file.editable && file.path.endsWith('.c'))
+          const requiredChangedFile = lesson.completionChecks.find((check) => check.type === 'student-change-applied')?.target
+          const editable = files.find((file) => file.editable && file.path === requiredChangedFile) ?? files.find((file) => file.editable && file.path.endsWith('.c'))
           if (!editable) throw new Error('SMOKE_EDITABLE_FILE_MISSING')
           const draft = await window.robotDog.openManualDraft(attempt.id)
           await window.robotDog.writeManualDraft(draft.id, editable.path, editable.content + '\\n/* Electron smoke lesson edit */\\n')
@@ -84,17 +85,34 @@ function createWindow(): void {
         }
         const firstLessonResult = lessonAttempt ? await completeLesson(lessonAttempt, course?.lessons[0]) : undefined
         const secondLessonResult = secondLessonAttempt ? await completeLesson(secondLessonAttempt, course?.lessons[1]) : undefined
+        const invalidateCompletedLesson = async (attempt, lessonSummary) => {
+          if (!attempt || !lessonSummary) return undefined
+          const lesson = await window.robotDog.getCourseLesson(attempt.courseBinding.courseId, attempt.courseBinding.lessonId)
+          const requiredChangedFile = lesson.completionChecks.find((check) => check.type === 'student-change-applied')?.target
+          const files = await window.robotDog.listStudentCodeFiles(attempt.id)
+          const editable = files.find((file) => file.editable && file.path === requiredChangedFile)
+          if (!editable) throw new Error('SMOKE_INVALIDATION_FILE_MISSING')
+          const draft = await window.robotDog.openManualDraft(attempt.id)
+          await window.robotDog.writeManualDraft(draft.id, editable.path, editable.content + '\\n/* Source changed after completion */\\n')
+          await window.robotDog.validateCandidate(draft.id)
+          const built = await window.robotDog.buildCandidate(draft.id)
+          if (built.state !== 'build_passed') throw new Error('SMOKE_INVALIDATION_BUILD_FAILED')
+          await window.robotDog.applyCandidate(draft.id)
+          return window.robotDog.getCourseProgress(attempt.id)
+        }
+        const invalidatedFirstLessonProgress = firstLessonResult ? await invalidateCompletedLesson(lessonAttempt, course?.lessons[0]) : undefined
         const existing = await window.robotDog.listWorkspaces()
         const workspace = secondLessonAttempt ?? lessonAttempt ?? existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
           ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
         const firmware = secondLessonResult?.firmware ?? firstLessonResult?.firmware ?? await window.robotDog.startFirmwareBuild(workspace.id)
         return {
-          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed'))),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed' && invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['candidate-build'].state === 'passed' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'))),
           edition: activeEdition.id,
           courseCount: courses.length, lessonCount: course?.lessons.length ?? 0, lessonAttemptCount: lessonAttempts.length, secondLessonFileCount: secondLessonFiles.length,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
           releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
           firstLessonProgress: firstLessonResult?.progress.state, secondLessonProgress: secondLessonResult?.progress.state,
+          firstLessonAfterSourceChange: invalidatedFirstLessonProgress?.state,
           firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind)
         }
         } catch (error) {

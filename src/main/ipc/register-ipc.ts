@@ -69,6 +69,15 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     await courseProgress.recordOperation(workspace, lesson, kind, passed, detail, files)
   }
 
+  async function recordCourseSourceChange(workspaceId: string, kind: 'candidate-applied' | 'workspace-undone', changedFiles: string[] = []): Promise<void> {
+    if (!courseProgress || !courses || !workspaces) return
+    const workspace = await workspaces.get(workspaceId).catch(() => undefined)
+    if (!workspace?.courseBinding || workspace.workspacePurpose !== 'mcu-lesson-attempt') return
+    const lesson = await courses.getLesson(workspace.courseBinding.courseId, workspace.courseBinding.lessonId)
+    const files = candidates ? (await candidates.listStudentCodeFiles(workspaceId)).map((file) => file.path) : []
+    await courseProgress.recordSourceChange(workspace, lesson, kind, changedFiles, files)
+  }
+
   robot.on('status', statusListener)
   robot.on('log', logListener)
   robot.on('ccd', ccdListener)
@@ -174,6 +183,7 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     ipcMain.handle(IPC_CHANNELS.workspaceUndo, async (_event, workspaceId: unknown) => {
       if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
       const workspace = await workspaces.undoLast(workspaceId)
+      await recordCourseSourceChange(workspace.id, 'workspace-undone')
       sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
       return workspace
     })
@@ -261,9 +271,11 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       await recordCourseOperation(result.workspaceId, 'candidate-build', result.state === 'build_passed', result.error ?? (result.state === 'build_passed' ? '候选代码编译通过' : '候选代码编译未通过'))
       return result
     })
-    ipcMain.handle(IPC_CHANNELS.candidateApply, (_event, candidateId: unknown) => {
+    ipcMain.handle(IPC_CHANNELS.candidateApply, async (_event, candidateId: unknown) => {
       if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
-      return withCandidateEvent(() => candidates.apply(candidateId))
+      const result = await withCandidateEvent(() => candidates.apply(candidateId)) as CandidateSnapshot
+      await recordCourseSourceChange(result.workspaceId, 'candidate-applied', result.validation?.files.map((file) => file.path) ?? [])
+      return result
     })
     ipcMain.handle(IPC_CHANNELS.candidateReject, (_event, candidateId: unknown) => {
       if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')

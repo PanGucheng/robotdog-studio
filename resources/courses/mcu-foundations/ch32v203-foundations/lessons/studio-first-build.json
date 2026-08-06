@@ -63,11 +63,13 @@
     {
       "stepId": "reflect-build-flash",
       "type": "question",
+      "questionId": "build-versus-flash",
       "title": "区分编译与烧录",
       "instruction": "用自己的话说明：编译成功和程序已经进入开发板有什么不同？"
     }
   ],
   "completionChecks": [
+    { "type": "student-change-applied", "target": "App/Src/experiment.c" },
     { "type": "candidate-build-passed" },
     { "type": "firmware-build-passed" },
     { "type": "question-answered", "target": "build-versus-flash" }

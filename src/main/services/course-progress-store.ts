@@ -5,7 +5,7 @@ import type { CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseP
 
 const workspaceIdSchema = z.string().regex(/^ws_[a-f0-9]{24}$/)
 const operationSchema = z.object({
-  state: z.enum(['not-run', 'passed', 'failed']),
+  state: z.enum(['not-run', 'passed', 'failed', 'stale']),
   checkedAt: z.string().datetime().optional(),
   detail: z.string().max(240).optional()
 }).strict()
@@ -18,6 +18,7 @@ const storedProgressSchema = z.object({
   steps: z.array(z.object({ stepId: z.string().min(1).max(96), completed: z.boolean(), completedAt: z.string().datetime().optional() }).strict()),
   answers: z.record(z.string(), z.string().max(2_000)),
   observations: z.record(z.string(), z.string().max(2_000)),
+  appliedFiles: z.array(z.string().min(1).max(240)).default([]),
   operations: z.object({
     'candidate-build': operationSchema,
     'firmware-build': operationSchema,
@@ -37,6 +38,7 @@ type StoredProgress = z.infer<typeof storedProgressSchema>
 
 export class CourseProgressStore {
   private readonly rootDir: string
+  private readonly queues = new Map<string, Promise<void>>()
 
   constructor(rootDir: string) {
     this.rootDir = resolve(rootDir)
@@ -47,6 +49,10 @@ export class CourseProgressStore {
   }
 
   async get(workspace: WorkspaceSummary, lesson: CourseLesson, existingFiles: string[] = []): Promise<CourseProgressSnapshot> {
+    return this.serialize(workspace.id, () => this.getUnlocked(workspace, lesson, existingFiles))
+  }
+
+  private async getUnlocked(workspace: WorkspaceSummary, lesson: CourseLesson, existingFiles: string[]): Promise<CourseProgressSnapshot> {
     const { stored, recoveredFromCorruption } = await this.readOrCreate(workspace, lesson)
     const synchronized = this.synchronizeSteps(stored, lesson)
     if (JSON.stringify(synchronized.steps) !== JSON.stringify(stored.steps)) await this.write(synchronized)
@@ -54,6 +60,10 @@ export class CourseProgressStore {
   }
 
   async update(workspace: WorkspaceSummary, lesson: CourseLesson, input: CourseProgressUpdate, existingFiles: string[] = []): Promise<CourseProgressSnapshot> {
+    return this.serialize(workspace.id, () => this.updateUnlocked(workspace, lesson, input, existingFiles))
+  }
+
+  private async updateUnlocked(workspace: WorkspaceSummary, lesson: CourseLesson, input: CourseProgressUpdate, existingFiles: string[]): Promise<CourseProgressSnapshot> {
     const update = updateSchema.parse(input)
     const { stored } = await this.readOrCreate(workspace, lesson)
     const next = this.synchronizeSteps(stored, lesson)
@@ -68,7 +78,9 @@ export class CourseProgressStore {
       const answer = update.answer.trim()
       if (answer) next.answers[update.questionId] = answer
       else delete next.answers[update.questionId]
-      next.steps = this.markFirstStepOfType(next.steps, lesson, 'question', Boolean(answer), now)
+      const questionStepId = lesson.steps.find((step) => step.type === 'question' && step.questionId === update.questionId)?.stepId
+      if (!questionStepId) throw new Error('COURSE_PROGRESS_QUESTION_STEP_NOT_FOUND')
+      next.steps = this.markStep(next.steps, questionStepId, Boolean(answer), now)
     } else {
       const target = lesson.steps.find((step) => step.stepId === update.stepId)
       if (!target || !['serial-observation', 'hardware-observation'].includes(target.type)) throw new Error('COURSE_PROGRESS_OBSERVATION_NOT_FOUND')
@@ -87,6 +99,10 @@ export class CourseProgressStore {
   }
 
   async recordOperation(workspace: WorkspaceSummary, lesson: CourseLesson, kind: CourseOperationKind, passed: boolean, detail?: string, existingFiles: string[] = []): Promise<CourseProgressSnapshot> {
+    return this.serialize(workspace.id, () => this.recordOperationUnlocked(workspace, lesson, kind, passed, detail, existingFiles))
+  }
+
+  private async recordOperationUnlocked(workspace: WorkspaceSummary, lesson: CourseLesson, kind: CourseOperationKind, passed: boolean, detail: string | undefined, existingFiles: string[]): Promise<CourseProgressSnapshot> {
     const { stored } = await this.readOrCreate(workspace, lesson)
     const next = this.synchronizeSteps(stored, lesson)
     const now = new Date().toISOString()
@@ -100,6 +116,32 @@ export class CourseProgressStore {
     next.completedAt = snapshot.state === 'completed' ? next.completedAt ?? now : undefined
     await this.write(next)
     return this.toSnapshot(next, lesson, existingFiles)
+  }
+
+  async recordSourceChange(workspace: WorkspaceSummary, lesson: CourseLesson, kind: 'candidate-applied' | 'workspace-undone', changedFiles: string[] = [], existingFiles: string[] = []): Promise<CourseProgressSnapshot> {
+    return this.serialize(workspace.id, async () => {
+      const { stored } = await this.readOrCreate(workspace, lesson)
+      const next = this.synchronizeSteps(stored, lesson)
+      const now = new Date().toISOString()
+      const invalidatedKinds: CourseOperationKind[] = kind === 'candidate-applied'
+        ? ['firmware-build', 'flash']
+        : ['candidate-build', 'firmware-build', 'flash']
+      for (const operationKind of invalidatedKinds) {
+        if (next.operations[operationKind].state === 'not-run') continue
+        next.operations[operationKind] = { state: 'stale', checkedAt: now, detail: '学生代码已变化，请重新检查。' }
+        const stepType = operationKind === 'candidate-build' ? 'candidate-build' : operationKind === 'firmware-build' ? 'firmware-build' : 'flash'
+        next.steps = next.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === stepType
+          ? { stepId: step.stepId, completed: false }
+          : step)
+      }
+      next.appliedFiles = kind === 'candidate-applied'
+        ? [...new Set([...next.appliedFiles, ...changedFiles])]
+        : []
+      next.updatedAt = now
+      next.completedAt = undefined
+      await this.write(next)
+      return this.toSnapshot(next, lesson, existingFiles)
+    })
   }
 
   private async readOrCreate(workspace: WorkspaceSummary, lesson: CourseLesson): Promise<{ stored: StoredProgress; recoveredFromCorruption?: boolean }> {
@@ -130,7 +172,7 @@ export class CourseProgressStore {
       lessonId: lesson.lessonId,
       contentVersion: workspace.courseBinding!.contentVersion,
       steps: lesson.steps.map((step) => ({ stepId: step.stepId, completed: false })),
-      answers: {}, observations: {},
+      answers: {}, observations: {}, appliedFiles: [],
       operations: { 'candidate-build': { state: 'not-run' }, 'firmware-build': { state: 'not-run' }, flash: { state: 'not-run' } },
       createdAt: now, updatedAt: now
     }
@@ -145,17 +187,18 @@ export class CourseProgressStore {
     const files = new Set(existingFiles)
     const checks = lesson.completionChecks.map((check) => {
       if (check.type === 'file-exists') return { ...check, passed: Boolean(check.target && files.has(check.target)), label: check.target ? `文件存在：${check.target}` : '指定文件存在' }
+      if (check.type === 'student-change-applied') return { ...check, passed: check.target ? stored.appliedFiles.includes(check.target) : stored.appliedFiles.length > 0, label: check.target ? `已保存教学文件修改：${check.target}` : '已保存一次代码修改' }
       if (check.type === 'candidate-build-passed') return { ...check, passed: stored.operations['candidate-build'].state === 'passed', label: '候选代码编译通过' }
       if (check.type === 'firmware-build-passed') return { ...check, passed: stored.operations['firmware-build'].state === 'passed', label: '完整程序生成成功' }
       if (check.type === 'flash-succeeded') return { ...check, passed: stored.operations.flash.state === 'passed', label: '最近一次烧录成功' }
-      if (check.type === 'manual-observation-confirmed') return { ...check, passed: Object.values(stored.observations).some(Boolean), label: '已经记录人工观察' }
+      if (check.type === 'manual-observation-confirmed') return { ...check, passed: Boolean(check.target && stored.observations[check.target]?.trim()), label: check.target ? `已经记录观察：${check.target}` : '已经记录指定观察' }
       return { ...check, passed: Boolean(check.target && stored.answers[check.target]?.trim()), label: check.target ? `已回答：${check.target}` : '思考题已回答' }
     })
     const completedSteps = stored.steps.filter((step) => step.completed).length
-    const hasFailedOperation = Object.values(stored.operations).some((operation) => operation.state === 'failed')
+    const hasAttentionOperation = Object.values(stored.operations).some((operation) => operation.state === 'failed' || operation.state === 'stale')
     const complete = completedSteps === stored.steps.length && checks.every((check) => check.passed)
-    const changed = completedSteps > 0 || Object.keys(stored.answers).length > 0 || Object.keys(stored.observations).length > 0 || Object.values(stored.operations).some((operation) => operation.state !== 'not-run')
-    const state = complete ? 'completed' : hasFailedOperation ? 'needs-attention' : changed ? 'in-progress' : 'not-started'
+    const changed = completedSteps > 0 || stored.appliedFiles.length > 0 || Object.keys(stored.answers).length > 0 || Object.keys(stored.observations).length > 0 || Object.values(stored.operations).some((operation) => operation.state !== 'not-run')
+    const state = complete ? 'completed' : hasAttentionOperation ? 'needs-attention' : changed ? 'in-progress' : 'not-started'
     return {
       ...stored, checks, completedSteps, totalSteps: stored.steps.length,
       completionPercent: stored.steps.length ? Math.round((completedSteps / stored.steps.length) * 100) : 0,
@@ -163,8 +206,7 @@ export class CourseProgressStore {
     }
   }
 
-  private markFirstStepOfType(steps: StoredProgress['steps'], lesson: CourseLesson, type: CourseLesson['steps'][number]['type'], completed: boolean, now: string): StoredProgress['steps'] {
-    const target = lesson.steps.find((step) => step.type === type)?.stepId
+  private markStep(steps: StoredProgress['steps'], target: string, completed: boolean, now: string): StoredProgress['steps'] {
     return steps.map((step) => step.stepId === target ? { stepId: step.stepId, completed, completedAt: completed ? now : undefined } : step)
   }
 
@@ -183,5 +225,19 @@ export class CourseProgressStore {
     const temporary = `${path}.tmp`
     await writeFile(temporary, `${JSON.stringify(progress, null, 2)}\n`, 'utf8')
     await rename(temporary, path)
+  }
+
+  private async serialize<T>(workspaceId: string, task: () => Promise<T>): Promise<T> {
+    const previous = this.queues.get(workspaceId) ?? Promise.resolve()
+    let release = (): void => undefined
+    const current = new Promise<void>((resolveQueue) => { release = resolveQueue })
+    this.queues.set(workspaceId, current)
+    await previous.catch(() => undefined)
+    try {
+      return await task()
+    } finally {
+      release()
+      if (this.queues.get(workspaceId) === current) this.queues.delete(workspaceId)
+    }
   }
 }

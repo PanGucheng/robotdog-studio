@@ -21,7 +21,7 @@ for (const entry of catalog.courses) {
   requireValue(Array.isArray(course.lessonOrder) && course.lessonOrder.length > 0, `课程没有课次：${entry.courseId}`)
   const lessonIds = new Set(course.lessonOrder)
   requireValue(lessonIds.size === course.lessonOrder.length, `课次顺序存在重复 ID：${entry.courseId}`)
-  for (const lessonId of course.lessonOrder) {
+  for (const [lessonIndex, lessonId] of course.lessonOrder.entries()) {
     requireId(lessonId, 'lessonId')
     const lessonPath = `${entry.manifest.replace(/\\/g, '/').replace(/\/[^/]+$/, '')}/lessons/${lessonId}.json`
     const lesson = await readJsonInside(courseRoot, lessonPath)
@@ -30,7 +30,10 @@ for (const entry of catalog.courses) {
     requireValue(['none', 'optional', 'required'].includes(lesson.hardware), `课次硬件要求无效：${lessonId}`)
     requireValue(['not-required', 'pending-hardware-check', 'hardware-checked'].includes(lesson.verification), `课次验证状态无效：${lessonId}`)
     requireValue(Array.isArray(lesson.steps) && lesson.steps.length > 0, `课次没有实验步骤：${lessonId}`)
-    requireValue(Array.isArray(lesson.prerequisites) && lesson.prerequisites.every((item) => lessonIds.has(item) && item !== lessonId), `课次前置引用无效：${lessonId}`)
+    requireValue(Array.isArray(lesson.prerequisites) && lesson.prerequisites.every((item) => lessonIds.has(item) && course.lessonOrder.indexOf(item) < lessonIndex), `课次前置顺序无效：${lessonId}`)
+    const questionIds = new Set((lesson.reflectionQuestions ?? []).map((question) => question.questionId))
+    requireValue(lesson.steps.filter((step) => step.type === 'question').every((step) => typeof step.questionId === 'string' && questionIds.has(step.questionId)), `问题步骤映射无效：${lessonId}`)
+    requireValue((lesson.completionChecks ?? []).every((check) => check.type !== 'manual-observation-confirmed' || lesson.steps.some((step) => step.stepId === check.target && ['serial-observation', 'hardware-observation'].includes(step.type))), `观察完成条件映射无效：${lessonId}`)
     requireId(lesson.templateId, `templateId (${lessonId})`)
     const templateRoot = await resolveTemplateRoot(lesson.templateId)
     requireValue(await directoryExists(templateRoot), `课次模板不存在：${lesson.templateId}`)

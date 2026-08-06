@@ -27,7 +27,7 @@ function lesson(): CourseLesson {
       { stepId: 'read-entry', type: 'read', title: '阅读', instruction: '阅读入口' },
       { stepId: 'candidate-build', type: 'candidate-build', title: '预检', instruction: '运行预检' },
       { stepId: 'firmware-build', type: 'firmware-build', title: '构建', instruction: '生成程序' },
-      { stepId: 'reflect', type: 'question', title: '思考', instruction: '回答问题' }
+      { stepId: 'reflect', type: 'question', questionId: 'build-versus-flash', title: '思考', instruction: '回答问题' }
     ],
     completionChecks: [
       { type: 'file-exists', target: 'App/Src/experiment.c' },
@@ -85,5 +85,56 @@ describe('CourseProgressStore', () => {
     const failed = await store.recordOperation(workspace(), lesson(), 'candidate-build', false, '语法错误')
     expect(failed.state).toBe('needs-attention')
     expect(failed.operations['candidate-build']).toMatchObject({ state: 'failed', detail: '语法错误' })
+  })
+
+  it('invalidates source-dependent results after apply and undo without discarding manual learning notes', async () => {
+    const { store } = await fixture()
+    const currentLesson = lesson()
+    currentLesson.completionChecks.splice(1, 0, { type: 'student-change-applied', target: 'App/Src/experiment.c' })
+    const files = ['App/Src/experiment.c']
+    await store.update(workspace(), currentLesson, { kind: 'step', stepId: 'read-entry', completed: true }, files)
+    await store.update(workspace(), currentLesson, { kind: 'answer', questionId: 'build-versus-flash', answer: '编译和烧录不是同一步。' }, files)
+    await store.recordOperation(workspace(), currentLesson, 'candidate-build', true, '预检通过', files)
+    await store.recordSourceChange(workspace(), currentLesson, 'candidate-applied', ['App/Src/experiment.c'], files)
+    const completed = await store.recordOperation(workspace(), currentLesson, 'firmware-build', true, '固件生成成功', files)
+    expect(completed.state).toBe('completed')
+
+    const changed = await store.recordSourceChange(workspace(), currentLesson, 'candidate-applied', ['App/Src/experiment.c'], files)
+    expect(changed.state).toBe('needs-attention')
+    expect(changed.operations['candidate-build'].state).toBe('passed')
+    expect(changed.operations['firmware-build'].state).toBe('stale')
+    expect(changed.answers['build-versus-flash']).toBeTruthy()
+
+    const undone = await store.recordSourceChange(workspace(), currentLesson, 'workspace-undone', [], files)
+    expect(undone.operations['candidate-build'].state).toBe('stale')
+    expect(undone.appliedFiles).toEqual([])
+    expect(undone.completedAt).toBeUndefined()
+  })
+
+  it('serializes concurrent writes and maps each answer and observation to its own step', async () => {
+    const { store } = await fixture()
+    const multi = lesson()
+    multi.steps = [
+      { stepId: 'question-one-step', type: 'question', questionId: 'question-one', title: '问题一', instruction: '回答一' },
+      { stepId: 'question-two-step', type: 'question', questionId: 'question-two', title: '问题二', instruction: '回答二' },
+      { stepId: 'observe-one', type: 'hardware-observation', title: '观察一', instruction: '记录一' },
+      { stepId: 'observe-two', type: 'serial-observation', title: '观察二', instruction: '记录二' }
+    ]
+    multi.reflectionQuestions = [{ questionId: 'question-one', prompt: '问题一？' }, { questionId: 'question-two', prompt: '问题二？' }]
+    multi.completionChecks = [
+      { type: 'question-answered', target: 'question-one' }, { type: 'question-answered', target: 'question-two' },
+      { type: 'manual-observation-confirmed', target: 'observe-one' }, { type: 'manual-observation-confirmed', target: 'observe-two' }
+    ]
+    await Promise.all([
+      store.update(workspace(), multi, { kind: 'answer', questionId: 'question-one', answer: '答案一' }),
+      store.update(workspace(), multi, { kind: 'answer', questionId: 'question-two', answer: '答案二' }),
+      store.update(workspace(), multi, { kind: 'observation', stepId: 'observe-one', observation: '现象一' }),
+      store.update(workspace(), multi, { kind: 'observation', stepId: 'observe-two', observation: '现象二' })
+    ])
+    const result = await store.get(workspace(), multi)
+    expect(result.answers).toEqual({ 'question-one': '答案一', 'question-two': '答案二' })
+    expect(result.observations).toEqual({ 'observe-one': '现象一', 'observe-two': '现象二' })
+    expect(result.steps.every((step) => step.completed)).toBe(true)
+    expect(result.checks.every((check) => check.passed)).toBe(true)
   })
 })

@@ -49,10 +49,11 @@ const lessonManifestSchema = z.object({
     stepId: idSchema,
     type: z.enum(['read', 'edit', 'candidate-build', 'review-apply', 'firmware-build', 'flash', 'serial-observation', 'hardware-observation', 'question', 'summary']),
     title: z.string().min(1).max(80),
-    instruction: z.string().min(1).max(500)
+    instruction: z.string().min(1).max(500),
+    questionId: idSchema.optional()
   }).strict()).min(1),
   completionChecks: z.array(z.object({
-    type: z.enum(['file-exists', 'candidate-build-passed', 'firmware-build-passed', 'flash-succeeded', 'manual-observation-confirmed', 'question-answered']),
+    type: z.enum(['file-exists', 'student-change-applied', 'candidate-build-passed', 'firmware-build-passed', 'flash-succeeded', 'manual-observation-confirmed', 'question-answered']),
     target: z.string().min(1).max(160).optional()
   }).strict()),
   reflectionQuestions: z.array(z.object({ questionId: idSchema, prompt: z.string().min(1).max(300) }).strict()),
@@ -200,7 +201,23 @@ export class CourseService {
       const lesson = await this.readAndParse(relativePath, lessonManifestSchema, 'COURSE_LESSON')
       if (lesson.courseId !== course.courseId || lesson.lessonId !== lessonId) throw new Error(`COURSE_LESSON_ID_MISMATCH:${lessonId}`)
       for (const prerequisite of lesson.prerequisites) {
-        if (!lessonIds.has(prerequisite) || prerequisite === lessonId) throw new Error(`COURSE_PREREQUISITE_INVALID:${lessonId}:${prerequisite}`)
+        if (!lessonIds.has(prerequisite) || course.lessonOrder.indexOf(prerequisite) >= order) throw new Error(`COURSE_PREREQUISITE_ORDER_INVALID:${lessonId}:${prerequisite}`)
+      }
+      const stepIds = new Set(lesson.steps.map((step) => step.stepId))
+      if (stepIds.size !== lesson.steps.length) throw new Error(`COURSE_STEP_ID_DUPLICATE:${lessonId}`)
+      const questionIds = new Set(lesson.reflectionQuestions.map((question) => question.questionId))
+      if (questionIds.size !== lesson.reflectionQuestions.length) throw new Error(`COURSE_QUESTION_ID_DUPLICATE:${lessonId}`)
+      const mappedQuestions = new Set<string>()
+      for (const step of lesson.steps) {
+        if (step.type === 'question') {
+          if (!step.questionId || !questionIds.has(step.questionId) || mappedQuestions.has(step.questionId)) throw new Error(`COURSE_QUESTION_STEP_INVALID:${lessonId}:${step.stepId}`)
+          mappedQuestions.add(step.questionId)
+        } else if (step.questionId) throw new Error(`COURSE_QUESTION_STEP_INVALID:${lessonId}:${step.stepId}`)
+      }
+      for (const check of lesson.completionChecks) {
+        if (check.type === 'question-answered' && (!check.target || !questionIds.has(check.target))) throw new Error(`COURSE_QUESTION_CHECK_INVALID:${lessonId}`)
+        if (check.type === 'manual-observation-confirmed' && (!check.target || !lesson.steps.some((step) => step.stepId === check.target && ['serial-observation', 'hardware-observation'].includes(step.type)))) throw new Error(`COURSE_OBSERVATION_CHECK_INVALID:${lessonId}`)
+        if (check.type === 'student-change-applied' && check.target && !lesson.editableGlobs.includes(check.target)) throw new Error(`COURSE_CHANGE_CHECK_INVALID:${lessonId}:${check.target}`)
       }
       lessons.push({ ...lesson, order })
     }

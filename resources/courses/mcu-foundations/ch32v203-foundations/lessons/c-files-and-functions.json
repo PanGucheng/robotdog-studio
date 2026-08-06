@@ -44,7 +44,7 @@
       "stepId": "implement-helper",
       "type": "edit",
       "title": "实现辅助函数",
-      "instruction": "补全一个带参数和返回值的辅助函数，并从 experiment.c 调用它。"
+      "instruction": "补全 number_tools.c 中辅助函数的限幅逻辑，并核对 experiment.c 中的调用是否与头文件声明一致。"
     },
     {
       "stepId": "candidate-build",
@@ -67,6 +67,7 @@
     {
       "stepId": "reflect-header",
       "type": "question",
+      "questionId": "header-purpose",
       "title": "总结头文件作用",
       "instruction": "说明为什么函数声明通常放在头文件中。"
     }
@@ -74,6 +75,7 @@
   "completionChecks": [
     { "type": "file-exists", "target": "App/Inc/number_tools.h" },
     { "type": "file-exists", "target": "App/Src/number_tools.c" },
+    { "type": "student-change-applied", "target": "App/Src/number_tools.c" },
     { "type": "candidate-build-passed" },
     { "type": "firmware-build-passed" },
     { "type": "question-answered", "target": "header-purpose" }

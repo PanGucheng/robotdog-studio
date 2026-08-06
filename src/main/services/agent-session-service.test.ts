@@ -65,11 +65,12 @@ describe('AgentSessionService', () => {
     })
     const events: AgentEvent[] = []
     service.on('event', (event) => events.push(event))
-    await service.prompt(workspaceId, '请帮我修改函数')
+    await service.prompt(workspaceId, '请帮我修改本课的函数')
     await waitUntilIdle(service)
     expect(requestedKinds).toEqual(['modify'])
-    expect(adapter.contexts[0].message).toContain('lesson-one')
-    expect(events[0]).toMatchObject({ type: 'turn_started', message: '请帮我修改函数' })
+    expect(adapter.contexts[0].message).toBe('请帮我修改本课的函数')
+    expect(adapter.contexts[0].courseContext).toContain('lesson-one')
+    expect(events[0]).toMatchObject({ type: 'turn_started', message: '请帮我修改本课的函数' })
   })
 
   it('cancels a running turn and removes its candidate worktree', async () => {

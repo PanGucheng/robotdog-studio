@@ -5,7 +5,20 @@
 
 ## 1. 结论
 
-课程软件框架和两个无硬件示例课已经完成。第三个硬件占位课保持 `draft + pending-hardware-check`：开发模式可查看课程结构和警告，但“开始学习”禁用；正式包不显示 draft 课。该状态是预期发布门禁，不代表已经验证接线、烧录或硬件现象。
+课程框架首个可用版本和两个无硬件示例课已经形成闭环。第三个硬件占位课保持 `draft + pending-hardware-check`：开发模式可查看课程结构和警告，但“开始学习”禁用；正式包不显示 draft 课。该状态是预期发布门禁，不代表已经验证接线、烧录或硬件现象。
+
+## 1.1 后续代码审阅修正
+
+2026-08-06 的追加审阅指出了完成状态和扩展性问题，现已修正：
+
+- 应用新候选修改会使旧完整固件和烧录结果过期；执行撤销还会使候选预检过期，课程转为“需处理”。
+- 第二课起始模板保留可编译的 TODO 限幅逻辑，并要求 `number_tools.c` 确实应用过非空修改。
+- 同一工作区的进度读改写串行执行，避免并发覆盖。
+- 多问题用 `questionId`、多观察用目标步骤 ID 精确关联。
+- 前置课必须位于当前课之前，自然拒绝逆序与循环依赖。
+- 普通 AI 对话不再根据“本课”等自然语言猜测总结任务；Main 课程上下文与学生原话分别传递，并在提示词中置于可信区域。
+
+课程 `contentVersion` 因已发布内容修正递增为 2。
 
 ## 2. 免安装界面点击结果
 
@@ -27,7 +40,7 @@
 ```text
 typecheck                         通过
 courses:validate                 MCU_COURSES_OK courses=1 lessons=3
-vitest                           28 files / 123 tests 通过，1 file / 1 test 条件跳过
+vitest                           28 files / 127 tests 通过，1 file / 1 test 条件跳过
 smoke:electron:fun               通过，courseCount=0
 smoke:electron:mcu               通过，courseCount=1、lessonCount=3
 第一课无硬件闭环                 completed

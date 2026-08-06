@@ -309,7 +309,9 @@ export function App(): React.JSX.Element {
     if (workspace?.workspacePurpose !== 'mcu-lesson-attempt') return
     const progress = await api.getCourseProgress(workspaceId)
     setCourseProgress(progress)
-    if (progress.state === 'completed') setCompletedLessonIds((current) => current.includes(progress.lessonId) ? current : [...current, progress.lessonId])
+    setCompletedLessonIds((current) => progress.state === 'completed'
+      ? current.includes(progress.lessonId) ? current : [...current, progress.lessonId]
+      : current.filter((lessonId) => lessonId !== progress.lessonId))
   }
 
   useEffect(() => {
@@ -431,6 +433,7 @@ export function App(): React.JSX.Element {
       const [items, history] = await Promise.all([api.listWorkspaces(), api.getWorkspaceHistory(applied.workspaceId, 20)])
       setWorkspaces(items)
       setWorkspaceHistory(history)
+      await refreshCourseProgress(applied.workspaceId)
       setLearningDestination('编译 / 烧录')
     })
   }
@@ -440,6 +443,7 @@ export function App(): React.JSX.Element {
       const workspace = await api.undoWorkspace(activeWorkspaceId)
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setWorkspaceHistory(await api.getWorkspaceHistory(activeWorkspaceId, 20))
+      await refreshCourseProgress(activeWorkspaceId)
     })
   }
 

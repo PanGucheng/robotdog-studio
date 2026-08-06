@@ -24,6 +24,16 @@ describe('student agent prompt', () => {
     expect(prompt).not.toContain('D:\\RobotDog')
   })
 
+  it('places Main-provided course context in a trusted section outside the student request', () => {
+    const courseContext = '<course_context_json>{"lessonId":"lesson-one"}</course_context_json>'
+    const message = '请修改本课的函数'
+    const prompt = buildStudentAgentPrompt(message, { policyVersion: 'mcu-foundations-v1:1', trustedCourseContext: courseContext })
+    expect(prompt).toContain('Studio 可信课程上下文')
+    expect(prompt.indexOf(courseContext)).toBeLessThan(prompt.indexOf('<student_request_json>'))
+    expect(prompt).toContain(JSON.stringify(message))
+    expect(prompt).not.toContain(JSON.stringify(`${message}\n${courseContext}`))
+  })
+
   it('keeps selected-code explanation explicit and read-only', () => {
     const prompt = buildStudentCodeExplanationPrompt('selection', 'if (line > 64) turn_left();', [{ path: 'Core/Src/student_control.c', content: 'example' }])
     expect(prompt).toContain('这次只做代码讲解')

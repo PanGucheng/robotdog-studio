@@ -756,6 +756,7 @@ html .workspace-picker button { min-height: 30px; font-size: 12px; }
 .course-operation-row small { color: #82919a; font-size: 9px; line-height: 1.4; }
 .course-operation-row.is-passed > svg { color: #128158; background: #e5f5ed; }
 .course-operation-row.is-failed > svg { color: #ad453a; background: #fcebe8; }
+.course-operation-row.is-stale > svg { color: #9a681f; background: #fff3d8; }
 .course-reference-note { margin: 8px 0 0; padding: 8px 9px; color: #7a8b95; border-radius: 7px; background: #f2f6f7; font-size: 9px; line-height: 1.5; }
 .course-question-board label { display: grid; gap: 7px; color: #3b5b6c; font-size: 11px; line-height: 1.55; }
 .course-question-board button { justify-self: end; }

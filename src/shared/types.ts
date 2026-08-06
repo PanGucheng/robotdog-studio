@@ -210,7 +210,7 @@ export interface CourseLesson extends CourseLessonSummary {
   editableGlobs: string[]
   readableFiles: string[]
   deniedGlobs: string[]
-  steps: Array<{ stepId: string; type: string; title: string; instruction: string }>
+  steps: Array<{ stepId: string; type: string; title: string; instruction: string; questionId?: string }>
   completionChecks: Array<{ type: string; target?: string }>
   reflectionQuestions: Array<{ questionId: string; prompt: string }>
   aiContext: { teachingFocus: string; hints: string[] }
@@ -218,7 +218,7 @@ export interface CourseLesson extends CourseLessonSummary {
 
 export type CourseAttemptState = 'not-started' | 'in-progress' | 'needs-attention' | 'completed'
 export type CourseOperationKind = 'candidate-build' | 'firmware-build' | 'flash'
-export type CourseOperationState = 'not-run' | 'passed' | 'failed'
+export type CourseOperationState = 'not-run' | 'passed' | 'failed' | 'stale'
 
 export interface CourseOperationProgress {
   state: CourseOperationState
@@ -248,6 +248,7 @@ export interface CourseProgressSnapshot {
   steps: CourseStepProgress[]
   answers: Record<string, string>
   observations: Record<string, string>
+  appliedFiles: string[]
   operations: Record<CourseOperationKind, CourseOperationProgress>
   checks: CourseCompletionCheckResult[]
   completedSteps: number

@@ -26,7 +26,7 @@ const timeout = setTimeout(() => {
   child.kill()
   console.error('\nElectron smoke test timed out.\n' + output)
   process.exitCode = 1
-}, 30_000)
+}, 60_000)
 
 child.on('error', (error) => {
   clearTimeout(timeout)
@@ -47,5 +47,5 @@ child.on('exit', async (code) => {
 })
 
 async function cleanup() {
-  await rm(smokeUserData, { recursive: true, force: true })
+  await rm(smokeUserData, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }

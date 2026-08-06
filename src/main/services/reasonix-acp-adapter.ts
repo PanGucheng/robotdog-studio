@@ -102,7 +102,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
       emit({ type: 'activity', sequence: ++sequence, label: context.readOnly ? 'Reasonix 正在用中文解释错误' : 'Reasonix 已连接，正在修改候选副本', state: context.readOnly ? 'thinking' : 'editing' })
       const result = await process.client.request<{ stopReason: string }>('session/prompt', {
         sessionId,
-        prompt: [{ type: 'text', text: context.readOnly ? context.message : buildStudentAgentPrompt(context.message, { policyVersion: context.policyVersion }) }]
+        prompt: [{ type: 'text', text: context.readOnly ? context.message : buildStudentAgentPrompt(context.message, { policyVersion: context.policyVersion, trustedCourseContext: context.courseContext }) }]
       }, 10 * 60_000)
       if (result.stopReason === 'error') throw new Error('AGENT_CRASHED')
       if (result.stopReason === 'cancelled' || signal.aborted) throw signal.reason ?? new Error('AGENT_CANCELLED')

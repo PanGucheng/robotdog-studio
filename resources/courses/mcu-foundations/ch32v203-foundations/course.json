@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "courseId": "ch32v203-foundations",
-  "contentVersion": 1,
+  "contentVersion": 2,
   "title": "CH32V203 单片机入门",
   "summary": "从读懂工程、编译程序开始，逐步认识 C 文件组织和真实开发板实验。",
   "audience": "电子类专业大学低年级学生",
