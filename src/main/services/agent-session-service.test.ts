@@ -56,6 +56,22 @@ describe('AgentSessionService', () => {
     expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'student-config', 'line-following.yaml'), 'utf8')).toContain('turn_strength: 18')
   })
 
+  it('injects trusted course context without changing the visible student message', async () => {
+    const adapter = new ContextCaptureAdapter()
+    const requestedKinds: string[] = []
+    const service = new AgentSessionService(candidates, adapter, async (_workspaceId, taskKind) => {
+      requestedKinds.push(taskKind)
+      return '<course_context_json>{"lessonId":"lesson-one"}</course_context_json>'
+    })
+    const events: AgentEvent[] = []
+    service.on('event', (event) => events.push(event))
+    await service.prompt(workspaceId, '请帮我修改函数')
+    await waitUntilIdle(service)
+    expect(requestedKinds).toEqual(['modify'])
+    expect(adapter.contexts[0].message).toContain('lesson-one')
+    expect(events[0]).toMatchObject({ type: 'turn_started', message: '请帮我修改函数' })
+  })
+
   it('cancels a running turn and removes its candidate worktree', async () => {
     const service = new AgentSessionService(candidates, new MockReasonixAdapter({ stepDelayMs: 100 }))
     const events: AgentEvent[] = []
@@ -220,6 +236,17 @@ describe('AgentSessionService', () => {
     expect((await candidates.get(turn.candidateId!)).state).toBe('review_ready')
   })
 })
+
+class ContextCaptureAdapter implements ReasonixAdapter {
+  readonly kind = 'mock' as const
+  readonly contexts: AdapterTurnContext[] = []
+
+  async runTurn(context: AdapterTurnContext, emit: (event: AdapterEvent | unknown) => void): Promise<{ summary: string }> {
+    this.contexts.push(context)
+    emit({ type: 'assistant_delta', sequence: 1, text: '我会结合当前课程处理。' })
+    return { summary: 'done' }
+  }
+}
 
 class PermissionFixtureAdapter implements ReasonixAdapter {
   readonly kind = 'reasonix' as const

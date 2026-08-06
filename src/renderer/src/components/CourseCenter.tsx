@@ -9,6 +9,7 @@ interface CourseCenterProps {
   error?: string
   attempts: WorkspaceSummary[]
   busy: boolean
+  completedLessonIds: string[]
   onSelectLesson(lessonId: string): void
   onCreateLessonAttempt(lessonId: string): Promise<boolean>
   onContinueAttempt(workspaceId: string): void
@@ -20,7 +21,7 @@ const hardwareLabels = {
   required: '需要开发板'
 } as const
 
-export function CourseCenter({ courses, course, lesson, loading, error, attempts, busy, onSelectLesson, onCreateLessonAttempt, onContinueAttempt }: CourseCenterProps): React.JSX.Element {
+export function CourseCenter({ courses, course, lesson, loading, error, attempts, busy, completedLessonIds, onSelectLesson, onCreateLessonAttempt, onContinueAttempt }: CourseCenterProps): React.JSX.Element {
   if (loading && !course) {
     return <div className="course-center-state"><Cpu className="spin" size={22} /><strong>正在读取课程目录</strong><span>课程内容保存在本机，可离线使用。</span></div>
   }
@@ -52,7 +53,7 @@ export function CourseCenter({ courses, course, lesson, loading, error, attempts
           <div className="course-rail-heading"><GraduationCap size={16} /><span><strong>课程路径</strong><small>{courses.length} 门本地课程</small></span></div>
           <div className="course-rail-track">
             {course.lessons.map((item) => (
-              <LessonRailButton key={item.lessonId} lesson={item} active={lesson?.lessonId === item.lessonId} onSelect={onSelectLesson} />
+              <LessonRailButton key={item.lessonId} lesson={item} active={lesson?.lessonId === item.lessonId} completed={completedLessonIds.includes(item.lessonId)} onSelect={onSelectLesson} />
             ))}
           </div>
         </aside>
@@ -98,7 +99,11 @@ export function CourseCenter({ courses, course, lesson, loading, error, attempts
               <span>{lesson.status === 'draft' ? '硬件课通过真机检查并发布后才能创建练习。' : attempts.length > 0 ? `已保留 ${attempts.length} 次独立练习。` : '将从本课专用模板创建独立工程。'}</span>
               <div>
                 {attempts[0] && <button type="button" onClick={() => onContinueAttempt(attempts[0].id)} disabled={busy}><BookOpenCheck size={16} /> 继续上次练习</button>}
-                <button type="button" className="course-start-button" disabled={busy || lesson.status !== 'published' || lesson.verification === 'pending-hardware-check'} onClick={() => void onCreateLessonAttempt(lesson.lessonId)}>{attempts.length > 0 ? '新建练习' : '开始学习'}</button>
+                <button type="button" className="course-start-button" disabled={busy || lesson.status !== 'published' || lesson.verification === 'pending-hardware-check'} onClick={() => {
+                  const incomplete = lesson.prerequisites.filter((lessonId) => !completedLessonIds.includes(lessonId))
+                  if (incomplete.length > 0 && !window.confirm('建议先完成前置课。这个练习可以独立进行，是否仍要开始？')) return
+                  void onCreateLessonAttempt(lesson.lessonId)
+                }}>{attempts.length > 0 ? '新建练习' : '开始学习'}</button>
               </div>
             </footer>
             {attempts.length > 0 && <div className="lesson-attempts"><span className="eyebrow">练习记录</span>{attempts.map((attempt) => <button type="button" key={attempt.id} onClick={() => onContinueAttempt(attempt.id)}><strong>第 {attempt.courseBinding?.attemptNumber} 次</strong><span>{attempt.name}</span><small>{new Date(attempt.createdAt).toLocaleString('zh-CN', { hour12: false })}</small></button>)}</div>}
@@ -109,12 +114,12 @@ export function CourseCenter({ courses, course, lesson, loading, error, attempts
   )
 }
 
-function LessonRailButton({ lesson, active, onSelect }: { lesson: CourseLessonSummary; active: boolean; onSelect(lessonId: string): void }): React.JSX.Element {
+function LessonRailButton({ lesson, active, completed, onSelect }: { lesson: CourseLessonSummary; active: boolean; completed: boolean; onSelect(lessonId: string): void }): React.JSX.Element {
   return (
     <button type="button" className={active ? 'active' : ''} onClick={() => onSelect(lesson.lessonId)} aria-current={active ? 'step' : undefined}>
       <span className="lesson-node">{String(lesson.order + 1).padStart(2, '0')}</span>
       <span className="lesson-rail-copy"><strong>{lesson.title}</strong><small>{lesson.estimatedMinutes} 分钟 · {hardwareLabels[lesson.hardware]}</small></span>
-      <ChevronRight size={15} />
+      {completed ? <BookOpenCheck size={15} /> : <ChevronRight size={15} />}
     </button>
   )
 }

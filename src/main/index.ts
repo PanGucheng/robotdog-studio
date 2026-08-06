@@ -17,6 +17,7 @@ import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
 import { CourseService } from './services/course-service'
+import { CourseProgressStore } from './services/course-progress-store'
 import { DEFAULT_EDITION_ID, getEditionProfile, parseEditionId } from '../shared/edition'
 
 const robot = new MockRobotService()
@@ -49,6 +50,7 @@ function createWindow(): void {
     window.webContents.once('did-finish-load', async () => {
       const result = await window.webContents.executeJavaScript(`(async () => {
         if (!window.robotDog) return { ok: false, reason: 'preload missing' }
+        try {
         const [toolchain, baseline, runtime, activeEdition] = await Promise.all([
           window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo(), window.robotDog.getEditionProfile()
         ])
@@ -58,17 +60,45 @@ function createWindow(): void {
         const secondLessonAttempt = course?.lessons[1] ? await window.robotDog.createLessonAttempt({ courseId: course.courseId, lessonId: course.lessons[1].lessonId, studentDisplayName: '测试同学' }) : undefined
         const lessonAttempts = course?.lessons[0] ? await window.robotDog.listLessonAttempts(course.courseId, course.lessons[0].lessonId) : []
         const secondLessonFiles = secondLessonAttempt ? await window.robotDog.listStudentCodeFiles(secondLessonAttempt.id) : []
+        const completeLesson = async (attempt, lessonSummary) => {
+          if (!attempt || !lessonSummary) return undefined
+          const lesson = await window.robotDog.getCourseLesson(attempt.courseBinding.courseId, attempt.courseBinding.lessonId)
+          const files = await window.robotDog.listStudentCodeFiles(attempt.id)
+          const editable = files.find((file) => file.editable && file.path.endsWith('.c'))
+          if (!editable) throw new Error('SMOKE_EDITABLE_FILE_MISSING')
+          const draft = await window.robotDog.openManualDraft(attempt.id)
+          await window.robotDog.writeManualDraft(draft.id, editable.path, editable.content + '\\n/* Electron smoke lesson edit */\\n')
+          const validated = await window.robotDog.validateCandidate(draft.id)
+          if (validated.state !== 'review_ready') throw new Error('SMOKE_CANDIDATE_VALIDATE_FAILED')
+          const built = await window.robotDog.buildCandidate(draft.id)
+          if (built.state !== 'build_passed') throw new Error('SMOKE_CANDIDATE_BUILD_FAILED')
+          await window.robotDog.applyCandidate(draft.id)
+          for (const step of lesson.steps.filter((item) => ['read', 'edit', 'review-apply', 'summary'].includes(item.type))) {
+            await window.robotDog.updateCourseProgress(attempt.id, { kind: 'step', stepId: step.stepId, completed: true })
+          }
+          for (const question of lesson.reflectionQuestions) {
+            await window.robotDog.updateCourseProgress(attempt.id, { kind: 'answer', questionId: question.questionId, answer: '自动冒烟回答：已理解本课要求，并会根据实际编译结果继续检查。' })
+          }
+          const firmware = await window.robotDog.startFirmwareBuild(attempt.id)
+          return { firmware, progress: await window.robotDog.getCourseProgress(attempt.id) }
+        }
+        const firstLessonResult = lessonAttempt ? await completeLesson(lessonAttempt, course?.lessons[0]) : undefined
+        const secondLessonResult = secondLessonAttempt ? await completeLesson(secondLessonAttempt, course?.lessons[1]) : undefined
         const existing = await window.robotDog.listWorkspaces()
         const workspace = secondLessonAttempt ?? lessonAttempt ?? existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
           ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
-        const firmware = await window.robotDog.startFirmwareBuild(workspace.id)
+        const firmware = secondLessonResult?.firmware ?? firstLessonResult?.firmware ?? await window.robotDog.startFirmwareBuild(workspace.id)
         return {
-          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable)))),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed'))),
           edition: activeEdition.id,
           courseCount: courses.length, lessonCount: course?.lessons.length ?? 0, lessonAttemptCount: lessonAttempts.length, secondLessonFileCount: secondLessonFiles.length,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
           releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
+          firstLessonProgress: firstLessonResult?.progress.state, secondLessonProgress: secondLessonResult?.progress.state,
           firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind)
+        }
+        } catch (error) {
+          return { ok: false, reason: String(error?.stack ?? error) }
         }
       })()`)
       console.log(result.ok ? `ROBOTDOG_SMOKE_OK ${JSON.stringify(result)}` : `ROBOTDOG_SMOKE_FAILED ${JSON.stringify(result)}`)
@@ -116,6 +146,15 @@ app.whenReady().then(async () => {
   const toolchain = new ToolchainService()
   const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(toolchain, join(workspaceRoot, 'build-cache')) })
   await candidates.initialize()
+  const courses = edition.id === 'mcu-foundations'
+    ? new CourseService({
+        rootDir: join(staticRoot, 'courses', 'mcu-foundations'),
+        templatesRoot: join(staticRoot, 'workspace-templates', 'ch32v203-mcu-lessons'),
+        includeDrafts: !app.isPackaged
+      })
+    : undefined
+  const courseProgress = courses ? new CourseProgressStore(join(workspaceRoot, 'course-progress')) : undefined
+  await courseProgress?.initialize()
   const reasonixRuntime = await readReasonixRuntimeManifest(app.getAppPath(), staticRoot)
   const reasonixVersion = reasonixRuntime.version
   const processes = new ReasonixProcessManager({
@@ -127,7 +166,14 @@ app.whenReady().then(async () => {
   const secrets = new DeepSeekSecretStore(join(app.getPath('userData'), 'secure', 'deepseek-api-key.bin'))
   const agentHistory = new AgentHistoryService(join(workspaceRoot, 'conversations'))
   await agentHistory.initialize()
-  const agents = new AgentSessionService(candidates, new ReasonixAcpAdapter(processes, () => secrets.get()))
+  const agents = new AgentSessionService(candidates, new ReasonixAcpAdapter(processes, () => secrets.get()), courses && courseProgress ? async (workspaceId, taskKind) => {
+    const workspace = await workspaces.get(workspaceId)
+    if (!workspace.courseBinding || workspace.workspacePurpose !== 'mcu-lesson-attempt') return undefined
+    const lesson = await courses.getLesson(workspace.courseBinding.courseId, workspace.courseBinding.lessonId)
+    const files = (await candidates.listStudentCodeFiles(workspaceId)).map((file) => file.path)
+    const progress = await courseProgress.get(workspace, lesson, files)
+    return courses.buildAiContext(workspace.courseBinding.courseId, workspace.courseBinding.lessonId, taskKind, progress)
+  } : undefined)
   const firmwareBuild = new FirmwareBuildService(toolchain, { baseline, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
   await firmwareBuild.initialize()
   const runtime = { secrets, processes, version: reasonixVersion }
@@ -143,14 +189,7 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  const courses = edition.id === 'mcu-foundations'
-    ? new CourseService({
-        rootDir: join(staticRoot, 'courses', 'mcu-foundations'),
-        templatesRoot: join(staticRoot, 'workspace-templates', 'ch32v203-mcu-lessons'),
-        includeDrafts: !app.isPackaged
-      })
-    : undefined
-  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses)
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, undefined, courseProgress)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

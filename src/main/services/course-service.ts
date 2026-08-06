@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { z } from 'zod'
-import type { CourseDetail, CourseLesson, CourseLessonSummary, CourseSummary } from '../../shared/types'
+import type { CourseDetail, CourseLesson, CourseLessonSummary, CourseProgressSnapshot, CourseSummary } from '../../shared/types'
 import type { WorkspaceCreationSpec } from './workspace-service'
 
 const idSchema = z.string().min(1).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
@@ -69,6 +69,8 @@ export interface CourseServiceOptions {
   includeDrafts?: boolean
 }
 
+export type CourseAiTaskKind = 'modify' | 'explain-code' | 'explain-diagnostic' | 'repair' | 'summary'
+
 export class CourseService {
   private readonly rootDir: string
   private readonly templatesRoot?: string
@@ -120,6 +122,47 @@ export class CourseService {
       allowedEditGlobs: [...lesson.editableGlobs],
       deniedGlobs: [...lesson.deniedGlobs]
     }
+  }
+
+  async buildAiContext(courseId: string, lessonId: string, taskKind: CourseAiTaskKind, progress?: CourseProgressSnapshot): Promise<string> {
+    const [course, lesson] = await Promise.all([this.getCourse(courseId), this.getLesson(courseId, lessonId)])
+    const currentStep = lesson.steps.find((step) => !progress?.steps.find((item) => item.stepId === step.stepId)?.completed) ?? lesson.steps.at(-1)
+    const common = {
+      courseId: course.courseId,
+      courseTitle: course.title,
+      lessonId: lesson.lessonId,
+      lessonTitle: lesson.title,
+      publicationStatus: lesson.status,
+      hardwareRequirement: lesson.hardware,
+      verificationStatus: lesson.verification,
+      hardwareWarning: lesson.verification === 'pending-hardware-check' ? '本课尚未通过真机检查，不得声称已观察到现象，不得给出确定接线或烧录结论。' : undefined,
+      currentStep: currentStep ? { stepId: currentStep.stepId, type: currentStep.type, title: currentStep.title, instruction: currentStep.instruction } : undefined,
+      progress: progress ? { state: progress.state, completedSteps: progress.completedSteps, totalSteps: progress.totalSteps } : undefined
+    }
+    const task = taskKind === 'modify' || taskKind === 'repair' ? {
+      teachingFocus: lesson.aiContext.teachingFocus,
+      hints: lesson.aiContext.hints,
+      editableFiles: lesson.editableGlobs,
+      protectedFiles: lesson.deniedGlobs,
+      rule: '先提示和定位；只有学生明确要求修改时才改动，并保持最小修改。课程范围只供解释，真正权限仍由 Studio 策略决定。'
+    } : taskKind === 'explain-diagnostic' ? {
+      teachingFocus: lesson.aiContext.teachingFocus,
+      hints: lesson.aiContext.hints,
+      recentCandidateBuild: progress?.operations['candidate-build'] ?? { state: 'not-run' },
+      rule: '解释第一条有效错误以及它与当前课目标的关系，不修改文件。'
+    } : taskKind === 'summary' ? {
+      objectives: lesson.objectives,
+      reflectionQuestions: lesson.reflectionQuestions,
+      rule: '帮助学生总结，不提供可直接冒充学生回答的整课标准答案。'
+    } : {
+      objectives: lesson.objectives,
+      expectedObservation: lesson.expectedObservation,
+      readableFiles: lesson.readableFiles,
+      rule: '按当前课目标解释代码，不混入其他课次的结论，不修改文件。'
+    }
+    const serialized = JSON.stringify({ schemaVersion: 1, taskKind, ...common, task })
+    if (serialized.length > 8_000) throw new Error('COURSE_AI_CONTEXT_TOO_LARGE')
+    return `<course_context_json>\n${serialized}\n</course_context_json>`
   }
 
   private async loadAllCourses(): Promise<Array<{ detail: CourseDetail; lessons: CourseLesson[] }>> {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -89,6 +89,9 @@ export function App(): React.JSX.Element {
   const [courseLesson, setCourseLesson] = useState<CourseLesson>()
   const [courseLoading, setCourseLoading] = useState(false)
   const [courseError, setCourseError] = useState<string>()
+  const [workspaceLesson, setWorkspaceLesson] = useState<CourseLesson>()
+  const [courseProgress, setCourseProgress] = useState<CourseProgressSnapshot>()
+  const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([])
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
 
@@ -227,6 +230,7 @@ export function App(): React.JSX.Element {
   const buildFirmware = (): void => { void run(async () => {
     if (!activeWorkspaceId) throw new Error('请先新建一个学生对话')
     setBuild(await api.startFirmwareBuild(activeWorkspaceId))
+    await refreshCourseProgress(activeWorkspaceId)
   }) }
   const cancelBuild = (): void => { void run(async () => { setBuild(await api.cancelFirmwareBuild()) }) }
   const toggleUsb = (): void => { void run(async () => { setConnection(await api.setDemoUsbConnected(connection.updatePort.state === 'disconnected')) }) }
@@ -241,6 +245,7 @@ export function App(): React.JSX.Element {
   const flashWchLink = (): void => { void run(async () => {
     if (!activeWorkspaceId) throw new Error('请先选择学生对话')
     setWchLink(await api.flashWchLink(activeWorkspaceId))
+    await refreshCourseProgress(activeWorkspaceId)
   }) }
   const cancelWchLink = (): void => { void run(async () => { setWchLink(await api.cancelWchLink()) }) }
   const createWorkspace = (): void => {
@@ -297,6 +302,53 @@ export function App(): React.JSX.Element {
     return Boolean(created)
   }
   const continueCourseAttempt = (workspaceId: string): void => setActiveWorkspaceId(workspaceId)
+
+  async function refreshCourseProgress(workspaceId = activeWorkspaceId): Promise<void> {
+    if (!workspaceId) return
+    const workspace = workspaces.find((item) => item.id === workspaceId)
+    if (workspace?.workspacePurpose !== 'mcu-lesson-attempt') return
+    const progress = await api.getCourseProgress(workspaceId)
+    setCourseProgress(progress)
+    if (progress.state === 'completed') setCompletedLessonIds((current) => current.includes(progress.lessonId) ? current : [...current, progress.lessonId])
+  }
+
+  useEffect(() => {
+    let disposed = false
+    setWorkspaceLesson(undefined)
+    setCourseProgress(undefined)
+    if (!activeWorkspace?.courseBinding || activeWorkspace.workspacePurpose !== 'mcu-lesson-attempt') return () => { disposed = true }
+    void Promise.all([
+      api.getCourseLesson(activeWorkspace.courseBinding.courseId, activeWorkspace.courseBinding.lessonId),
+      api.getCourseProgress(activeWorkspace.id)
+    ]).then(([lesson, progress]) => {
+      if (!disposed) { setWorkspaceLesson(lesson); setCourseProgress(progress) }
+    }).catch((caught) => { if (!disposed) setError(toStudentErrorMessage(caught)) })
+    return () => { disposed = true }
+  }, [api, activeWorkspace?.id])
+
+  const updateCourseProgress = async (update: CourseProgressUpdate): Promise<void> => {
+    if (!activeWorkspaceId) return
+    try {
+      const progress = await api.updateCourseProgress(activeWorkspaceId, update)
+      setCourseProgress(progress)
+      setCompletedLessonIds((current) => progress.state === 'completed' ? current.includes(progress.lessonId) ? current : [...current, progress.lessonId] : current.filter((lessonId) => lessonId !== progress.lessonId))
+    }
+    catch (caught) { setError(toStudentErrorMessage(caught)) }
+  }
+
+  useEffect(() => {
+    let disposed = false
+    const attempts = workspaces.filter((workspace) => workspace.workspacePurpose === 'mcu-lesson-attempt' && workspace.courseBinding?.courseId === course?.courseId)
+    if (!course || attempts.length === 0) { setCompletedLessonIds([]); return () => { disposed = true } }
+    void Promise.all(attempts.map((workspace) => api.getCourseProgress(workspace.id).catch(() => undefined))).then((items) => {
+      if (!disposed) setCompletedLessonIds([...new Set(items.filter((item) => item?.state === 'completed').map((item) => item!.lessonId))])
+    })
+    return () => { disposed = true }
+  }, [api, course?.courseId, workspaces.map((workspace) => `${workspace.id}:${workspace.updatedAt}`).join('|')])
+
+  useEffect(() => {
+    if (['completed', 'failed'].includes(firmwareUpdate.state)) void refreshCourseProgress()
+  }, [firmwareUpdate.completedAt, firmwareUpdate.state])
 
   useEffect(() => {
     let disposed = false
@@ -368,7 +420,7 @@ export function App(): React.JSX.Element {
     }).catch((caught) => setError(toStudentErrorMessage(caught)))
   }
   const buildCandidate = (candidateId: string): void => {
-    void run(async () => { setCandidate(await api.buildCandidate(candidateId)) })
+    void run(async () => { setCandidate(await api.buildCandidate(candidateId)); await refreshCourseProgress() })
   }
   const applyCandidate = (candidateId: string): void => {
     void run(async () => {
@@ -489,6 +541,10 @@ export function App(): React.JSX.Element {
           onSelectCourseLesson={selectCourseLesson}
           onCreateCourseAttempt={createCourseAttempt}
           onContinueCourseAttempt={continueCourseAttempt}
+          workspaceLesson={workspaceLesson}
+          courseProgress={courseProgress}
+          onUpdateCourseProgress={updateCourseProgress}
+          completedLessonIds={completedLessonIds}
         />
       </div>
 

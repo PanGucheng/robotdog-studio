@@ -2,13 +2,13 @@
 
 更新日期：2026-08-06
 
-状态：阶段二实现基线，随实现更新
+状态：课程软件框架完成基线
 
 关联计划：[单片机入门版课程框架详细实施计划](./mcu-course-framework-implementation-plan.md)
 
 ## 1. 当前实施范围
 
-当前已经完成课程目录和“一课一工程”。应用具备：
+当前已经完成课程目录、“一课一工程”、实验任务进度与 AI 课程上下文。应用具备：
 
 - 从 `resources/courses/mcu-foundations` 读取课程和课次；
 - 在单片机版显示课程中心、课次目标、步骤和硬件状态；
@@ -16,6 +16,10 @@
 - 在开发模式显示 draft 课，打包版本只显示 published 课；
 - 从已登记的课次模板创建独立工作区，支持继续上次和保留旧练习的新建练习；
 - 工作区 schema v3 记录用途、课程身份、内容版本和尝试编号，并对 v1/v2 元数据执行非破坏迁移。
+- 课程练习默认进入实验任务页，普通 MCU sandbox 仍默认进入工程代码；
+- 在受管数据根目录的 `course-progress/<workspaceId>.json` 保存轻量进度，不进入学生工程或 Git；
+- 候选预检、完整固件构建和烧录服务把最近状态同步给进度存储；
+- Main 生成限长、按任务切片且不跨课的 AI 上下文，并继续由候选区和补丁策略执行真实权限控制。
 
 未发布或待硬件检查的课次不能创建练习；第三课继续只展示结构和警告。
 
@@ -25,12 +29,17 @@
 flowchart LR
   Files["课程 JSON 与课次模板"] --> CourseService["CourseService"]
   CourseService --> Spec["WorkspaceCreationSpec"]
+  CourseService --> Context["可信 AI 课次上下文"]
   Spec --> WorkspaceService["WorkspaceService"]
   CourseService --> IPC["课程查询 / 练习 IPC"]
   WorkspaceService --> IPC
+  Operations["候选预检 / 固件 / 烧录"] --> Progress["CourseProgressStore"]
+  Progress --> IPC
+  Progress --> Context
   IPC --> Preload["contextBridge API"]
   Preload --> App["React 状态"]
   App --> Center["课程中心 / 课次详情"]
+  App --> Task["实验任务 / 完成条件"]
   Center --> Workspace["独立课次工作区"]
 ```
 
@@ -42,6 +51,14 @@ flowchart LR
 - 校验必要字段、稳定 ID、相对路径、课次顺序和前置课引用；
 - 根据运行方式决定是否显示 draft 内容；
 - 返回可安全传给 Renderer 的结构化课程数据。
+- 按修改、解释、诊断、修复和总结生成当前课次上下文，并将文本限制在 8000 字符内。
+
+`CourseProgressStore` 负责：
+
+- 初始化和原子写入步骤、回答、观察与最近操作状态；
+- 只执行内置的固定完成检查，不执行课程提供的脚本；
+- 进度损坏时保留 `.corrupt-<timestamp>.bak` 后重建，并把恢复状态传给界面；
+- 聚合未开始、进行中、需处理和已完成，不建立审计证据链。
 
 首期不缓存课程，不建设旧版本运行时、内容哈希锁、规则引擎或学习证据系统。课程规模较小，启动时按需读取 JSON 更容易调试和维护。
 
@@ -55,19 +72,23 @@ getCourse(courseId)
 getCourseLesson(courseId, lessonId)
 listLessonAttempts(courseId, lessonId)
 createLessonAttempt({ courseId, lessonId, studentDisplayName })
+getCourseProgress(workspaceId)
+updateCourseProgress({ workspaceId, ...受限更新 })
 ```
 
 课程 IPC 只在 `mcu-foundations` 注册。ID 由 Main 再校验；资源路径始终由 catalog 和 Main 推导。
 
 ### Renderer
 
-单片机工作台新增“课程中心”标签并作为默认页。课程中心负责浏览和进入练习：
+单片机版无项目时默认显示课程中心；课程练习默认显示实验任务页。课程中心负责浏览和进入练习：
 
 - 课程身份、受众、目标平台和课次数量；
 - 有序课次、预计时间和硬件要求；
 - 当前课次目标、步骤和待验证硬件警告；
 - 已发布无硬件课的开始学习、继续上次、新建练习和尝试记录；
 - 待硬件检查课不可点击的开始学习入口。
+
+实验任务页通过稳定 route ID 跳转到代码、编译、Diff、烧录和资源页，展示下一步、完成比例、最近操作、问题回答、人工观察和固定完成条件。界面明确说明这些数据用于继续学习，不是考试或审计证据。
 
 当前项目选择器、工程代码、候选修改、编译、烧录和设置页保持原样。
 
@@ -109,12 +130,12 @@ resources/courses/mcu-foundations/
 - draft 课在打包环境被隐藏：不影响其他 published 课。
 - Renderer 请求不存在的课程或课次：返回 `COURSE_NOT_FOUND` 或 `COURSE_LESSON_NOT_FOUND`。
 - 模板创建失败时只清理本次未完成目录，不覆盖现有项目。
+- 进度 JSON 损坏时先备份再重建，学生工程与 Git 不受影响，任务页显示恢复警告。
+- 构建或烧录失败只把课程状态聚合为“需处理”，不会自动改动学生代码或虚构硬件结果。
 
-## 6. 下一阶段接口落点
+## 6. 当前发布边界
 
-阶段三接入实验任务页时：
-
-1. 为课程工作区初始化课次步骤状态；
-2. 课程中心进入该工作区的“实验任务”页；
-3. 进度仅保存步骤勾选、问题回答、最近编译/烧录状态和人工观察；
-4. 普通 MCU sandbox 继续默认进入工程代码，不显示课程完成状态。
+- 两个 `hardware: none` 课次已由 Electron 冒烟走完整创建、编辑、候选预检、确认、固件构建和课程完成流程。
+- 第三课保持 `draft + pending-hardware-check`，开发模式只展示结构和警告，不能创建；正式包不展示 draft 课。
+- 真机方向、接线、烧录和物理现象不属于可由软件模拟替代的验证。具备实物后按[课程作者与硬件验证流程](./mcu-lesson-authoring-and-hardware-validation.md)完成发布门禁。
+- 双发行仍共享实现；趣味版不注册课程 IPC，也不携带 MCU 课程资源。

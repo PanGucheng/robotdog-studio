@@ -1,53 +1,20 @@
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 import { EDITION_PROFILES } from '../../../shared/edition'
+import demoCourseResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/course.json'
+import firstLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/studio-first-build.json'
+import secondLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/c-files-and-functions.json'
+import hardwareLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/first-hardware-placeholder.json'
 
 const browserEditionId = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('edition') === 'mcu-foundations'
   ? 'mcu-foundations'
   : 'fun-line-following'
 
-const demoLessons: CourseLesson[] = [
-  {
-    courseId: 'ch32v203-foundations', lessonId: 'studio-first-build', title: '认识 Studio 与第一次编译',
-    summary: '认识实验工程的入口，完成一次小修改，并读懂编译结果和程序文件。', estimatedMinutes: 45,
-    hardware: 'none', verification: 'not-required', status: 'published', prerequisites: [], order: 0,
-    objectives: ['找到实验代码的主要入口文件', '区分候选预检、完整固件构建和烧录'],
-    expectedObservation: '候选代码和完整固件均能成功编译。', templateId: 'studio-first-build',
-    editableGlobs: ['App/Src/experiment.c', 'App/Inc/experiment.h'],
-    readableFiles: ['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'README.md'], deniedGlobs: ['Core/**', 'Startup/**', 'Ld/**'],
-    steps: [{ stepId: 'read-entry', type: 'read', title: '找到实验入口', instruction: '阅读 experiment.c 和只读适配层。' }],
-    completionChecks: [{ type: 'candidate-build-passed' }, { type: 'firmware-build-passed' }], reflectionQuestions: [],
-    aiContext: { teachingFocus: '建立工程文件、候选预检和完整固件的基本概念。', hints: ['先找到 experiment.c。'] }
-  },
-  {
-    courseId: 'ch32v203-foundations', lessonId: 'c-files-and-functions', title: '源文件、头文件与函数',
-    summary: '通过一个小型多文件练习，理解函数声明、函数定义以及源文件之间的协作。', estimatedMinutes: 60,
-    hardware: 'none', verification: 'not-required', status: 'published', prerequisites: ['studio-first-build'], order: 1,
-    objectives: ['区分头文件中的声明和源文件中的定义', '编写带参数和返回值的简单函数'],
-    expectedObservation: '多个 C 源文件能够一起编译并链接为完整固件。', templateId: 'c-files-and-functions',
-    editableGlobs: ['App/Src/experiment.c', 'App/Inc/experiment.h', 'App/Src/number_tools.c', 'App/Inc/number_tools.h'],
-    readableFiles: ['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'README.md'], deniedGlobs: ['Core/**', 'Startup/**', 'Ld/**'],
-    steps: [{ stepId: 'read-declaration-definition', type: 'read', title: '辨认声明与定义', instruction: '比较头文件中的函数声明和源文件中的函数定义。' }],
-    completionChecks: [{ type: 'file-exists', target: 'App/Src/number_tools.c' }], reflectionQuestions: [],
-    aiContext: { teachingFocus: '围绕 C 语言声明、定义和多文件编译给出分层提示。', hints: ['检查函数签名是否一致。'] }
-  },
-  {
-    courseId: 'ch32v203-foundations', lessonId: 'first-hardware-placeholder', title: '第一个硬件实验（待定）',
-    summary: '用于验证硬件警告、烧录入口和人工观察流程；实验方向将在真机测试后确定。', estimatedMinutes: 60,
-    hardware: 'required', verification: 'pending-hardware-check', status: 'draft', prerequisites: ['c-files-and-functions'], order: 2,
-    objectives: ['认识硬件实验必须先核对芯片、引脚和外设占用'], expectedObservation: '当前不得据此连接或烧录硬件。',
-    templateId: 'first-hardware-placeholder', editableGlobs: ['App/Src/experiment.c', 'App/Inc/experiment.h'],
-    readableFiles: ['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'README.md'], deniedGlobs: ['Core/**', 'Startup/**', 'Ld/**'],
-    steps: [{ stepId: 'read-hardware-warning', type: 'read', title: '阅读硬件提示', instruction: '确认当前课次仍处于待验证状态。' }],
-    completionChecks: [{ type: 'manual-observation-confirmed' }], reflectionQuestions: [],
-    aiContext: { teachingFocus: '明确说明本课尚未完成真机验证。', hints: ['等待硬件检查完成。'] }
-  }
-]
+const demoLessons: CourseLesson[] = [firstLessonResource, secondLessonResource, hardwareLessonResource]
+  .map((lesson, order) => ({ ...lesson, order }) as CourseLesson)
 
 const demoCourse: CourseDetail = {
-  courseId: 'ch32v203-foundations', contentVersion: 1, title: 'CH32V203 单片机入门',
-  summary: '从读懂工程、编译程序开始，逐步认识 C 文件组织和真实开发板实验。', audience: '电子类专业大学低年级学生',
-  status: 'published', boardScope: 'CH32V203 RobotDog 教学硬件', lessonCount: demoLessons.length,
-  objectives: ['理解源文件、头文件、编译、固件和烧录之间的关系'], sourceAttribution: ['RobotDog Studio 当前教学资源'],
+  ...(demoCourseResource as unknown as Omit<CourseDetail, 'lessonCount' | 'lessons'>),
+  lessonCount: demoLessons.length,
   lessons: demoLessons.map(({ objectives: _objectives, expectedObservation: _expectedObservation, templateId: _templateId, editableGlobs: _editableGlobs, readableFiles: _readableFiles, deniedGlobs: _deniedGlobs, steps: _steps, completionChecks: _completionChecks, reflectionQuestions: _reflectionQuestions, aiContext: _aiContext, ...summary }) => summary)
 }
 
@@ -76,6 +43,54 @@ let demoWorkspaces: WorkspaceSummary[] = browserEditionId === 'mcu-foundations' 
 const demoHistories = new Map<string, WorkspaceHistoryEntry[]>(demoWorkspaces[0]
   ? [[demoWorkspaces[0].id, [{ commit: demoWorkspaces[0].headCommit, shortCommit: '86d826a', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }]]]
   : [])
+const demoProgress = new Map<string, CourseProgressSnapshot>()
+
+function getDemoLessonProgress(workspaceId: string): { workspace: WorkspaceSummary; lesson: CourseLesson; progress: CourseProgressSnapshot } {
+  const workspace = demoWorkspaces.find((item) => item.id === workspaceId)
+  const binding = workspace?.courseBinding
+  const lesson = binding && demoLessons.find((item) => item.courseId === binding.courseId && item.lessonId === binding.lessonId)
+  if (!workspace || !binding || !lesson) throw new Error('该项目不是课程练习')
+  let progress = demoProgress.get(workspaceId)
+  if (!progress) {
+    const now = new Date().toISOString()
+    progress = {
+      schemaVersion: 1, workspaceId, courseId: binding.courseId, lessonId: binding.lessonId, contentVersion: binding.contentVersion,
+      steps: lesson.steps.map((step) => ({ stepId: step.stepId, completed: false })), answers: {}, observations: {},
+      operations: { 'candidate-build': { state: 'not-run' }, 'firmware-build': { state: 'not-run' }, flash: { state: 'not-run' } },
+      checks: [], completedSteps: 0, totalSteps: lesson.steps.length, completionPercent: 0, state: 'not-started', createdAt: now, updatedAt: now
+    }
+    progress = deriveDemoProgress(progress, lesson)
+    demoProgress.set(workspaceId, progress)
+  }
+  return { workspace, lesson, progress: structuredClone(progress) }
+}
+
+function deriveDemoProgress(progress: CourseProgressSnapshot, lesson: CourseLesson): CourseProgressSnapshot {
+  const availableFiles = new Set([...lesson.editableGlobs, ...lesson.readableFiles])
+  const checks = lesson.completionChecks.map((check) => {
+    if (check.type === 'file-exists') return { ...check, passed: Boolean(check.target && availableFiles.has(check.target)), label: check.target ? `文件存在：${check.target}` : '指定文件存在' }
+    if (check.type === 'candidate-build-passed') return { ...check, passed: progress.operations['candidate-build'].state === 'passed', label: '候选代码编译通过' }
+    if (check.type === 'firmware-build-passed') return { ...check, passed: progress.operations['firmware-build'].state === 'passed', label: '完整程序生成成功' }
+    if (check.type === 'flash-succeeded') return { ...check, passed: progress.operations.flash.state === 'passed', label: '最近一次烧录成功' }
+    if (check.type === 'manual-observation-confirmed') return { ...check, passed: Object.values(progress.observations).some(Boolean), label: '已经记录人工观察' }
+    return { ...check, passed: Boolean(check.target && progress.answers[check.target]?.trim()), label: check.target ? `已回答：${check.target}` : '思考题已回答' }
+  })
+  const completedSteps = progress.steps.filter((step) => step.completed).length
+  const complete = completedSteps === progress.steps.length && checks.every((check) => check.passed)
+  const failed = Object.values(progress.operations).some((operation) => operation.state === 'failed')
+  const changed = completedSteps > 0 || Object.keys(progress.answers).length > 0 || Object.keys(progress.observations).length > 0 || Object.values(progress.operations).some((operation) => operation.state !== 'not-run')
+  return { ...progress, checks, completedSteps, totalSteps: progress.steps.length, completionPercent: progress.steps.length ? Math.round(completedSteps / progress.steps.length * 100) : 0, state: complete ? 'completed' : failed ? 'needs-attention' : changed ? 'in-progress' : 'not-started', completedAt: complete ? progress.completedAt ?? new Date().toISOString() : undefined }
+}
+
+function recordDemoOperation(workspaceId: string, kind: CourseOperationKind, passed: boolean, detail: string): void {
+  const { lesson, progress } = getDemoLessonProgress(workspaceId)
+  const now = new Date().toISOString()
+  progress.operations[kind] = { state: passed ? 'passed' : 'failed', checkedAt: now, detail }
+  const type = kind === 'candidate-build' ? 'candidate-build' : kind === 'firmware-build' ? 'firmware-build' : 'flash'
+  if (passed) progress.steps = progress.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === type ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : step)
+  progress.updatedAt = now
+  demoProgress.set(workspaceId, deriveDemoProgress(progress, lesson))
+}
 
 let status: RobotStatus = {
   connection: 'disconnected',
@@ -88,6 +103,7 @@ let status: RobotStatus = {
 }
 let frameIndex = 0
 let browserUpdateToken = 0
+let browserUpdateWorkspaceId: string | undefined
 let browserRecoveryToken = 0
 
 let deviceConnection: DeviceConnectionSnapshot = {
@@ -220,6 +236,8 @@ async function runBrowserFirmwareUpdate(token: number): Promise<void> {
   deviceConnection = { ...deviceConnection, updatePort: { state: 'connected', port: 'WEB · USB COM12' } }
   emitConnection()
   emitFirmwareUpdate('completed', { state: 'completed', progress: 100, bytesWritten: firmwareUpdate.totalBytes, message: '下载完成，新固件已运行', canCancel: false, completedAt: new Date().toISOString() })
+  if (browserUpdateWorkspaceId && demoWorkspaces.find((item) => item.id === browserUpdateWorkspaceId)?.courseBinding) recordDemoOperation(browserUpdateWorkspaceId, 'flash', true, '板载 USB 下载完成')
+  browserUpdateWorkspaceId = undefined
 }
 
 export const browserDemoApi: RobotDogApi = {
@@ -255,6 +273,30 @@ export const browserDemoApi: RobotDogApi = {
     demoHistories.set(workspace.id, [{ commit: workspace.headCommit, shortCommit: workspace.headCommit.slice(0, 7), message: 'chore: initialize lesson workspace', createdAt: now }])
     workspaceListeners.forEach((listener) => listener(structuredClone(workspace)))
     return structuredClone(workspace)
+  },
+  getCourseProgress: async (workspaceId) => getDemoLessonProgress(workspaceId).progress,
+  updateCourseProgress: async (workspaceId, input: CourseProgressUpdate) => {
+    const { lesson, progress } = getDemoLessonProgress(workspaceId)
+    const now = new Date().toISOString()
+    if (input.kind === 'step') {
+      if (!lesson.steps.some((step) => step.stepId === input.stepId)) throw new Error('步骤不存在')
+      progress.steps = progress.steps.map((step) => step.stepId === input.stepId ? { stepId: step.stepId, completed: input.completed, completedAt: input.completed ? now : undefined } : step)
+    } else if (input.kind === 'answer') {
+      const answer = input.answer.trim()
+      if (answer) progress.answers[input.questionId] = answer
+      else delete progress.answers[input.questionId]
+      const questionStep = lesson.steps.find((step) => step.type === 'question')?.stepId
+      progress.steps = progress.steps.map((step) => step.stepId === questionStep ? { stepId: step.stepId, completed: Boolean(answer), completedAt: answer ? now : undefined } : step)
+    } else {
+      const observation = input.observation.trim()
+      if (observation) progress.observations[input.stepId] = observation
+      else delete progress.observations[input.stepId]
+      progress.steps = progress.steps.map((step) => step.stepId === input.stepId ? { stepId: step.stepId, completed: Boolean(observation), completedAt: observation ? now : undefined } : step)
+    }
+    progress.updatedAt = now
+    const result = deriveDemoProgress(progress, lesson)
+    demoProgress.set(workspaceId, result)
+    return structuredClone(result)
   },
   getHealth: async () => ({ appVersion: '0.1.0', platform: 'browser', mode: 'simulation', checks: [] }),
   getRuntimeInfo: async () => ({
@@ -320,6 +362,7 @@ export const browserDemoApi: RobotDogApi = {
       }
     }
     emitBuild({ type: 'completed', snapshot: buildSnapshot })
+    if (workspace.courseBinding) recordDemoOperation(workspaceId, 'firmware-build', true, '完整程序生成成功')
     return buildSnapshot
   },
   cancelFirmwareBuild: async () => {
@@ -343,6 +386,7 @@ export const browserDemoApi: RobotDogApi = {
     const bin = buildSnapshot.artifacts.find((artifact) => artifact.kind === 'bin')
     if (!bin) throw new Error('编译产物中没有 BIN 固件')
     browserUpdateToken += 1
+    browserUpdateWorkspaceId = workspaceId
     firmwareUpdate = { id: `web-${Date.now()}`, state: 'preflight', artifactName: bin.name, progress: 2, bytesWritten: 0, totalBytes: bin.bytes ?? 27380, canCancel: true, message: '正在核对固件包、板型和构建身份…', targetVersion: 'RDS1 student-next', startedAt: new Date().toISOString() }
     emitFirmwareUpdate('snapshot', {})
     if (deviceConnection.updatePort.state === 'disconnected') {
@@ -422,6 +466,7 @@ export const browserDemoApi: RobotDogApi = {
     emitWchLink('progress', { state: 'resetting', progress: 94, message: '校验完成，正在模拟复位目标板…', logs: [...wchLinkSnapshot.logs, 'resetting target'] })
     await new Promise((resolve) => setTimeout(resolve, 180))
     emitWchLink('completed', { state: 'completed', progress: 100, message: '写入完成，OpenOCD 校验通过并已复位目标板。', canCancel: false, completedAt: new Date().toISOString() })
+    if (workspace.courseBinding) recordDemoOperation(workspaceId, 'flash', true, 'WCH-Link 写入完成')
     return structuredClone(wchLinkSnapshot)
   },
   cancelWchLink: async () => {
@@ -554,6 +599,7 @@ export const browserDemoApi: RobotDogApi = {
     const built: CandidateSnapshot = { ...candidate, state: 'build_passed', updatedAt: new Date().toISOString(), error: undefined, buildProof: { candidateId, sourceTreeHash: candidate.sourceTreeHash, diffHash: candidate.diffHash, compiler: 'WCH GCC12 browser demo', objectSha256: '3'.repeat(64), completedAt: new Date().toISOString(), checks: [{ id: 'c-source', label: '学生控制代码', detail: 'WCH GCC 编译通过' }, { id: 'line-config', label: '巡线参数', detail: 'turn_strength=16，line_target=64' }] } }
     demoCandidates.set(candidateId, built)
     candidateListeners.forEach((listener) => listener(structuredClone(built)))
+    if (demoWorkspaces.find((item) => item.id === candidate.workspaceId)?.courseBinding) recordDemoOperation(candidate.workspaceId, 'candidate-build', true, '候选代码编译通过')
     return structuredClone(built)
   },
   applyCandidate: async (candidateId) => {

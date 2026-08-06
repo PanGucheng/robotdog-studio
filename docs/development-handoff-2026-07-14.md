@@ -1,6 +1,6 @@
 # RobotDog Studio 开发交接文档
 
-更新日期：2026-07-14  
+更新日期：2026-08-06
 用途：重开 Codex 对话后，先让模型阅读本文件，再继续开发。
 
 ## 1. 当前仓库状态
@@ -8,8 +8,8 @@
 - 本地工程目录：`D:\RobotDog\RobotDog_Studio`
 - GitHub 仓库：`https://github.com/PanGucheng/robotdog-studio`
 - 当前主分支：`main`
-- 当前最新提交：`cd07fda feat: bundle WCH-Link driver in test package`
-- 预期工作区状态：干净，无未提交改动
+- 当前最新提交：以 `git log -1 --oneline` 为准；本文件已在课程框架完成里程碑更新
+- 预期工作区状态：完成提交后应干净
 - 当前定位：公开协作开发仓库，但仍处于功能测试和硬件联调阶段
 
 重开对话后的第一步建议执行：
@@ -24,7 +24,23 @@ git log -3 --oneline
 
 ## 2. 产品定位与核心约束
 
-RobotDog Studio 是面向中小学机器马 / 机器狗巡线比赛的桌面上位机。
+RobotDog Studio 是同一仓库、同一核心能力构建的双发行桌面上位机：趣味巡线版面向中小学生，单片机入门版面向电子类大学生。不得拆成两个长期分支或两套重复实现。
+
+### 2.1 2026-08-06 单片机课程框架里程碑
+
+- 课程中心、一课一工程、工作区 schema v3 和不同课次模板已完成；
+- 课程练习默认进入实验任务页，支持步骤、回答、人工观察、最近构建/烧录状态和固定完成条件；
+- 两个无硬件示例课已由 Electron 冒烟完整走通并达到 `completed`；
+- AI 每轮从 Main 获得当前课次和进度上下文，唯一模型保持 `deepseek-v4-flash`；
+- 第三课保持 `draft + pending-hardware-check`，开发模式禁止创建，正式包隐藏；
+- 双发行 ZIP 已通过资源隔离检查，趣味包不携带 MCU 课程资源。
+
+继续课程开发前先阅读：
+
+- `docs/mcu-course-framework-implementation-plan.md`
+- `docs/mcu-course-framework-architecture.md`
+- `docs/manual-review-mcu-course-completion.md`
+- `docs/mcu-lesson-authoring-and-hardware-validation.md`
 
 当前产品方向：
 

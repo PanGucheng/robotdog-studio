@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, shell } from 'electron'
 import { IPC_CHANNELS } from '../../shared/channels'
-import type { AgentRuntimeStatus, AppHealth } from '../../shared/types'
+import type { AgentRuntimeStatus, AppHealth, CandidateSnapshot, CourseOperationKind, FirmwareUpdateEvent } from '../../shared/types'
 import { FirmwareBuildService } from '../services/firmware-build-service'
 import { MockRobotService } from '../services/mock-robot-service'
 import { MockConnectivityService } from '../services/mock-connectivity-service'
@@ -16,11 +16,12 @@ import { FirmwareBaselineService } from '../services/firmware-baseline-service'
 import { DiagnosticService } from '../services/diagnostic-service'
 import { WchLinkFlashService } from '../services/wch-link-flash-service'
 import { CourseService } from '../services/course-service'
+import { CourseProgressStore } from '../services/course-progress-store'
 import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink = new WchLinkFlashService(toolchain, firmware)): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink = new WchLinkFlashService(toolchain, firmware), courseProgress?: CourseProgressStore): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -34,12 +35,38 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
   const ccdListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.robotCcdEvent, payload)
   const buildListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.firmwareBuildEvent, payload)
   const connectionListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.deviceConnectionEvent, payload)
-  const updateListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.firmwareUpdateEvent, payload)
+  let activeUpdateWorkspaceId: string | undefined
+  const updateListener = (payload: unknown): void => {
+    sendToAll(IPC_CHANNELS.firmwareUpdateEvent, payload)
+    const event = payload as FirmwareUpdateEvent
+    if (activeUpdateWorkspaceId && (event.type === 'completed' || event.type === 'failed')) {
+      void recordCourseOperation(activeUpdateWorkspaceId, 'flash', event.type === 'completed', event.snapshot.error ?? event.snapshot.message)
+      activeUpdateWorkspaceId = undefined
+    }
+  }
   const recoveryListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.recoveryEvent, payload)
   const wchLinkListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.wchLinkEvent, payload)
   const agentListener = (payload: unknown): void => {
     if (agentHistory) void agentHistory.append(payload as import('../../shared/types').AgentEvent)
     sendToAll(IPC_CHANNELS.agentEvent, payload)
+  }
+
+  async function getCourseProgressContext(workspaceId: string): Promise<{ workspace: Awaited<ReturnType<WorkspaceService['get']>>; lesson: Awaited<ReturnType<CourseService['getLesson']>>; files: string[] }> {
+    if (!workspaces || !courses || !courseProgress) throw new Error('COURSE_PROGRESS_SERVICE_UNAVAILABLE')
+    const workspace = await workspaces.get(workspaceId)
+    if (!workspace.courseBinding || workspace.workspacePurpose !== 'mcu-lesson-attempt') throw new Error('COURSE_PROGRESS_WORKSPACE_REQUIRED')
+    const lesson = await courses.getLesson(workspace.courseBinding.courseId, workspace.courseBinding.lessonId)
+    const files = candidates ? (await candidates.listStudentCodeFiles(workspaceId)).map((file) => file.path) : []
+    return { workspace, lesson, files }
+  }
+
+  async function recordCourseOperation(workspaceId: string, kind: CourseOperationKind, passed: boolean, detail: string): Promise<void> {
+    if (!courseProgress || !courses || !workspaces) return
+    const workspace = await workspaces.get(workspaceId).catch(() => undefined)
+    if (!workspace?.courseBinding || workspace.workspacePurpose !== 'mcu-lesson-attempt') return
+    const lesson = await courses.getLesson(workspace.courseBinding.courseId, workspace.courseBinding.lessonId)
+    const files = candidates ? (await candidates.listStudentCodeFiles(workspaceId)).map((file) => file.path) : []
+    await courseProgress.recordOperation(workspace, lesson, kind, passed, detail, files)
   }
 
   robot.on('status', statusListener)
@@ -83,9 +110,11 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     if (!baseline) throw new Error('固件基线服务尚未配置')
     return baseline.getStatus()
   })
-  ipcMain.handle(IPC_CHANNELS.firmwareBuildStart, (_event, workspaceId: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.firmwareBuildStart, async (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string') throw new Error('请先创建或选择一个学生对话')
-    return firmware.build({ workspaceId })
+    const result = await firmware.build({ workspaceId })
+    await recordCourseOperation(workspaceId, 'firmware-build', result.state === 'completed', result.error ?? (result.state === 'completed' ? '完整程序生成成功' : '完整程序生成失败'))
+    return result
   })
   ipcMain.handle(IPC_CHANNELS.firmwareBuildCancel, () => firmware.cancel())
   ipcMain.handle(IPC_CHANNELS.deviceConnectionGet, () => connectivity.getConnection())
@@ -98,6 +127,7 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     if (typeof workspaceId !== 'string') throw new Error('请先选择学生对话')
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时下载学生固件')
     const binary = await firmware.requireCurrentArtifact(workspaceId, 'bin')
+    activeUpdateWorkspaceId = workspaceId
     return connectivity.startUpdate(binary)
   })
   ipcMain.handle(IPC_CHANNELS.firmwareUpdateCancel, () => connectivity.cancelUpdate())
@@ -109,12 +139,14 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
   ipcMain.handle(IPC_CHANNELS.recoveryCancel, () => recovery.cancel())
   ipcMain.handle(IPC_CHANNELS.wchLinkGet, () => wchLink.getSnapshot())
   ipcMain.handle(IPC_CHANNELS.wchLinkProbe, () => wchLink.probe())
-  ipcMain.handle(IPC_CHANNELS.wchLinkFlash, (_event, workspaceId: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.wchLinkFlash, async (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string') throw new Error('请先选择学生对话')
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(connectivity.getUpdate().state)) throw new Error('板载 USB 下载进行中，不能同时使用 WCH-Link 烧录')
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时使用 WCH-Link 烧录')
     if (firmware.getSnapshot().state === 'running') throw new Error('完整固件正在生成，请等待完成后再烧录')
-    return wchLink.flashCurrent(workspaceId)
+    const result = await wchLink.flashCurrent(workspaceId)
+    await recordCourseOperation(workspaceId, 'flash', result.state === 'completed', result.error ?? result.message)
+    return result
   })
   ipcMain.handle(IPC_CHANNELS.wchLinkCancel, () => wchLink.cancel())
   if (workspaces) {
@@ -176,6 +208,18 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
       return workspace
     })
+    ipcMain.handle(IPC_CHANNELS.courseProgressGet, async (_event, workspaceId: unknown) => {
+      if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
+      if (!courseProgress) throw new Error('COURSE_PROGRESS_SERVICE_UNAVAILABLE')
+      const context = await getCourseProgressContext(workspaceId)
+      return courseProgress.get(context.workspace, context.lesson, context.files)
+    })
+    ipcMain.handle(IPC_CHANNELS.courseProgressUpdate, async (_event, workspaceId: unknown, update: unknown) => {
+      if (typeof workspaceId !== 'string' || !update || typeof update !== 'object') throw new Error('COURSE_PROGRESS_UPDATE_INVALID')
+      if (!courseProgress) throw new Error('COURSE_PROGRESS_SERVICE_UNAVAILABLE')
+      const context = await getCourseProgressContext(workspaceId)
+      return courseProgress.update(context.workspace, context.lesson, update as never, context.files)
+    })
   }
   if (candidates) {
     const withCandidateEvent = async (operation: () => Promise<unknown>): Promise<unknown> => {
@@ -211,9 +255,11 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
       return withCandidateEvent(() => candidates.validate(candidateId))
     })
-    ipcMain.handle(IPC_CHANNELS.candidateBuild, (_event, candidateId: unknown) => {
+    ipcMain.handle(IPC_CHANNELS.candidateBuild, async (_event, candidateId: unknown) => {
       if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')
-      return withCandidateEvent(() => candidates.build(candidateId))
+      const result = await withCandidateEvent(() => candidates.build(candidateId)) as CandidateSnapshot
+      await recordCourseOperation(result.workspaceId, 'candidate-build', result.state === 'build_passed', result.error ?? (result.state === 'build_passed' ? '候选代码编译通过' : '候选代码编译未通过'))
+      return result
     })
     ipcMain.handle(IPC_CHANNELS.candidateApply, (_event, candidateId: unknown) => {
       if (typeof candidateId !== 'string') throw new Error('CANDIDATE_ID_INVALID')

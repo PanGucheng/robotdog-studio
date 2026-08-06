@@ -1,6 +1,6 @@
-import { Activity, BookOpenCheck, Cable, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
+import { Activity, BookOpenCheck, Cable, CheckSquare2, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
+import type { CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
@@ -15,6 +15,8 @@ import { ProblemCard } from './ProblemCard'
 import { WchLinkFlasherPanel } from './WchLinkFlasherPanel'
 import type { AppEditionProfile } from '../../../shared/edition'
 import { CourseCenter } from './CourseCenter'
+import { CourseTaskPage } from './CourseTaskPage'
+import type { WorkbenchRoute } from './workbench-routes'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -67,36 +69,48 @@ interface WorkbenchProps {
   onSelectCourseLesson(lessonId: string): void
   onCreateCourseAttempt(lessonId: string): Promise<boolean>
   onContinueCourseAttempt(workspaceId: string): void
+  workspaceLesson?: CourseLesson
+  courseProgress?: CourseProgressSnapshot
+  onUpdateCourseProgress(update: CourseProgressUpdate): Promise<void>
+  completedLessonIds: string[]
 }
 
 const funTabs = [
-  ['巡线参数', Gauge],
-  ['CCD 曲线', Activity],
-  ['串口日志', TerminalSquare],
-  ['编译 / 烧录', Cpu],
-  ['烧录器烧录', Cable],
-  ['编写代码', Code2],
-  ['修改确认', ShieldCheck],
-  ['设置', Settings2]
+  { id: 'line-parameters', label: '巡线参数', icon: Gauge },
+  { id: 'ccd', label: 'CCD 曲线', icon: Activity },
+  { id: 'serial', label: '串口日志', icon: TerminalSquare },
+  { id: 'build', label: '编译 / 烧录', icon: Cpu },
+  { id: 'wch-link', label: '烧录器烧录', icon: Cable },
+  { id: 'code', label: '编写代码', icon: Code2 },
+  { id: 'review', label: '修改确认', icon: ShieldCheck },
+  { id: 'settings', label: '设置', icon: Settings2 }
 ] as const
 
 const mcuTabs = [
-  ['课程中心', BookOpenCheck],
-  ['工程代码', Code2],
-  ['编译与问题', Cpu],
-  ['修改确认', ShieldCheck],
-  ['烧录与运行', Cable],
-  ['程序资源', Gauge],
-  ['设置', Settings2]
+  { id: 'course-center', label: '课程中心', icon: BookOpenCheck },
+  { id: 'course-tasks', label: '实验任务', icon: CheckSquare2 },
+  { id: 'code', label: '工程代码', icon: Code2 },
+  { id: 'build', label: '编译与问题', icon: Cpu },
+  { id: 'review', label: '修改确认', icon: ShieldCheck },
+  { id: 'flash', label: '烧录与运行', icon: Cable },
+  { id: 'resources', label: '程序资源', icon: Gauge },
+  { id: 'settings', label: '设置', icon: Settings2 }
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt }: WorkbenchProps): React.JSX.Element {
-  const tabs = edition.id === 'mcu-foundations' ? mcuTabs : funTabs
-  const [activeTab, setActiveTab] = useState<string>(edition.id === 'mcu-foundations' ? '课程中心' : 'CCD 曲线')
-  useEffect(() => { setActiveTab(edition.id === 'mcu-foundations' ? '课程中心' : 'CCD 曲线') }, [edition.id])
-  useEffect(() => { if (candidate?.state === 'build_passed' || (candidate?.state === 'review_ready' && candidate.origin !== 'manual' && !candidate.error)) setActiveTab('修改确认') }, [candidate?.id, candidate?.state, candidate?.error, candidate?.origin])
+export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt, workspaceLesson, courseProgress, onUpdateCourseProgress, completedLessonIds }: WorkbenchProps): React.JSX.Element {
+  const tabs = edition.id === 'mcu-foundations' ? mcuTabs.filter((tab) => tab.id !== 'course-tasks' || workspace?.workspacePurpose === 'mcu-lesson-attempt') : funTabs
+  const [activeTab, setActiveTab] = useState<WorkbenchRoute>(edition.id === 'mcu-foundations' ? 'course-center' : 'ccd')
+  useEffect(() => { setActiveTab(edition.id === 'mcu-foundations' ? 'course-center' : 'ccd') }, [edition.id])
   useEffect(() => {
-    if (learningDestination && learningDestination !== 'chat') { setActiveTab(learningDestination); onLearningDestinationHandled() }
+    if (edition.id !== 'mcu-foundations' || !workspace) return
+    setActiveTab(workspace.workspacePurpose === 'mcu-lesson-attempt' ? 'course-tasks' : 'code')
+  }, [edition.id, workspace?.id])
+  useEffect(() => { if (candidate?.state === 'build_passed' || (candidate?.state === 'review_ready' && candidate.origin !== 'manual' && !candidate.error)) setActiveTab('review') }, [candidate?.id, candidate?.state, candidate?.error, candidate?.origin])
+  useEffect(() => {
+    if (learningDestination && learningDestination !== 'chat') {
+      const destination: Record<Exclude<LearningDestination, 'chat'>, WorkbenchRoute> = { '编写代码': 'code', '修改确认': 'review', '编译 / 烧录': 'build' }
+      setActiveTab(destination[learningDestination]); onLearningDestinationHandled()
+    }
   }, [learningDestination, onLearningDestinationHandled])
   const error = frame.center - frame.target
   const buildProgress = build.totalFiles > 0 ? Math.round((build.completedFiles / build.totalFiles) * 100) : 0
@@ -107,16 +121,16 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
   return (
     <section className="workbench">
       <nav className="workbench-tabs" aria-label="工作台标签">
-        {tabs.map(([label, Icon]) => (
-          <button type="button" className={label === activeTab ? 'active' : ''} key={label} onClick={() => setActiveTab(label)}>
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <button type="button" className={id === activeTab ? 'active' : ''} key={id} onClick={() => setActiveTab(id)}>
             <Icon size={15} /> {label}
           </button>
         ))}
       </nav>
 
-      {activeTab === '课程中心' ? <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} attempts={courseAttempts} busy={busy} onSelectLesson={onSelectCourseLesson} onCreateLessonAttempt={async (lessonId) => { const created = await onCreateCourseAttempt(lessonId); if (created) setActiveTab('工程代码'); return created }} onContinueAttempt={(workspaceId) => { onContinueCourseAttempt(workspaceId); setActiveTab('工程代码') }} /> : ['编写代码', '工程代码'].includes(activeTab) ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
+      {activeTab === 'course-center' ? <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} attempts={courseAttempts} busy={busy} completedLessonIds={completedLessonIds} onSelectLesson={onSelectCourseLesson} onCreateLessonAttempt={async (lessonId) => { const created = await onCreateCourseAttempt(lessonId); if (created) setActiveTab('course-tasks'); return created }} onContinueAttempt={(workspaceId) => { onContinueCourseAttempt(workspaceId); setActiveTab('course-tasks') }} /> : activeTab === 'course-tasks' ? <CourseTaskPage workspace={workspace} lesson={workspaceLesson} progress={courseProgress} busy={busy} onUpdate={onUpdateCourseProgress} onNavigate={setActiveTab} /> : activeTab === 'code' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('review')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === 'review' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === 'settings' ? (
         <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={onUiScaleChange} />
-      ) : ['烧录器烧录', '烧录与运行'].includes(activeTab) ? (
+      ) : ['wch-link', 'flash'].includes(activeTab) ? (
         <WchLinkFlasherPanel
           snapshot={wchLink}
           build={build}
@@ -125,9 +139,9 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
           onProbe={onProbeWchLink}
           onFlash={onFlashWchLink}
           onCancel={onCancelWchLink}
-          onGoBuild={() => setActiveTab(edition.id === 'mcu-foundations' ? '编译与问题' : '编译 / 烧录')}
+          onGoBuild={() => setActiveTab('build')}
         />
-      ) : activeTab === '程序资源' ? (
+      ) : activeTab === 'resources' ? (
         <div className="workbench-content firmware-workbench">
           <div className="ccd-summary">
             <div><span className="eyebrow">程序资源</span><h2>{build.size ? '查看代码与数据如何占用芯片存储' : '生成程序后查看资源占用'}</h2><p>text 和 data 主要占用 Flash，data 和 bss 会占用运行时 RAM。</p></div>
@@ -139,7 +153,7 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
             <article><span>total</span><strong>{build.size.dec}</strong><small>总体积</small></article>
           </div> : <article className="empty-artifacts"><FileArchive size={18} /> 先到“编译与问题”生成程序，再回来观察资源变化。</article>}
         </div>
-      ) : ['编译 / 烧录', '编译与问题'].includes(activeTab) ? (
+      ) : activeTab === 'build' ? (
         <div className="workbench-content firmware-workbench">
           <div className="ccd-summary">
             <div>

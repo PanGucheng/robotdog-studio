@@ -1,0 +1,13 @@
+export type WorkbenchRoute =
+  | 'course-center'
+  | 'course-tasks'
+  | 'code'
+  | 'build'
+  | 'review'
+  | 'flash'
+  | 'resources'
+  | 'settings'
+  | 'line-parameters'
+  | 'ccd'
+  | 'serial'
+  | 'wch-link'

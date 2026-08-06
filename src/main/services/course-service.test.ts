@@ -54,4 +54,18 @@ describe('CourseService', () => {
     const service = new CourseService({ rootDir: root, includeDrafts: true })
     await expect(service.listCourses()).rejects.toThrow('COURSE_CATALOG_INVALID')
   })
+
+  it('builds isolated task-specific AI context and preserves the draft hardware warning', async () => {
+    const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
+    const first = await service.buildAiContext('ch32v203-foundations', 'studio-first-build', 'explain-code')
+    const second = await service.buildAiContext('ch32v203-foundations', 'c-files-and-functions', 'modify')
+    const draft = await service.buildAiContext('ch32v203-foundations', 'first-hardware-placeholder', 'summary')
+    expect(first).toContain('认识 Studio 与第一次编译')
+    expect(first).not.toContain('源文件、头文件与函数')
+    expect(second).toContain('App/Src/number_tools.c')
+    expect(second).toContain('真正权限仍由 Studio 策略决定')
+    expect(draft).toContain('pending-hardware-check')
+    expect(draft).toContain('不得声称已观察到现象')
+    expect(draft.length).toBeLessThan(8_000)
+  })
 })

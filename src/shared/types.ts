@@ -216,6 +216,55 @@ export interface CourseLesson extends CourseLessonSummary {
   aiContext: { teachingFocus: string; hints: string[] }
 }
 
+export type CourseAttemptState = 'not-started' | 'in-progress' | 'needs-attention' | 'completed'
+export type CourseOperationKind = 'candidate-build' | 'firmware-build' | 'flash'
+export type CourseOperationState = 'not-run' | 'passed' | 'failed'
+
+export interface CourseOperationProgress {
+  state: CourseOperationState
+  checkedAt?: string
+  detail?: string
+}
+
+export interface CourseStepProgress {
+  stepId: string
+  completed: boolean
+  completedAt?: string
+}
+
+export interface CourseCompletionCheckResult {
+  type: CourseLesson['completionChecks'][number]['type']
+  target?: string
+  passed: boolean
+  label: string
+}
+
+export interface CourseProgressSnapshot {
+  schemaVersion: 1
+  workspaceId: string
+  courseId: string
+  lessonId: string
+  contentVersion: number
+  steps: CourseStepProgress[]
+  answers: Record<string, string>
+  observations: Record<string, string>
+  operations: Record<CourseOperationKind, CourseOperationProgress>
+  checks: CourseCompletionCheckResult[]
+  completedSteps: number
+  totalSteps: number
+  completionPercent: number
+  state: CourseAttemptState
+  createdAt: string
+  updatedAt: string
+  completedAt?: string
+  recoveredFromCorruption?: boolean
+}
+
+export type CourseProgressUpdate =
+  | { kind: 'step'; stepId: string; completed: boolean }
+  | { kind: 'answer'; questionId: string; answer: string }
+  | { kind: 'observation'; stepId: string; observation: string }
+
 export interface FirmwareLegacyBaselineManifest {
   schemaVersion: 1
   id: string
@@ -666,6 +715,8 @@ export interface RobotDogApi {
   getCourseLesson(courseId: string, lessonId: string): Promise<CourseLesson>
   listLessonAttempts(courseId: string, lessonId: string): Promise<WorkspaceSummary[]>
   createLessonAttempt(input: CreateLessonAttemptInput): Promise<WorkspaceSummary>
+  getCourseProgress(workspaceId: string): Promise<CourseProgressSnapshot>
+  updateCourseProgress(workspaceId: string, update: CourseProgressUpdate): Promise<CourseProgressSnapshot>
   createCandidate(workspaceId: string): Promise<CandidateSnapshot>
   getCandidate(candidateId: string): Promise<CandidateSnapshot>
   getCandidateDiff(candidateId: string): Promise<CandidateDiff>

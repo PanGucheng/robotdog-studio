@@ -5,6 +5,7 @@ import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapsho
 import { CandidateService, type ManualRepairBackup } from './candidate-service'
 import type { AdapterEvent, ReasonixAdapter } from './reasonix-adapter'
 import { buildStudentCodeExplanationPrompt, getStudentAgentPromptIdentity } from './student-agent-prompt'
+import type { CourseAiTaskKind } from './course-service'
 
 const workspaceIdSchema = z.string().regex(/^ws_[a-f0-9]{24}$/)
 const messageSchema = z.string().trim().min(1).max(2_000)
@@ -31,7 +32,7 @@ interface ActiveTurn {
 export class AgentSessionService extends EventEmitter {
   private active?: ActiveTurn
 
-  constructor(private readonly candidates: CandidateService, private readonly adapter: ReasonixAdapter) {
+  constructor(private readonly candidates: CandidateService, private readonly adapter: ReasonixAdapter, private readonly courseContext?: (workspaceId: string, taskKind: CourseAiTaskKind) => Promise<string | undefined>) {
     super()
   }
 
@@ -39,6 +40,7 @@ export class AgentSessionService extends EventEmitter {
     const validWorkspaceId = workspaceIdSchema.parse(workspaceId)
     const validMessage = messageSchema.parse(message)
     if (this.active) throw new Error('AGENT_BUSY')
+    const courseContext = await this.courseContext?.(validWorkspaceId, /总结|回顾|本课/.test(validMessage) ? 'summary' : 'modify')
     const candidate = await this.candidates.create(validWorkspaceId)
     const promptIdentity = getStudentAgentPromptIdentity(candidate.policyVersion)
     const turnId = `turn_${randomBytes(12).toString('hex')}`
@@ -52,7 +54,7 @@ export class AgentSessionService extends EventEmitter {
       promptHash: promptIdentity.hash,
       startedAt: new Date().toISOString()
     }
-    const active: ActiveTurn = { snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0 }
+    const active: ActiveTurn = { snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0, agentMessage: appendCourseContext(validMessage, courseContext) }
     this.active = active
     this.publish(active, {
       type: 'turn_started', workspaceId: validWorkspaceId, candidateId: candidate.id, message: validMessage,
@@ -70,6 +72,7 @@ export class AgentSessionService extends EventEmitter {
     if (request.kind === 'selection' && !request.selectedPath) throw new Error('STUDENT_EXPLAIN_PATH_REQUIRED')
     if (this.active) throw new Error('AGENT_BUSY')
     const context = await this.candidates.getStudentCodeContextForMain(validWorkspaceId, request.candidateId)
+    const courseContext = await this.courseContext?.(validWorkspaceId, request.kind === 'selection' ? 'explain-code' : 'explain-diagnostic')
     const promptIdentity = getStudentAgentPromptIdentity(context.policyVersion)
     const snippets = context.files
       .filter((file) => request.kind === 'selection' ? file.path === request.selectedPath : file.editable)
@@ -77,7 +80,7 @@ export class AgentSessionService extends EventEmitter {
     const turnId = `turn_${randomBytes(12).toString('hex')}`
     const snapshot: AgentTurnSnapshot = {
       turnId, workspaceId: validWorkspaceId, candidateId: request.candidateId, state: 'preparing',
-      message: buildStudentCodeExplanationPrompt(request.kind, request.content, snippets, { policyVersion: context.policyVersion }),
+      message: appendCourseContext(buildStudentCodeExplanationPrompt(request.kind, request.content, snippets, { policyVersion: context.policyVersion }), courseContext),
       promptVersion: promptIdentity.version, promptHash: promptIdentity.hash, startedAt: new Date().toISOString()
     }
     const active: ActiveTurn = {
@@ -102,6 +105,7 @@ export class AgentSessionService extends EventEmitter {
     if (!candidate.diagnostics?.length) throw new Error('STUDENT_REPAIR_DIAGNOSTIC_MISSING')
     await this.waitForDiagnosticExplanation(validWorkspaceId, candidate.id)
     if (this.active) throw new Error('AGENT_BUSY')
+    const courseContext = await this.courseContext?.(validWorkspaceId, 'repair')
     const turnId = `turn_${randomBytes(12).toString('hex')}`
     const displayMessage = '接受 AI 建议，修复这次编译错误'
     const snapshot: AgentTurnSnapshot = {
@@ -111,7 +115,7 @@ export class AgentSessionService extends EventEmitter {
     const repairBackup = await this.candidates.createManualRepairBackupForMain(candidate.id)
     const active: ActiveTurn = {
       snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0,
-      agentMessage: buildDiagnosticRepairMessage(candidate.diagnostics), repair: true, repairBackup
+      agentMessage: appendCourseContext(buildDiagnosticRepairMessage(candidate.diagnostics), courseContext), repair: true, repairBackup
     }
     await this.candidates.prepareManualRepair(candidate.id)
     this.active = active
@@ -263,6 +267,10 @@ export class AgentSessionService extends EventEmitter {
       await this.candidates.cancel(candidateId).catch(() => undefined)
     }
   }
+}
+
+function appendCourseContext(message: string, courseContext?: string): string {
+  return courseContext ? `${message}\n\n## 当前课程上下文\n${courseContext}` : message
 }
 
 function isAdapterEvent(value: unknown): value is AdapterEvent {
