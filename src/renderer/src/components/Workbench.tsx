@@ -63,7 +63,10 @@ interface WorkbenchProps {
   courseLesson?: CourseLesson
   courseLoading: boolean
   courseError?: string
+  courseAttempts: WorkspaceSummary[]
   onSelectCourseLesson(lessonId: string): void
+  onCreateCourseAttempt(lessonId: string): Promise<boolean>
+  onContinueCourseAttempt(workspaceId: string): void
 }
 
 const funTabs = [
@@ -87,7 +90,7 @@ const mcuTabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, onSelectCourseLesson }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt }: WorkbenchProps): React.JSX.Element {
   const tabs = edition.id === 'mcu-foundations' ? mcuTabs : funTabs
   const [activeTab, setActiveTab] = useState<string>(edition.id === 'mcu-foundations' ? '课程中心' : 'CCD 曲线')
   useEffect(() => { setActiveTab(edition.id === 'mcu-foundations' ? '课程中心' : 'CCD 曲线') }, [edition.id])
@@ -111,7 +114,7 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
         ))}
       </nav>
 
-      {activeTab === '课程中心' ? <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} onSelectLesson={onSelectCourseLesson} /> : ['编写代码', '工程代码'].includes(activeTab) ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
+      {activeTab === '课程中心' ? <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} attempts={courseAttempts} busy={busy} onSelectLesson={onSelectCourseLesson} onCreateLessonAttempt={async (lessonId) => { const created = await onCreateCourseAttempt(lessonId); if (created) setActiveTab('工程代码'); return created }} onContinueAttempt={(workspaceId) => { onContinueCourseAttempt(workspaceId); setActiveTab('工程代码') }} /> : ['编写代码', '工程代码'].includes(activeTab) ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
         <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={onUiScaleChange} />
       ) : ['烧录器烧录', '烧录与运行'].includes(activeTab) ? (
         <WchLinkFlasherPanel

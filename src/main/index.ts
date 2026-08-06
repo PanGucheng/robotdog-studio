@@ -54,14 +54,18 @@ function createWindow(): void {
         ])
         const courses = activeEdition.id === 'mcu-foundations' ? await window.robotDog.listCourses() : []
         const course = courses[0] ? await window.robotDog.getCourse(courses[0].courseId) : undefined
+        const lessonAttempt = course?.lessons[0] ? await window.robotDog.createLessonAttempt({ courseId: course.courseId, lessonId: course.lessons[0].lessonId, studentDisplayName: '测试同学' }) : undefined
+        const secondLessonAttempt = course?.lessons[1] ? await window.robotDog.createLessonAttempt({ courseId: course.courseId, lessonId: course.lessons[1].lessonId, studentDisplayName: '测试同学' }) : undefined
+        const lessonAttempts = course?.lessons[0] ? await window.robotDog.listLessonAttempts(course.courseId, course.lessons[0].lessonId) : []
+        const secondLessonFiles = secondLessonAttempt ? await window.robotDog.listStudentCodeFiles(secondLessonAttempt.id) : []
         const existing = await window.robotDog.listWorkspaces()
-        const workspace = existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
+        const workspace = secondLessonAttempt ?? lessonAttempt ?? existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
           ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
         const firmware = await window.robotDog.startFirmwareBuild(workspace.id)
         return {
-          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2))),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable)))),
           edition: activeEdition.id,
-          courseCount: courses.length, lessonCount: course?.lessons.length ?? 0,
+          courseCount: courses.length, lessonCount: course?.lessons.length ?? 0, lessonAttemptCount: lessonAttempts.length, secondLessonFileCount: secondLessonFiles.length,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
           releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
           firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind)
@@ -140,7 +144,11 @@ app.whenReady().then(async () => {
     })
   })
   const courses = edition.id === 'mcu-foundations'
-    ? new CourseService({ rootDir: join(staticRoot, 'courses', 'mcu-foundations'), includeDrafts: !app.isPackaged })
+    ? new CourseService({
+        rootDir: join(staticRoot, 'courses', 'mcu-foundations'),
+        templatesRoot: join(staticRoot, 'workspace-templates', 'ch32v203-mcu-lessons'),
+        includeDrafts: !app.isPackaged
+      })
     : undefined
   disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses)
   createWindow()

@@ -1,0 +1,3 @@
+# 固件安全适配层的内部默认值；本课不直接编辑此文件。
+turn_strength: 10
+line_target: 64

@@ -14,10 +14,10 @@
   "hardware": "none",
   "verification": "not-required",
   "expectedObservation": "候选代码和完整固件均能成功编译，并能看到 ELF、HEX、BIN、MAP 四类程序文件。",
-  "templateId": "ch32v203-mcu-foundations",
+  "templateId": "studio-first-build",
   "editableGlobs": [
-    "App/Src/**/*.c",
-    "App/Inc/**/*.h"
+    "App/Src/experiment.c",
+    "App/Inc/experiment.h"
   ],
   "readableFiles": [
     "Core/Src/student_control.c",

@@ -40,6 +40,8 @@ export const IPC_CHANNELS = {
   courseList: 'course:list',
   courseGet: 'course:get',
   courseLessonGet: 'course:lesson:get',
+  courseLessonAttemptsList: 'course:lesson-attempts:list',
+  courseLessonAttemptCreate: 'course:lesson-attempt:create',
   studentFilesList: 'student-files:list',
   manualDraftOpen: 'manual-draft:open',
   manualDraftWrite: 'manual-draft:write',

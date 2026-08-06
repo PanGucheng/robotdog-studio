@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { z } from 'zod'
 import type { CourseDetail, CourseLesson, CourseLessonSummary, CourseSummary } from '../../shared/types'
+import type { WorkspaceCreationSpec } from './workspace-service'
 
 const idSchema = z.string().min(1).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 const resourcePathSchema = z.string().min(1).max(180).refine((value) => {
@@ -64,15 +65,18 @@ type LessonManifest = z.infer<typeof lessonManifestSchema>
 
 export interface CourseServiceOptions {
   rootDir: string
+  templatesRoot?: string
   includeDrafts?: boolean
 }
 
 export class CourseService {
   private readonly rootDir: string
+  private readonly templatesRoot?: string
   private readonly includeDrafts: boolean
 
   constructor(options: CourseServiceOptions) {
     this.rootDir = resolve(options.rootDir)
+    this.templatesRoot = options.templatesRoot ? resolve(options.templatesRoot) : undefined
     this.includeDrafts = options.includeDrafts ?? false
   }
 
@@ -96,6 +100,26 @@ export class CourseService {
     const lesson = entry.lessons.find((item) => item.lessonId === lessonId)
     if (!lesson) throw new Error('COURSE_LESSON_NOT_FOUND')
     return structuredClone(lesson)
+  }
+
+  async getWorkspaceCreationSpec(courseId: string, lessonId: string): Promise<WorkspaceCreationSpec> {
+    if (!this.templatesRoot) throw new Error('COURSE_TEMPLATE_ROOT_UNAVAILABLE')
+    const [course, lesson] = await Promise.all([this.getCourse(courseId), this.getLesson(courseId, lessonId)])
+    if (lesson.status !== 'published') throw new Error('COURSE_LESSON_NOT_PUBLISHED')
+    if (lesson.verification === 'pending-hardware-check') throw new Error('COURSE_LESSON_HARDWARE_UNVERIFIED')
+    const templateRoot = resolve(this.templatesRoot, lesson.templateId)
+    const fromRoot = relative(this.templatesRoot, templateRoot)
+    if (!fromRoot || fromRoot.startsWith(`..${sep}`) || fromRoot === '..' || isAbsolute(fromRoot)) throw new Error('COURSE_TEMPLATE_PATH_INVALID')
+    return {
+      workspacePurpose: 'mcu-lesson-attempt',
+      templateId: lesson.templateId,
+      templateVersion: `content-v${course.contentVersion}`,
+      templateRoot,
+      courseBinding: { courseId, lessonId, contentVersion: course.contentVersion },
+      lessonTitle: lesson.title,
+      allowedEditGlobs: [...lesson.editableGlobs],
+      deniedGlobs: [...lesson.deniedGlobs]
+    }
   }
 
   private async loadAllCourses(): Promise<Array<{ detail: CourseDetail; lessons: CourseLesson[] }>> {
@@ -183,4 +207,3 @@ export class CourseService {
     return target
   }
 }
-

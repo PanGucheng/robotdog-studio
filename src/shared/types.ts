@@ -114,14 +114,31 @@ export interface CreateWorkspaceInput {
   studentDisplayName: string
 }
 
+export interface CreateLessonAttemptInput {
+  courseId: string
+  lessonId: string
+  studentDisplayName: string
+}
+
+export type WorkspacePurpose = 'fun-project' | 'mcu-sandbox' | 'mcu-lesson-attempt'
+
+export interface WorkspaceCourseBinding {
+  courseId: string
+  lessonId: string
+  contentVersion: number
+  attemptNumber: number
+}
+
 export interface WorkspaceMetadata {
-  schemaVersion: 2
+  schemaVersion: 3
   id: string
   name: string
   studentDisplayName: string
   learningPath: EditionId
-  templateId: 'ch32v203-robotdog' | 'ch32v203-mcu-foundations'
+  workspacePurpose: WorkspacePurpose
+  templateId: string
   templateVersion: string
+  courseBinding?: WorkspaceCourseBinding
   firmwareBaselineId: string
   baselineCommit: string
   nameCustomized: boolean
@@ -139,8 +156,10 @@ export interface WorkspaceSummary {
   name: string
   studentDisplayName: string
   learningPath: EditionId
-  templateId: 'ch32v203-robotdog' | 'ch32v203-mcu-foundations'
+  workspacePurpose: WorkspacePurpose
+  templateId: string
   templateVersion: string
+  courseBinding?: WorkspaceCourseBinding
   firmwareBaselineId: string
   baselineCommit: string
   createdAt: string
@@ -645,6 +664,8 @@ export interface RobotDogApi {
   listCourses(): Promise<CourseSummary[]>
   getCourse(courseId: string): Promise<CourseDetail>
   getCourseLesson(courseId: string, lessonId: string): Promise<CourseLesson>
+  listLessonAttempts(courseId: string, lessonId: string): Promise<WorkspaceSummary[]>
+  createLessonAttempt(input: CreateLessonAttemptInput): Promise<WorkspaceSummary>
   createCandidate(workspaceId: string): Promise<CandidateSnapshot>
   getCandidate(candidateId: string): Promise<CandidateSnapshot>
   getCandidateDiff(candidateId: string): Promise<CandidateDiff>

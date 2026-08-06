@@ -31,6 +31,22 @@ describe('CourseService', () => {
     await expect(service.getLesson('ch32v203-foundations', 'first-hardware-placeholder')).rejects.toThrow('COURSE_LESSON_NOT_FOUND')
   })
 
+  it('resolves a published lesson to its registered workspace template and permissions', async () => {
+    const service = new CourseService({
+      rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'),
+      templatesRoot: join(process.cwd(), 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'),
+      includeDrafts: true
+    })
+    const spec = await service.getWorkspaceCreationSpec('ch32v203-foundations', 'c-files-and-functions')
+    expect(spec).toMatchObject({
+      templateId: 'c-files-and-functions',
+      templateVersion: 'content-v1',
+      courseBinding: { courseId: 'ch32v203-foundations', lessonId: 'c-files-and-functions', contentVersion: 1 }
+    })
+    expect(spec.allowedEditGlobs).toContain('App/Src/number_tools.c')
+    await expect(service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-hardware-placeholder')).rejects.toThrow('COURSE_LESSON_NOT_PUBLISHED')
+  })
+
   it('rejects a catalog path that escapes the configured root', async () => {
     const root = await mkdtemp(join(tmpdir(), 'robotdog-course-'))
     temporaryRoots.push(root)

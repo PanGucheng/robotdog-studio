@@ -260,6 +260,9 @@ export function App(): React.JSX.Element {
     })
   }
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+  const courseAttempts = courseLesson ? workspaces
+    .filter((workspace) => workspace.courseBinding?.courseId === courseLesson.courseId && workspace.courseBinding.lessonId === courseLesson.lessonId)
+    .sort((left, right) => (right.courseBinding?.attemptNumber ?? 0) - (left.courseBinding?.attemptNumber ?? 0)) : []
   const activeCandidateId = activeWorkspace?.activeCandidateId
   const agentEvents = activeWorkspaceId ? agentEventsByWorkspace[activeWorkspaceId] ?? [] : []
   const diagnosticHelp = useMemo(() => buildDiagnosticHelp(agentEvents, candidate?.id), [agentEvents, candidate?.id])
@@ -279,6 +282,21 @@ export function App(): React.JSX.Element {
       setCourseError(toStudentErrorMessage(caught))
     }).finally(() => setCourseLoading(false))
   }
+  const createCourseAttempt = async (lessonId: string): Promise<boolean> => {
+    if (!course) return false
+    let created: WorkspaceSummary | undefined
+    await run(async () => {
+      created = await api.createLessonAttempt({
+        courseId: course.courseId,
+        lessonId,
+        studentDisplayName: activeWorkspace?.studentDisplayName ?? '学习者'
+      })
+      setWorkspaces((current) => [created!, ...current.filter((item) => item.id !== created!.id)])
+      setActiveWorkspaceId(created.id)
+    })
+    return Boolean(created)
+  }
+  const continueCourseAttempt = (workspaceId: string): void => setActiveWorkspaceId(workspaceId)
 
   useEffect(() => {
     let disposed = false
@@ -467,7 +485,10 @@ export function App(): React.JSX.Element {
           courseLesson={courseLesson}
           courseLoading={courseLoading}
           courseError={courseError}
+          courseAttempts={courseAttempts}
           onSelectCourseLesson={selectCourseLesson}
+          onCreateCourseAttempt={createCourseAttempt}
+          onContinueCourseAttempt={continueCourseAttempt}
         />
       </div>
 

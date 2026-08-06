@@ -1,5 +1,55 @@
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 import { EDITION_PROFILES } from '../../../shared/edition'
+
+const browserEditionId = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('edition') === 'mcu-foundations'
+  ? 'mcu-foundations'
+  : 'fun-line-following'
+
+const demoLessons: CourseLesson[] = [
+  {
+    courseId: 'ch32v203-foundations', lessonId: 'studio-first-build', title: '认识 Studio 与第一次编译',
+    summary: '认识实验工程的入口，完成一次小修改，并读懂编译结果和程序文件。', estimatedMinutes: 45,
+    hardware: 'none', verification: 'not-required', status: 'published', prerequisites: [], order: 0,
+    objectives: ['找到实验代码的主要入口文件', '区分候选预检、完整固件构建和烧录'],
+    expectedObservation: '候选代码和完整固件均能成功编译。', templateId: 'studio-first-build',
+    editableGlobs: ['App/Src/experiment.c', 'App/Inc/experiment.h'],
+    readableFiles: ['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'README.md'], deniedGlobs: ['Core/**', 'Startup/**', 'Ld/**'],
+    steps: [{ stepId: 'read-entry', type: 'read', title: '找到实验入口', instruction: '阅读 experiment.c 和只读适配层。' }],
+    completionChecks: [{ type: 'candidate-build-passed' }, { type: 'firmware-build-passed' }], reflectionQuestions: [],
+    aiContext: { teachingFocus: '建立工程文件、候选预检和完整固件的基本概念。', hints: ['先找到 experiment.c。'] }
+  },
+  {
+    courseId: 'ch32v203-foundations', lessonId: 'c-files-and-functions', title: '源文件、头文件与函数',
+    summary: '通过一个小型多文件练习，理解函数声明、函数定义以及源文件之间的协作。', estimatedMinutes: 60,
+    hardware: 'none', verification: 'not-required', status: 'published', prerequisites: ['studio-first-build'], order: 1,
+    objectives: ['区分头文件中的声明和源文件中的定义', '编写带参数和返回值的简单函数'],
+    expectedObservation: '多个 C 源文件能够一起编译并链接为完整固件。', templateId: 'c-files-and-functions',
+    editableGlobs: ['App/Src/experiment.c', 'App/Inc/experiment.h', 'App/Src/number_tools.c', 'App/Inc/number_tools.h'],
+    readableFiles: ['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'README.md'], deniedGlobs: ['Core/**', 'Startup/**', 'Ld/**'],
+    steps: [{ stepId: 'read-declaration-definition', type: 'read', title: '辨认声明与定义', instruction: '比较头文件中的函数声明和源文件中的函数定义。' }],
+    completionChecks: [{ type: 'file-exists', target: 'App/Src/number_tools.c' }], reflectionQuestions: [],
+    aiContext: { teachingFocus: '围绕 C 语言声明、定义和多文件编译给出分层提示。', hints: ['检查函数签名是否一致。'] }
+  },
+  {
+    courseId: 'ch32v203-foundations', lessonId: 'first-hardware-placeholder', title: '第一个硬件实验（待定）',
+    summary: '用于验证硬件警告、烧录入口和人工观察流程；实验方向将在真机测试后确定。', estimatedMinutes: 60,
+    hardware: 'required', verification: 'pending-hardware-check', status: 'draft', prerequisites: ['c-files-and-functions'], order: 2,
+    objectives: ['认识硬件实验必须先核对芯片、引脚和外设占用'], expectedObservation: '当前不得据此连接或烧录硬件。',
+    templateId: 'first-hardware-placeholder', editableGlobs: ['App/Src/experiment.c', 'App/Inc/experiment.h'],
+    readableFiles: ['Core/Src/student_control.c', 'Core/Inc/student_control.h', 'README.md'], deniedGlobs: ['Core/**', 'Startup/**', 'Ld/**'],
+    steps: [{ stepId: 'read-hardware-warning', type: 'read', title: '阅读硬件提示', instruction: '确认当前课次仍处于待验证状态。' }],
+    completionChecks: [{ type: 'manual-observation-confirmed' }], reflectionQuestions: [],
+    aiContext: { teachingFocus: '明确说明本课尚未完成真机验证。', hints: ['等待硬件检查完成。'] }
+  }
+]
+
+const demoCourse: CourseDetail = {
+  courseId: 'ch32v203-foundations', contentVersion: 1, title: 'CH32V203 单片机入门',
+  summary: '从读懂工程、编译程序开始，逐步认识 C 文件组织和真实开发板实验。', audience: '电子类专业大学低年级学生',
+  status: 'published', boardScope: 'CH32V203 RobotDog 教学硬件', lessonCount: demoLessons.length,
+  objectives: ['理解源文件、头文件、编译、固件和烧录之间的关系'], sourceAttribution: ['RobotDog Studio 当前教学资源'],
+  lessons: demoLessons.map(({ objectives: _objectives, expectedObservation: _expectedObservation, templateId: _templateId, editableGlobs: _editableGlobs, readableFiles: _readableFiles, deniedGlobs: _deniedGlobs, steps: _steps, completionChecks: _completionChecks, reflectionQuestions: _reflectionQuestions, aiContext: _aiContext, ...summary }) => summary)
+}
 
 const statusListeners = new Set<(status: RobotStatus) => void>()
 const logListeners = new Set<(entry: LogEntry) => void>()
@@ -16,13 +66,16 @@ const demoCandidates = new Map<string, CandidateSnapshot>()
 let browserAgentToken = 0
 let browserAgentTurn: AgentTurnSnapshot | undefined
 
-let demoWorkspaces: WorkspaceSummary[] = [{
+let demoWorkspaces: WorkspaceSummary[] = browserEditionId === 'mcu-foundations' ? [] : [{
   id: 'ws_0123456789abcdef01234567', name: '巡线基础训练', studentDisplayName: '林同学',
   learningPath: 'fun-line-following',
+  workspacePurpose: 'fun-project',
   templateId: 'ch32v203-robotdog', templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: new Date().toISOString(), headCommit: '86d826a000000000000000000000000000000000',
   state: 'ready', updatedAt: new Date().toISOString()
 }]
-const demoHistories = new Map<string, WorkspaceHistoryEntry[]>([[demoWorkspaces[0].id, [{ commit: demoWorkspaces[0].headCommit, shortCommit: '86d826a', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }]]])
+const demoHistories = new Map<string, WorkspaceHistoryEntry[]>(demoWorkspaces[0]
+  ? [[demoWorkspaces[0].id, [{ commit: demoWorkspaces[0].headCommit, shortCommit: '86d826a', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }]]]
+  : [])
 
 let status: RobotStatus = {
   connection: 'disconnected',
@@ -170,10 +223,39 @@ async function runBrowserFirmwareUpdate(token: number): Promise<void> {
 }
 
 export const browserDemoApi: RobotDogApi = {
-  getEditionProfile: async () => structuredClone(EDITION_PROFILES['fun-line-following']),
-  listCourses: async () => [],
-  getCourse: async () => { throw new Error('课程仅在单片机入门版提供') },
-  getCourseLesson: async () => { throw new Error('课程仅在单片机入门版提供') },
+  getEditionProfile: async () => structuredClone(EDITION_PROFILES[browserEditionId]),
+  listCourses: async () => browserEditionId === 'mcu-foundations' ? [structuredClone(demoCourse)] : [],
+  getCourse: async (courseId) => {
+    if (browserEditionId !== 'mcu-foundations' || courseId !== demoCourse.courseId) throw new Error('课程不存在')
+    return structuredClone(demoCourse)
+  },
+  getCourseLesson: async (courseId, lessonId) => {
+    const lesson = demoLessons.find((item) => item.courseId === courseId && item.lessonId === lessonId)
+    if (browserEditionId !== 'mcu-foundations' || !lesson) throw new Error('课时不存在')
+    return structuredClone(lesson)
+  },
+  listLessonAttempts: async (courseId, lessonId) => structuredClone(demoWorkspaces.filter((workspace) => workspace.courseBinding?.courseId === courseId && workspace.courseBinding.lessonId === lessonId)),
+  createLessonAttempt: async (input) => {
+    if (browserEditionId !== 'mcu-foundations') throw new Error('课程仅在单片机入门版提供')
+    const lesson = demoLessons.find((item) => item.courseId === input.courseId && item.lessonId === input.lessonId)
+    if (!lesson || lesson.status !== 'published') throw new Error('当前课时尚未开放')
+    if (lesson.verification === 'pending-hardware-check') throw new Error('当前课时仍待硬件验证')
+    const attempts = demoWorkspaces.filter((workspace) => workspace.courseBinding?.courseId === input.courseId && workspace.courseBinding.lessonId === input.lessonId)
+    const attemptNumber = Math.max(0, ...attempts.map((workspace) => workspace.courseBinding?.attemptNumber ?? 0)) + 1
+    const now = new Date().toISOString()
+    const workspace: WorkspaceSummary = {
+      id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
+      name: `${lesson.title} · 第 ${attemptNumber} 次`, studentDisplayName: input.studentDisplayName.trim(), learningPath: 'mcu-foundations',
+      workspacePurpose: 'mcu-lesson-attempt', templateId: lesson.templateId, templateVersion: '2026.08',
+      courseBinding: { courseId: input.courseId, lessonId: input.lessonId, contentVersion: demoCourse.contentVersion, attemptNumber },
+      firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca',
+      createdAt: now, headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: now
+    }
+    demoWorkspaces = [workspace, ...demoWorkspaces]
+    demoHistories.set(workspace.id, [{ commit: workspace.headCommit, shortCommit: workspace.headCommit.slice(0, 7), message: 'chore: initialize lesson workspace', createdAt: now }])
+    workspaceListeners.forEach((listener) => listener(structuredClone(workspace)))
+    return structuredClone(workspace)
+  },
   getHealth: async () => ({ appVersion: '0.1.0', platform: 'browser', mode: 'simulation', checks: [] }),
   getRuntimeInfo: async () => ({
     dataRoot: '浏览器演示数据（不会写入磁盘）', diagnosticsRoot: '浏览器演示诊断', mode: 'simulation', workspaceCount: demoWorkspaces.length,
@@ -354,7 +436,7 @@ export const browserDemoApi: RobotDogApi = {
     for (let index = 2; demoWorkspaces.some((item) => item.name === name); index += 1) name = `${baseName}（${index}）`
     const workspace: WorkspaceSummary = {
       id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
-      name, studentDisplayName: input.studentDisplayName.trim(), learningPath: 'fun-line-following', templateId: 'ch32v203-robotdog',
+      name, studentDisplayName: input.studentDisplayName.trim(), learningPath: 'fun-line-following', workspacePurpose: 'fun-project', templateId: 'ch32v203-robotdog',
       templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: now.toISOString(), headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: now.toISOString()
     }
     demoWorkspaces = [workspace, ...demoWorkspaces]
@@ -390,8 +472,23 @@ export const browserDemoApi: RobotDogApi = {
     workspaceListeners.forEach((listener) => listener(structuredClone(reverted)))
     return structuredClone(reverted)
   },
-  listStudentCodeFiles: async (_workspaceId, candidateId) => {
+  listStudentCodeFiles: async (workspaceId, candidateId) => {
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
     const changed = candidateId && demoCandidates.get(candidateId)?.origin === 'manual'
+    if (workspace.courseBinding) {
+      const common = [
+        { path: 'App/Src/experiment.c' as const, label: '实验主程序', group: '实验代码' as const, language: 'c' as const, editable: true, content: '#include "experiment.h"\n\nvoid Experiment_Init(void) {}\nvoid Experiment_Update(void) {}\n' },
+        { path: 'App/Inc/experiment.h' as const, label: '实验接口', group: '实验代码' as const, language: 'c' as const, editable: true, content: '#pragma once\n\nvoid Experiment_Init(void);\nvoid Experiment_Update(void);\n' }
+      ]
+      const multiFile = workspace.courseBinding.lessonId === 'c-files-and-functions' ? [
+        { path: 'App/Src/number_tools.c' as const, label: '数字工具实现', group: '函数练习' as const, language: 'c' as const, editable: true, content: '#include "number_tools.h"\n\nint ClampNumber(int value, int minimum, int maximum) { return value; }\n' },
+        { path: 'App/Inc/number_tools.h' as const, label: '数字工具声明', group: '函数练习' as const, language: 'c' as const, editable: true, content: '#pragma once\n\nint ClampNumber(int value, int minimum, int maximum);\n' }
+      ] : []
+      return [...common, ...multiFile,
+        { path: 'Core/Src/student_control.c' as const, label: '安全运行适配', group: '只读底层' as const, language: 'c' as const, editable: false, content: '/* 只读适配层 */\n' },
+        { path: 'README.md' as const, label: '实验说明', group: '学习资料' as const, language: 'markdown' as const, editable: false, content: `# ${workspace.name}\n` }
+      ]
+    }
     return [
       { path: 'Core/Src/student_control.c' as const, label: '小马怎么走', group: '控制逻辑' as const, language: 'c' as const, editable: true, content: `#include "student_control.h"\n\nvoid StudentControl_Update(const student_control_input_t *input, student_control_output_t *output)\n{\n    output->action = ${changed ? 'STUDENT_ACTION_TURN_LEFT' : 'STUDENT_ACTION_WALK'};\n}\n` },
       { path: 'student-config/line-following.yaml' as const, label: '巡线参数', group: '参数设置' as const, language: 'yaml' as const, editable: true, content: 'turn_strength: 18\nline_target: 64\n' },

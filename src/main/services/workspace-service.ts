@@ -3,7 +3,7 @@ import { constants as fsConstants } from 'node:fs'
 import { copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { z } from 'zod'
-import type { CreateWorkspaceInput, WorkspaceHistoryEntry, WorkspaceMetadata, WorkspaceSummary } from '../../shared/types'
+import type { CreateLessonAttemptInput, CreateWorkspaceInput, WorkspaceCourseBinding, WorkspaceHistoryEntry, WorkspaceMetadata, WorkspacePurpose, WorkspaceSummary } from '../../shared/types'
 import type { AppEditionProfile } from '../../shared/edition'
 import { EDITION_PROFILES } from '../../shared/edition'
 import { GitWorkspaceService } from './git-workspace-service'
@@ -16,6 +16,18 @@ const studentNameSchema = z.string().trim().min(1).max(24).refine((value) => !/[
 const createSchema = z.object({
   name: workspaceNameSchema.optional(),
   studentDisplayName: studentNameSchema
+}).strict()
+const lessonAttemptInputSchema = z.object({
+  courseId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  lessonId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  studentDisplayName: studentNameSchema
+}).strict()
+const workspacePurposeSchema = z.enum(['fun-project', 'mcu-sandbox', 'mcu-lesson-attempt'])
+const courseBindingSchema = z.object({
+  courseId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  lessonId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  contentVersion: z.number().int().positive(),
+  attemptNumber: z.number().int().positive()
 }).strict()
 
 const legacyMetadataSchema = z.object({
@@ -37,7 +49,7 @@ const legacyMetadataSchema = z.object({
   activeCandidateId: z.string().regex(/^cand_[a-f0-9]{24}$/).optional()
 }).strict()
 
-const metadataSchema = z.object({
+const metadataSchemaV2 = z.object({
   schemaVersion: z.literal(2),
   id: z.string().regex(/^ws_[a-f0-9]{24}$/),
   name: workspaceNameSchema,
@@ -56,6 +68,44 @@ const metadataSchema = z.object({
   state: z.enum(['ready', 'candidate_active', 'applying', 'error', 'conflict', 'archived']),
   activeCandidateId: z.string().regex(/^cand_[a-f0-9]{24}$/).optional()
 }).strict()
+
+const metadataSchema = z.object({
+  schemaVersion: z.literal(3),
+  id: z.string().regex(/^ws_[a-f0-9]{24}$/),
+  name: workspaceNameSchema,
+  studentDisplayName: studentNameSchema,
+  learningPath: z.enum(['fun-line-following', 'mcu-foundations']),
+  workspacePurpose: workspacePurposeSchema,
+  templateId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  templateVersion: z.string().min(1).max(64),
+  courseBinding: courseBindingSchema.optional(),
+  firmwareBaselineId: z.string().min(1).max(96),
+  baselineCommit: z.string().regex(/^[a-f0-9]{40}$/),
+  nameCustomized: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  activeBranch: z.literal('main'),
+  lastCheckpoint: z.string().regex(/^[a-f0-9]{40}$/),
+  policyProfile: z.enum(['student-v1', 'mcu-foundations-v1']),
+  state: z.enum(['ready', 'candidate_active', 'applying', 'error', 'conflict', 'archived']),
+  activeCandidateId: z.string().regex(/^cand_[a-f0-9]{24}$/).optional()
+}).strict().superRefine((value, context) => {
+  if (value.workspacePurpose === 'mcu-lesson-attempt' && !value.courseBinding) context.addIssue({ code: 'custom', message: 'course binding required' })
+  if (value.workspacePurpose !== 'mcu-lesson-attempt' && value.courseBinding) context.addIssue({ code: 'custom', message: 'course binding not allowed' })
+  if (value.learningPath === 'fun-line-following' && value.workspacePurpose !== 'fun-project') context.addIssue({ code: 'custom', message: 'fun workspace purpose mismatch' })
+  if (value.learningPath === 'mcu-foundations' && value.workspacePurpose === 'fun-project') context.addIssue({ code: 'custom', message: 'mcu workspace purpose mismatch' })
+})
+
+export interface WorkspaceCreationSpec {
+  workspacePurpose: Extract<WorkspacePurpose, 'mcu-lesson-attempt'>
+  templateId: string
+  templateVersion: string
+  templateRoot: string
+  courseBinding: Omit<WorkspaceCourseBinding, 'attemptNumber'>
+  lessonTitle: string
+  allowedEditGlobs: string[]
+  deniedGlobs: string[]
+}
 
 export interface WorkspaceServiceOptions {
   rootDir: string
@@ -97,29 +147,49 @@ export class WorkspaceService {
 
   async create(input: CreateWorkspaceInput): Promise<WorkspaceSummary> {
     const validated = createSchema.parse(input)
+    return this.createManagedWorkspace(validated)
+  }
+
+  async createLessonAttempt(input: CreateLessonAttemptInput, spec: WorkspaceCreationSpec): Promise<WorkspaceSummary> {
+    const validated = lessonAttemptInputSchema.parse(input)
+    if (this.edition.id !== 'mcu-foundations') throw new Error('COURSE_WORKSPACE_EDITION_MISMATCH')
+    if (validated.courseId !== spec.courseBinding.courseId || validated.lessonId !== spec.courseBinding.lessonId) throw new Error('COURSE_WORKSPACE_SPEC_MISMATCH')
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(spec.templateId)) throw new Error('COURSE_TEMPLATE_ID_INVALID')
+    return this.createManagedWorkspace({ studentDisplayName: validated.studentDisplayName }, spec)
+  }
+
+  async listLessonAttempts(courseId: string, lessonId: string): Promise<WorkspaceSummary[]> {
+    lessonAttemptInputSchema.pick({ courseId: true, lessonId: true }).parse({ courseId, lessonId })
+    return (await this.list()).filter((workspace) => workspace.courseBinding?.courseId === courseId && workspace.courseBinding.lessonId === lessonId)
+  }
+
+  private async createManagedWorkspace(input: z.infer<typeof createSchema>, spec?: WorkspaceCreationSpec): Promise<WorkspaceSummary> {
     await this.initialize()
-    const name = validated.name ?? await this.nextDefaultName(new Date())
+    const attemptNumber = spec ? await this.nextAttemptNumber(spec.courseBinding.courseId, spec.courseBinding.lessonId) : undefined
+    const name = input.name ?? (spec ? `${spec.lessonTitle} · 第 ${attemptNumber} 次` : await this.nextDefaultName(new Date()))
     const id = `ws_${randomBytes(12).toString('hex')}`
     const temporaryRoot = this.resolveInside(this.workspacesDir, `.creating-${id}`)
     const finalRoot = this.resolveInside(this.workspacesDir, id)
     const projectRoot = join(temporaryRoot, 'project')
     const now = new Date().toISOString()
     try {
-      await this.copyTemplate(projectRoot)
+      await this.copyTemplate(projectRoot, spec?.templateRoot ?? this.templateRoot)
       await writeFile(join(projectRoot, '.robotdog-managed'), 'RobotDog Studio workspace v1\n', { encoding: 'utf8', flag: 'wx' })
-      await this.writeManagedProjectFiles(projectRoot)
+      await this.writeManagedProjectFiles(projectRoot, spec)
       const lastCheckpoint = await this.git.initialize(projectRoot)
       const metadata: WorkspaceMetadata = {
-        schemaVersion: 2,
+        schemaVersion: 3,
         id,
         name,
-        studentDisplayName: validated.studentDisplayName,
+        studentDisplayName: input.studentDisplayName,
         learningPath: this.edition.id,
-        templateId: this.edition.templateId,
-        templateVersion: this.templateVersion,
+        workspacePurpose: spec?.workspacePurpose ?? (this.edition.id === 'mcu-foundations' ? 'mcu-sandbox' : 'fun-project'),
+        templateId: spec?.templateId ?? this.edition.templateId,
+        templateVersion: spec?.templateVersion ?? this.templateVersion,
+        courseBinding: spec && attemptNumber ? { ...spec.courseBinding, attemptNumber } : undefined,
         firmwareBaselineId: this.firmwareBaselineId,
         baselineCommit: this.baselineCommit,
-        nameCustomized: validated.name !== undefined,
+        nameCustomized: input.name !== undefined,
         createdAt: now,
         updatedAt: now,
         activeBranch: 'main',
@@ -243,10 +313,25 @@ export class WorkspaceService {
     await rename(temporaryPath, join(workspaceRoot, 'workspace.json'))
   }
 
-  private async copyTemplate(destination: string): Promise<void> {
-    await this.validateTemplateTree(this.templateRoot)
+  private async copyTemplate(destination: string, templateRoot: string): Promise<void> {
+    const resolvedTemplateRoot = resolve(templateRoot)
+    await this.validateTemplateTree(resolvedTemplateRoot)
     await mkdir(dirname(destination), { recursive: true })
-    await cp(this.templateRoot, destination, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true })
+    await cp(resolvedTemplateRoot, destination, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true })
+  }
+
+  private async nextAttemptNumber(courseId: string, lessonId: string): Promise<number> {
+    let highest = 0
+    for (const entry of await readdir(this.workspacesDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !entry.name.startsWith('ws_')) continue
+      try {
+        const raw = JSON.parse(await readFile(join(this.workspacesDir, entry.name, 'workspace.json'), 'utf8')) as { courseBinding?: Partial<WorkspaceCourseBinding> }
+        if (raw.courseBinding?.courseId === courseId && raw.courseBinding.lessonId === lessonId && Number.isInteger(raw.courseBinding.attemptNumber)) {
+          highest = Math.max(highest, Number(raw.courseBinding.attemptNumber))
+        }
+      } catch { /* Damaged workspaces do not reserve attempt numbers. */ }
+    }
+    return highest + 1
   }
 
   private async nextDefaultName(now: Date): Promise<string> {
@@ -281,12 +366,12 @@ export class WorkspaceService {
     }
   }
 
-  private async writeManagedProjectFiles(projectRoot: string): Promise<void> {
+  private async writeManagedProjectFiles(projectRoot: string, spec?: WorkspaceCreationSpec): Promise<void> {
     const policy = this.edition.id === 'mcu-foundations' ? {
       schemaVersion: 1,
       policyProfile: 'mcu-foundations-v1',
-      allowedEditGlobs: ['App/Src/**/*.c', 'App/Inc/**/*.h'],
-      deniedGlobs: ['.git/**', '.gitattributes', '.gitignore', 'Core/**', 'student-config/**', '**/startup*', '**/*.ld', 'robotdog.project.json', 'reasonix.toml', 'AGENTS.md'],
+      allowedEditGlobs: spec?.allowedEditGlobs ?? ['App/Src/**/*.c', 'App/Inc/**/*.h'],
+      deniedGlobs: [...new Set(['.git/**', '.gitattributes', '.gitignore', 'Core/**', 'student-config/**', '**/startup*', '**/*.ld', 'robotdog.project.json', 'reasonix.toml', 'AGENTS.md', ...(spec?.deniedGlobs ?? [])])],
       maxChangedFiles: 20,
       maxPatchBytes: 160_000,
       maxSingleFileBytes: 96_000,
@@ -303,21 +388,35 @@ export class WorkspaceService {
     }
     await writeFile(join(projectRoot, 'robotdog.project.json'), `${JSON.stringify(policy, null, 2)}\n`, 'utf8')
     await writeFile(join(projectRoot, 'reasonix.toml'), '# Generated by RobotDog Studio. AI tools are enabled in a later phase.\n', 'utf8')
-    const audience = this.edition.id === 'mcu-foundations' ? '单片机入门实验项目' : '趣味巡线项目'
+    const audience = spec ? `${spec.lessonTitle}课次练习` : this.edition.id === 'mcu-foundations' ? '单片机入门实验项目' : '趣味巡线项目'
     await writeFile(join(projectRoot, 'AGENTS.md'), `# RobotDog ${audience}\n\n只修改 robotdog.project.json 允许的教学文件。禁止运行命令、修改构建与启动配置。\n`, 'utf8')
   }
 
   private async parseOrMigrateMetadata(metadataPath: string, raw: unknown): Promise<WorkspaceMetadata> {
     const current = metadataSchema.safeParse(raw)
     if (current.success) return current.data
+    const versionTwo = metadataSchemaV2.safeParse(raw)
+    if (versionTwo.success) {
+      const migrated: WorkspaceMetadata = {
+        ...versionTwo.data,
+        schemaVersion: 3,
+        workspacePurpose: versionTwo.data.learningPath === 'mcu-foundations' ? 'mcu-sandbox' : 'fun-project'
+      }
+      return this.persistMigration(metadataPath, migrated, '.v2.bak')
+    }
     const legacy = legacyMetadataSchema.parse(raw)
     if (this.edition.id !== 'fun-line-following') throw new Error('WORKSPACE_EDITION_MISMATCH')
     const migrated: WorkspaceMetadata = {
       ...legacy,
-      schemaVersion: 2,
-      learningPath: 'fun-line-following'
+      schemaVersion: 3,
+      learningPath: 'fun-line-following',
+      workspacePurpose: 'fun-project'
     }
-    const backupPath = `${metadataPath}.v1.bak`
+    return this.persistMigration(metadataPath, migrated, '.v1.bak')
+  }
+
+  private async persistMigration(metadataPath: string, migrated: WorkspaceMetadata, backupSuffix: string): Promise<WorkspaceMetadata> {
+    const backupPath = `${metadataPath}${backupSuffix}`
     await copyFile(metadataPath, backupPath, fsConstants.COPYFILE_EXCL).catch(async (caught: NodeJS.ErrnoException) => {
       if (caught.code !== 'EEXIST') throw caught
     })
@@ -339,7 +438,7 @@ export class WorkspaceService {
   }
 
   private toSummary(metadata: WorkspaceMetadata): WorkspaceSummary {
-    const { id, name, studentDisplayName, learningPath, templateId, templateVersion, firmwareBaselineId, baselineCommit, createdAt, lastCheckpoint: headCommit, state, updatedAt, activeCandidateId } = metadata
-    return { id, name, studentDisplayName, learningPath, templateId, templateVersion, firmwareBaselineId, baselineCommit, createdAt, headCommit, state, updatedAt, activeCandidateId }
+    const { id, name, studentDisplayName, learningPath, workspacePurpose, templateId, templateVersion, courseBinding, firmwareBaselineId, baselineCommit, createdAt, lastCheckpoint: headCommit, state, updatedAt, activeCandidateId } = metadata
+    return { id, name, studentDisplayName, learningPath, workspacePurpose, templateId, templateVersion, courseBinding, firmwareBaselineId, baselineCommit, createdAt, headCommit, state, updatedAt, activeCandidateId }
   }
 }

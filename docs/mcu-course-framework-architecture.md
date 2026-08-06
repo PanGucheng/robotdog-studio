@@ -2,32 +2,36 @@
 
 更新日期：2026-08-06
 
-状态：阶段零基线，随实现更新
+状态：阶段二实现基线，随实现更新
 
 关联计划：[单片机入门版课程框架详细实施计划](./mcu-course-framework-implementation-plan.md)
 
 ## 1. 当前实施范围
 
-第一批切片只建设只读课程目录，不改变工作区 schema，也不创建课次练习。完成后应用具备：
+当前已经完成课程目录和“一课一工程”。应用具备：
 
 - 从 `resources/courses/mcu-foundations` 读取课程和课次；
 - 在单片机版显示课程中心、课次目标、步骤和硬件状态；
-- 通过 Main IPC 按 course ID 和 lesson ID 查询，不接收 Renderer 传入的资源路径；
+- 通过 Main IPC 按 course ID 和 lesson ID 查询并创建课次练习，不接收 Renderer 传入的资源路径；
 - 在开发模式显示 draft 课，打包版本只显示 published 课；
-- 为下一阶段“一课一工程”保留 `templateId`、编辑范围和完成检查字段。
+- 从已登记的课次模板创建独立工作区，支持继续上次和保留旧练习的新建练习；
+- 工作区 schema v3 记录用途、课程身份、内容版本和尝试编号，并对 v1/v2 元数据执行非破坏迁移。
 
-当前“开始学习”按钮明确显示为下一阶段能力，避免把尚未实现的工作区创建伪装成可用功能。
+未发布或待硬件检查的课次不能创建练习；第三课继续只展示结构和警告。
 
 ## 2. 数据流
 
 ```mermaid
 flowchart LR
   Files["课程 JSON 与课次模板"] --> CourseService["CourseService"]
-  CourseService --> IPC["只读课程 IPC"]
+  CourseService --> Spec["WorkspaceCreationSpec"]
+  Spec --> WorkspaceService["WorkspaceService"]
+  CourseService --> IPC["课程查询 / 练习 IPC"]
+  WorkspaceService --> IPC
   IPC --> Preload["contextBridge API"]
   Preload --> App["React 状态"]
   App --> Center["课程中心 / 课次详情"]
-  Center -. 下一阶段 .-> Workspace["独立课次工作区"]
+  Center --> Workspace["独立课次工作区"]
 ```
 
 ### Main
@@ -43,24 +47,27 @@ flowchart LR
 
 ### Preload 与 IPC
 
-只读 API：
+课程 API：
 
 ```text
 listCourses()
 getCourse(courseId)
 getCourseLesson(courseId, lessonId)
+listLessonAttempts(courseId, lessonId)
+createLessonAttempt({ courseId, lessonId, studentDisplayName })
 ```
 
 课程 IPC 只在 `mcu-foundations` 注册。ID 由 Main 再校验；资源路径始终由 catalog 和 Main 推导。
 
 ### Renderer
 
-单片机工作台新增“课程中心”标签并作为默认页。课程中心只负责浏览：
+单片机工作台新增“课程中心”标签并作为默认页。课程中心负责浏览和进入练习：
 
 - 课程身份、受众、目标平台和课次数量；
 - 有序课次、预计时间和硬件要求；
 - 当前课次目标、步骤和待验证硬件警告；
-- 不可点击的“开始学习（下一阶段）”说明。
+- 已发布无硬件课的开始学习、继续上次、新建练习和尝试记录；
+- 待硬件检查课不可点击的开始学习入口。
 
 当前项目选择器、工程代码、候选修改、编译、烧录和设置页保持原样。
 
@@ -81,7 +88,7 @@ resources/courses/mcu-foundations/
 - 整套课程只维护一个递增 `contentVersion`；Git 保存具体变更历史。
 - manifest 不得包含脚本或绝对路径。
 - draft 课用于开发期验证，打包版本不展示。
-- `templateId` 在第一批切片中只描述后续目标，不触发工作区复制。
+- `templateId` 只能由 Main 从课次资源解析到 `resources/workspace-templates/ch32v203-mcu-lessons` 下的已登记模板。
 
 ## 4. 必须保留的安全边界
 
@@ -101,15 +108,13 @@ resources/courses/mcu-foundations/
 - ID 或前置引用不合法：拒绝加载课程并返回可定位错误码。
 - draft 课在打包环境被隐藏：不影响其他 published 课。
 - Renderer 请求不存在的课程或课次：返回 `COURSE_NOT_FOUND` 或 `COURSE_LESSON_NOT_FOUND`。
-- 下一阶段模板创建失败时应只清理本次未完成目录，不覆盖现有项目；本切片尚不执行模板创建。
+- 模板创建失败时只清理本次未完成目录，不覆盖现有项目。
 
 ## 6. 下一阶段接口落点
 
-“开始学习”接入时：
+阶段三接入实验任务页时：
 
-1. `CourseService` 根据 lesson ID 解析已登记模板和权限；
-2. `WorkspaceService` 接收 Main 生成的 `WorkspaceCreationSpec`；
-3. 创建独立工作区并记录 course ID、lesson ID、contentVersion 和 attempt number；
-4. 课程中心进入该工作区的“实验任务”页；
-5. 进度仅保存步骤勾选、问题回答、最近编译/烧录状态和人工观察。
-
+1. 为课程工作区初始化课次步骤状态；
+2. 课程中心进入该工作区的“实验任务”页；
+3. 进度仅保存步骤勾选、问题回答、最近编译/烧录状态和人工观察；
+4. 普通 MCU sandbox 继续默认进入工程代码，不显示课程完成状态。

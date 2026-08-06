@@ -16,10 +16,12 @@
   "hardware": "none",
   "verification": "not-required",
   "expectedObservation": "多个 C 源文件能够一起编译并链接为完整固件，实验入口能够调用新增函数。",
-  "templateId": "ch32v203-mcu-foundations",
+  "templateId": "c-files-and-functions",
   "editableGlobs": [
-    "App/Src/**/*.c",
-    "App/Inc/**/*.h"
+    "App/Src/experiment.c",
+    "App/Inc/experiment.h",
+    "App/Src/number_tools.c",
+    "App/Inc/number_tools.h"
   ],
   "readableFiles": [
     "Core/Src/student_control.c",
@@ -70,8 +72,8 @@
     }
   ],
   "completionChecks": [
-    { "type": "file-exists", "target": "App/Inc/number-tools.h" },
-    { "type": "file-exists", "target": "App/Src/number-tools.c" },
+    { "type": "file-exists", "target": "App/Inc/number_tools.h" },
+    { "type": "file-exists", "target": "App/Src/number_tools.c" },
     { "type": "candidate-build-passed" },
     { "type": "firmware-build-passed" },
     { "type": "question-answered", "target": "header-purpose" }

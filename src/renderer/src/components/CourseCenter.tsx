@@ -1,5 +1,5 @@
 import { BookOpenCheck, ChevronRight, Clock3, Cpu, FlaskConical, GraduationCap, LockKeyhole } from 'lucide-react'
-import type { CourseDetail, CourseLesson, CourseLessonSummary, CourseSummary } from '../../../shared/types'
+import type { CourseDetail, CourseLesson, CourseLessonSummary, CourseSummary, WorkspaceSummary } from '../../../shared/types'
 
 interface CourseCenterProps {
   courses: CourseSummary[]
@@ -7,7 +7,11 @@ interface CourseCenterProps {
   lesson?: CourseLesson
   loading: boolean
   error?: string
+  attempts: WorkspaceSummary[]
+  busy: boolean
   onSelectLesson(lessonId: string): void
+  onCreateLessonAttempt(lessonId: string): Promise<boolean>
+  onContinueAttempt(workspaceId: string): void
 }
 
 const hardwareLabels = {
@@ -16,7 +20,7 @@ const hardwareLabels = {
   required: '需要开发板'
 } as const
 
-export function CourseCenter({ courses, course, lesson, loading, error, onSelectLesson }: CourseCenterProps): React.JSX.Element {
+export function CourseCenter({ courses, course, lesson, loading, error, attempts, busy, onSelectLesson, onCreateLessonAttempt, onContinueAttempt }: CourseCenterProps): React.JSX.Element {
   if (loading && !course) {
     return <div className="course-center-state"><Cpu className="spin" size={22} /><strong>正在读取课程目录</strong><span>课程内容保存在本机，可离线使用。</span></div>
   }
@@ -91,9 +95,13 @@ export function CourseCenter({ courses, course, lesson, loading, error, onSelect
             </div>
 
             <footer className="lesson-detail-actions">
-              <span>当前切片已完成课程浏览；独立课次工程将在下一阶段接入。</span>
-              <button type="button" disabled><BookOpenCheck size={16} /> 开始学习（下一阶段）</button>
+              <span>{lesson.status === 'draft' ? '硬件课通过真机检查并发布后才能创建练习。' : attempts.length > 0 ? `已保留 ${attempts.length} 次独立练习。` : '将从本课专用模板创建独立工程。'}</span>
+              <div>
+                {attempts[0] && <button type="button" onClick={() => onContinueAttempt(attempts[0].id)} disabled={busy}><BookOpenCheck size={16} /> 继续上次练习</button>}
+                <button type="button" className="course-start-button" disabled={busy || lesson.status !== 'published' || lesson.verification === 'pending-hardware-check'} onClick={() => void onCreateLessonAttempt(lesson.lessonId)}>{attempts.length > 0 ? '新建练习' : '开始学习'}</button>
+              </div>
             </footer>
+            {attempts.length > 0 && <div className="lesson-attempts"><span className="eyebrow">练习记录</span>{attempts.map((attempt) => <button type="button" key={attempt.id} onClick={() => onContinueAttempt(attempt.id)}><strong>第 {attempt.courseBinding?.attemptNumber} 次</strong><span>{attempt.name}</span><small>{new Date(attempt.createdAt).toLocaleString('zh-CN', { hour12: false })}</small></button>)}</div>}
           </> : <div className="course-center-state"><BookOpenCheck size={22} /><strong>选择一个课次</strong><span>查看目标、实验步骤和硬件要求。</span></div>}
         </section>
       </div>

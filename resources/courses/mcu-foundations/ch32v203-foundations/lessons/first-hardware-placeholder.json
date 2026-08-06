@@ -16,10 +16,10 @@
   "hardware": "required",
   "verification": "pending-hardware-check",
   "expectedObservation": "待项目所有者完成引脚占用核对并选择 LED、按键或串口方向后补充；当前不得据此连接或烧录硬件。",
-  "templateId": "ch32v203-mcu-foundations",
+  "templateId": "first-hardware-placeholder",
   "editableGlobs": [
-    "App/Src/**/*.c",
-    "App/Inc/**/*.h"
+    "App/Src/experiment.c",
+    "App/Inc/experiment.h"
   ],
   "readableFiles": [
     "Core/Src/student_control.c",

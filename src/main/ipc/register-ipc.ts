@@ -161,6 +161,21 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof courseId !== 'string' || typeof lessonId !== 'string') throw new Error('COURSE_LESSON_ID_INVALID')
       return courses.getLesson(courseId, lessonId)
     })
+    ipcMain.handle(IPC_CHANNELS.courseLessonAttemptsList, (_event, courseId: unknown, lessonId: unknown) => {
+      if (!workspaces) throw new Error('WORKSPACE_SERVICE_UNAVAILABLE')
+      if (typeof courseId !== 'string' || typeof lessonId !== 'string') throw new Error('COURSE_LESSON_ID_INVALID')
+      return workspaces.listLessonAttempts(courseId, lessonId)
+    })
+    ipcMain.handle(IPC_CHANNELS.courseLessonAttemptCreate, async (_event, input: unknown) => {
+      if (!courses || !workspaces) throw new Error('COURSE_WORKSPACE_SERVICE_UNAVAILABLE')
+      if (!input || typeof input !== 'object') throw new Error('COURSE_LESSON_ATTEMPT_INPUT_INVALID')
+      const value = input as Record<string, unknown>
+      if (typeof value.courseId !== 'string' || typeof value.lessonId !== 'string' || typeof value.studentDisplayName !== 'string') throw new Error('COURSE_LESSON_ATTEMPT_INPUT_INVALID')
+      const spec = await courses.getWorkspaceCreationSpec(value.courseId, value.lessonId)
+      const workspace = await workspaces.createLessonAttempt({ courseId: value.courseId, lessonId: value.lessonId, studentDisplayName: value.studentDisplayName }, spec)
+      sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
+      return workspace
+    })
   }
   if (candidates) {
     const withCandidateEvent = async (operation: () => Promise<unknown>): Promise<unknown> => {

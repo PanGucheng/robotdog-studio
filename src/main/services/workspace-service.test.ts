@@ -29,6 +29,7 @@ describe('WorkspaceService', () => {
 
     expect(created.name).toBe('巡线 基础训练')
     expect(created.learningPath).toBe('fun-line-following')
+    expect(created.workspacePurpose).toBe('fun-project')
     expect(created.headCommit).toMatch(/^[a-f0-9]{40}$/)
     expect(await service.list()).toEqual([created])
     expect((await service.history(created.id))[0]).toMatchObject({ message: 'chore: initialize student workspace' })
@@ -95,12 +96,14 @@ describe('WorkspaceService', () => {
     const metadataPath = join(dataRoot, 'workspaces', created.id, 'workspace.json')
     const metadata = JSON.parse(await readFile(metadataPath, 'utf8'))
     delete metadata.learningPath
+    delete metadata.workspacePurpose
+    delete metadata.courseBinding
     metadata.schemaVersion = 1
     await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`)
 
     const migrated = await service.get(created.id)
     expect(migrated.learningPath).toBe('fun-line-following')
-    expect(JSON.parse(await readFile(metadataPath, 'utf8')).schemaVersion).toBe(2)
+    expect(JSON.parse(await readFile(metadataPath, 'utf8')).schemaVersion).toBe(3)
     expect(JSON.parse(await readFile(`${metadataPath}.v1.bak`, 'utf8')).schemaVersion).toBe(1)
     expect((await service.history(created.id))[0].commit).toBe(created.headCommit)
   })
@@ -109,10 +112,57 @@ describe('WorkspaceService', () => {
     const mcu = new WorkspaceService({ rootDir: dataRoot, templateRoot, edition: EDITION_PROFILES['mcu-foundations'] })
     const created = await mcu.create({ studentDisplayName: '陈同学' })
     expect(created.name).toMatch(/单片机练习$/)
-    expect(created).toMatchObject({ learningPath: 'mcu-foundations', templateId: 'ch32v203-mcu-foundations' })
+    expect(created).toMatchObject({ learningPath: 'mcu-foundations', workspacePurpose: 'mcu-sandbox', templateId: 'ch32v203-mcu-foundations' })
     expect(JSON.parse(await readFile(join(dataRoot, 'workspaces', created.id, 'project', 'robotdog.project.json'), 'utf8')).policyProfile).toBe('mcu-foundations-v1')
 
     const fun = new WorkspaceService({ rootDir: dataRoot, templateRoot })
     await expect(fun.get(created.id)).rejects.toThrow('WORKSPACE_EDITION_MISMATCH')
+  })
+
+  it('migrates an existing v2 MCU workspace to a sandbox and preserves its project', async () => {
+    const mcu = new WorkspaceService({ rootDir: dataRoot, templateRoot, edition: EDITION_PROFILES['mcu-foundations'] })
+    const created = await mcu.create({ name: '旧 MCU 项目', studentDisplayName: '陈同学' })
+    const metadataPath = join(dataRoot, 'workspaces', created.id, 'workspace.json')
+    const metadata = JSON.parse(await readFile(metadataPath, 'utf8'))
+    delete metadata.workspacePurpose
+    delete metadata.courseBinding
+    metadata.schemaVersion = 2
+    await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`)
+
+    const migrated = await mcu.get(created.id)
+    expect(migrated.workspacePurpose).toBe('mcu-sandbox')
+    expect(JSON.parse(await readFile(metadataPath, 'utf8')).schemaVersion).toBe(3)
+    expect(JSON.parse(await readFile(`${metadataPath}.v2.bak`, 'utf8')).schemaVersion).toBe(2)
+    expect((await mcu.history(created.id))[0].commit).toBe(created.headCommit)
+  })
+
+  it('creates independent numbered lesson attempts with lesson-specific templates and policy', async () => {
+    const lessonTemplate = join(sandbox, 'lesson-template')
+    await mkdir(join(lessonTemplate, 'App', 'Src'), { recursive: true })
+    await mkdir(join(lessonTemplate, 'App', 'Inc'), { recursive: true })
+    await mkdir(join(lessonTemplate, 'Core', 'Src'), { recursive: true })
+    await mkdir(join(lessonTemplate, 'Core', 'Inc'), { recursive: true })
+    await writeFile(join(lessonTemplate, 'App', 'Src', 'lesson.c'), 'void lesson(void) {}\n')
+    await writeFile(join(lessonTemplate, 'App', 'Inc', 'lesson.h'), 'void lesson(void);\n')
+    await writeFile(join(lessonTemplate, 'Core', 'Src', 'student_control.c'), 'void student(void) {}\n')
+    await writeFile(join(lessonTemplate, 'Core', 'Inc', 'student_control.h'), 'void student(void);\n')
+    const service = new WorkspaceService({ rootDir: dataRoot, templateRoot, edition: EDITION_PROFILES['mcu-foundations'] })
+    const spec = {
+      workspacePurpose: 'mcu-lesson-attempt' as const,
+      templateId: 'lesson-template', templateVersion: 'content-v1', templateRoot: lessonTemplate,
+      courseBinding: { courseId: 'course-one', lessonId: 'lesson-one', contentVersion: 1 },
+      lessonTitle: '第一课',
+      allowedEditGlobs: ['App/Src/lesson.c'], deniedGlobs: ['Core/**']
+    }
+    const first = await service.createLessonAttempt({ courseId: 'course-one', lessonId: 'lesson-one', studentDisplayName: '陈同学' }, spec)
+    const second = await service.createLessonAttempt({ courseId: 'course-one', lessonId: 'lesson-one', studentDisplayName: '陈同学' }, spec)
+
+    expect(first).toMatchObject({ workspacePurpose: 'mcu-lesson-attempt', name: '第一课 · 第 1 次', courseBinding: { attemptNumber: 1 } })
+    expect(second).toMatchObject({ name: '第一课 · 第 2 次', courseBinding: { attemptNumber: 2 } })
+    expect((await service.listLessonAttempts('course-one', 'lesson-one')).map((item) => item.courseBinding?.attemptNumber).sort()).toEqual([1, 2])
+    expect(await readFile(join(dataRoot, 'workspaces', first.id, 'project', 'App', 'Src', 'lesson.c'), 'utf8')).toContain('lesson')
+    const policy = JSON.parse(await readFile(join(dataRoot, 'workspaces', first.id, 'project', 'robotdog.project.json'), 'utf8'))
+    expect(policy.allowedEditGlobs).toEqual(['App/Src/lesson.c'])
+    expect(policy.deniedGlobs).toContain('Core/**')
   })
 })

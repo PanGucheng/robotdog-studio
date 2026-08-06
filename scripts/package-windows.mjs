@@ -86,6 +86,7 @@ if (registry.schemaVersion === 2) {
 const extraResources = [
   { from: resolve(root, selectedTemplate), to: selectedTemplate.replace(/^resources[\\/]/, '').replaceAll('\\', '/') },
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'courses', 'mcu-foundations'), to: 'courses/mcu-foundations' }] : []),
+  ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'), to: 'workspace-templates/ch32v203-mcu-lessons' }] : []),
   { from: join(root, 'resources', 'firmware-baselines'), to: 'firmware-baselines' },
   { from: join(root, 'resources', 'board-profiles'), to: 'board-profiles' },
   { from: join(root, 'resources', reasonixToolPath), to: reasonixToolPath },
@@ -153,7 +154,7 @@ for (const artifact of artifacts) {
 const packagedResourcesRoot = join(packageOutputRoot, 'win-unpacked', 'resources')
 await verifyPackagedFirmwareSource(join(packagedResourcesRoot, baselineTarget))
 await verifyPackagedWorkspaceTemplate(resolvePackagedResource(packagedResourcesRoot, selectedTemplate), editionId)
-if (editionId === 'mcu-foundations') await verifyPackagedCourseResources(join(packagedResourcesRoot, 'courses', 'mcu-foundations'))
+if (editionId === 'mcu-foundations') await verifyPackagedCourseResources(join(packagedResourcesRoot, 'courses', 'mcu-foundations'), join(packagedResourcesRoot, 'workspace-templates', 'ch32v203-mcu-lessons'))
 await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
@@ -225,7 +226,7 @@ async function verifyPackagedWorkspaceTemplate(templateRoot, currentEdition) {
   console.log(`Verified packaged workspace template files: ${required.length} required files (${templateRoot})`)
 }
 
-async function verifyPackagedCourseResources(courseRoot) {
+async function verifyPackagedCourseResources(courseRoot, lessonTemplatesRoot) {
   const catalog = JSON.parse(await readFile(join(courseRoot, 'catalog.json'), 'utf8'))
   if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.courses) || catalog.courses.length === 0) throw new Error('打包后的课程目录无效')
   let lessonCount = 0
@@ -235,6 +236,8 @@ async function verifyPackagedCourseResources(courseRoot) {
     for (const lessonId of course.lessonOrder ?? []) {
       const lessonPath = join(manifestPath, '..', 'lessons', `${lessonId}.json`)
       if (!(await stat(lessonPath).then((info) => info.isFile(), () => false))) throw new Error(`打包后的课程缺少课次：${lessonId}`)
+      const lesson = JSON.parse(await readFile(lessonPath, 'utf8'))
+      if (!(await stat(join(lessonTemplatesRoot, lesson.templateId)).then((info) => info.isDirectory(), () => false))) throw new Error(`打包后的课程缺少模板：${lesson.templateId}`)
       lessonCount += 1
     }
   }
