@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { CandidateSnapshot } from '../../../shared/types'
-import { shouldClearCompilerIssue } from './StudentCodeEditor'
+import type { CandidateSnapshot, StudentCodeFile } from '../../../shared/types'
+import { getStudentFileGroups, shouldClearCompilerIssue } from './StudentCodeEditor'
 
 describe('StudentCodeEditor compiler issue lifecycle', () => {
   it('clears stale compiler issue UI after a manual draft is fixed', () => {
@@ -14,6 +14,18 @@ describe('StudentCodeEditor compiler issue lifecycle', () => {
 
   it('does not clear unrelated AI review candidates', () => {
     expect(shouldClearCompilerIssue({ ...candidate({ state: 'build_passed' }), origin: 'ai' }, 0)).toBe(false)
+  })
+})
+
+describe('StudentCodeEditor file rail', () => {
+  it('renders the groups supplied by the MCU edition instead of legacy fixed groups', () => {
+    const files = [
+      file('App/Src/experiment.c', '源文件', true),
+      file('App/Inc/experiment.h', '头文件', true),
+      file('Core/Inc/student_control.h', '只读接口', false),
+      file('Core/Src/student_control.c', '只读底层', false)
+    ]
+    expect(getStudentFileGroups(files)).toEqual(['源文件', '头文件', '只读接口', '只读底层'])
   })
 })
 
@@ -31,4 +43,8 @@ function candidate(patch: Partial<CandidateSnapshot> = {}): CandidateSnapshot {
     updatedAt: new Date(0).toISOString(),
     ...patch
   }
+}
+
+function file(path: string, group: string, editable: boolean): StudentCodeFile {
+  return { path, label: path.split('/').at(-1)!, group, language: 'c', editable, content: '' }
 }

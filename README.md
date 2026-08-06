@@ -16,6 +16,8 @@ corepack pnpm dev:fun
 corepack pnpm dev:mcu
 ```
 
+频繁验证单片机版界面时，可在仓库根目录双击 `start-mcu-dev.cmd`。开发窗口会直接启动，Renderer 修改通常会热更新，Main/Preload 修改会由 electron-vite 自动重启；无需重新打包或解压。
+
 验证命令：
 
 ```powershell

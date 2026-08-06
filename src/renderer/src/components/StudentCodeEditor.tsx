@@ -58,6 +58,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   const buildDiagnostics = manualCandidate?.diagnostics ?? []
   const diagnosticCards = useMemo(() => buildStudentDiagnosticCards(buildDiagnostics), [buildDiagnostics])
   const keyDiagnostics = diagnosticCards.slice(0, 3)
+  const fileGroups = useMemo(() => getStudentFileGroups(files), [files])
 
   useEffect(() => {
     if (!workspace) { setFiles([]); setContent(''); return }
@@ -190,7 +191,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
     <div className="student-code-studio">
       <aside className="student-file-rail">
         <div className="editor-rail-heading"><span>{mcu ? '工程文件' : '代码赛道'}</span><strong>{manualCandidate ? '安全草稿' : '项目原稿'}</strong></div>
-        {(['控制逻辑', '参数设置', '参考接口'] as const).map((group) => (
+        {fileGroups.map((group) => (
           <div className="student-file-group" key={group}>
             <span>{group}</span>
             {files.filter((file) => file.group === group).map((file) => (
@@ -275,4 +276,8 @@ export function shouldClearCompilerIssue(candidate: CandidateSnapshot | undefine
   if (!candidate) return false
   if (candidate.origin !== 'manual') return false
   return diagnosticCount === 0 || candidate.state === 'build_passed'
+}
+
+export function getStudentFileGroups(files: StudentCodeFile[]): string[] {
+  return [...new Set(files.map((file) => file.group))]
 }
