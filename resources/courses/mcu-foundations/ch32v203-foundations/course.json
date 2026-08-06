@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "courseId": "ch32v203-foundations",
+  "contentVersion": 1,
+  "title": "CH32V203 单片机入门",
+  "summary": "从读懂工程、编译程序开始，逐步认识 C 文件组织和真实开发板实验。",
+  "audience": "电子类专业大学低年级学生",
+  "objectives": [
+    "理解源文件、头文件、编译、固件和烧录之间的关系",
+    "能够在受保护的工程范围内修改并验证 C 代码",
+    "为后续 GPIO、串口、定时器等外设实验建立稳定工作流"
+  ],
+  "status": "published",
+  "boardScope": "CH32V203 RobotDog 教学硬件",
+  "lessonOrder": [
+    "studio-first-build",
+    "c-files-and-functions",
+    "first-hardware-placeholder"
+  ],
+  "sourceAttribution": [
+    "RobotDog Studio 当前 CH32V203 固件基线与学生工作区模板",
+    "WCH CH32V20x EVT 外设库及官方示例，仅作为开发期适配参考"
+  ]
+}

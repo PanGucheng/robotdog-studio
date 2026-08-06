@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "courseId": "ch32v203-foundations",
+  "lessonId": "c-files-and-functions",
+  "title": "源文件、头文件与函数",
+  "summary": "通过一个小型多文件练习，理解函数声明、函数定义以及源文件之间的协作。",
+  "objectives": [
+    "区分头文件中的声明和源文件中的定义",
+    "编写带参数和返回值的简单函数",
+    "认识编译错误与链接错误的不同位置"
+  ],
+  "prerequisites": [
+    "studio-first-build"
+  ],
+  "estimatedMinutes": 60,
+  "hardware": "none",
+  "verification": "not-required",
+  "expectedObservation": "多个 C 源文件能够一起编译并链接为完整固件，实验入口能够调用新增函数。",
+  "templateId": "ch32v203-mcu-foundations",
+  "editableGlobs": [
+    "App/Src/**/*.c",
+    "App/Inc/**/*.h"
+  ],
+  "readableFiles": [
+    "Core/Src/student_control.c",
+    "Core/Inc/student_control.h",
+    "README.md"
+  ],
+  "deniedGlobs": [
+    "Core/**",
+    "Startup/**",
+    "Ld/**"
+  ],
+  "steps": [
+    {
+      "stepId": "read-declaration-definition",
+      "type": "read",
+      "title": "辨认声明与定义",
+      "instruction": "比较头文件中的函数声明和源文件中的函数定义，标出函数名、参数与返回值。"
+    },
+    {
+      "stepId": "implement-helper",
+      "type": "edit",
+      "title": "实现辅助函数",
+      "instruction": "补全一个带参数和返回值的辅助函数，并从 experiment.c 调用它。"
+    },
+    {
+      "stepId": "candidate-build",
+      "type": "candidate-build",
+      "title": "解决编译或链接问题",
+      "instruction": "运行候选预检，根据输出修复遗漏声明、拼写或源文件协作问题。"
+    },
+    {
+      "stepId": "review-change",
+      "type": "review-apply",
+      "title": "检查多文件修改",
+      "instruction": "确认头文件和源文件的改动相互对应，再保存项目存档。"
+    },
+    {
+      "stepId": "build-firmware",
+      "type": "firmware-build",
+      "title": "生成完整程序",
+      "instruction": "生成固件，确认多个教学源文件能够共同参与构建。"
+    },
+    {
+      "stepId": "reflect-header",
+      "type": "question",
+      "title": "总结头文件作用",
+      "instruction": "说明为什么函数声明通常放在头文件中。"
+    }
+  ],
+  "completionChecks": [
+    { "type": "file-exists", "target": "App/Inc/number-tools.h" },
+    { "type": "file-exists", "target": "App/Src/number-tools.c" },
+    { "type": "candidate-build-passed" },
+    { "type": "firmware-build-passed" },
+    { "type": "question-answered", "target": "header-purpose" }
+  ],
+  "reflectionQuestions": [
+    {
+      "questionId": "header-purpose",
+      "prompt": "头文件中的函数声明解决了什么问题？"
+    }
+  ],
+  "aiContext": {
+    "teachingFocus": "围绕 C 语言声明、定义和多文件编译给出分层提示，允许不同正确实现，不按标准答案逐字比较。",
+    "hints": [
+      "先检查声明和定义的函数签名是否一致",
+      "区分单个源文件编译失败与链接阶段找不到符号",
+      "让学生自己说明头文件的作用"
+    ]
+  },
+  "status": "published"
+}

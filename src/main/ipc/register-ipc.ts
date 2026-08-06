@@ -15,11 +15,12 @@ import { AgentHistoryService } from '../services/agent-history-service'
 import { FirmwareBaselineService } from '../services/firmware-baseline-service'
 import { DiagnosticService } from '../services/diagnostic-service'
 import { WchLinkFlashService } from '../services/wch-link-flash-service'
+import { CourseService } from '../services/course-service'
 import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, wchLink = new WchLinkFlashService(toolchain, firmware)): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink = new WchLinkFlashService(toolchain, firmware)): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -143,6 +144,22 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       const workspace = await workspaces.undoLast(workspaceId)
       sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
       return workspace
+    })
+  }
+  if (edition.id === 'mcu-foundations') {
+    ipcMain.handle(IPC_CHANNELS.courseList, () => {
+      if (!courses) throw new Error('COURSE_SERVICE_UNAVAILABLE')
+      return courses.listCourses()
+    })
+    ipcMain.handle(IPC_CHANNELS.courseGet, (_event, courseId: unknown) => {
+      if (!courses) throw new Error('COURSE_SERVICE_UNAVAILABLE')
+      if (typeof courseId !== 'string') throw new Error('COURSE_ID_INVALID')
+      return courses.getCourse(courseId)
+    })
+    ipcMain.handle(IPC_CHANNELS.courseLessonGet, (_event, courseId: unknown, lessonId: unknown) => {
+      if (!courses) throw new Error('COURSE_SERVICE_UNAVAILABLE')
+      if (typeof courseId !== 'string' || typeof lessonId !== 'string') throw new Error('COURSE_LESSON_ID_INVALID')
+      return courses.getLesson(courseId, lessonId)
     })
   }
   if (candidates) {

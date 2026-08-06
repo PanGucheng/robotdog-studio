@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "courseId": "ch32v203-foundations",
+  "lessonId": "first-hardware-placeholder",
+  "title": "第一个硬件实验（待定）",
+  "summary": "用于验证硬件警告、烧录入口和人工观察流程；实验方向将在引脚核对与真机测试后确定。",
+  "objectives": [
+    "认识硬件实验必须先核对芯片、引脚和外设占用",
+    "理解烧录结果与实际硬件现象需要分别确认",
+    "练习记录真机现象和异常情况"
+  ],
+  "prerequisites": [
+    "c-files-and-functions"
+  ],
+  "estimatedMinutes": 60,
+  "hardware": "required",
+  "verification": "pending-hardware-check",
+  "expectedObservation": "待项目所有者完成引脚占用核对并选择 LED、按键或串口方向后补充；当前不得据此连接或烧录硬件。",
+  "templateId": "ch32v203-mcu-foundations",
+  "editableGlobs": [
+    "App/Src/**/*.c",
+    "App/Inc/**/*.h"
+  ],
+  "readableFiles": [
+    "Core/Src/student_control.c",
+    "Core/Inc/student_control.h",
+    "README.md"
+  ],
+  "deniedGlobs": [
+    "Core/**",
+    "Startup/**",
+    "Ld/**"
+  ],
+  "steps": [
+    {
+      "stepId": "read-hardware-warning",
+      "type": "read",
+      "title": "阅读硬件提示",
+      "instruction": "确认当前课次仍处于待验证状态，不进行实际接线或烧录。"
+    },
+    {
+      "stepId": "inspect-pin-plan",
+      "type": "read",
+      "title": "查看引脚计划",
+      "instruction": "待硬件方向确定后，阅读课程提供的引脚、供电和外设占用说明。"
+    },
+    {
+      "stepId": "hardware-observation",
+      "type": "hardware-observation",
+      "title": "记录硬件现象",
+      "instruction": "仅在课程升级为已通过硬件检查后，由学生或教师记录真实现象。"
+    }
+  ],
+  "completionChecks": [
+    { "type": "manual-observation-confirmed" }
+  ],
+  "reflectionQuestions": [],
+  "aiContext": {
+    "teachingFocus": "明确说明本课尚未完成真机验证，不提供具体接线、引脚占用结论或声称已经观察到硬件现象。",
+    "hints": [
+      "提醒学生等待课程状态变为已完成硬件检查",
+      "可以解释通用的 GPIO、按键或串口概念",
+      "不得把 WCH 官方参考板现象当作 RobotDog 板现象"
+    ]
+  },
+  "status": "draft"
+}

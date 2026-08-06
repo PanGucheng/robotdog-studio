@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "courseId": "ch32v203-foundations",
+  "lessonId": "studio-first-build",
+  "title": "认识 Studio 与第一次编译",
+  "summary": "认识实验工程的入口，完成一次小修改，并读懂编译结果和程序文件。",
+  "objectives": [
+    "找到实验代码的主要入口文件",
+    "区分候选预检、完整固件构建和烧录",
+    "能够根据编译信息定位一个简单语法问题"
+  ],
+  "prerequisites": [],
+  "estimatedMinutes": 45,
+  "hardware": "none",
+  "verification": "not-required",
+  "expectedObservation": "候选代码和完整固件均能成功编译，并能看到 ELF、HEX、BIN、MAP 四类程序文件。",
+  "templateId": "ch32v203-mcu-foundations",
+  "editableGlobs": [
+    "App/Src/**/*.c",
+    "App/Inc/**/*.h"
+  ],
+  "readableFiles": [
+    "Core/Src/student_control.c",
+    "Core/Inc/student_control.h",
+    "README.md"
+  ],
+  "deniedGlobs": [
+    "Core/**",
+    "Startup/**",
+    "Ld/**"
+  ],
+  "steps": [
+    {
+      "stepId": "read-entry",
+      "type": "read",
+      "title": "找到实验入口",
+      "instruction": "阅读 experiment.c、experiment.h 和只读适配层，确认学生代码如何被主固件调用。"
+    },
+    {
+      "stepId": "make-small-change",
+      "type": "edit",
+      "title": "完成一次小修改",
+      "instruction": "在 experiment.c 中修改一个简单变量或表达式，不改动只读适配层。"
+    },
+    {
+      "stepId": "candidate-build",
+      "type": "candidate-build",
+      "title": "检查候选代码",
+      "instruction": "运行候选预检；可以先制造一个语法错误，再根据提示修复。"
+    },
+    {
+      "stepId": "review-change",
+      "type": "review-apply",
+      "title": "确认并保存修改",
+      "instruction": "阅读 Diff，确认只改动预期文件后保存为新的项目存档。"
+    },
+    {
+      "stepId": "build-firmware",
+      "type": "firmware-build",
+      "title": "生成完整程序",
+      "instruction": "生成完整固件，并观察 ELF、HEX、BIN 和 MAP 文件。"
+    },
+    {
+      "stepId": "reflect-build-flash",
+      "type": "question",
+      "title": "区分编译与烧录",
+      "instruction": "用自己的话说明：编译成功和程序已经进入开发板有什么不同？"
+    }
+  ],
+  "completionChecks": [
+    { "type": "candidate-build-passed" },
+    { "type": "firmware-build-passed" },
+    { "type": "question-answered", "target": "build-versus-flash" }
+  ],
+  "reflectionQuestions": [
+    {
+      "questionId": "build-versus-flash",
+      "prompt": "编译成功和烧录成功分别说明了什么？"
+    }
+  ],
+  "aiContext": {
+    "teachingFocus": "帮助学生建立工程文件、候选预检、完整固件和烧录之间的基本概念，不直接替学生完成修改。",
+    "hints": [
+      "先让学生指出 experiment.c 的入口函数",
+      "出现语法错误时优先解释第一条有效编译错误",
+      "明确本课不需要真实硬件"
+    ]
+  },
+  "status": "published"
+}

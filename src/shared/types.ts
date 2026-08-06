@@ -150,6 +150,53 @@ export interface WorkspaceSummary {
   activeCandidateId?: string
 }
 
+export type CoursePublicationStatus = 'draft' | 'published'
+export type CourseHardwareRequirement = 'none' | 'optional' | 'required'
+export type CourseVerificationStatus = 'not-required' | 'pending-hardware-check' | 'hardware-checked'
+
+export interface CourseLessonSummary {
+  courseId: string
+  lessonId: string
+  title: string
+  summary: string
+  estimatedMinutes: number
+  hardware: CourseHardwareRequirement
+  verification: CourseVerificationStatus
+  status: CoursePublicationStatus
+  prerequisites: string[]
+  order: number
+}
+
+export interface CourseSummary {
+  courseId: string
+  contentVersion: number
+  title: string
+  summary: string
+  audience: string
+  status: CoursePublicationStatus
+  boardScope: string
+  lessonCount: number
+}
+
+export interface CourseDetail extends CourseSummary {
+  objectives: string[]
+  sourceAttribution: string[]
+  lessons: CourseLessonSummary[]
+}
+
+export interface CourseLesson extends CourseLessonSummary {
+  objectives: string[]
+  expectedObservation: string
+  templateId: string
+  editableGlobs: string[]
+  readableFiles: string[]
+  deniedGlobs: string[]
+  steps: Array<{ stepId: string; type: string; title: string; instruction: string }>
+  completionChecks: Array<{ type: string; target?: string }>
+  reflectionQuestions: Array<{ questionId: string; prompt: string }>
+  aiContext: { teachingFocus: string; hints: string[] }
+}
+
 export interface FirmwareLegacyBaselineManifest {
   schemaVersion: 1
   id: string
@@ -595,6 +642,9 @@ export interface RobotDogApi {
   getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
   undoWorkspace(workspaceId: string): Promise<WorkspaceSummary>
+  listCourses(): Promise<CourseSummary[]>
+  getCourse(courseId: string): Promise<CourseDetail>
+  getCourseLesson(courseId: string, lessonId: string): Promise<CourseLesson>
   createCandidate(workspaceId: string): Promise<CandidateSnapshot>
   getCandidate(candidateId: string): Promise<CandidateSnapshot>
   getCandidateDiff(candidateId: string): Promise<CandidateDiff>

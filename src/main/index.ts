@@ -16,6 +16,7 @@ import { CandidateBuildService } from './services/candidate-build-service'
 import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
+import { CourseService } from './services/course-service'
 import { DEFAULT_EDITION_ID, getEditionProfile, parseEditionId } from '../shared/edition'
 
 const robot = new MockRobotService()
@@ -51,13 +52,16 @@ function createWindow(): void {
         const [toolchain, baseline, runtime, activeEdition] = await Promise.all([
           window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo(), window.robotDog.getEditionProfile()
         ])
+        const courses = activeEdition.id === 'mcu-foundations' ? await window.robotDog.listCourses() : []
+        const course = courses[0] ? await window.robotDog.getCourse(courses[0].courseId) : undefined
         const existing = await window.robotDog.listWorkspaces()
         const workspace = existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
           ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
         const firmware = await window.robotDog.startFirmwareBuild(workspace.id)
         return {
-          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2))),
           edition: activeEdition.id,
+          courseCount: courses.length, lessonCount: course?.lessons.length ?? 0,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
           releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
           firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind)
@@ -135,7 +139,10 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics)
+  const courses = edition.id === 'mcu-foundations'
+    ? new CourseService({ rootDir: join(staticRoot, 'courses', 'mcu-foundations'), includeDrafts: !app.isPackaged })
+    : undefined
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

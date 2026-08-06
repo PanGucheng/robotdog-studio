@@ -1,6 +1,6 @@
-import { Activity, Cable, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
+import { Activity, BookOpenCheck, Cable, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
+import type { CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
@@ -14,6 +14,7 @@ import { toStudentProblem } from '../lib/student-errors'
 import { ProblemCard } from './ProblemCard'
 import { WchLinkFlasherPanel } from './WchLinkFlasherPanel'
 import type { AppEditionProfile } from '../../../shared/edition'
+import { CourseCenter } from './CourseCenter'
 
 interface WorkbenchProps {
   frame: CcdFrame
@@ -57,6 +58,12 @@ interface WorkbenchProps {
   onCancelWchLink: () => void
   learningDestination?: LearningDestination
   onLearningDestinationHandled(): void
+  courses: CourseSummary[]
+  course?: CourseDetail
+  courseLesson?: CourseLesson
+  courseLoading: boolean
+  courseError?: string
+  onSelectCourseLesson(lessonId: string): void
 }
 
 const funTabs = [
@@ -71,6 +78,7 @@ const funTabs = [
 ] as const
 
 const mcuTabs = [
+  ['课程中心', BookOpenCheck],
   ['工程代码', Code2],
   ['编译与问题', Cpu],
   ['修改确认', ShieldCheck],
@@ -79,10 +87,10 @@ const mcuTabs = [
   ['设置', Settings2]
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled }: WorkbenchProps): React.JSX.Element {
+export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, onSelectCourseLesson }: WorkbenchProps): React.JSX.Element {
   const tabs = edition.id === 'mcu-foundations' ? mcuTabs : funTabs
-  const [activeTab, setActiveTab] = useState<string>(edition.id === 'mcu-foundations' ? '工程代码' : 'CCD 曲线')
-  useEffect(() => { setActiveTab(edition.id === 'mcu-foundations' ? '工程代码' : 'CCD 曲线') }, [edition.id])
+  const [activeTab, setActiveTab] = useState<string>(edition.id === 'mcu-foundations' ? '课程中心' : 'CCD 曲线')
+  useEffect(() => { setActiveTab(edition.id === 'mcu-foundations' ? '课程中心' : 'CCD 曲线') }, [edition.id])
   useEffect(() => { if (candidate?.state === 'build_passed' || (candidate?.state === 'review_ready' && candidate.origin !== 'manual' && !candidate.error)) setActiveTab('修改确认') }, [candidate?.id, candidate?.state, candidate?.error, candidate?.origin])
   useEffect(() => {
     if (learningDestination && learningDestination !== 'chat') { setActiveTab(learningDestination); onLearningDestinationHandled() }
@@ -103,7 +111,7 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
         ))}
       </nav>
 
-      {['编写代码', '工程代码'].includes(activeTab) ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
+      {activeTab === '课程中心' ? <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} onSelectLesson={onSelectCourseLesson} /> : ['编写代码', '工程代码'].includes(activeTab) ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('修改确认')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === '修改确认' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === '设置' ? (
         <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={onUiScaleChange} />
       ) : ['烧录器烧录', '烧录与运行'].includes(activeTab) ? (
         <WchLinkFlasherPanel

@@ -171,6 +171,9 @@ async function runBrowserFirmwareUpdate(token: number): Promise<void> {
 
 export const browserDemoApi: RobotDogApi = {
   getEditionProfile: async () => structuredClone(EDITION_PROFILES['fun-line-following']),
+  listCourses: async () => [],
+  getCourse: async () => { throw new Error('课程仅在单片机入门版提供') },
+  getCourseLesson: async () => { throw new Error('课程仅在单片机入门版提供') },
   getHealth: async () => ({ appVersion: '0.1.0', platform: 'browser', mode: 'simulation', checks: [] }),
   getRuntimeInfo: async () => ({
     dataRoot: '浏览器演示数据（不会写入磁盘）', diagnosticsRoot: '浏览器演示诊断', mode: 'simulation', workspaceCount: demoWorkspaces.length,

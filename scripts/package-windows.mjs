@@ -85,6 +85,7 @@ if (registry.schemaVersion === 2) {
 }
 const extraResources = [
   { from: resolve(root, selectedTemplate), to: selectedTemplate.replace(/^resources[\\/]/, '').replaceAll('\\', '/') },
+  ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'courses', 'mcu-foundations'), to: 'courses/mcu-foundations' }] : []),
   { from: join(root, 'resources', 'firmware-baselines'), to: 'firmware-baselines' },
   { from: join(root, 'resources', 'board-profiles'), to: 'board-profiles' },
   { from: join(root, 'resources', reasonixToolPath), to: reasonixToolPath },
@@ -152,6 +153,7 @@ for (const artifact of artifacts) {
 const packagedResourcesRoot = join(packageOutputRoot, 'win-unpacked', 'resources')
 await verifyPackagedFirmwareSource(join(packagedResourcesRoot, baselineTarget))
 await verifyPackagedWorkspaceTemplate(resolvePackagedResource(packagedResourcesRoot, selectedTemplate), editionId)
+if (editionId === 'mcu-foundations') await verifyPackagedCourseResources(join(packagedResourcesRoot, 'courses', 'mcu-foundations'))
 await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
@@ -221,6 +223,22 @@ async function verifyPackagedWorkspaceTemplate(templateRoot, currentEdition) {
     if (!(await stat(path).then((info) => info.isFile(), () => false))) throw new Error(`打包后的学生模板缺少必要文件：${item}`)
   }
   console.log(`Verified packaged workspace template files: ${required.length} required files (${templateRoot})`)
+}
+
+async function verifyPackagedCourseResources(courseRoot) {
+  const catalog = JSON.parse(await readFile(join(courseRoot, 'catalog.json'), 'utf8'))
+  if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.courses) || catalog.courses.length === 0) throw new Error('打包后的课程目录无效')
+  let lessonCount = 0
+  for (const entry of catalog.courses) {
+    const manifestPath = join(courseRoot, ...String(entry.manifest).replace(/\\/g, '/').split('/'))
+    const course = JSON.parse(await readFile(manifestPath, 'utf8'))
+    for (const lessonId of course.lessonOrder ?? []) {
+      const lessonPath = join(manifestPath, '..', 'lessons', `${lessonId}.json`)
+      if (!(await stat(lessonPath).then((info) => info.isFile(), () => false))) throw new Error(`打包后的课程缺少课次：${lessonId}`)
+      lessonCount += 1
+    }
+  }
+  console.log(`Verified packaged MCU course resources: ${catalog.courses.length} courses, ${lessonCount} lessons (${courseRoot})`)
 }
 
 async function verifyPackagedWchLinkDriver(driverRoot) {

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "courses": [
+    {
+      "courseId": "ch32v203-foundations",
+      "manifest": "ch32v203-foundations/course.json"
+    }
+  ]
+}

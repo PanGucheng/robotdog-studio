@@ -1,7 +1,7 @@
 # RobotDog Studio 单片机入门版课程框架详细实施计划
 
 更新日期：2026-08-06  
-状态：待实施的权威计划  
+状态：实施中的权威计划；第一批只读课程切片已完成自动验证，等待项目所有者人工复核
 上位决策：[双发行版教学改造总纲](./dual-edition-teaching-plan.md)  
 需求来源：项目所有者提供的《RobotDog Studio 单片机入门版课程框架建设计划》
 
@@ -325,14 +325,14 @@ Main 为每轮 AI 请求生成结构化上下文，包含：
 
 实施步骤：
 
-- [ ] 建立 `docs/mcu-course-framework-architecture.md`，记录数据流、模块职责、关键安全边界和失败恢复。
-- [ ] 建立 `docs/mcu-evt-source-audit.md`，记录 EVT 版本/目录、示例来源、许可证提示和不得修改原则。
-- [ ] 从当前固件 `app_hal.h`、原理图和实物建立引脚/外设占用矩阵，至少覆盖 LED、按键、CCD、舵机 PWM、USART1/2/3、SWD/WCH-Link 和 IAP。
-- [ ] 对 GPIO_Toggle、USART_Printf、PWM_Output、EXTI0 及候选硬件课相关示例逐一记录芯片、引脚、时钟、初始化顺序和与当前基线的差异。
-- [ ] 核实当前 `WorkspaceService`、候选区、完整固件 overlay、烧录回执、模拟状态和打包资源路径。
-- [ ] 冻结课程/课次/模板/进度 schema 草案、ID 规则、单一 `contentVersion` 和简单 completion check 类型。
-- [ ] 决定第三个示例课只保留占位，还是选择经过所有者确认的 LED/GPIO/UART 方向。
-- [ ] 记录旧 MCU 通用工作区的迁移策略和回滚步骤。
+- [x] 建立 `docs/mcu-course-framework-architecture.md`，记录数据流、模块职责、关键安全边界和失败恢复。
+- [x] 建立 `docs/mcu-evt-source-audit.md`，记录 EVT 版本/目录、示例来源、许可证提示和不得修改原则。
+- [x] 从当前固件 `app_hal.h` 和已有资料建立初步引脚/外设占用矩阵；原理图和实物仍由项目所有者人工确认。
+- [x] 对 GPIO_Toggle、USART_Printf、PWM_Output、EXTI0 示例记录引脚、初始化方式和与当前基线的主要差异。
+- [x] 核实当前 `WorkspaceService`、候选区、完整固件 overlay、烧录回执、模拟状态和打包资源路径。
+- [x] 冻结首期课程/课次 schema、ID 规则、单一 `contentVersion` 和简单 completion check 类型。
+- [x] 第三个示例课暂时保留硬件占位，等待项目所有者确认最终方向。
+- [x] 记录旧 MCU 通用工作区的一次性迁移和失败保留策略。
 
 自动化验证：新增正常/缺字段 schema fixture 和路径安全测试，不触碰现有工作区。
 
@@ -346,15 +346,15 @@ Main 为每轮 AI 请求生成结构化上下文，包含：
 
 实施步骤：
 
-- [ ] 在 `src/shared` 定义课程摘要、课次详情、硬件要求、发布状态和资源诊断类型。
-- [ ] 实现 `CourseService` 及 Zod schema，校验 ID、内容版本、顺序、重复 ID、前置课引用和必要字段。
-- [ ] 课程资源读取失败时显示课程系统不可用和可定位的错误信息；不要求首期实现单课故障隔离器。
-- [ ] 新增三个示例课 manifest；第三课明确标记 `draft`、`manual-required` 或 `unverified`。
-- [ ] 增加课程 IPC/Preload API，Main 根据 edition 决定是否提供。
-- [ ] 在单片机版增加课程中心入口、课程列表、课次详情和空状态；趣味版保持现状。
-- [ ] 展示预计时间、硬件要求、前置课、发布状态和“尚未创建工程”。
+- [x] 在 `src/shared` 定义课程摘要、课次详情、硬件要求和发布状态类型。
+- [x] 实现 `CourseService` 及 Zod schema，校验 ID、内容版本、顺序、重复 ID、前置课引用和必要字段。
+- [x] 课程资源读取失败时显示课程系统不可用和可定位的错误信息；不要求首期实现单课故障隔离器。
+- [x] 新增三个示例课 manifest；第三课明确标记 `draft + pending-hardware-check`。
+- [x] 增加课程 IPC/Preload API，Main 根据 edition 决定是否提供。
+- [x] 在单片机版增加课程中心入口、课程列表、课次详情和空状态；趣味版保持现状。
+- [x] 展示预计时间、硬件要求、前置课、发布状态和“尚未创建工程”。
 - [ ] 前置课采用软门禁：未完成时提示并要求确认跳过，但允许大学生直接练习自包含课次。
-- [ ] 将 UI 文案全部从课程资源读取，页面组件不硬编码具体课名和步骤。
+- [x] 具体课名、目标和步骤从课程资源读取，页面只保留通用导航文案。
 
 自动化验证：manifest 正常/缺字段/重复 ID/无效引用测试；edition 隔离测试；Renderer 列表和状态测试。
 
@@ -588,11 +588,11 @@ npm run smoke:electron:mcu
 
 开始编码时建议把第一个可合并切片限定为：
 
-1. 完成阶段零正式审查文档；
-2. 加入 course/lesson schema、三个静态 manifest 和精简的 `CourseService`；
-3. 暴露只读课程查询 IPC；
-4. 单片机版显示课程中心和课次详情，但“开始学习”暂显示下一阶段提示；
-5. 完成资源读取错误、无效引用和 edition 隔离测试；
-6. 由项目所有者在开发模式完成课程列表人工点击复核。
+- [x] 完成阶段零正式审查文档；
+- [x] 加入 course/lesson schema、三个静态 manifest 和精简的 `CourseService`；
+- [x] 暴露只读课程查询 IPC；
+- [x] 单片机版显示课程中心和课次详情，但“开始学习”暂显示下一阶段提示；
+- [x] 完成资源读取错误、无效引用和 edition 隔离验证；
+- [ ] 由项目所有者按 [第一批切片人工复核清单](./manual-review-mcu-course-slice-1.md) 在开发模式完成课程列表点击复核。
 
 这个切片不修改工作区 schema、不创建课程工程、不接入进度和 AI，能够先验证课程资源边界，符合“先建设课程系统、审查完成前不进行大规模重构”的原则。

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -84,10 +84,46 @@ export function App(): React.JSX.Element {
   const [uiScale, setUiScale] = useState<UiScale>(() => readUiScale())
   const [learningOpen, setLearningOpen] = useState(() => localStorage.getItem('robotdog.learning-intro-seen.v1') !== '1')
   const [learningDestination, setLearningDestination] = useState<LearningDestination>()
+  const [courses, setCourses] = useState<CourseSummary[]>([])
+  const [course, setCourse] = useState<CourseDetail>()
+  const [courseLesson, setCourseLesson] = useState<CourseLesson>()
+  const [courseLoading, setCourseLoading] = useState(false)
+  const [courseError, setCourseError] = useState<string>()
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
 
   useEffect(() => { applyUiScale(uiScale) }, [uiScale])
+
+  useEffect(() => {
+    let disposed = false
+    if (edition.id !== 'mcu-foundations') {
+      setCourses([])
+      setCourse(undefined)
+      setCourseLesson(undefined)
+      setCourseError(undefined)
+      return () => { disposed = true }
+    }
+    setCourseLoading(true)
+    setCourseError(undefined)
+    void api.listCourses().then(async (items) => {
+      if (disposed) return
+      setCourses(items)
+      if (!items[0]) return
+      const detail = await api.getCourse(items[0].courseId)
+      if (disposed) return
+      setCourse(detail)
+      const firstLesson = detail.lessons[0]
+      if (firstLesson) {
+        const lesson = await api.getCourseLesson(detail.courseId, firstLesson.lessonId)
+        if (!disposed) setCourseLesson(lesson)
+      }
+    }).catch((caught) => {
+      if (!disposed) setCourseError(toStudentErrorMessage(caught))
+    }).finally(() => {
+      if (!disposed) setCourseLoading(false)
+    })
+    return () => { disposed = true }
+  }, [api, edition.id])
 
   useEffect(() => {
     void api.getEditionProfile().then(setEdition).catch((caught) => setError(toStudentErrorMessage(caught)))
@@ -234,6 +270,14 @@ export function App(): React.JSX.Element {
   const closeLearning = (): void => {
     localStorage.setItem('robotdog.learning-intro-seen.v1', '1')
     setLearningOpen(false)
+  }
+  const selectCourseLesson = (lessonId: string): void => {
+    if (!course) return
+    setCourseLoading(true)
+    setCourseError(undefined)
+    void api.getCourseLesson(course.courseId, lessonId).then(setCourseLesson).catch((caught) => {
+      setCourseError(toStudentErrorMessage(caught))
+    }).finally(() => setCourseLoading(false))
   }
 
   useEffect(() => {
@@ -418,6 +462,12 @@ export function App(): React.JSX.Element {
           onCancelWchLink={cancelWchLink}
           learningDestination={learningDestination}
           onLearningDestinationHandled={() => setLearningDestination(undefined)}
+          courses={courses}
+          course={course}
+          courseLesson={courseLesson}
+          courseLoading={courseLoading}
+          courseError={courseError}
+          onSelectCourseLesson={selectCourseLesson}
         />
       </div>
 
