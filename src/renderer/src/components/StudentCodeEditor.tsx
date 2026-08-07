@@ -26,17 +26,19 @@ interface StudentCodeEditorProps {
 
 const configureMonaco: BeforeMount = (monaco) => {
   monaco.editor.defineTheme('robotdog-track', {
-    base: 'vs-dark', inherit: true,
+    base: 'vs', inherit: true,
     rules: [
-      { token: 'comment', foreground: '7397A8', fontStyle: 'italic' },
-      { token: 'keyword', foreground: '63D6C5' },
-      { token: 'number', foreground: 'FFC857' },
-      { token: 'type', foreground: '7FB7FF' }
+      { token: 'comment', foreground: '688896', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '087F91' },
+      { token: 'number', foreground: 'B67200' },
+      { token: 'type', foreground: '2563A5' },
+      { token: 'string', foreground: '237A57' }
     ],
     colors: {
-      'editor.background': '#10283A', 'editor.foreground': '#DDEAF0', 'editorLineNumber.foreground': '#55788A',
-      'editorLineNumber.activeForeground': '#63D6C5', 'editor.selectionBackground': '#285D6C88',
-      'editor.lineHighlightBackground': '#17374A', 'editorCursor.foreground': '#FFC857'
+      'editor.background': '#FFFFFF', 'editor.foreground': '#17384A', 'editorLineNumber.foreground': '#91A5AF',
+      'editorLineNumber.activeForeground': '#087F91', 'editor.selectionBackground': '#CDEEF2',
+      'editor.lineHighlightBackground': '#EEF8FA', 'editorCursor.foreground': '#0B91A3',
+      'editorIndentGuide.background1': '#E4ECEF', 'editorIndentGuide.activeBackground1': '#A9C9D0'
     }
   })
 }

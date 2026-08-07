@@ -70,23 +70,25 @@ export function ChatPanel({ workspace, edition, events, candidate, running, onPr
 
   return (
     <section className={`chat-panel ${compact ? 'is-compact' : ''}`}>
-      <div className="section-heading">
-        <div><span className="eyebrow">AI 助教</span><h2>{edition.id === 'mcu-foundations' ? '和助教讨论代码与实验' : '把想法说给小马听'}</h2></div>
-        <button type="button" className={`model-chip ${runtime?.ready ? 'ready' : ''}`} onClick={() => setShowRuntime((value) => !value)} aria-expanded={showRuntime}>
-          {runtime?.ready ? <Sparkles size={14} /> : <Settings2 size={14} />} {runtime?.adapter === 'reasonix' ? 'DeepSeek V4 Flash' : '模拟教学'}
-        </button>
-      </div>
-
-      {compact && runtime && !runtime.ready && <button type="button" className="mcu-agent-setup" onClick={onOpenSettings}><Settings2 size={14} /><span><strong>AI 助教尚未就绪</strong><small>{runtime.detail} · 打开设置</small></span></button>}
-
-      {showRuntime && runtime?.adapter === 'reasonix' && (
-        <div className="runtime-card">
-          <div><KeyRound size={16} /><span><strong>DeepSeek V4 Flash</strong><small>{runtime.detail}（Reasonix {runtime.version}）。密钥由 Windows 加密存储，界面不会再次读取。</small></span></div>
-          <input type="password" value={apiKey} placeholder={runtime.apiKeyConfigured ? '已配置；输入新密钥可替换' : 'sk-…'} autoComplete="off" onChange={(event) => setApiKey(event.target.value)} />
-          {runtimeError && <small className="runtime-error">{runtimeError}</small>}
-          <div className="runtime-actions"><button type="button" onClick={() => void clearApiKey()} disabled={!runtime.apiKeyConfigured}>清除密钥</button><button type="button" className="button-primary" onClick={() => void saveApiKey()} disabled={!apiKey.trim()}>安全保存</button></div>
+      <div className="chat-context">
+        <div className="section-heading">
+          <div><span className="eyebrow">AI 助教</span><h2>{edition.id === 'mcu-foundations' ? '和助教讨论代码与实验' : '把想法说给小马听'}</h2></div>
+          <button type="button" className={`model-chip ${runtime?.ready ? 'ready' : ''}`} onClick={() => setShowRuntime((value) => !value)} aria-expanded={showRuntime}>
+            {runtime?.ready ? <Sparkles size={14} /> : <Settings2 size={14} />} {runtime?.adapter === 'reasonix' ? 'DeepSeek V4 Flash' : '模拟教学'}
+          </button>
         </div>
-      )}
+
+        {compact && runtime && !runtime.ready && <button type="button" className="mcu-agent-setup" onClick={onOpenSettings}><Settings2 size={14} /><span><strong>AI 助教尚未就绪</strong><small>{runtime.detail} · 打开设置</small></span></button>}
+
+        {showRuntime && runtime?.adapter === 'reasonix' && (
+          <div className="runtime-card">
+            <div><KeyRound size={16} /><span><strong>DeepSeek V4 Flash</strong><small>{runtime.detail}（Reasonix {runtime.version}）。密钥由 Windows 加密存储，界面不会再次读取。</small></span></div>
+            <input type="password" value={apiKey} placeholder={runtime.apiKeyConfigured ? '已配置；输入新密钥可替换' : 'sk-…'} autoComplete="off" onChange={(event) => setApiKey(event.target.value)} />
+            {runtimeError && <small className="runtime-error">{runtimeError}</small>}
+            <div className="runtime-actions"><button type="button" onClick={() => void clearApiKey()} disabled={!runtime.apiKeyConfigured}>清除密钥</button><button type="button" className="button-primary" onClick={() => void saveApiKey()} disabled={!apiKey.trim()}>安全保存</button></div>
+          </div>
+        )}
+      </div>
 
       <div ref={conversationRef} className="conversation" aria-live="polite">
         {turns.length === 0 && <div className="chat-welcome"><span className="assistant-mark"><Bot size={16} /></span><div><strong>先说一个你观察到的问题</strong><p>我会在安全副本中一次完成允许的修改，最后再请你统一查看和确认。</p></div></div>}
