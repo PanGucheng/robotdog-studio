@@ -83,6 +83,22 @@ describe('CourseService', () => {
     const service = new CourseService({ rootDir: root, includeDrafts: true })
     await expect(service.listCourses()).rejects.toThrow('COURSE_PREREQUISITE_ORDER_INVALID:lesson-a:lesson-b')
   })
+
+  it('rejects a course step that targets a hidden or unlisted file', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'robotdog-course-target-'))
+    temporaryRoots.push(root)
+    await mkdir(join(root, 'course', 'lessons'), { recursive: true })
+    await writeFile(join(root, 'catalog.json'), JSON.stringify({ schemaVersion: 1, courses: [{ courseId: 'course-one', manifest: 'course/course.json' }] }))
+    await writeFile(join(root, 'course', 'course.json'), JSON.stringify({
+      schemaVersion: 1, courseId: 'course-one', contentVersion: 1, title: '测试课程', summary: '测试文件定位', audience: '学生',
+      objectives: ['验证定位'], status: 'published', boardScope: '测试板', lessonOrder: ['lesson-a'], sourceAttribution: []
+    }))
+    const lesson = validLesson('lesson-a', [])
+    lesson.steps = [{ stepId: 'read-step', type: 'read', title: '阅读', instruction: '阅读内容', fileTarget: { path: '.git/config' } }]
+    await writeFile(join(root, 'course', 'lessons', 'lesson-a.json'), JSON.stringify(lesson))
+    const service = new CourseService({ rootDir: root, includeDrafts: true })
+    await expect(service.listCourses()).rejects.toThrow('COURSE_FILE_TARGET_INVALID:lesson-a:read-step')
+  })
 })
 
 function validLesson(lessonId: string, prerequisites: string[]): Record<string, unknown> {

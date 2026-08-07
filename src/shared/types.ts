@@ -210,7 +210,7 @@ export interface CourseLesson extends CourseLessonSummary {
   editableGlobs: string[]
   readableFiles: string[]
   deniedGlobs: string[]
-  steps: Array<{ stepId: string; type: string; title: string; instruction: string; questionId?: string }>
+  steps: Array<{ stepId: string; type: string; title: string; instruction: string; questionId?: string; fileTarget?: { path: string; line?: number } }>
   completionChecks: Array<{ type: string; target?: string }>
   reflectionQuestions: Array<{ questionId: string; prompt: string }>
   aiContext: { teachingFocus: string; hints: string[] }
@@ -312,6 +312,7 @@ export interface FirmwareBaselineStatus {
   verifiedFiles: string[]
   errors: string[]
   warnings: string[]
+  memory: { flashBytes: number; ramBytes: number; confirmed: boolean }
 }
 
 export type CandidateState =
@@ -377,6 +378,39 @@ export interface StudentCodeFile {
   group: string
   language: 'c' | 'yaml' | 'markdown'
   editable: boolean
+  content: string
+}
+
+export type ProjectExplorerLanguage = 'c' | 'cpp' | 'asm' | 'linker' | 'cmake' | 'json' | 'yaml' | 'markdown' | 'text'
+export type ProjectExplorerOrigin = 'lesson-overlay' | 'firmware-baseline'
+export type ProjectExplorerRole = 'student-code' | 'course-adapter' | 'application' | 'core' | 'peripheral' | 'startup' | 'linker' | 'build' | 'config' | 'documentation'
+
+export interface ProjectExplorerNode {
+  id: string
+  parentId?: string
+  name: string
+  kind: 'directory' | 'file'
+  language?: ProjectExplorerLanguage
+  origin: ProjectExplorerOrigin
+  role: ProjectExplorerRole
+  access: 'editable' | 'read-only'
+  state: 'normal' | 'modified' | 'error' | 'warning'
+  displayPath: string
+}
+
+export interface ProjectExplorerSnapshot {
+  workspaceId: string
+  candidateId?: string
+  rootLabel: string
+  baselineId: string
+  baselineCommit: string
+  baselineAvailable: boolean
+  warning?: string
+  nodes: ProjectExplorerNode[]
+}
+
+export interface ProjectExplorerFile {
+  node: ProjectExplorerNode
   content: string
 }
 
@@ -704,6 +738,8 @@ export interface RobotDogApi {
   createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>
   renameWorkspace(workspaceId: string, name: string): Promise<WorkspaceSummary>
   listStudentCodeFiles(workspaceId: string, candidateId?: string): Promise<StudentCodeFile[]>
+  getProjectExplorer(workspaceId: string, candidateId?: string): Promise<ProjectExplorerSnapshot>
+  readProjectExplorerFile(workspaceId: string, nodeId: string, candidateId?: string): Promise<ProjectExplorerFile>
   openManualDraft(workspaceId: string): Promise<CandidateSnapshot>
   writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot>
   explainStudentCode(workspaceId: string, request: StudentCodeExplanationRequest): Promise<AgentTurnSnapshot>

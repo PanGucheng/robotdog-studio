@@ -38,31 +38,36 @@
       "stepId": "read-declaration-definition",
       "type": "read",
       "title": "辨认声明与定义",
-      "instruction": "比较头文件中的函数声明和源文件中的函数定义，标出函数名、参数与返回值。"
+      "instruction": "比较头文件中的函数声明和源文件中的函数定义，标出函数名、参数与返回值。",
+      "fileTarget": { "path": "App/Inc/number_tools.h", "line": 1 }
     },
     {
       "stepId": "implement-helper",
       "type": "edit",
       "title": "实现辅助函数",
-      "instruction": "补全 number_tools.c 中辅助函数的限幅逻辑，并核对 experiment.c 中的调用是否与头文件声明一致。"
+      "instruction": "补全 number_tools.c 中辅助函数的限幅逻辑，并核对 experiment.c 中的调用是否与头文件声明一致。",
+      "fileTarget": { "path": "App/Src/number_tools.c", "line": 1 }
     },
     {
       "stepId": "candidate-build",
       "type": "candidate-build",
       "title": "解决编译或链接问题",
-      "instruction": "运行候选预检，根据输出修复遗漏声明、拼写或源文件协作问题。"
+      "instruction": "运行候选预检，根据输出修复遗漏声明、拼写或源文件协作问题。",
+      "fileTarget": { "path": "App/Src/number_tools.c" }
     },
     {
       "stepId": "review-change",
       "type": "review-apply",
       "title": "检查多文件修改",
-      "instruction": "确认头文件和源文件的改动相互对应，再保存项目存档。"
+      "instruction": "确认头文件和源文件的改动相互对应，再保存项目存档。",
+      "fileTarget": { "path": "App/Src/number_tools.c" }
     },
     {
       "stepId": "build-firmware",
       "type": "firmware-build",
       "title": "生成完整程序",
-      "instruction": "生成固件，确认多个教学源文件能够共同参与构建。"
+      "instruction": "生成固件，确认多个教学源文件能够共同参与构建。",
+      "fileTarget": { "path": "CMakeLists.txt" }
     },
     {
       "stepId": "reflect-header",

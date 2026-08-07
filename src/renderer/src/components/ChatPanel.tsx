@@ -18,6 +18,8 @@ interface ChatPanelProps {
   onCancel(): void
   onReject(candidateId: string): void
   onPermission(requestId: string, optionId: string): void
+  compact?: boolean
+  onOpenSettings?(): void
 }
 
 interface ConversationTurn {
@@ -31,7 +33,7 @@ interface ConversationTurn {
   summary?: string
 }
 
-export function ChatPanel({ workspace, edition, events, candidate, running, onPrompt, onCancel, onReject, onPermission }: ChatPanelProps): React.JSX.Element {
+export function ChatPanel({ workspace, edition, events, candidate, running, onPrompt, onCancel, onReject, onPermission, compact = false, onOpenSettings }: ChatPanelProps): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [showReview, setShowReview] = useState(false)
   const [showRuntime, setShowRuntime] = useState(false)
@@ -67,13 +69,15 @@ export function ChatPanel({ workspace, edition, events, candidate, running, onPr
   }
 
   return (
-    <section className="chat-panel">
+    <section className={`chat-panel ${compact ? 'is-compact' : ''}`}>
       <div className="section-heading">
         <div><span className="eyebrow">AI 助教</span><h2>{edition.id === 'mcu-foundations' ? '和助教讨论代码与实验' : '把想法说给小马听'}</h2></div>
         <button type="button" className={`model-chip ${runtime?.ready ? 'ready' : ''}`} onClick={() => setShowRuntime((value) => !value)} aria-expanded={showRuntime}>
           {runtime?.ready ? <Sparkles size={14} /> : <Settings2 size={14} />} {runtime?.adapter === 'reasonix' ? 'DeepSeek V4 Flash' : '模拟教学'}
         </button>
       </div>
+
+      {compact && runtime && !runtime.ready && <button type="button" className="mcu-agent-setup" onClick={onOpenSettings}><Settings2 size={14} /><span><strong>AI 助教尚未就绪</strong><small>{runtime.detail} · 打开设置</small></span></button>}
 
       {showRuntime && runtime?.adapter === 'reasonix' && (
         <div className="runtime-card">
@@ -93,6 +97,7 @@ export function ChatPanel({ workspace, edition, events, candidate, running, onPr
             candidate={turn.turnId === latestTurnId ? candidate : undefined}
             running={running && turn.turnId === latestTurnId}
             showReview={showReview}
+            compact={compact}
             onToggleReview={() => setShowReview((value) => !value)}
             onReject={onReject}
             onPermission={onPermission}
@@ -111,7 +116,7 @@ export function ChatPanel({ workspace, edition, events, candidate, running, onPr
   )
 }
 
-function TurnView({ turn, candidate, running, showReview, onToggleReview, onReject, onPermission }: { turn: ConversationTurn; candidate?: CandidateSnapshot; running: boolean; showReview: boolean; onToggleReview(): void; onReject(id: string): void; onPermission(requestId: string, optionId: string): void }): React.JSX.Element {
+function TurnView({ turn, candidate, running, showReview, compact, onToggleReview, onReject, onPermission }: { turn: ConversationTurn; candidate?: CandidateSnapshot; running: boolean; showReview: boolean; compact: boolean; onToggleReview(): void; onReject(id: string): void; onPermission(requestId: string, optionId: string): void }): React.JSX.Element {
   const activity = turn.activity
   const terminal = turn.terminal
   return (
@@ -130,7 +135,9 @@ function TurnView({ turn, candidate, running, showReview, onToggleReview, onReje
           {running && activity && <span className="agent-activity"><LoaderCircle size={13} className="spin" /> {activity.label}</span>}
           {terminal?.type === 'failed' && <ProblemCard problem={toStudentProblem(terminal.message, '这次没有完成')} tone="danger" compact />}
           {terminal?.type === 'cancelled' && <div className="agent-cancelled"><Square size={12} /> {terminal.message}</div>}
-          {candidate && ['review_ready', 'build_passed'].includes(candidate.state) && <div className="change-card"><span className="change-status"><CheckCircle2 size={15} /> {candidate.state === 'build_passed' ? '代码检查通过' : '已通过安全核对'}</span><strong>这次修改</strong><small>{turn.summary ?? '修改只保存在安全草稿中。'}</small>{showReview && candidate.validation && <div className="review-summary"><span><FileCheck2 size={13} /> {candidate.validation.changedFiles} 个允许文件</span>{candidate.validation.files.map((file) => <code key={file.path}>{file.path} · +{file.additions} / -{file.deletions}</code>)}</div>}<div className="change-actions"><button type="button" onClick={onToggleReview}>{showReview ? '收起摘要' : '查看安全摘要'}</button><button type="button" onClick={() => onReject(candidate.id)}>放弃修改</button><button type="button" className="button-primary" disabled>{candidate.state === 'build_passed' ? '可在右侧保存到项目' : '请在右侧检查代码'}</button></div></div>}
+          {candidate && ['review_ready', 'build_passed'].includes(candidate.state) && (compact
+            ? <div className="mcu-ai-change-notice"><CheckCircle2 size={15} /><span><strong>{candidate.state === 'build_passed' ? '修改已通过代码检查' : '修改已生成'}</strong><small>请到“构建与运行”查看差异并决定是否保存。</small></span></div>
+            : <div className="change-card"><span className="change-status"><CheckCircle2 size={15} /> {candidate.state === 'build_passed' ? '代码检查通过' : '已通过安全核对'}</span><strong>这次修改</strong><small>{turn.summary ?? '修改只保存在安全草稿中。'}</small>{showReview && candidate.validation && <div className="review-summary"><span><FileCheck2 size={13} /> {candidate.validation.changedFiles} 个允许文件</span>{candidate.validation.files.map((file) => <code key={file.path}>{file.path} · +{file.additions} / -{file.deletions}</code>)}</div>}<div className="change-actions"><button type="button" onClick={onToggleReview}>{showReview ? '收起摘要' : '查看安全摘要'}</button><button type="button" onClick={() => onReject(candidate.id)}>放弃修改</button><button type="button" className="button-primary" disabled>{candidate.state === 'build_passed' ? '可在右侧保存到项目' : '请在右侧检查代码'}</button></div></div>)}
           {terminal?.type === 'completed' && terminal.state === 'no_changes' && <div className="agent-cancelled"><CheckCircle2 size={13} /> {terminal.message}</div>}
         </div>
       </div>}

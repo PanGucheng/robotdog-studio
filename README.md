@@ -1,6 +1,6 @@
 # RobotDog Studio
 
-RobotDog Studio 是共用一套核心能力、分别面向中小学巡线教学和大学单片机入门的 Electron 桌面上位机。当前产品演进以 [双发行版教学改造总纲](./docs/dual-edition-teaching-plan.md) 为准；单片机课程框架见[课程框架详细实施计划](./docs/mcu-course-framework-implementation-plan.md)，下一阶段界面改造见[代码优先工作台计划](./docs/mcu-code-first-workbench-redesign-plan.md)。两个发行版来自同一仓库，但使用独立安装身份和数据目录。
+RobotDog Studio 是共用一套核心能力、分别面向中小学巡线教学和大学单片机入门的 Electron 桌面上位机。当前产品演进以 [双发行版教学改造总纲](./docs/dual-edition-teaching-plan.md) 为准；单片机课程框架见[课程框架详细实施计划](./docs/mcu-course-framework-implementation-plan.md)，已落地的大学生版界面见[代码优先工作台计划与实施记录](./docs/mcu-code-first-workbench-redesign-plan.md)。两个发行版来自同一仓库，但使用独立安装身份和数据目录。
 
 重开 Codex 对话继续开发时，先阅读双发行版总纲，再阅读 [开发交接文档](./docs/development-handoff-2026-07-14.md)。交接文档记录的是 2026-07-14 时点的实现状态，其中单发行版产品描述已由新总纲取代。
 

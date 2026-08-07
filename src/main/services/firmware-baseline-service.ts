@@ -83,7 +83,7 @@ export class FirmwareBaselineService {
     return {
       id: manifest.id, label: manifest.label, sourceRoot, expectedCommit: manifest.source.expectedCommit,
       status: manifest.status, readyForTesting: errors.length === 0, releaseEligible: manifest.releaseEligible && errors.length === 0,
-      verifiedFiles: verified, errors, warnings
+      verifiedFiles: verified, errors, warnings, memory: structuredClone(manifest.target.memory)
     }
   }
 

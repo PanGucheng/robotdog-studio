@@ -15,6 +15,7 @@ interface DiffReviewProps {
   onBuild(candidateId: string): void
   onApply(candidateId: string): void
   onUndo(): void
+  surfaceOnly?: boolean
 }
 
 export interface DiffRow {
@@ -24,7 +25,7 @@ export interface DiffRow {
   text: string
 }
 
-export function DiffReview({ candidate, diff, loading, error, history, busy, onReject, onBuild, onApply, onUndo }: DiffReviewProps): React.JSX.Element {
+export function DiffReview({ candidate, diff, loading, error, history, busy, onReject, onBuild, onApply, onUndo, surfaceOnly = false }: DiffReviewProps): React.JSX.Element {
   const [selectedPath, setSelectedPath] = useState<string>()
   useEffect(() => {
     if (!diff?.files.some((file) => file.path === selectedPath)) setSelectedPath(diff?.files[0]?.path)
@@ -32,7 +33,7 @@ export function DiffReview({ candidate, diff, loading, error, history, busy, onR
   const selected = diff?.files.find((file) => file.path === selectedPath) ?? diff?.files[0]
   const rows = useMemo(() => selected ? buildDiffRows(selected) : [], [selected])
 
-  if (!candidate) return <HistoryPanel history={history} busy={busy} onUndo={onUndo} />
+  if (!candidate) return surfaceOnly ? <DiffEmpty message="当前没有等待确认的修改。" /> : <HistoryPanel history={history} busy={busy} onUndo={onUndo} />
   if (loading) return <div className="diff-state"><LoaderCircle className="spin" size={22} /><strong>正在展开这次修改</strong><span>核对文件范围、源码指纹和修改内容…</span></div>
   if (error) return <div className="diff-state is-error"><ProblemCard problem={toStudentProblem(error, '暂时无法读取修改')} tone="danger" /></div>
   if (!diff || diff.files.length === 0) return <DiffEmpty message="这次修改没有产生文件变化。" />
@@ -41,19 +42,19 @@ export function DiffReview({ candidate, diff, loading, error, history, busy, onR
   const deletions = diff.files.reduce((sum, file) => sum + file.deletions, 0)
   return (
     <div className="diff-review">
-      <header className="diff-review-head">
+      {!surfaceOnly && <header className="diff-review-head">
         <div><span className="eyebrow">安全检查台 · 修改对比</span><h2>逐行核对这次修改</h2><p>左侧是修改前，右侧是安全草稿；只有这些学生文件会进入下一步检查。</p></div>
         <div className="diff-verdict"><ShieldCheck size={17} /><span><strong>范围合规</strong><small>{diff.files.length} 个学生文件</small></span></div>
-      </header>
+      </header>}
 
-      <div className="diff-ledger" aria-label="这次修改统计">
+      {!surfaceOnly && <div className="diff-ledger" aria-label="这次修改统计">
         <span><FileDiff size={14} /> {diff.files.length} 个文件</span><span className="added">+{additions}</span><span className="removed">−{deletions}</span><code>{diff.diffHash.slice(0, 10)}</code>
-      </div>
+      </div>}
 
-      <div className="candidate-proof-slot">
+      {!surfaceOnly && <div className="candidate-proof-slot">
         {candidate.error && <ProblemCard problem={toStudentProblem(candidate.error, '检查代码没有通过')} tone="danger" compact />}
         {candidate.buildProof && <div className="candidate-build-proof"><CheckCircle2 size={16} /><span><strong>代码检查通过</strong><small>{candidate.buildProof.checks.map((check) => check.detail).join(' · ')}</small></span><code>{candidate.buildProof.objectSha256.slice(0, 10)}</code></div>}
-      </div>
+      </div>}
 
       <div className="diff-station">
         <aside className="diff-files" aria-label="修改文件">
@@ -68,7 +69,7 @@ export function DiffReview({ candidate, diff, loading, error, history, busy, onR
         </section>
       </div>
 
-      <footer className="diff-review-actions"><span><CheckCircle2 size={14} /> 已通过路径、大小、文本与敏感信息检查</span><button type="button" onClick={() => onReject(candidate.id)} disabled={busy}><X size={14} /> 放弃这次修改</button>{candidate.state === 'build_passed' ? <button type="button" className="button-primary" onClick={() => onApply(candidate.id)} disabled={busy}><GitCommitHorizontal size={14} /> {busy ? '正在保存…' : '保存到项目'}</button> : <button type="button" className="button-primary" onClick={() => onBuild(candidate.id)} disabled={busy || candidate.state !== 'review_ready'}><Hammer size={14} /> {busy ? '正在检查代码…' : '检查代码'}</button>}</footer>
+      {!surfaceOnly && <footer className="diff-review-actions"><span><CheckCircle2 size={14} /> 已通过路径、大小、文本与敏感信息检查</span><button type="button" onClick={() => onReject(candidate.id)} disabled={busy}><X size={14} /> 放弃这次修改</button>{candidate.state === 'build_passed' ? <button type="button" className="button-primary" onClick={() => onApply(candidate.id)} disabled={busy}><GitCommitHorizontal size={14} /> {busy ? '正在保存…' : '保存到项目'}</button> : <button type="button" className="button-primary" onClick={() => onBuild(candidate.id)} disabled={busy || candidate.state !== 'review_ready'}><Hammer size={14} /> {busy ? '正在检查代码…' : '检查代码'}</button>}</footer>}
     </div>
   )
 }

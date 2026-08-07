@@ -43,7 +43,7 @@ RobotDog Studio 是同一仓库、同一核心能力构建的双发行桌面上�
 - `docs/manual-review-mcu-course-completion.md`
 - `docs/mcu-lesson-authoring-and-hardware-validation.md`
 
-### 2.2 2026-08-07 已确认的大学生版工作台方向
+### 2.2 2026-08-07 已完成的大学生版代码优先工作台
 
 - 代码成为课次工作台主体：工程目录位于左侧、编辑器位于中央，并在辅助工具切换时持续存在；
 - 右侧只保留课程、构建与运行、AI 助教三个工具；设置由顶栏打开全局对话框；
@@ -52,7 +52,9 @@ RobotDog Studio 是同一仓库、同一核心能力构建的双发行桌面上�
 - 工程目录展示教学覆盖层与固件基线合并后的真实工程结构，不再只平铺少量教学文件；
 - 教学文件按原策略可编辑，主固件、外设库、启动、链接和构建配置只读；
 - 完整工程浏览必须由 Main 生成节点并按需读取，不能让 Renderer 浏览任意本机路径；
-- 该阶段尚未编码，实施和验收以 `docs/mcu-code-first-workbench-redesign-plan.md` 为准。
+- `ProjectExplorerService`、受控 IPC、三工具 shell、代码主区 Diff、工程导览、响应式分栏与全局设置已经实现；
+- 软件侧已通过 131 项测试、双发行 Electron smoke、开发模式点击与双 ZIP 打包；MCU smoke 读取 109 个工程节点；
+- 当前便携复核包为 `release/RobotDog-Studio-MCU-0.1.0-PROVISIONAL-Windows-x64.zip`；真实硬件仍只影响第三课发布门禁。
 
 当前产品方向：
 

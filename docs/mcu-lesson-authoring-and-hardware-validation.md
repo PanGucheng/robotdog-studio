@@ -1,6 +1,6 @@
 # 单片机课次编写与硬件验证清单
 
-更新日期：2026-08-06
+更新日期：2026-08-07
 
 适用范围：RobotDog Studio 单片机入门版新增或修改课次。该流程面向小范围教学与个人维护，保留必要安全门禁，不建设复杂审批系统。
 
@@ -11,8 +11,9 @@
 3. 在 `resources/workspace-templates/ch32v203-mcu-lessons/<templateId>` 创建完整独立模板。
 4. 只把教学文件放入 `App/Src`、`App/Inc`；安全适配层放入 `Core` 并保持只读。
 5. 为课次填写最小的 `editableGlobs`、`readableFiles`、`deniedGlobs`，不能开放启动、链接、Bootloader、Flash 或通信配置。
-6. 使用固定完成检查：文件存在、指定教学文件已应用修改、候选编译、完整构建、问题回答。问题步骤必须填写对应 `questionId`，人工观察检查必须填写对应观察步骤的 `stepId`；不要加入脚本或标准答案逐字比较。
-7. 递增课程唯一的 `contentVersion`，运行 `npm run courses:validate`、相关测试和 MCU 冒烟。
+6. 需要从课程工具定位代码时，为步骤填写 `fileTarget: { "path": "受控工程相对路径", "line": 1 }`。目标必须是本课登记的教学/参考文件，或工程树允许展示的基线文件；隐藏目录和未展示路径会使课程加载失败。
+7. 使用固定完成检查：文件存在、指定教学文件已应用修改、候选编译、完整构建、问题回答。问题步骤必须填写对应 `questionId`，人工观察检查必须填写对应观察步骤的 `stepId`；不要加入脚本或标准答案逐字比较。
+8. 递增课程唯一的 `contentVersion`，运行 `npm run courses:validate`、相关测试和 MCU 冒烟。
 
 新增第四课不应修改课程中心或实验任务页组件；除 `lessonOrder` 注册外，主要变化应限于 manifest、模板、测试夹具和课程文字。
 
@@ -36,7 +37,7 @@
   "readableFiles": ["Core/Src/student_control.c", "README.md"],
   "deniedGlobs": ["Core/**", "Startup/**", "Ld/**"],
   "steps": [
-    { "stepId": "edit-example", "type": "edit", "title": "修改示例", "instruction": "完成一个小修改" },
+    { "stepId": "edit-example", "type": "edit", "title": "修改示例", "instruction": "完成一个小修改", "fileTarget": { "path": "App/Src/experiment.c", "line": 1 } },
     { "stepId": "reflect-example", "type": "question", "questionId": "why-example", "title": "总结", "instruction": "说明修改原因" }
   ],
   "completionChecks": [

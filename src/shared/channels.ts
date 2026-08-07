@@ -45,6 +45,8 @@ export const IPC_CHANNELS = {
   courseProgressGet: 'course:progress:get',
   courseProgressUpdate: 'course:progress:update',
   studentFilesList: 'student-files:list',
+  projectExplorerGet: 'project-explorer:get',
+  projectExplorerFileRead: 'project-explorer:file:read',
   manualDraftOpen: 'manual-draft:open',
   manualDraftWrite: 'manual-draft:write',
   manualDraftExplain: 'manual-draft:explain',

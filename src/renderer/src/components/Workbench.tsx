@@ -1,6 +1,6 @@
 import { Activity, BookOpenCheck, Cable, CheckSquare2, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
+import type { AgentEvent, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
@@ -17,8 +17,9 @@ import type { AppEditionProfile } from '../../../shared/edition'
 import { CourseCenter } from './CourseCenter'
 import { CourseTaskPage } from './CourseTaskPage'
 import type { WorkbenchRoute } from './workbench-routes'
+import { McuWorkbench } from './McuWorkbench'
 
-interface WorkbenchProps {
+export interface WorkbenchProps {
   frame: CcdFrame
   status: RobotStatus
   logs: LogEntry[]
@@ -73,6 +74,12 @@ interface WorkbenchProps {
   courseProgress?: CourseProgressSnapshot
   onUpdateCourseProgress(update: CourseProgressUpdate): Promise<void>
   completedLessonIds: string[]
+  agentEvents?: AgentEvent[]
+  agentRunning?: boolean
+  onAgentPrompt?(message: string): void
+  onAgentCancel?(): void
+  onAgentPermission?(requestId: string, optionId: string): void
+  onOpenSettings?(): void
 }
 
 const funTabs = [
@@ -97,7 +104,8 @@ const mcuTabs = [
   { id: 'settings', label: '设置', icon: Settings2 }
 ] as const
 
-export function Workbench({ frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt, workspaceLesson, courseProgress, onUpdateCourseProgress, completedLessonIds }: WorkbenchProps): React.JSX.Element {
+export function Workbench(props: WorkbenchProps): React.JSX.Element {
+  const { frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt, workspaceLesson, courseProgress, onUpdateCourseProgress, completedLessonIds } = props
   const tabs = edition.id === 'mcu-foundations' ? mcuTabs.filter((tab) => tab.id !== 'course-tasks' || workspace?.workspacePurpose === 'mcu-lesson-attempt') : funTabs
   const [activeTab, setActiveTab] = useState<WorkbenchRoute>(edition.id === 'mcu-foundations' ? 'course-center' : 'ccd')
   useEffect(() => { setActiveTab(edition.id === 'mcu-foundations' ? 'course-center' : 'ccd') }, [edition.id])
@@ -118,6 +126,7 @@ export function Workbench({ frame, status, logs, toolchain, baseline, build, con
   const artifactCurrent = build.state === 'completed' && Boolean(workspace && build.proof && build.proof.workspaceId === workspace.id && build.proof.workspaceCommit === workspace.headCommit && build.proof.firmwareBaselineId === workspace.firmwareBaselineId)
   const effectiveBuildState = build.state === 'completed' && !artifactCurrent ? 'idle' : build.state
   const isMcu = edition.id === 'mcu-foundations'
+  if (isMcu) return <McuWorkbench {...props} />
   return (
     <section className="workbench">
       <nav className="workbench-tabs" aria-label="工作台标签">

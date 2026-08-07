@@ -50,7 +50,8 @@ const lessonManifestSchema = z.object({
     type: z.enum(['read', 'edit', 'candidate-build', 'review-apply', 'firmware-build', 'flash', 'serial-observation', 'hardware-observation', 'question', 'summary']),
     title: z.string().min(1).max(80),
     instruction: z.string().min(1).max(500),
-    questionId: idSchema.optional()
+    questionId: idSchema.optional(),
+    fileTarget: z.object({ path: resourcePathSchema, line: z.number().int().positive().max(100_000).optional() }).strict().optional()
   }).strict()).min(1),
   completionChecks: z.array(z.object({
     type: z.enum(['file-exists', 'student-change-applied', 'candidate-build-passed', 'firmware-build-passed', 'flash-succeeded', 'manual-observation-confirmed', 'question-answered']),
@@ -209,6 +210,7 @@ export class CourseService {
       if (questionIds.size !== lesson.reflectionQuestions.length) throw new Error(`COURSE_QUESTION_ID_DUPLICATE:${lessonId}`)
       const mappedQuestions = new Set<string>()
       for (const step of lesson.steps) {
+        if (step.fileTarget && !isVisibleCourseFileTarget(step.fileTarget.path, lesson)) throw new Error(`COURSE_FILE_TARGET_INVALID:${lessonId}:${step.stepId}`)
         if (step.type === 'question') {
           if (!step.questionId || !questionIds.has(step.questionId) || mappedQuestions.has(step.questionId)) throw new Error(`COURSE_QUESTION_STEP_INVALID:${lessonId}:${step.stepId}`)
           mappedQuestions.add(step.questionId)
@@ -266,4 +268,16 @@ export class CourseService {
     if (!fromRoot || fromRoot.startsWith(`..${sep}`) || fromRoot === '..' || isAbsolute(fromRoot)) throw new Error('COURSE_RESOURCE_PATH_INVALID')
     return target
   }
+}
+
+const BASELINE_EXPLORER_ROOTS = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'cmake', 'student-config'])
+const BASELINE_EXPLORER_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json', 'README.md'])
+
+function isVisibleCourseFileTarget(path: string, lesson: LessonManifest): boolean {
+  const normalized = path.replace(/\\/g, '/')
+  const parts = normalized.split('/')
+  if (parts.some((part) => part.startsWith('.')) || lesson.deniedGlobs.includes(normalized)) return false
+  if (lesson.editableGlobs.includes(normalized) || lesson.readableFiles.includes(normalized)) return true
+  if (parts.length === 1) return BASELINE_EXPLORER_FILES.has(normalized)
+  return BASELINE_EXPLORER_ROOTS.has(parts[0])
 }

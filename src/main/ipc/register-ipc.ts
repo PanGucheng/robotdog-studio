@@ -17,11 +17,12 @@ import { DiagnosticService } from '../services/diagnostic-service'
 import { WchLinkFlashService } from '../services/wch-link-flash-service'
 import { CourseService } from '../services/course-service'
 import { CourseProgressStore } from '../services/course-progress-store'
+import { ProjectExplorerService } from '../services/project-explorer-service'
 import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink = new WchLinkFlashService(toolchain, firmware), courseProgress?: CourseProgressStore): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink = new WchLinkFlashService(toolchain, firmware), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -245,6 +246,16 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof workspaceId !== 'string' || (candidateId !== undefined && typeof candidateId !== 'string')) throw new Error('STUDENT_FILES_INPUT_INVALID')
       return candidates.listStudentCodeFiles(workspaceId, candidateId as string | undefined)
     })
+    if (projectExplorer && edition.id === 'mcu-foundations') {
+      ipcMain.handle(IPC_CHANNELS.projectExplorerGet, (_event, workspaceId: unknown, candidateId: unknown) => {
+        if (typeof workspaceId !== 'string' || (candidateId !== undefined && typeof candidateId !== 'string')) throw new Error('PROJECT_EXPLORER_INPUT_INVALID')
+        return projectExplorer.getSnapshot(workspaceId, candidateId as string | undefined)
+      })
+      ipcMain.handle(IPC_CHANNELS.projectExplorerFileRead, (_event, workspaceId: unknown, nodeId: unknown, candidateId: unknown) => {
+        if (typeof workspaceId !== 'string' || typeof nodeId !== 'string' || (candidateId !== undefined && typeof candidateId !== 'string')) throw new Error('PROJECT_EXPLORER_INPUT_INVALID')
+        return projectExplorer.readFile(workspaceId, nodeId, candidateId as string | undefined)
+      })
+    }
     ipcMain.handle(IPC_CHANNELS.manualDraftOpen, (_event, workspaceId: unknown) => {
       if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
       return withCandidateEvent(() => candidates.openManualDraft(workspaceId))

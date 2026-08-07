@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, ProjectExplorerNode, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 import { EDITION_PROFILES } from '../../../shared/edition'
 import demoCourseResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/course.json'
 import firstLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/studio-first-build.json'
@@ -335,7 +335,7 @@ export const browserDemoApi: RobotDogApi = {
   getFirmwareBaselineStatus: async () => ({
     id: 'ch32v203-robotdog-provisional-0858d82', label: 'CH32V203 机器马临时测试基线', sourceRoot: 'D:\\RobotDog\\ch32v203-robot-dog',
     expectedCommit: '0858d821d56daaea6e45740f5b496714fea20aca', status: 'provisional', readyForTesting: true, releaseEligible: false,
-    verifiedFiles: ['Ld/Link.ld', 'Startup/startup_ch32v20x_D6.S', 'User/main.c'], errors: [],
+    verifiedFiles: ['Ld/Link.ld', 'Startup/startup_ch32v20x_D6.S', 'User/main.c'], errors: [], memory: { flashBytes: 65536, ramBytes: 20480, confirmed: true },
     warnings: ['当前使用未确认的临时固件工程，只可用于功能测试，不能作为发布固件。']
   }),
   startFirmwareBuild: async (workspaceId) => {
@@ -559,6 +559,42 @@ export const browserDemoApi: RobotDogApi = {
       { path: 'student-config/line-following.yaml' as const, label: '巡线参数', group: '参数设置' as const, language: 'yaml' as const, editable: true, content: 'turn_strength: 18\nline_target: 64\n' },
       { path: 'Core/Inc/student_control.h' as const, label: '输入和动作说明', group: '参考接口' as const, language: 'c' as const, editable: false, content: '/* 这是固件提供的只读接口说明。 */\n' }
     ]
+  },
+  getProjectExplorer: async (workspaceId, candidateId) => {
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    if (workspace.learningPath !== 'mcu-foundations') throw new Error('PROJECT_EXPLORER_MCU_REQUIRED')
+    const files = await browserDemoApi.listStudentCodeFiles(workspaceId, candidateId)
+    const baselineFiles = [
+      ['User/main.c', 'application'], ['Peripheral/inc/ch32v20x_gpio.h', 'peripheral'], ['Peripheral/src/ch32v20x_gpio.c', 'peripheral'],
+      ['Startup/startup_ch32v20x_D6.S', 'startup'], ['Ld/Link.ld', 'linker'], ['CMakeLists.txt', 'build'], ['robotdog.firmware.json', 'build']
+    ] as const
+    const descriptors = new Map(files.map((file) => [file.path, { path: file.path, access: file.editable ? 'editable' as const : 'read-only' as const, origin: 'lesson-overlay' as const, role: file.path.startsWith('App/') ? 'student-code' as const : 'course-adapter' as const, language: file.language === 'markdown' ? 'markdown' as const : file.language }]))
+    for (const [path, role] of baselineFiles) if (!descriptors.has(path)) descriptors.set(path, { path, access: 'read-only', origin: 'firmware-baseline', role, language: path.endsWith('.json') ? 'json' : path.endsWith('.S') ? 'asm' : path.endsWith('.ld') ? 'linker' : path === 'CMakeLists.txt' ? 'cmake' : 'c' } as never)
+    const nodes = new Map<string, ProjectExplorerNode>()
+    const id = (kind: string, path: string): string => `${kind}-${path}`.replace(/[^a-zA-Z0-9]/g, '_')
+    for (const descriptor of descriptors.values()) {
+      const parts = descriptor.path.split('/')
+      for (let index = 1; index < parts.length; index += 1) {
+        const path = parts.slice(0, index).join('/')
+        if (!nodes.has(path)) nodes.set(path, { id: id('directory', path), parentId: index > 1 ? id('directory', parts.slice(0, index - 1).join('/')) : undefined, name: parts[index - 1], kind: 'directory', origin: 'firmware-baseline', role: descriptor.role, access: 'read-only', state: 'normal', displayPath: path })
+      }
+      const parent = parts.slice(0, -1).join('/')
+      nodes.set(descriptor.path, { id: id('file', descriptor.path), parentId: parent ? id('directory', parent) : undefined, name: parts.at(-1)!, kind: 'file', language: descriptor.language, origin: descriptor.origin, role: descriptor.role, access: descriptor.access, state: 'normal', displayPath: descriptor.path })
+    }
+    return { workspaceId, candidateId, rootLabel: `RobotDog Firmware · ${workspace.baselineCommit.slice(0, 7)}`, baselineId: workspace.firmwareBaselineId, baselineCommit: workspace.baselineCommit, baselineAvailable: true, nodes: [...nodes.values()] }
+  },
+  readProjectExplorerFile: async (workspaceId, nodeId, candidateId) => {
+    const snapshot = await browserDemoApi.getProjectExplorer(workspaceId, candidateId)
+    const node = snapshot.nodes.find((item) => item.id === nodeId && item.kind === 'file')
+    if (!node) throw new Error('PROJECT_EXPLORER_FILE_NOT_FOUND')
+    const student = (await browserDemoApi.listStudentCodeFiles(workspaceId, candidateId)).find((file) => file.path === node.displayPath)
+    const examples: Record<string, string> = {
+      'User/main.c': '#include "student_control.h"\n\nint main(void)\n{\n    StudentControl_Init();\n    while (1) { /* 主循环 */ }\n}\n',
+      'Peripheral/inc/ch32v20x_gpio.h': '/* CH32V20x GPIO 外设声明 */\n', 'Peripheral/src/ch32v20x_gpio.c': '/* CH32V20x GPIO 外设实现 */\n',
+      'Startup/startup_ch32v20x_D6.S': '/* 芯片复位后从这里启动 */\n', 'Ld/Link.ld': '/* Flash 与 RAM 布局 */\n',
+      'CMakeLists.txt': 'project(RobotDog C ASM)\n', 'robotdog.firmware.json': '{ "chip": "CH32V203C8T6" }\n'
+    }
+    return { node, content: student?.content ?? examples[node.displayPath] ?? '/* 只读工程文件 */\n' }
   },
   openManualDraft: async (workspaceId) => {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)

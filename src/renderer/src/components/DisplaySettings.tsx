@@ -1,9 +1,9 @@
-import { Check, Eye, FileDown, FlaskConical, FolderOpen, MonitorUp, Route, Type } from 'lucide-react'
+import { Check, Eye, FileDown, FlaskConical, FolderOpen, KeyRound, MonitorUp, Route, Type } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { AppRuntimeInfo, DiagnosticExportResult, FirmwareBaselineStatus, ToolchainStatus } from '../../../shared/types'
+import type { AgentRuntimeStatus, AppRuntimeInfo, DiagnosticExportResult, FirmwareBaselineStatus, ToolchainStatus } from '../../../shared/types'
 import { UI_SCALE_OPTIONS, type UiScale } from '../lib/ui-scale'
 import { getRobotApi } from '../lib/browser-demo-api'
-import { type StudentProblem, toStudentProblem } from '../lib/student-errors'
+import { type StudentProblem, toStudentErrorMessage, toStudentProblem } from '../lib/student-errors'
 import { ProblemCard } from './ProblemCard'
 
 interface DisplaySettingsProps {
@@ -26,7 +26,11 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
   const [diagnostic, setDiagnostic] = useState<DiagnosticExportResult>()
   const [error, setError] = useState<StudentProblem>()
   const [busy, setBusy] = useState(false)
+  const [agentRuntime, setAgentRuntime] = useState<AgentRuntimeStatus>()
+  const [apiKey, setApiKey] = useState('')
+  const [agentError, setAgentError] = useState('')
   useEffect(() => { void getRobotApi().getRuntimeInfo().then(setRuntime).catch((caught) => setError(toStudentProblem(caught, '设置状态读取失败'))) }, [])
+  useEffect(() => { void getRobotApi().getAgentRuntimeStatus().then(setAgentRuntime).catch((caught) => setAgentError(toStudentErrorMessage(caught))) }, [])
   const exportDiagnostics = (): void => {
     setBusy(true); setError(undefined)
     void getRobotApi().exportDiagnostics().then(setDiagnostic).catch((caught) => setError(toStudentProblem(caught, '诊断文件没有导出'))).finally(() => setBusy(false))
@@ -77,6 +81,14 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
           <div><strong>{baseline?.releaseEligible ? '正式 SDK' : '临时 SDK 基线'}</strong><p>{baseline?.readyForTesting ? `${baseline.label}：仅用于功能测试。` : 'SDK 校验未通过，生成程序已停用。'}</p></div>
         </article>
       </div>
+
+      <section className="agent-setting" aria-labelledby="agent-setting-heading">
+        <div className="setting-copy"><KeyRound size={18} /><span><strong id="agent-setting-heading">AI 助教</strong><small>所有 AI 功能统一使用 DeepSeek V4 Flash；密钥由 Windows 加密保存，界面不会再次读取。</small></span></div>
+        <div className={`agent-setting-state ${agentRuntime?.ready ? 'ready' : ''}`}><span>{agentRuntime?.ready ? <Check size={15} /> : <KeyRound size={15} />}</span><div><strong>{agentRuntime?.ready ? 'DeepSeek V4 Flash 已就绪' : '等待配置'}</strong><small>{agentRuntime?.detail ?? '正在检查 Reasonix 运行环境…'}</small></div></div>
+        {agentRuntime?.adapter === 'reasonix' && <><input type="password" value={apiKey} placeholder={agentRuntime.apiKeyConfigured ? '已配置；输入新密钥可替换' : '输入 DeepSeek API Key'} autoComplete="off" onChange={(event) => setApiKey(event.target.value)} />
+          {agentError && <small className="runtime-error">{agentError}</small>}
+          <div className="diagnostic-actions"><button type="button" disabled={!agentRuntime.apiKeyConfigured} onClick={() => { setAgentError(''); void getRobotApi().clearAgentApiKey().then(setAgentRuntime).catch((caught) => setAgentError(toStudentErrorMessage(caught))) }}>清除密钥</button><button type="button" className="button-primary" disabled={!apiKey.trim()} onClick={() => { setAgentError(''); void getRobotApi().setAgentApiKey(apiKey).then((value) => { setAgentRuntime(value); setApiKey('') }).catch((caught) => setAgentError(toStudentErrorMessage(caught))) }}>安全保存</button></div></>}
+      </section>
 
       <section className="diagnostic-setting" aria-labelledby="diagnostic-heading">
         <div className="setting-copy"><FileDown size={18} /><span><strong id="diagnostic-heading">教师诊断与本机数据</strong><small>排查问题时导出状态，不会收集 API Key、学生代码或聊天正文。</small></span></div>

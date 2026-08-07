@@ -24,7 +24,7 @@ describe('DiagnosticService', () => {
         size: { ok: true, label: 'size', path: 'size.exe', detail: 'ready' },
         openocd: { ok: true, label: 'openocd', path: 'openocd.exe', detail: 'ready' }
       },
-      baseline: { id: 'test', label: '临时基线', sourceRoot: 'sdk', expectedCommit: 'a'.repeat(40), status: 'provisional', readyForTesting: true, releaseEligible: false, verifiedFiles: [], errors: [], warnings: [] },
+      baseline: { id: 'test', label: '临时基线', sourceRoot: 'sdk', expectedCommit: 'a'.repeat(40), status: 'provisional', readyForTesting: true, releaseEligible: false, verifiedFiles: [], errors: [], warnings: [], memory: { flashBytes: 65536, ramBytes: 20480, confirmed: true } },
       agent: { adapter: 'reasonix', version: 'v1', installed: true, apiKeyConfigured: true, ready: true, detail: 'ready' }
     }
     const service = new DiagnosticService({ dataRoot: root, getRuntimeInfo: async () => runtime, now: () => new Date('2026-06-20T12:00:00.000Z') })

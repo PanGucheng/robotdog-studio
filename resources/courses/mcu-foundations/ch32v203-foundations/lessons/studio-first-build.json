@@ -34,31 +34,36 @@
       "stepId": "read-entry",
       "type": "read",
       "title": "找到实验入口",
-      "instruction": "阅读 experiment.c、experiment.h 和只读适配层，确认学生代码如何被主固件调用。"
+      "instruction": "阅读 experiment.c、experiment.h 和只读适配层，确认学生代码如何被主固件调用。",
+      "fileTarget": { "path": "App/Src/experiment.c", "line": 1 }
     },
     {
       "stepId": "make-small-change",
       "type": "edit",
       "title": "完成一次小修改",
-      "instruction": "在 experiment.c 中修改一个简单变量或表达式，不改动只读适配层。"
+      "instruction": "在 experiment.c 中修改一个简单变量或表达式，不改动只读适配层。",
+      "fileTarget": { "path": "App/Src/experiment.c", "line": 4 }
     },
     {
       "stepId": "candidate-build",
       "type": "candidate-build",
       "title": "检查候选代码",
-      "instruction": "运行候选预检；可以先制造一个语法错误，再根据提示修复。"
+      "instruction": "运行候选预检；可以先制造一个语法错误，再根据提示修复。",
+      "fileTarget": { "path": "App/Src/experiment.c" }
     },
     {
       "stepId": "review-change",
       "type": "review-apply",
       "title": "确认并保存修改",
-      "instruction": "阅读 Diff，确认只改动预期文件后保存为新的项目存档。"
+      "instruction": "阅读 Diff，确认只改动预期文件后保存为新的项目存档。",
+      "fileTarget": { "path": "App/Src/experiment.c" }
     },
     {
       "stepId": "build-firmware",
       "type": "firmware-build",
       "title": "生成完整程序",
-      "instruction": "生成完整固件，并观察 ELF、HEX、BIN 和 MAP 文件。"
+      "instruction": "生成完整固件，并观察程序文件和 Flash/RAM 摘要。",
+      "fileTarget": { "path": "CMakeLists.txt" }
     },
     {
       "stepId": "reflect-build-flash",

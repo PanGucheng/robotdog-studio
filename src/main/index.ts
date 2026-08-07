@@ -18,6 +18,7 @@ import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
 import { CourseService } from './services/course-service'
 import { CourseProgressStore } from './services/course-progress-store'
+import { ProjectExplorerService } from './services/project-explorer-service'
 import { DEFAULT_EDITION_ID, getEditionProfile, parseEditionId } from '../shared/edition'
 
 const robot = new MockRobotService()
@@ -104,14 +105,17 @@ function createWindow(): void {
         const existing = await window.robotDog.listWorkspaces()
         const workspace = secondLessonAttempt ?? lessonAttempt ?? existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
           ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
+        const explorer = activeEdition.id === 'mcu-foundations' ? await window.robotDog.getProjectExplorer(workspace.id) : undefined
+        const explorerMain = explorer?.nodes.find((node) => node.displayPath === 'User/main.c')
+        const explorerMainFile = explorerMain ? await window.robotDog.readProjectExplorerFile(workspace.id, explorerMain.id) : undefined
         const firmware = secondLessonResult?.firmware ?? firstLessonResult?.firmware ?? await window.robotDog.startFirmwareBuild(workspace.id)
         return {
-          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed' && invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['candidate-build'].state === 'passed' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'))),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && explorer?.baselineAvailable && explorer.nodes.some((node) => node.displayPath === 'App/Src/number_tools.c' && node.access === 'editable') && explorerMain?.access === 'read-only' && explorerMainFile?.content.includes('main') && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed' && invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['candidate-build'].state === 'passed' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'))),
           edition: activeEdition.id,
           courseCount: courses.length, lessonCount: course?.lessons.length ?? 0, lessonAttemptCount: lessonAttempts.length, secondLessonFileCount: secondLessonFiles.length,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
           releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
-          firstLessonProgress: firstLessonResult?.progress.state, secondLessonProgress: secondLessonResult?.progress.state,
+          firstLessonProgress: firstLessonResult?.progress.state, secondLessonProgress: secondLessonResult?.progress.state, explorerNodes: explorer?.nodes.length ?? 0,
           firstLessonAfterSourceChange: invalidatedFirstLessonProgress?.state,
           firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind)
         }
@@ -164,6 +168,7 @@ app.whenReady().then(async () => {
   const toolchain = new ToolchainService()
   const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(toolchain, join(workspaceRoot, 'build-cache')) })
   await candidates.initialize()
+  const projectExplorer = edition.id === 'mcu-foundations' ? new ProjectExplorerService(workspaces, candidates, baseline) : undefined
   const courses = edition.id === 'mcu-foundations'
     ? new CourseService({
         rootDir: join(staticRoot, 'courses', 'mcu-foundations'),
@@ -207,7 +212,7 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, undefined, courseProgress)
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, undefined, courseProgress, projectExplorer)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

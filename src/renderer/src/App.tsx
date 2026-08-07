@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, ShieldAlert } from 'lucide-react'
+import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, Settings2, ShieldAlert, X } from 'lucide-react'
 import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
@@ -9,6 +9,7 @@ import { Workbench } from './components/Workbench'
 import { getRobotApi } from './lib/browser-demo-api'
 import { applyUiScale, readUiScale, type UiScale } from './lib/ui-scale'
 import { LearningCenter, type LearningDestination } from './components/LearningCenter'
+import { DisplaySettings } from './components/DisplaySettings'
 import { toStudentErrorMessage } from './lib/student-errors'
 import { EDITION_PROFILES, type AppEditionProfile } from '../../shared/edition'
 
@@ -92,10 +93,16 @@ export function App(): React.JSX.Element {
   const [workspaceLesson, setWorkspaceLesson] = useState<CourseLesson>()
   const [courseProgress, setCourseProgress] = useState<CourseProgressSnapshot>()
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([])
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsButtonRef = useRef<HTMLButtonElement>(null)
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
 
-  useEffect(() => { applyUiScale(uiScale) }, [uiScale])
+  useEffect(() => { applyUiScale(uiScale); document.getElementById('root')?.scrollTo(0, 0) }, [uiScale])
+  const closeMcuSettings = (): void => {
+    setSettingsOpen(false)
+    requestAnimationFrame(() => { document.getElementById('root')?.scrollTo(0, 0); settingsButtonRef.current?.focus({ preventScroll: true }) })
+  }
 
   useEffect(() => {
     let disposed = false
@@ -459,7 +466,7 @@ export function App(): React.JSX.Element {
           </div>
         </div>
 
-        <PipelineRail connected={connected} buildState={build.state} updateState={firmwareUpdate.state} />
+        {edition.id === 'fun-line-following' ? <PipelineRail connected={connected} buildState={build.state} updateState={firmwareUpdate.state} /> : <div className="mcu-top-status"><span className={candidate ? 'is-active' : ''} />{candidate ? '修改待处理' : build.state === 'running' ? '正在生成程序' : build.state === 'completed' ? '程序已生成' : '代码工作台'}</div>}
 
         <div className="topbar-actions">
           <div className={`connection-pill ${connected ? 'is-connected' : ''}`}>
@@ -469,6 +476,7 @@ export function App(): React.JSX.Element {
             <CircleUserRound size={17} /> {teacherMode ? '教师模式' : activeWorkspace?.studentDisplayName ?? '学习者'}
           </button>
           {edition.id === 'fun-line-following' && <button type="button" className="learning-button" onClick={() => setLearningOpen(true)}><HelpCircle size={16} /> 操作示范</button>}
+          {edition.id === 'mcu-foundations' && <button ref={settingsButtonRef} type="button" className="mcu-settings-button" onClick={() => setSettingsOpen(true)} aria-label="打开设置"><Settings2 size={17} /> 设置</button>}
           <button type="button" className="emergency-button" onClick={() => action('stop')} disabled={!connected}>
             <ShieldAlert size={18} /> 急停
           </button>
@@ -492,8 +500,8 @@ export function App(): React.JSX.Element {
         {error && <span className="inline-error">{error}</span>}
       </div>
 
-      <div className="studio-grid">
-        <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onPermission={respondAgentPermission} />
+      <div className={`studio-grid ${edition.id === 'mcu-foundations' ? 'is-mcu' : ''}`}>
+        {edition.id === 'fun-line-following' && <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onPermission={respondAgentPermission} />}
         <Workbench
           frame={frame}
           status={status}
@@ -549,11 +557,18 @@ export function App(): React.JSX.Element {
           courseProgress={courseProgress}
           onUpdateCourseProgress={updateCourseProgress}
           completedLessonIds={completedLessonIds}
+          agentEvents={agentEvents}
+          agentRunning={Boolean(agentTurn)}
+          onAgentPrompt={promptAgent}
+          onAgentCancel={cancelAgent}
+          onAgentPermission={respondAgentPermission}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       </div>
 
       {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
       {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
+      {edition.id === 'mcu-foundations' && settingsOpen && <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置"><div className="mcu-settings-dialog"><button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置"><X size={18} /></button><DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} /></div></div>}
     </main>
   )
 }
