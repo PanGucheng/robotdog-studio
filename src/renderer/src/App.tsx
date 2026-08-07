@@ -190,6 +190,7 @@ export function App(): React.JSX.Element {
       const workspaceId = event.type === 'turn_started' ? event.workspaceId : turnWorkspaces.current.get(event.turnId)
       if (workspaceId) setAgentEventsByWorkspace((current) => ({ ...current, [workspaceId]: compactAgentEvents([...(current[workspaceId] ?? []), event]) }))
       if (event.type === 'candidate_ready') setCandidate(event.candidate)
+      if (event.type === 'completed' && event.state === 'no_changes') setCandidate((current) => current?.state === 'no_changes' ? undefined : current)
       if (['completed', 'cancelled', 'failed'].includes(event.type)) setAgentTurn(undefined)
     })
     return () => {

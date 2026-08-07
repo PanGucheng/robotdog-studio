@@ -176,8 +176,8 @@ export class AgentSessionService extends EventEmitter {
       if (active.repair && candidate.state === 'review_ready') candidate = await this.candidates.build(candidate.id)
       if (candidate.state === 'review_ready' || candidate.state === 'build_passed' || candidate.state === 'no_changes') {
         snapshot.state = candidate.state === 'build_passed' ? 'review_ready' : candidate.state
-        this.publish(active, { type: 'candidate_ready', candidate, summary: buildStudentCandidateSummary(candidate) })
         if (candidate.state === 'no_changes') await this.candidates.reject(candidate.id)
+        else this.publish(active, { type: 'candidate_ready', candidate, summary: buildStudentCandidateSummary(candidate) })
         const completedState = candidate.state === 'build_passed' ? 'review_ready' : candidate.state
         const message = candidate.state === 'build_passed' ? 'AI 已按建议修复，代码也通过了编译。请查看修改后再保存。'
           : candidate.state === 'review_ready' && active.repair && candidate.error ? 'AI 已尝试修复，但编译还发现问题。草稿已保留，可以继续查看。'

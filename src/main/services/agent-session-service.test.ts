@@ -105,6 +105,7 @@ describe('AgentSessionService', () => {
     await waitUntilIdle(service)
 
     expect(events.at(-1)).toMatchObject({ type: 'completed', state: 'no_changes' })
+    expect(events.some((event) => event.type === 'candidate_ready')).toBe(false)
     expect((await candidates.get(turn.candidateId!)).state).toBe('rejected')
     expect((await workspaces.get(workspaceId)).state).toBe('ready')
   })

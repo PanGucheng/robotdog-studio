@@ -37,10 +37,10 @@ export function McuBuildRunTool(props: McuBuildRunToolProps): React.JSX.Element 
   const candidateErrors = buildStudentDiagnosticCards(candidate?.diagnostics ?? []).slice(0, 3)
   const canUndo = history[0]?.message.startsWith('feat(student): apply AI candidate ') ?? false
 
-  if (candidate && !['applied', 'rejected', 'cancelled', 'stale'].includes(candidate.state)) return <div className="mcu-run-tool">
+  if (candidate && !['applied', 'rejected', 'cancelled', 'stale', 'no_changes'].includes(candidate.state)) return <div className="mcu-run-tool">
     <RunFlow active="review" />
     {candidateActive.has(candidate.state) ? <StateCard icon={<LoaderCircle className="spin" size={20} />} eyebrow="正在处理修改" title={candidate.state === 'building' ? '正在检查代码' : candidate.state === 'applying' ? '正在保存到项目' : '安全草稿正在准备'} detail="代码主区会保持当前文件，完成后这里给出下一步。" />
-      : ['failed', 'conflict', 'no_changes'].includes(candidate.state) || candidate.error ? <>
+      : ['failed', 'conflict'].includes(candidate.state) || candidate.error ? <>
         <StateCard tone="danger" icon={<AlertTriangle size={20} />} eyebrow="检查未通过" title="先修正最前面的代码问题" detail={candidate.error ?? '候选代码没有通过检查。'} />
         <div className="mcu-diagnostic-list">{candidateErrors.map((item) => <button type="button" key={item.id} onClick={() => item.path && props.onFocusFile(item.path, item.diagnostic.line)}><span>{item.locationLabel}</span><strong>{item.studentMessage}</strong><small>{item.fileLabel}</small></button>)}</div>
         <div className="mcu-primary-actions"><button type="button" onClick={() => props.onRejectCandidate(candidate.id)} disabled={busy}><X size={14} /> 收起这次修改</button></div>
