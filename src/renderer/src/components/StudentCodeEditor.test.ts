@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { CandidateSnapshot, StudentCodeFile } from '../../../shared/types'
-import { getStudentFileGroups, shouldClearCompilerIssue } from './StudentCodeEditor'
+import type { CandidateSnapshot, ProjectExplorerNode, StudentCodeFile } from '../../../shared/types'
+import { getStudentFileGroups, shouldClearCompilerIssue, withExpandedAncestors } from './StudentCodeEditor'
 
 describe('StudentCodeEditor compiler issue lifecycle', () => {
   it('clears stale compiler issue UI after a manual draft is fixed', () => {
@@ -27,6 +27,16 @@ describe('StudentCodeEditor file rail', () => {
     ]
     expect(getStudentFileGroups(files)).toEqual(['源文件', '头文件', '只读接口', '只读底层'])
   })
+
+  it('expands every parent directory when a file is opened programmatically', () => {
+    const nodes = [
+      explorerNode('app', 'App', undefined, 'directory'),
+      explorerNode('src', 'App/Src', 'app', 'directory'),
+      explorerNode('experiment', 'App/Src/experiment.c', 'src', 'file')
+    ]
+    const expanded = withExpandedAncestors(new Set(['another-open-folder']), nodes, nodes[2])
+    expect([...expanded]).toEqual(['another-open-folder', 'src', 'app'])
+  })
 })
 
 function candidate(patch: Partial<CandidateSnapshot> = {}): CandidateSnapshot {
@@ -47,4 +57,18 @@ function candidate(patch: Partial<CandidateSnapshot> = {}): CandidateSnapshot {
 
 function file(path: string, group: string, editable: boolean): StudentCodeFile {
   return { path, label: path.split('/').at(-1)!, group, language: 'c', editable, content: '' }
+}
+
+function explorerNode(id: string, displayPath: string, parentId: string | undefined, kind: ProjectExplorerNode['kind']): ProjectExplorerNode {
+  return {
+    id,
+    parentId,
+    kind,
+    name: displayPath.split('/').at(-1)!,
+    displayPath,
+    access: 'read-only',
+    origin: 'firmware-baseline',
+    role: 'application',
+    state: 'normal'
+  }
 }

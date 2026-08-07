@@ -92,7 +92,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           ?? snapshot.nodes.find((node) => node.kind === 'file' && node.displayPath === 'App/Src/experiment.c')
           ?? snapshot.nodes.find((node) => node.kind === 'file')
         if (next) {
-          setExpandedNodes((current) => current.size > 0 ? current : expandedAncestors(snapshot.nodes, next))
+          setExpandedNodes((current) => withExpandedAncestors(current, snapshot.nodes, next))
           const loaded = await api.readProjectExplorerFile(workspace.id, next.id, manualCandidate?.id)
           if (disposed) return
           setSelectedPath(next.displayPath)
@@ -179,6 +179,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
       if (explorerMode && workspace && explorer) {
         const node = explorer.nodes.find((item) => item.kind === 'file' && item.displayPath === path)
         if (!node) return
+        setExpandedNodes((current) => withExpandedAncestors(current, explorer.nodes, node))
         const cacheKey = `${manualCandidate?.id ?? 'project'}:${node.id}`
         const cached = explorerContentCache.current.get(cacheKey)
         if (cached !== undefined) setContent(cached)
@@ -382,9 +383,9 @@ function fileIcon(node: ProjectExplorerNode): typeof File {
   return File
 }
 
-function expandedAncestors(nodes: ProjectExplorerNode[], selected: ProjectExplorerNode): Set<string> {
+export function withExpandedAncestors(current: Set<string>, nodes: ProjectExplorerNode[], selected: ProjectExplorerNode): Set<string> {
   const byId = new Map(nodes.map((node) => [node.id, node]))
-  const expanded = new Set<string>()
+  const expanded = new Set(current)
   let parentId = selected.parentId
   while (parentId) {
     expanded.add(parentId)
