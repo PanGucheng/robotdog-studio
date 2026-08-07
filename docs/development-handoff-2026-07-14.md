@@ -1,6 +1,6 @@
 # RobotDog Studio 开发交接文档
 
-更新日期：2026-08-06
+更新日期：2026-08-07
 用途：重开 Codex 对话后，先让模型阅读本文件，再继续开发。
 
 ## 1. 当前仓库状态
@@ -39,8 +39,18 @@ RobotDog Studio 是同一仓库、同一核心能力构建的双发行桌面上�
 
 - `docs/mcu-course-framework-implementation-plan.md`
 - `docs/mcu-course-framework-architecture.md`
+- `docs/mcu-code-first-workbench-redesign-plan.md`
 - `docs/manual-review-mcu-course-completion.md`
 - `docs/mcu-lesson-authoring-and-hardware-validation.md`
+
+### 2.2 2026-08-07 已确认的大学生版工作台方向
+
+- 代码成为课次工作台主体：工程目录位于左侧、编辑器位于中央，并在辅助工具切换时持续存在；
+- 课程、构建、修改确认、烧录、资源、AI 助教和设置进入右侧工具坞；
+- 工程目录展示教学覆盖层与固件基线合并后的真实工程结构，不再只平铺少量教学文件；
+- 教学文件按原策略可编辑，主固件、外设库、启动、链接和构建配置只读；
+- 完整工程浏览必须由 Main 生成节点并按需读取，不能让 Renderer 浏览任意本机路径；
+- 该阶段尚未编码，实施和验收以 `docs/mcu-code-first-workbench-redesign-plan.md` 为准。
 
 当前产品方向：
 
