@@ -175,6 +175,8 @@ export type CourseVerificationStatus = 'not-required' | 'pending-hardware-check'
 
 export interface CourseLessonSummary {
   courseId: string
+  contentVersion: number
+  progressCompatibleFrom: number[]
   lessonId: string
   title: string
   summary: string
@@ -210,7 +212,7 @@ export interface CourseLesson extends CourseLessonSummary {
   editableGlobs: string[]
   readableFiles: string[]
   deniedGlobs: string[]
-  steps: Array<{ stepId: string; type: string; title: string; instruction: string; questionId?: string; fileTarget?: { path: string; line?: number } }>
+  steps: Array<{ stepId: string; type: string; title: string; instruction: string; questionId?: string; fileTarget?: { path: string; line?: number }; lectureSectionId?: string }>
   completionChecks: Array<{ type: string; target?: string }>
   reflectionQuestions: Array<{ questionId: string; prompt: string }>
   aiContext: { teachingFocus: string; hints: string[] }
@@ -265,6 +267,86 @@ export type CourseProgressUpdate =
   | { kind: 'step'; stepId: string; completed: boolean }
   | { kind: 'answer'; questionId: string; answer: string }
   | { kind: 'observation'; stepId: string; observation: string }
+  | { kind: 'lecture-read'; stepId: string; sectionId: string; lectureContentVersion: number; completed: boolean }
+
+export type CourseLectureStatus = 'ready' | 'missing' | 'invalid'
+export type CourseLectureCalloutKind = 'concept' | 'note' | 'tip' | 'pitfall' | 'safety'
+
+export interface CourseLectureTextNode {
+  textNodeId: string
+  text: string
+}
+
+export type CourseLectureInline =
+  | { type: 'text'; textNodeId: string; text: string }
+  | { type: 'strong' | 'emphasis' | 'strikethrough'; children: CourseLectureInline[] }
+  | { type: 'inline-code' | 'inline-math'; textNodeId: string; value: string }
+  | { type: 'section-link'; sectionId: string; children: CourseLectureInline[] }
+  | { type: 'external-link'; url: string; children: CourseLectureInline[] }
+  | { type: 'asset-image'; assetId: string; alt: string; title?: string }
+  | { type: 'line-break' }
+
+export type CourseLectureBlock =
+  | { type: 'heading'; depth: 1 | 2 | 3 | 4 | 5 | 6; sectionId?: string; children: CourseLectureInline[] }
+  | { type: 'paragraph'; children: CourseLectureInline[] }
+  | { type: 'list'; ordered: boolean; start?: number; items: CourseLectureBlock[][] }
+  | { type: 'blockquote'; children: CourseLectureBlock[] }
+  | { type: 'code'; textNodeId: string; language?: string; value: string }
+  | { type: 'math'; textNodeId: string; value: string }
+  | { type: 'table'; align: Array<'left' | 'right' | 'center' | undefined>; rows: CourseLectureInline[][][] }
+  | { type: 'thematic-break' }
+  | { type: 'callout'; kind: CourseLectureCalloutKind; title?: string; children: CourseLectureBlock[] }
+  | { type: 'code-target'; label: string; path: string; line?: number }
+  | { type: 'task-link'; label: string; stepId: string }
+
+export interface CourseLectureSection {
+  sectionId: string
+  title: string
+  level: 2 | 3
+  order: number
+  blocks: CourseLectureBlock[]
+  canonicalText: string
+  textNodes: CourseLectureTextNode[]
+}
+
+export interface CourseLectureAssetReference {
+  assetId: string
+  mimeType: 'image/png' | 'image/jpeg' | 'image/svg+xml'
+}
+
+export interface CourseLectureDocument {
+  courseId: string
+  lessonId: string
+  contentVersion: number
+  documentDigest: string
+  sections: CourseLectureSection[]
+  assets: CourseLectureAssetReference[]
+  codeTargetIndex: Record<string, string[]>
+  taskLinkIndex: Record<string, string[]>
+}
+
+export type CourseLectureResult =
+  | { status: 'ready'; document: CourseLectureDocument }
+  | { status: 'missing' }
+  | { status: 'invalid'; errorCode: string; line?: number; column?: number }
+
+export interface CourseLectureAsset {
+  assetId: string
+  mimeType: CourseLectureAssetReference['mimeType']
+  dataBase64: string
+}
+
+export interface CourseLectureSelectionRange {
+  documentDigest: string
+  sectionId: string
+  start: { textNodeId: string; offset: number }
+  end: { textNodeId: string; offset: number }
+}
+
+export interface StudentLectureQuestionRequest {
+  selection: CourseLectureSelectionRange
+  question: string
+}
 
 export interface FirmwareLegacyBaselineManifest {
   schemaVersion: 1
@@ -750,6 +832,10 @@ export interface RobotDogApi {
   listCourses(): Promise<CourseSummary[]>
   getCourse(courseId: string): Promise<CourseDetail>
   getCourseLesson(courseId: string, lessonId: string): Promise<CourseLesson>
+  getCourseLecture(courseId: string, lessonId: string): Promise<CourseLectureResult>
+  getCourseLectureAsset(courseId: string, lessonId: string, documentDigest: string, assetId: string): Promise<CourseLectureAsset>
+  askCourseLecture(workspaceId: string, request: StudentLectureQuestionRequest): Promise<AgentTurnSnapshot>
+  openExternalUrl(url: string): Promise<boolean>
   listLessonAttempts(courseId: string, lessonId: string): Promise<WorkspaceSummary[]>
   createLessonAttempt(input: CreateLessonAttemptInput): Promise<WorkspaceSummary>
   getCourseProgress(workspaceId: string): Promise<CourseProgressSnapshot>

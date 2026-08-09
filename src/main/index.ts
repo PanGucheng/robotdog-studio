@@ -57,6 +57,7 @@ function createWindow(): void {
         ])
         const courses = activeEdition.id === 'mcu-foundations' ? await window.robotDog.listCourses() : []
         const course = courses[0] ? await window.robotDog.getCourse(courses[0].courseId) : undefined
+        const firstLecture = course?.lessons[0] ? await window.robotDog.getCourseLecture(course.courseId, course.lessons[0].lessonId) : undefined
         const lessonAttempt = course?.lessons[0] ? await window.robotDog.createLessonAttempt({ courseId: course.courseId, lessonId: course.lessons[0].lessonId, studentDisplayName: '测试同学' }) : undefined
         const secondLessonAttempt = course?.lessons[1] ? await window.robotDog.createLessonAttempt({ courseId: course.courseId, lessonId: course.lessons[1].lessonId, studentDisplayName: '测试同学' }) : undefined
         const lessonAttempts = course?.lessons[0] ? await window.robotDog.listLessonAttempts(course.courseId, course.lessons[0].lessonId) : []
@@ -76,7 +77,11 @@ function createWindow(): void {
           if (built.state !== 'build_passed') throw new Error('SMOKE_CANDIDATE_BUILD_FAILED')
           await window.robotDog.applyCandidate(draft.id)
           for (const step of lesson.steps.filter((item) => ['read', 'edit', 'review-apply', 'summary'].includes(item.type))) {
-            await window.robotDog.updateCourseProgress(attempt.id, { kind: 'step', stepId: step.stepId, completed: true })
+            if (step.type === 'read' && step.lectureSectionId && attempt.courseBinding.contentVersion === lesson.contentVersion) {
+              const lecture = await window.robotDog.getCourseLecture(lesson.courseId, lesson.lessonId)
+              if (lecture.status !== 'ready') throw new Error('SMOKE_LECTURE_MISSING')
+              await window.robotDog.updateCourseProgress(attempt.id, { kind: 'lecture-read', stepId: step.stepId, sectionId: step.lectureSectionId, lectureContentVersion: lecture.document.contentVersion, completed: true })
+            } else await window.robotDog.updateCourseProgress(attempt.id, { kind: 'step', stepId: step.stepId, completed: true })
           }
           for (const question of lesson.reflectionQuestions) {
             await window.robotDog.updateCourseProgress(attempt.id, { kind: 'answer', questionId: question.questionId, answer: '自动冒烟回答：已理解本课要求，并会根据实际编译结果继续检查。' })
@@ -110,7 +115,7 @@ function createWindow(): void {
         const explorerMainFile = explorerMain ? await window.robotDog.readProjectExplorerFile(workspace.id, explorerMain.id) : undefined
         const firmware = secondLessonResult?.firmware ?? firstLessonResult?.firmware ?? await window.robotDog.startFirmwareBuild(workspace.id)
         return {
-          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && explorer?.baselineAvailable && explorer.nodes.some((node) => node.displayPath === 'App/Src/number_tools.c' && node.access === 'editable') && explorerMain?.access === 'read-only' && explorerMainFile?.content.includes('main') && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed' && invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['candidate-build'].state === 'passed' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'))),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && firstLecture?.status === 'ready' && !JSON.stringify(firstLecture).includes('lecture.md') && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && explorer?.baselineAvailable && explorer.nodes.some((node) => node.displayPath === 'App/Src/number_tools.c' && node.access === 'editable') && explorerMain?.access === 'read-only' && explorerMainFile?.content.includes('main') && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed' && invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['candidate-build'].state === 'passed' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'))),
           edition: activeEdition.id,
           courseCount: courses.length, lessonCount: course?.lessons.length ?? 0, lessonAttemptCount: lessonAttempts.length, secondLessonFileCount: secondLessonFiles.length,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,

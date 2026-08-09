@@ -20,7 +20,7 @@ function workspace(): WorkspaceSummary {
 
 function lesson(): CourseLesson {
   return {
-    courseId: 'course-one', lessonId: 'lesson-one', title: '第一课', summary: '测试课程进度', estimatedMinutes: 45,
+    courseId: 'course-one', contentVersion: 1, progressCompatibleFrom: [], lessonId: 'lesson-one', title: '第一课', summary: '测试课程进度', estimatedMinutes: 45,
     hardware: 'none', verification: 'not-required', status: 'published', prerequisites: [], order: 0,
     objectives: ['完成一次练习'], expectedObservation: '编译成功', templateId: 'lesson-one', editableGlobs: ['App/**'], readableFiles: [], deniedGlobs: [],
     steps: [
@@ -136,5 +136,62 @@ describe('CourseProgressStore', () => {
     expect(result.observations).toEqual({ 'observe-one': '现象一', 'observe-two': '现象二' })
     expect(result.steps.every((step) => step.completed)).toBe(true)
     expect(result.checks.every((check) => check.passed)).toBe(true)
+  })
+
+  it('requires Main-authorized lecture confirmation for a current lecture-bound read step', async () => {
+    const { store } = await fixture()
+    const currentLesson = lesson()
+    currentLesson.steps[0].lectureSectionId = 'studio-workflow'
+    await expect(store.update(workspace(), currentLesson, { kind: 'step', stepId: 'read-entry', completed: true }))
+      .rejects.toThrow('COURSE_PROGRESS_LECTURE_READ_REQUIRED')
+    await expect(store.update(workspace(), currentLesson, {
+      kind: 'lecture-read', stepId: 'read-entry', sectionId: 'wrong-section', lectureContentVersion: 1, completed: true
+    })).rejects.toThrow('COURSE_PROGRESS_LECTURE_STEP_INVALID')
+    const updated = await store.update(workspace(), currentLesson, {
+      kind: 'lecture-read', stepId: 'read-entry', sectionId: 'studio-workflow', lectureContentVersion: 1, completed: true
+    })
+    expect(updated.steps.find((step) => step.stepId === 'read-entry')?.completed).toBe(true)
+  })
+
+  it('keeps the original generic read confirmation for a compatible older workspace', async () => {
+    const { store } = await fixture()
+    const oldWorkspace = workspace()
+    oldWorkspace.courseBinding = { ...oldWorkspace.courseBinding!, contentVersion: 2 }
+    const latestLesson = lesson()
+    latestLesson.contentVersion = 3
+    latestLesson.progressCompatibleFrom = [2]
+    latestLesson.steps[0].lectureSectionId = 'studio-workflow'
+    const updated = await store.update(oldWorkspace, latestLesson, { kind: 'step', stepId: 'read-entry', completed: true })
+    expect(updated.contentVersion).toBe(2)
+    expect(updated.steps.find((step) => step.stepId === 'read-entry')?.completed).toBe(true)
+    await expect(store.update(oldWorkspace, latestLesson, {
+      kind: 'lecture-read', stepId: 'read-entry', sectionId: 'studio-workflow', lectureContentVersion: 3, completed: true
+    })).rejects.toThrow('COURSE_PROGRESS_LECTURE_VERSION_MISMATCH')
+  })
+
+  it('migrates a compatible schema v1 progress file to the compact contract', async () => {
+    const { store, root } = await fixture()
+    const oldWorkspace = workspace()
+    oldWorkspace.courseBinding = { ...oldWorkspace.courseBinding!, contentVersion: 2 }
+    const latestLesson = lesson()
+    latestLesson.contentVersion = 3
+    latestLesson.progressCompatibleFrom = [2]
+    const now = new Date().toISOString()
+    const legacy = {
+      schemaVersion: 1, workspaceId: oldWorkspace.id, courseId: oldWorkspace.courseBinding.courseId,
+      lessonId: oldWorkspace.courseBinding.lessonId, contentVersion: 2,
+      steps: latestLesson.steps.map((step) => ({ stepId: step.stepId, completed: step.stepId === 'read-entry' })),
+      answers: {}, observations: {}, appliedFiles: [],
+      operations: { 'candidate-build': { state: 'not-run' }, 'firmware-build': { state: 'not-run' }, flash: { state: 'not-run' } },
+      createdAt: now, updatedAt: now
+    }
+    const progressPath = join(root, 'course-progress', `${oldWorkspace.id}.json`)
+    await writeFile(progressPath, JSON.stringify(legacy), 'utf8')
+    const migrated = await store.get(oldWorkspace, latestLesson)
+    const stored = JSON.parse(await readFile(progressPath, 'utf8')) as { schemaVersion: number; contract: { contentVersion: number; steps: unknown[] } }
+    expect(migrated.contentVersion).toBe(2)
+    expect(migrated.steps.find((step) => step.stepId === 'read-entry')?.completed).toBe(true)
+    expect(stored).toMatchObject({ schemaVersion: 2, contract: { contentVersion: 2 } })
+    expect(stored.contract.steps).toHaveLength(latestLesson.steps.length)
   })
 })

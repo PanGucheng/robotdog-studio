@@ -9,8 +9,20 @@ const operationSchema = z.object({
   checkedAt: z.string().datetime().optional(),
   detail: z.string().max(240).optional()
 }).strict()
-const storedProgressSchema = z.object({
+const progressContractSchema = z.object({
   schemaVersion: z.literal(1),
+  contentVersion: z.number().int().positive(),
+  steps: z.array(z.object({
+    stepId: z.string().min(1).max(96),
+    type: z.string().min(1).max(64),
+    questionId: z.string().min(1).max(96).optional()
+  }).strict()),
+  completionChecks: z.array(z.object({
+    type: z.string().min(1).max(96),
+    target: z.string().min(1).max(240).optional()
+  }).strict())
+}).strict()
+const storedProgressFields = {
   workspaceId: workspaceIdSchema,
   courseId: z.string().min(1).max(96),
   lessonId: z.string().min(1).max(96),
@@ -27,14 +39,28 @@ const storedProgressSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   completedAt: z.string().datetime().optional()
+} as const
+const storedProgressV1Schema = z.object({
+  schemaVersion: z.literal(1),
+  ...storedProgressFields
+}).strict()
+const storedProgressSchema = z.object({
+  schemaVersion: z.literal(2),
+  contract: progressContractSchema,
+  ...storedProgressFields
 }).strict()
 const updateSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('step'), stepId: z.string().min(1).max(96), completed: z.boolean() }).strict(),
   z.object({ kind: z.literal('answer'), questionId: z.string().min(1).max(96), answer: z.string().max(2_000) }).strict(),
-  z.object({ kind: z.literal('observation'), stepId: z.string().min(1).max(96), observation: z.string().max(2_000) }).strict()
+  z.object({ kind: z.literal('observation'), stepId: z.string().min(1).max(96), observation: z.string().max(2_000) }).strict(),
+  z.object({
+    kind: z.literal('lecture-read'), stepId: z.string().min(1).max(96), sectionId: z.string().min(1).max(96),
+    lectureContentVersion: z.number().int().positive(), completed: z.boolean()
+  }).strict()
 ])
 
 type StoredProgress = z.infer<typeof storedProgressSchema>
+type StoredProgressV1 = z.infer<typeof storedProgressV1Schema>
 
 export class CourseProgressStore {
   private readonly rootDir: string
@@ -54,7 +80,7 @@ export class CourseProgressStore {
 
   private async getUnlocked(workspace: WorkspaceSummary, lesson: CourseLesson, existingFiles: string[]): Promise<CourseProgressSnapshot> {
     const { stored, recoveredFromCorruption } = await this.readOrCreate(workspace, lesson)
-    const synchronized = this.synchronizeSteps(stored, lesson)
+    const synchronized = this.synchronizeSteps(stored)
     if (JSON.stringify(synchronized.steps) !== JSON.stringify(stored.steps)) await this.write(synchronized)
     return this.toSnapshot(synchronized, lesson, existingFiles, recoveredFromCorruption)
   }
@@ -66,29 +92,39 @@ export class CourseProgressStore {
   private async updateUnlocked(workspace: WorkspaceSummary, lesson: CourseLesson, input: CourseProgressUpdate, existingFiles: string[]): Promise<CourseProgressSnapshot> {
     const update = updateSchema.parse(input)
     const { stored } = await this.readOrCreate(workspace, lesson)
-    const next = this.synchronizeSteps(stored, lesson)
+    const next = this.synchronizeSteps(stored)
     const now = new Date().toISOString()
     if (update.kind === 'step') {
-      if (!lesson.steps.some((step) => step.stepId === update.stepId)) throw new Error('COURSE_PROGRESS_STEP_NOT_FOUND')
+      if (!next.contract.steps.some((step) => step.stepId === update.stepId)) throw new Error('COURSE_PROGRESS_STEP_NOT_FOUND')
+      const currentStep = lesson.steps.find((step) => step.stepId === update.stepId)
+      if (workspace.courseBinding?.contentVersion === lesson.contentVersion && currentStep?.type === 'read' && currentStep.lectureSectionId) throw new Error('COURSE_PROGRESS_LECTURE_READ_REQUIRED')
       next.steps = next.steps.map((step) => step.stepId === update.stepId
         ? { stepId: step.stepId, completed: update.completed, completedAt: update.completed ? now : undefined }
         : step)
     } else if (update.kind === 'answer') {
-      if (!lesson.reflectionQuestions.some((question) => question.questionId === update.questionId)) throw new Error('COURSE_PROGRESS_QUESTION_NOT_FOUND')
+      if (!next.contract.steps.some((step) => step.type === 'question' && step.questionId === update.questionId)) throw new Error('COURSE_PROGRESS_QUESTION_NOT_FOUND')
       const answer = update.answer.trim()
       if (answer) next.answers[update.questionId] = answer
       else delete next.answers[update.questionId]
-      const questionStepId = lesson.steps.find((step) => step.type === 'question' && step.questionId === update.questionId)?.stepId
+      const questionStepId = next.contract.steps.find((step) => step.type === 'question' && step.questionId === update.questionId)?.stepId
       if (!questionStepId) throw new Error('COURSE_PROGRESS_QUESTION_STEP_NOT_FOUND')
       next.steps = this.markStep(next.steps, questionStepId, Boolean(answer), now)
-    } else {
-      const target = lesson.steps.find((step) => step.stepId === update.stepId)
+    } else if (update.kind === 'observation') {
+      const target = next.contract.steps.find((step) => step.stepId === update.stepId)
       if (!target || !['serial-observation', 'hardware-observation'].includes(target.type)) throw new Error('COURSE_PROGRESS_OBSERVATION_NOT_FOUND')
       const observation = update.observation.trim()
       if (observation) next.observations[update.stepId] = observation
       else delete next.observations[update.stepId]
       next.steps = next.steps.map((step) => step.stepId === update.stepId
         ? { stepId: step.stepId, completed: Boolean(observation), completedAt: observation ? now : undefined }
+        : step)
+    } else {
+      if (workspace.courseBinding?.contentVersion !== lesson.contentVersion || update.lectureContentVersion !== lesson.contentVersion) throw new Error('COURSE_PROGRESS_LECTURE_VERSION_MISMATCH')
+      const target = lesson.steps.find((step) => step.stepId === update.stepId)
+      if (!target || target.type !== 'read' || !target.lectureSectionId || target.lectureSectionId !== update.sectionId) throw new Error('COURSE_PROGRESS_LECTURE_STEP_INVALID')
+      if (!next.contract.steps.some((step) => step.stepId === update.stepId && step.type === 'read')) throw new Error('COURSE_PROGRESS_STEP_NOT_FOUND')
+      next.steps = next.steps.map((step) => step.stepId === update.stepId
+        ? { stepId: step.stepId, completed: update.completed, completedAt: update.completed ? now : undefined }
         : step)
     }
     next.updatedAt = now
@@ -104,11 +140,11 @@ export class CourseProgressStore {
 
   private async recordOperationUnlocked(workspace: WorkspaceSummary, lesson: CourseLesson, kind: CourseOperationKind, passed: boolean, detail: string | undefined, existingFiles: string[]): Promise<CourseProgressSnapshot> {
     const { stored } = await this.readOrCreate(workspace, lesson)
-    const next = this.synchronizeSteps(stored, lesson)
+    const next = this.synchronizeSteps(stored)
     const now = new Date().toISOString()
     next.operations[kind] = { state: passed ? 'passed' : 'failed', checkedAt: now, detail: detail?.slice(0, 240) }
     const stepType = kind === 'candidate-build' ? 'candidate-build' : kind === 'firmware-build' ? 'firmware-build' : 'flash'
-    if (passed) next.steps = next.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === stepType
+    if (passed) next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === stepType
       ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now }
       : step)
     next.updatedAt = now
@@ -121,7 +157,7 @@ export class CourseProgressStore {
   async recordSourceChange(workspace: WorkspaceSummary, lesson: CourseLesson, kind: 'candidate-applied' | 'workspace-undone', changedFiles: string[] = [], existingFiles: string[] = []): Promise<CourseProgressSnapshot> {
     return this.serialize(workspace.id, async () => {
       const { stored } = await this.readOrCreate(workspace, lesson)
-      const next = this.synchronizeSteps(stored, lesson)
+      const next = this.synchronizeSteps(stored)
       const now = new Date().toISOString()
       const invalidatedKinds: CourseOperationKind[] = kind === 'candidate-applied'
         ? ['firmware-build', 'flash']
@@ -130,7 +166,7 @@ export class CourseProgressStore {
         if (next.operations[operationKind].state === 'not-run') continue
         next.operations[operationKind] = { state: 'stale', checkedAt: now, detail: '学生代码已变化，请重新检查。' }
         const stepType = operationKind === 'candidate-build' ? 'candidate-build' : operationKind === 'firmware-build' ? 'firmware-build' : 'flash'
-        next.steps = next.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === stepType
+        next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === stepType
           ? { stepId: step.stepId, completed: false }
           : step)
       }
@@ -148,11 +184,22 @@ export class CourseProgressStore {
     this.requireCourseWorkspace(workspace, lesson)
     const path = this.pathFor(workspace.id)
     try {
-      const parsed = storedProgressSchema.safeParse(JSON.parse(await readFile(path, 'utf8')))
-      if (!parsed.success || parsed.data.workspaceId !== workspace.id || parsed.data.courseId !== lesson.courseId || parsed.data.lessonId !== lesson.lessonId) throw new Error('COURSE_PROGRESS_INVALID')
-      return { stored: parsed.data }
+      const raw: unknown = JSON.parse(await readFile(path, 'utf8'))
+      const current = storedProgressSchema.safeParse(raw)
+      if (current.success) {
+        this.requireStoredIdentity(current.data, workspace, lesson)
+        return { stored: current.data }
+      }
+      const legacy = storedProgressV1Schema.safeParse(raw)
+      if (!legacy.success) throw new Error('COURSE_PROGRESS_INVALID')
+      this.requireStoredIdentity(legacy.data, workspace, lesson)
+      if (legacy.data.contentVersion !== lesson.contentVersion && !lesson.progressCompatibleFrom.includes(legacy.data.contentVersion)) throw new Error('COURSE_PROGRESS_VERSION_UNSUPPORTED')
+      const migrated = this.migrateLegacy(legacy.data, lesson)
+      await this.write(migrated)
+      return { stored: migrated }
     } catch (caught) {
       const code = caught as NodeJS.ErrnoException
+      if (caught instanceof Error && caught.message === 'COURSE_PROGRESS_VERSION_UNSUPPORTED') throw caught
       if (code.code !== 'ENOENT') {
         const backup = `${path}.corrupt-${Date.now()}.bak`
         await rename(path, backup).catch(() => undefined)
@@ -166,11 +213,12 @@ export class CourseProgressStore {
   private createEmpty(workspace: WorkspaceSummary, lesson: CourseLesson): StoredProgress {
     const now = new Date().toISOString()
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       workspaceId: workspace.id,
       courseId: lesson.courseId,
       lessonId: lesson.lessonId,
       contentVersion: workspace.courseBinding!.contentVersion,
+      contract: this.createContract(workspace.courseBinding!.contentVersion, lesson),
       steps: lesson.steps.map((step) => ({ stepId: step.stepId, completed: false })),
       answers: {}, observations: {}, appliedFiles: [],
       operations: { 'candidate-build': { state: 'not-run' }, 'firmware-build': { state: 'not-run' }, flash: { state: 'not-run' } },
@@ -178,14 +226,14 @@ export class CourseProgressStore {
     }
   }
 
-  private synchronizeSteps(stored: StoredProgress, lesson: CourseLesson): StoredProgress {
+  private synchronizeSteps(stored: StoredProgress): StoredProgress {
     const previous = new Map(stored.steps.map((step) => [step.stepId, step]))
-    return { ...stored, steps: lesson.steps.map((step) => previous.get(step.stepId) ?? { stepId: step.stepId, completed: false }) }
+    return { ...stored, steps: stored.contract.steps.map((step) => previous.get(step.stepId) ?? { stepId: step.stepId, completed: false }) }
   }
 
   private toSnapshot(stored: StoredProgress, lesson: CourseLesson, existingFiles: string[], recoveredFromCorruption?: boolean): CourseProgressSnapshot {
     const files = new Set(existingFiles)
-    const checks = lesson.completionChecks.map((check) => {
+    const checks = stored.contract.completionChecks.map((check) => {
       if (check.type === 'file-exists') return { ...check, passed: Boolean(check.target && files.has(check.target)), label: check.target ? `文件存在：${check.target}` : '指定文件存在' }
       if (check.type === 'student-change-applied') return { ...check, passed: check.target ? stored.appliedFiles.includes(check.target) : stored.appliedFiles.length > 0, label: check.target ? `已保存教学文件修改：${check.target}` : '已保存一次代码修改' }
       if (check.type === 'candidate-build-passed') return { ...check, passed: stored.operations['candidate-build'].state === 'passed', label: '候选代码编译通过' }
@@ -199,11 +247,33 @@ export class CourseProgressStore {
     const complete = completedSteps === stored.steps.length && checks.every((check) => check.passed)
     const changed = completedSteps > 0 || stored.appliedFiles.length > 0 || Object.keys(stored.answers).length > 0 || Object.keys(stored.observations).length > 0 || Object.values(stored.operations).some((operation) => operation.state !== 'not-run')
     const state = complete ? 'completed' : hasAttentionOperation ? 'needs-attention' : changed ? 'in-progress' : 'not-started'
+    const { contract: _contract, schemaVersion: _storedSchemaVersion, ...progress } = stored
     return {
-      ...stored, checks, completedSteps, totalSteps: stored.steps.length,
+      ...progress, schemaVersion: 1, checks, completedSteps, totalSteps: stored.steps.length,
       completionPercent: stored.steps.length ? Math.round((completedSteps / stored.steps.length) * 100) : 0,
       state, completedAt: complete ? stored.completedAt : undefined, recoveredFromCorruption
     }
+  }
+
+  private createContract(contentVersion: number, lesson: CourseLesson): StoredProgress['contract'] {
+    return {
+      schemaVersion: 1,
+      contentVersion,
+      steps: lesson.steps.map(({ stepId, type, questionId }) => ({ stepId, type, ...(questionId ? { questionId } : {}) })),
+      completionChecks: lesson.completionChecks.map(({ type, target }) => ({ type, ...(target ? { target } : {}) }))
+    }
+  }
+
+  private migrateLegacy(legacy: StoredProgressV1, lesson: CourseLesson): StoredProgress {
+    return {
+      ...legacy,
+      schemaVersion: 2,
+      contract: this.createContract(legacy.contentVersion, lesson)
+    }
+  }
+
+  private requireStoredIdentity(stored: Pick<StoredProgress, 'workspaceId' | 'courseId' | 'lessonId'>, workspace: WorkspaceSummary, lesson: CourseLesson): void {
+    if (stored.workspaceId !== workspace.id || stored.courseId !== lesson.courseId || stored.lessonId !== lesson.lessonId) throw new Error('COURSE_PROGRESS_INVALID')
   }
 
   private markStep(steps: StoredProgress['steps'], target: string, completed: boolean, now: string): StoredProgress['steps'] {

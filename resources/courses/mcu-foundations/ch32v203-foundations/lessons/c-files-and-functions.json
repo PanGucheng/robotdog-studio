@@ -39,6 +39,7 @@
       "type": "read",
       "title": "辨认声明与定义",
       "instruction": "比较头文件中的函数声明和源文件中的函数定义，标出函数名、参数与返回值。",
+      "lectureSectionId": "declaration-and-definition",
       "fileTarget": { "path": "App/Inc/number_tools.h", "line": 1 }
     },
     {

@@ -230,6 +230,8 @@ async function verifyPackagedCourseResources(courseRoot, lessonTemplatesRoot) {
   const catalog = JSON.parse(await readFile(join(courseRoot, 'catalog.json'), 'utf8'))
   if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.courses) || catalog.courses.length === 0) throw new Error('打包后的课程目录无效')
   let lessonCount = 0
+  let lectureCount = 0
+  let lectureAssetCount = 0
   for (const entry of catalog.courses) {
     const manifestPath = join(courseRoot, ...String(entry.manifest).replace(/\\/g, '/').split('/'))
     const course = JSON.parse(await readFile(manifestPath, 'utf8'))
@@ -238,10 +240,21 @@ async function verifyPackagedCourseResources(courseRoot, lessonTemplatesRoot) {
       if (!(await stat(lessonPath).then((info) => info.isFile(), () => false))) throw new Error(`打包后的课程缺少课次：${lessonId}`)
       const lesson = JSON.parse(await readFile(lessonPath, 'utf8'))
       if (!(await stat(join(lessonTemplatesRoot, lesson.templateId)).then((info) => info.isDirectory(), () => false))) throw new Error(`打包后的课程缺少模板：${lesson.templateId}`)
+      if (lesson.status === 'published') {
+        const lecturePath = join(manifestPath, '..', 'lectures', lessonId, 'lecture.md')
+        if (!(await stat(lecturePath).then((info) => info.isFile(), () => false))) throw new Error(`打包后的正式课缺少讲义：${lessonId}`)
+        const markdown = await readFile(lecturePath, 'utf8')
+        const assets = [...markdown.matchAll(/!\[[^\]]*\]\((assets\/[a-zA-Z0-9._/-]+)(?:\s+"[^"]*")?\)/g)].map((match) => match[1])
+        for (const asset of assets) {
+          if (!(await stat(join(lecturePath, '..', ...asset.split('/'))).then((info) => info.isFile(), () => false))) throw new Error(`打包后的讲义缺少图片：${lessonId}/${asset}`)
+        }
+        lectureCount += 1
+        lectureAssetCount += assets.length
+      }
       lessonCount += 1
     }
   }
-  console.log(`Verified packaged MCU course resources: ${catalog.courses.length} courses, ${lessonCount} lessons (${courseRoot})`)
+  console.log(`Verified packaged MCU course resources: ${catalog.courses.length} courses, ${lessonCount} lessons, ${lectureCount} lectures, ${lectureAssetCount} assets (${courseRoot})`)
 }
 
 async function verifyPackagedWchLinkDriver(driverRoot) {

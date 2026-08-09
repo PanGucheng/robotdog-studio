@@ -145,6 +145,22 @@ describe('AgentSessionService', () => {
     expect((await workspaces.get(workspaceId)).activeCandidateId).toBeUndefined()
   })
 
+  it('answers a lecture question as a trusted read-only turn without opening a candidate', async () => {
+    const adapter = new ContextCaptureAdapter()
+    const service = new AgentSessionService(candidates, adapter)
+    const events: AgentEvent[] = []
+    service.on('event', (event) => events.push(event))
+    const turn = await service.explainCourseLecture(workspaceId, '声明和定义有什么区别？', '函数声明', '<course_context_json>{"lessonId":"lesson-one"}</course_context_json>')
+    await waitUntilIdle(service)
+    expect(turn.candidateId).toBeUndefined()
+    expect(adapter.contexts[0]).toMatchObject({ readOnly: true, taskKind: 'explain_lecture' })
+    expect(adapter.contexts[0].message).toContain('Studio 可信课程上下文')
+    expect(adapter.contexts[0].message).toContain('<student_question_json>')
+    expect(events[0]).toMatchObject({ type: 'turn_started', message: '询问选中的讲义内容' })
+    expect(events.at(-1)).toMatchObject({ type: 'completed', message: '讲义解释完成，项目没有被 AI 修改。' })
+    expect((await workspaces.get(workspaceId)).activeCandidateId).toBeUndefined()
+  })
+
   it('applies an accepted AI diagnostic repair to the manual draft and rebuilds it', async () => {
     let buildNumber = 0
     const builder: CandidateBuilder = {

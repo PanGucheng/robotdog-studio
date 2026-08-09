@@ -15,7 +15,7 @@ describe('CourseService', () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
     const courses = await service.listCourses()
     expect(courses).toHaveLength(1)
-    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 2, lessonCount: 3 })
+    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 3, lessonCount: 3 })
     const course = await service.getCourse('ch32v203-foundations')
     expect(course.lessons.map((lesson) => lesson.lessonId)).toEqual([
       'studio-first-build',
@@ -40,8 +40,8 @@ describe('CourseService', () => {
     const spec = await service.getWorkspaceCreationSpec('ch32v203-foundations', 'c-files-and-functions')
     expect(spec).toMatchObject({
       templateId: 'c-files-and-functions',
-      templateVersion: 'content-v2',
-      courseBinding: { courseId: 'ch32v203-foundations', lessonId: 'c-files-and-functions', contentVersion: 2 }
+      templateVersion: 'content-v3',
+      courseBinding: { courseId: 'ch32v203-foundations', lessonId: 'c-files-and-functions', contentVersion: 3 }
     })
     expect(spec.allowedEditGlobs).toContain('App/Src/number_tools.c')
     await expect(service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-hardware-placeholder')).rejects.toThrow('COURSE_LESSON_NOT_PUBLISHED')
@@ -67,6 +67,60 @@ describe('CourseService', () => {
     expect(draft).toContain('pending-hardware-check')
     expect(draft).toContain('不得声称已观察到现象')
     expect(draft.length).toBeLessThan(8_000)
+  })
+
+  it('loads each lecture lazily as a safe model', async () => {
+    const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
+    const first = await service.getLecture('ch32v203-foundations', 'studio-first-build')
+    const second = await service.getLecture('ch32v203-foundations', 'c-files-and-functions')
+    const draft = await service.getLecture('ch32v203-foundations', 'first-hardware-placeholder')
+    expect(first.status).toBe('ready')
+    expect(second.status).toBe('ready')
+    if (first.status === 'ready') {
+      expect(first.document.sections.map((section) => section.sectionId)).toContain('studio-workflow')
+      expect(first.document.codeTargetIndex['App/Src/experiment.c']).toContain('source-code')
+      expect(JSON.stringify(first.document)).not.toContain('lecture.md')
+    }
+    if (second.status === 'ready') expect(second.document.taskLinkIndex['implement-helper']).toContain('lesson-project')
+    expect(draft).toEqual({ status: 'missing' })
+  })
+
+  it('rebuilds lecture selections in Main and shares the 8000 character context budget', async () => {
+    const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
+    const lecture = await service.getLecture('ch32v203-foundations', 'studio-first-build')
+    expect(lecture.status).toBe('ready')
+    if (lecture.status !== 'ready') return
+    const section = lecture.document.sections.find((item) => item.sectionId === 'studio-workflow')!
+    const node = section.textNodes.find((item) => item.text.length >= 8)!
+    const context = await service.buildLectureQuestionContext('ch32v203-foundations', 'studio-first-build', {
+      question: '这句话是什么意思？',
+      selection: { documentDigest: lecture.document.documentDigest, sectionId: section.sectionId, start: { textNodeId: node.textNodeId, offset: 0 }, end: { textNodeId: node.textNodeId, offset: 8 } }
+    })
+    expect(context.selectedText).toBe(node.text.slice(0, 8))
+    expect(context.trustedContext).toContain('lecture_context_json')
+    expect(context.trustedContext.length).toBeLessThanOrEqual(8_000)
+    await expect(service.buildLectureQuestionContext('ch32v203-foundations', 'studio-first-build', {
+      question: '旧选区',
+      selection: { documentDigest: '0'.repeat(64), sectionId: section.sectionId, start: { textNodeId: node.textNodeId, offset: 0 }, end: { textNodeId: node.textNodeId, offset: 2 } }
+    })).rejects.toThrow('LECTURE_DOCUMENT_STALE')
+  })
+
+  it('does not parse an invalid lecture while loading the course catalog', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'robotdog-course-lecture-isolation-'))
+    temporaryRoots.push(root)
+    await mkdir(join(root, 'course', 'lessons'), { recursive: true })
+    await mkdir(join(root, 'course', 'lectures', 'lesson-a'), { recursive: true })
+    await writeFile(join(root, 'catalog.json'), JSON.stringify({ schemaVersion: 1, courses: [{ courseId: 'course-one', manifest: 'course/course.json' }] }))
+    await writeFile(join(root, 'course', 'course.json'), JSON.stringify({
+      schemaVersion: 1, courseId: 'course-one', contentVersion: 1, title: '测试课程', summary: '测试讲义隔离', audience: '学生',
+      objectives: ['验证隔离'], status: 'published', boardScope: '测试板', lessonOrder: ['lesson-a'], sourceAttribution: []
+    }))
+    await writeFile(join(root, 'course', 'lessons', 'lesson-a.json'), JSON.stringify(validLesson('lesson-a', [])))
+    await writeFile(join(root, 'course', 'lectures', 'lesson-a', 'lecture.md'), '## 缺少 ID\n\n正文')
+    const service = new CourseService({ rootDir: root, includeDrafts: true })
+    await expect(service.listCourses()).resolves.toHaveLength(1)
+    await expect(service.getLesson('course-one', 'lesson-a')).resolves.toMatchObject({ lessonId: 'lesson-a' })
+    await expect(service.getLecture('course-one', 'lesson-a')).resolves.toMatchObject({ status: 'invalid', errorCode: 'LECTURE_H2_ID_REQUIRED' })
   })
 
   it('rejects a prerequisite that is not earlier in lessonOrder', async () => {

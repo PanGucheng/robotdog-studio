@@ -204,6 +204,33 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof courseId !== 'string' || typeof lessonId !== 'string') throw new Error('COURSE_LESSON_ID_INVALID')
       return courses.getLesson(courseId, lessonId)
     })
+    ipcMain.handle(IPC_CHANNELS.courseLectureGet, (_event, courseId: unknown, lessonId: unknown) => {
+      if (!courses) throw new Error('COURSE_SERVICE_UNAVAILABLE')
+      if (typeof courseId !== 'string' || typeof lessonId !== 'string') throw new Error('COURSE_LECTURE_ID_INVALID')
+      return courses.getLecture(courseId, lessonId)
+    })
+    ipcMain.handle(IPC_CHANNELS.courseLectureAssetGet, (_event, courseId: unknown, lessonId: unknown, documentDigest: unknown, assetId: unknown) => {
+      if (!courses) throw new Error('COURSE_SERVICE_UNAVAILABLE')
+      if (typeof courseId !== 'string' || typeof lessonId !== 'string' || typeof documentDigest !== 'string' || typeof assetId !== 'string') throw new Error('COURSE_LECTURE_ASSET_INPUT_INVALID')
+      return courses.getLectureAsset(courseId, lessonId, documentDigest, assetId)
+    })
+    if (agents && edition.id === 'mcu-foundations') ipcMain.handle(IPC_CHANNELS.courseLectureAsk, async (_event, workspaceId: unknown, request: unknown) => {
+      if (typeof workspaceId !== 'string' || !request || typeof request !== 'object') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
+      const value = request as import('../../shared/types').StudentLectureQuestionRequest
+      if (typeof value.question !== 'string' || !value.selection || typeof value.selection !== 'object') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
+      const context = await getCourseProgressContext(workspaceId)
+      const progress = courseProgress ? await courseProgress.get(context.workspace, context.lesson, context.files) : undefined
+      const rebuilt = await courses!.buildLectureQuestionContext(context.lesson.courseId, context.lesson.lessonId, value, progress)
+      return agents.explainCourseLecture(workspaceId, value.question, rebuilt.selectedText, rebuilt.trustedContext)
+    })
+    ipcMain.handle(IPC_CHANNELS.externalUrlOpen, async (_event, input: unknown) => {
+      if (typeof input !== 'string' || input.length > 2_000) throw new Error('EXTERNAL_URL_INVALID')
+      let url: URL
+      try { url = new URL(input) } catch { throw new Error('EXTERNAL_URL_INVALID') }
+      if (url.protocol !== 'https:' || url.username || url.password) throw new Error('EXTERNAL_URL_FORBIDDEN')
+      await shell.openExternal(url.toString())
+      return true
+    })
     ipcMain.handle(IPC_CHANNELS.courseLessonAttemptsList, (_event, courseId: unknown, lessonId: unknown) => {
       if (!workspaces) throw new Error('WORKSPACE_SERVICE_UNAVAILABLE')
       if (typeof courseId !== 'string' || typeof lessonId !== 'string') throw new Error('COURSE_LESSON_ID_INVALID')
@@ -227,8 +254,15 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     })
     ipcMain.handle(IPC_CHANNELS.courseProgressUpdate, async (_event, workspaceId: unknown, update: unknown) => {
       if (typeof workspaceId !== 'string' || !update || typeof update !== 'object') throw new Error('COURSE_PROGRESS_UPDATE_INVALID')
-      if (!courseProgress) throw new Error('COURSE_PROGRESS_SERVICE_UNAVAILABLE')
+      if (!courseProgress || !courses) throw new Error('COURSE_PROGRESS_SERVICE_UNAVAILABLE')
       const context = await getCourseProgressContext(workspaceId)
+      if ((update as { kind?: unknown }).kind === 'lecture-read') {
+        const request = update as { sectionId?: unknown; lectureContentVersion?: unknown }
+        if (typeof request.sectionId !== 'string' || typeof request.lectureContentVersion !== 'number') throw new Error('COURSE_PROGRESS_LECTURE_INPUT_INVALID')
+        const lecture = await courses.getLecture(context.lesson.courseId, context.lesson.lessonId)
+        if (lecture.status !== 'ready') throw new Error('COURSE_PROGRESS_LECTURE_UNAVAILABLE')
+        if (lecture.document.contentVersion !== request.lectureContentVersion || !lecture.document.sections.some((section) => section.sectionId === request.sectionId)) throw new Error('COURSE_PROGRESS_LECTURE_SECTION_INVALID')
+      }
       return courseProgress.update(context.workspace, context.lesson, update as never, context.files)
     })
   }

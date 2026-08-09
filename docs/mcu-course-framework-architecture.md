@@ -4,7 +4,9 @@
 
 状态：课程框架与代码优先工作台首个可用版本
 
-关联计划：[单片机入门版课程框架详细实施计划](./mcu-course-framework-implementation-plan.md) · [代码优先工作台改造计划](./mcu-code-first-workbench-redesign-plan.md)
+关联计划：[单片机入门版课程框架详细实施计划](./mcu-course-framework-implementation-plan.md) · [代码优先工作台改造计划](./mcu-code-first-workbench-redesign-plan.md) · [课程讲义系统实施计划](./mcu-lecture-system-implementation-plan.md)
+
+课程知识层采用 Main 单一解析的 Lecture v1：课程目录和 Lesson 不预载正文，指定课次按需解析为 Safe Lecture Model，再供 Renderer 与 AI 共同消费。Renderer 不接收原始 Markdown；图片通过文档摘要绑定的不透明 Asset ID 获取。课程 v3 对 v2 已发布课次是经过语义快照校验的纯增量兼容升级，最新版讲义不改变旧 Workspace 的任务和进度语义。
 
 ## 1. 当前实施范围
 

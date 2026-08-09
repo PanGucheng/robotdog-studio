@@ -13,7 +13,7 @@ export interface AdapterTurnContext {
   courseContext?: string
   policyVersion?: string
   readOnly?: boolean
-  taskKind?: 'explain_code' | 'explain_diagnostic' | 'modify_code' | 'repair_compile_error' | 'teacher_diagnostic'
+  taskKind?: 'explain_code' | 'explain_diagnostic' | 'explain_lecture' | 'modify_code' | 'repair_compile_error' | 'teacher_diagnostic'
 }
 
 export interface ReasonixAdapter {

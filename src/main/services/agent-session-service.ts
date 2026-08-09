@@ -4,11 +4,12 @@ import { z } from 'zod'
 import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, StudentCodeExplanationRequest, StudentPlanStep } from '../../shared/types'
 import { CandidateService, type ManualRepairBackup } from './candidate-service'
 import type { AdapterEvent, ReasonixAdapter } from './reasonix-adapter'
-import { buildStudentCodeExplanationPrompt, getStudentAgentPromptIdentity } from './student-agent-prompt'
+import { buildCourseLectureQuestionPrompt, buildStudentCodeExplanationPrompt, getStudentAgentPromptIdentity } from './student-agent-prompt'
 import type { CourseAiTaskKind } from './course-service'
 
 const workspaceIdSchema = z.string().regex(/^ws_[a-f0-9]{24}$/)
 const messageSchema = z.string().trim().min(1).max(2_000)
+const lectureQuestionSchema = z.string().trim().min(1).max(1_000)
 const explanationRequestSchema = z.object({
   kind: z.enum(['selection', 'diagnostic']),
   candidateId: z.string().regex(/^cand_[a-f0-9]{24}$/).optional(),
@@ -23,7 +24,7 @@ interface ActiveTurn {
   lastAdapterSequence: number
   eventSequence: number
   readOnly?: boolean
-  explanation?: { root: string; policyVersion: string; kind: StudentCodeExplanationRequest['kind'] }
+  explanation?: { root: string; policyVersion: string; kind: StudentCodeExplanationRequest['kind'] | 'lecture' }
   agentMessage?: string
   courseContext?: string
   repair?: boolean
@@ -128,6 +129,28 @@ export class AgentSessionService extends EventEmitter {
     return structuredClone(snapshot)
   }
 
+  async explainCourseLecture(workspaceId: string, question: unknown, selectedText: string, trustedCourseContext: string): Promise<AgentTurnSnapshot> {
+    const validWorkspaceId = workspaceIdSchema.parse(workspaceId)
+    const validQuestion = lectureQuestionSchema.parse(question)
+    if (this.active) throw new Error('AGENT_BUSY')
+    const context = await this.candidates.getStudentCodeContextForMain(validWorkspaceId)
+    const promptIdentity = getStudentAgentPromptIdentity(context.policyVersion)
+    const turnId = `turn_${randomBytes(12).toString('hex')}`
+    const snapshot: AgentTurnSnapshot = {
+      turnId, workspaceId: validWorkspaceId, state: 'preparing', message: '请解释我选中的讲义内容',
+      promptVersion: promptIdentity.version, promptHash: promptIdentity.hash, startedAt: new Date().toISOString()
+    }
+    const active: ActiveTurn = {
+      snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0, readOnly: true,
+      explanation: { root: context.root, policyVersion: context.policyVersion, kind: 'lecture' }
+    }
+    snapshot.message = buildCourseLectureQuestionPrompt(validQuestion, selectedText, { policyVersion: context.policyVersion, trustedCourseContext })
+    this.active = active
+    this.publish(active, { type: 'turn_started', workspaceId: validWorkspaceId, message: '询问选中的讲义内容', promptVersion: promptIdentity.version, promptHash: promptIdentity.hash })
+    active.done = this.runExplanation(active).finally(() => { if (this.active?.snapshot.turnId === turnId) this.active = undefined })
+    return structuredClone(snapshot)
+  }
+
   private async waitForDiagnosticExplanation(workspaceId: string, candidateId: string): Promise<void> {
     const active = this.active
     if (!active || !active.readOnly || active.explanation?.kind !== 'diagnostic'
@@ -213,13 +236,13 @@ export class AgentSessionService extends EventEmitter {
       await this.adapter.runTurn({
         turnId: snapshot.turnId, workspaceId: snapshot.workspaceId, candidateId: snapshot.candidateId ?? `readonly_${snapshot.workspaceId}`,
         candidateRoot: explanation.root, message: snapshot.message, policyVersion: explanation.policyVersion, readOnly: true,
-        taskKind: explanation.kind === 'selection' ? 'explain_code' : 'explain_diagnostic'
+        taskKind: explanation.kind === 'selection' ? 'explain_code' : explanation.kind === 'lecture' ? 'explain_lecture' : 'explain_diagnostic'
       }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
       if (controller.signal.aborted) throw controller.signal.reason
       snapshot.state = 'no_changes'
       this.publish(active, {
         type: 'completed', state: 'no_changes',
-        message: explanation.kind === 'selection' ? '代码讲解完成，项目没有被 AI 修改。' : '错误解释完成，安全草稿没有被 AI 修改。'
+        message: explanation.kind === 'selection' ? '代码讲解完成，项目没有被 AI 修改。' : explanation.kind === 'lecture' ? '讲义解释完成，项目没有被 AI 修改。' : '错误解释完成，安全草稿没有被 AI 修改。'
       })
     } catch {
       if (controller.signal.aborted) {

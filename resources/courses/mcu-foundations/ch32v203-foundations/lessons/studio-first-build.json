@@ -35,6 +35,7 @@
       "type": "read",
       "title": "找到实验入口",
       "instruction": "阅读 experiment.c、experiment.h 和只读适配层，确认学生代码如何被主固件调用。",
+      "lectureSectionId": "studio-workflow",
       "fileTarget": { "path": "App/Src/experiment.c", "line": 1 }
     },
     {

@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, ProjectExplorerNode, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, ProjectExplorerNode, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 import { EDITION_PROFILES } from '../../../shared/edition'
 import demoCourseResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/course.json'
 import firstLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/studio-first-build.json'
@@ -10,13 +10,31 @@ const browserEditionId = typeof window !== 'undefined' && new URLSearchParams(wi
   : 'fun-line-following'
 
 const demoLessons: CourseLesson[] = [firstLessonResource, secondLessonResource, hardwareLessonResource]
-  .map((lesson, order) => ({ ...lesson, order }) as CourseLesson)
+  .map((lesson, order) => ({ ...lesson, contentVersion: demoCourseResource.contentVersion, progressCompatibleFrom: demoCourseResource.progressCompatibleFrom ?? [], order }) as unknown as CourseLesson)
 
 const demoCourse: CourseDetail = {
   ...(demoCourseResource as unknown as Omit<CourseDetail, 'lessonCount' | 'lessons'>),
   lessonCount: demoLessons.length,
   lessons: demoLessons.map(({ objectives: _objectives, expectedObservation: _expectedObservation, templateId: _templateId, editableGlobs: _editableGlobs, readableFiles: _readableFiles, deniedGlobs: _deniedGlobs, steps: _steps, completionChecks: _completionChecks, reflectionQuestions: _reflectionQuestions, aiContext: _aiContext, ...summary }) => summary)
 }
+
+const demoLectures = new Map<string, CourseLectureDocument>(demoLessons.slice(0, 2).map((lesson, lessonIndex) => {
+  const sectionId = lessonIndex === 0 ? 'studio-workflow' : 'declaration-and-definition'
+  const title = lessonIndex === 0 ? 'Studio 的学习流程' : '声明与定义'
+  const text = lessonIndex === 0
+    ? '源代码需要先编译和链接，才能成为芯片可用的程序。生成程序与烧录是两个不同阶段。'
+    : '函数声明告诉编译器函数名称、参数和返回类型；函数定义提供真正执行的函数体。'
+  return [lesson.lessonId, {
+    courseId: lesson.courseId, lessonId: lesson.lessonId, contentVersion: lesson.contentVersion,
+    documentDigest: String(lessonIndex + 1).repeat(64), assets: [], taskLinkIndex: {},
+    codeTargetIndex: { 'App/Src/experiment.c': [sectionId] },
+    sections: [{ sectionId, title, level: 2, order: 0, canonicalText: text, textNodes: [{ textNodeId: 'text_0001', text }], blocks: [
+      { type: 'paragraph', children: [{ type: 'text', textNodeId: 'text_0001', text }] },
+      { type: 'callout', kind: 'tip', title: '动手检查', children: [{ type: 'paragraph', children: [{ type: 'text', textNodeId: 'text_0002', text: '定位工程文件后，再回到任务页继续练习。' }] }] },
+      { type: 'code-target', label: '打开实验代码', path: 'App/Src/experiment.c', line: 1 }
+    ] }]
+  } as CourseLectureDocument]
+}))
 
 const statusListeners = new Set<(status: RobotStatus) => void>()
 const logListeners = new Set<(entry: LogEntry) => void>()
@@ -270,6 +288,21 @@ export const browserDemoApi: RobotDogApi = {
     if (browserEditionId !== 'mcu-foundations' || !lesson) throw new Error('课时不存在')
     return structuredClone(lesson)
   },
+  getCourseLecture: async (_courseId, lessonId) => {
+    const document = demoLectures.get(lessonId)
+    return document ? { status: 'ready', document: structuredClone(document) } : { status: 'missing' }
+  },
+  getCourseLectureAsset: async () => { throw new Error('浏览器演示没有讲义图片资源') },
+  askCourseLecture: async (workspaceId, request) => {
+    if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')
+    const turn: AgentTurnSnapshot = { turnId: `turn_lecture_${Date.now()}`, workspaceId, state: 'preparing', message: '询问选中的讲义内容', startedAt: new Date().toISOString() }
+    browserAgentTurn = turn
+    emitBrowserAgent(turn, 1, { type: 'turn_started', workspaceId, message: turn.message })
+    setTimeout(() => emitBrowserAgent(turn, 2, { type: 'assistant_delta', text: `你选中的讲义强调了当前概念之间的关系。针对“${request.question.slice(0, 40)}”，建议先回到对应代码定位声明、定义或调用位置，再用一次编译结果验证理解。` }), 120)
+    setTimeout(() => { emitBrowserAgent(turn, 3, { type: 'completed', state: 'no_changes', message: '讲义解释完成，项目没有被 AI 修改。' }); browserAgentTurn = undefined }, 260)
+    return { ...turn }
+  },
+  openExternalUrl: async () => true,
   listLessonAttempts: async (courseId, lessonId) => structuredClone(demoWorkspaces.filter((workspace) => workspace.courseBinding?.courseId === courseId && workspace.courseBinding.lessonId === lessonId)),
   createLessonAttempt: async (input) => {
     if (browserEditionId !== 'mcu-foundations') throw new Error('课程仅在单片机入门版提供')
@@ -296,7 +329,7 @@ export const browserDemoApi: RobotDogApi = {
   updateCourseProgress: async (workspaceId, input: CourseProgressUpdate) => {
     const { lesson, progress } = getDemoLessonProgress(workspaceId)
     const now = new Date().toISOString()
-    if (input.kind === 'step') {
+    if (input.kind === 'step' || input.kind === 'lecture-read') {
       if (!lesson.steps.some((step) => step.stepId === input.stepId)) throw new Error('步骤不存在')
       progress.steps = progress.steps.map((step) => step.stepId === input.stepId ? { stepId: step.stepId, completed: input.completed, completedAt: input.completed ? now : undefined } : step)
     } else if (input.kind === 'answer') {

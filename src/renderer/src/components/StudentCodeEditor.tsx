@@ -22,6 +22,7 @@ interface StudentCodeEditorProps {
   onRepairStudentCode(candidateId: string): void
   explorerMode?: boolean
   focusRequest?: { path: string; line?: number; nonce: number }
+  onActiveFileChange?(path: string): void
 }
 
 const configureMonaco: BeforeMount = (monaco) => {
@@ -43,7 +44,7 @@ const configureMonaco: BeforeMount = (monaco) => {
   })
 }
 
-export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp, onRepairStudentCode, explorerMode = false, focusRequest }: StudentCodeEditorProps): React.JSX.Element {
+export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp, onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange }: StudentCodeEditorProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const manualCandidate = candidate?.origin === 'manual' ? candidate : undefined
   const [files, setFiles] = useState<StudentCodeFile[]>([])
@@ -114,6 +115,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
 
   useEffect(() => {
     if (workspace && explorerMode && selectedPath) localStorage.setItem(`robotdog.mcu-last-file.${workspace.id}`, selectedPath)
+    if (selectedPath) onActiveFileChange?.(selectedPath)
   }, [workspace?.id, explorerMode, selectedPath])
 
   useEffect(() => {
