@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CandidateSnapshot, FirmwareBuildSnapshot, WorkspaceSummary } from '../../../shared/types'
-import { aggregateWorkspaceProblems, bottomPanelReducer, clampBottomPanelHeight, clampFloatingPoint, DEFAULT_BOTTOM_PANEL, firmwareBelongsToWorkspace, isFirmwareArtifactCurrent, isPointerDrag, resolveFloatingPoint, restoreBottomPanel, restoreFloatingPlacement, snapFloatingPlacement, viewportDeltaToLocal } from './mcu-workspace-model'
+import { aggregateWorkspaceProblems, bottomPanelReducer, clampBottomPanelHeight, clampFloatingPoint, DEFAULT_BOTTOM_PANEL, defaultFloatingWindowGeometry, firmwareBelongsToWorkspace, isFirmwareArtifactCurrent, isPointerDrag, moveFloatingWindowGeometry, resizeFloatingWindowGeometry, resolveFloatingPoint, restoreBottomPanel, restoreFloatingPlacement, restoreFloatingWindowGeometry, snapFloatingPlacement, viewportDeltaToLocal } from './mcu-workspace-model'
 
 const build = (overrides: Partial<FirmwareBuildSnapshot> = {}): FirmwareBuildSnapshot => ({ state: 'idle', firmwareRoot: '', completedFiles: 0, totalFiles: 0, logs: [], artifacts: [], ...overrides })
 
@@ -52,5 +52,18 @@ describe('MCU workspace model', () => {
     const tiny = { left: 0, top: 0, width: 60, height: 58 }
     expect(clampFloatingPoint({ x: -100, y: 500 }, tiny)).toEqual({ x: 8, y: 6 })
     expect(resolveFloatingPoint({ edge: 'right', yRatio: 1 }, tiny)).toEqual({ x: 8, y: 6 })
+  })
+
+  it('opens the assistant window at a safe default size and position', () => {
+    const rect = { left: 0, top: 0, width: 1200, height: 800 }
+    expect(defaultFloatingWindowGeometry(rect)).toEqual({ x: 786, y: 24, width: 390, height: 560 })
+    expect(restoreFloatingWindowGeometry({ x: Number.NaN, y: 0, width: 10, height: 10 }, rect)).toEqual({ x: 786, y: 24, width: 390, height: 560 })
+  })
+
+  it('moves and resizes the assistant window without letting it leave the workspace', () => {
+    const rect = { left: 0, top: 0, width: 900, height: 700 }
+    const initial = { x: 400, y: 50, width: 390, height: 500 }
+    expect(moveFloatingWindowGeometry(initial, { x: -600, y: 900 }, rect)).toMatchObject({ x: 16, y: 184 })
+    expect(resizeFloatingWindowGeometry(initial, { x: 900, y: -400 }, rect)).toEqual({ x: 16, y: 50, width: 868, height: 300 })
   })
 })

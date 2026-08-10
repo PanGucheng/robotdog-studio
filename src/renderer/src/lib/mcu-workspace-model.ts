@@ -102,6 +102,54 @@ export function isFirmwareArtifactCurrent(build: FirmwareBuildSnapshot, workspac
 export interface Point { x: number; y: number }
 export interface Rect { left: number; top: number; width: number; height: number }
 export interface FloatingAiPlacement { edge: 'left' | 'right'; yRatio: number }
+export interface FloatingWindowGeometry { x: number; y: number; width: number; height: number }
+
+const DEFAULT_FLOATING_WINDOW_WIDTH = 390
+const DEFAULT_FLOATING_WINDOW_HEIGHT = 560
+const MIN_FLOATING_WINDOW_WIDTH = 320
+const MIN_FLOATING_WINDOW_HEIGHT = 300
+const FLOATING_WINDOW_MARGIN = 16
+
+export function defaultFloatingWindowGeometry(rect: Rect): FloatingWindowGeometry {
+  const availableWidth = Math.max(0, rect.width - FLOATING_WINDOW_MARGIN * 2)
+  const availableHeight = Math.max(0, rect.height - FLOATING_WINDOW_MARGIN * 2)
+  const width = Math.min(DEFAULT_FLOATING_WINDOW_WIDTH, availableWidth)
+  const height = Math.min(DEFAULT_FLOATING_WINDOW_HEIGHT, availableHeight)
+  return {
+    x: rect.left + Math.max(FLOATING_WINDOW_MARGIN, rect.width - width - 24),
+    y: rect.top + Math.min(24, Math.max(FLOATING_WINDOW_MARGIN, rect.height - height)),
+    width,
+    height
+  }
+}
+
+export function restoreFloatingWindowGeometry(value: unknown, rect: Rect): FloatingWindowGeometry {
+  const fallback = defaultFloatingWindowGeometry(rect)
+  if (!isRecord(value) || !isFiniteNumber(value.x) || !isFiniteNumber(value.y) || !isFiniteNumber(value.width) || !isFiniteNumber(value.height)) return fallback
+  return clampFloatingWindowGeometry(value as unknown as FloatingWindowGeometry, rect)
+}
+
+export function clampFloatingWindowGeometry(geometry: FloatingWindowGeometry, rect: Rect): FloatingWindowGeometry {
+  const availableWidth = Math.max(0, rect.width - FLOATING_WINDOW_MARGIN * 2)
+  const availableHeight = Math.max(0, rect.height - FLOATING_WINDOW_MARGIN * 2)
+  const minWidth = Math.min(MIN_FLOATING_WINDOW_WIDTH, availableWidth)
+  const minHeight = Math.min(MIN_FLOATING_WINDOW_HEIGHT, availableHeight)
+  const width = clamp(geometry.width, minWidth, availableWidth)
+  const height = clamp(geometry.height, minHeight, availableHeight)
+  const minX = rect.left + Math.min(FLOATING_WINDOW_MARGIN, Math.max(0, rect.width - width))
+  const minY = rect.top + Math.min(FLOATING_WINDOW_MARGIN, Math.max(0, rect.height - height))
+  const maxX = Math.max(minX, rect.left + rect.width - width - FLOATING_WINDOW_MARGIN)
+  const maxY = Math.max(minY, rect.top + rect.height - height - FLOATING_WINDOW_MARGIN)
+  return { x: clamp(geometry.x, minX, maxX), y: clamp(geometry.y, minY, maxY), width, height }
+}
+
+export function moveFloatingWindowGeometry(geometry: FloatingWindowGeometry, delta: Point, rect: Rect): FloatingWindowGeometry {
+  return clampFloatingWindowGeometry({ ...geometry, x: geometry.x + delta.x, y: geometry.y + delta.y }, rect)
+}
+
+export function resizeFloatingWindowGeometry(geometry: FloatingWindowGeometry, delta: Point, rect: Rect): FloatingWindowGeometry {
+  return clampFloatingWindowGeometry({ ...geometry, width: geometry.width + delta.x, height: geometry.height + delta.y }, rect)
+}
 
 export function viewportDeltaToLocal(start: Point, current: Point, scale: Point): Point {
   return {
@@ -148,5 +196,6 @@ export function restoreFloatingPlacement(value: unknown): FloatingAiPlacement {
 
 function isPanelTab(value: unknown): value is BottomPanelTab { return value === 'problems' || value === 'build' || value === 'output' }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value) }
+function isFiniteNumber(value: unknown): value is number { return typeof value === 'number' && Number.isFinite(value) }
 function clamp(value: number, min: number, max: number): number { return Math.max(min, Math.min(max, value)) }
 function safeScale(value: number): number { return Number.isFinite(value) && value > 0 ? value : 1 }

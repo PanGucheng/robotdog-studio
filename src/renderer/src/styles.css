@@ -1240,16 +1240,17 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .mcu-ai-button { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 52px; height: 52px; padding: 0; color: #fff; border: 1px solid #087f91; border-radius: 50%; background: #087f91; box-shadow: 0 10px 28px rgb(8 127 145 / 28%); cursor: grab; pointer-events: auto; touch-action: none; }
 .mcu-ai-button:active { cursor: grabbing; }
 .mcu-ai-button i { position: absolute; top: 2px; right: 2px; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: var(--amber); }
-.mcu-ai-window { position: absolute; z-index: 2; top: 16px; bottom: 16px; display: grid; grid-template-rows: 42px minmax(0, 1fr); width: min(380px, calc(100% - 72px)); overflow: hidden; border: 1px solid #bfd4db; border-radius: 11px; background: var(--panel); box-shadow: 0 22px 64px rgb(24 57 72 / 23%); pointer-events: auto; }
-.edge-right .mcu-ai-window { right: 16px; }
-.edge-left .mcu-ai-window { left: 16px; }
-.mcu-ai-window > header { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 13px; color: #294f61; border-bottom: 1px solid #d3e1e5; background: #f5f9fa; }
+.mcu-ai-window { position: absolute; z-index: 2; display: grid; grid-template-rows: 42px minmax(0, 1fr); overflow: hidden; border: 1px solid #bfd4db; border-radius: 11px; background: var(--panel); box-shadow: 0 22px 64px rgb(24 57 72 / 23%); pointer-events: auto; }
+.mcu-ai-window > header { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 13px; color: #294f61; border-bottom: 1px solid #d3e1e5; background: #f5f9fa; cursor: move; touch-action: none; user-select: none; }
+.mcu-ai-window > header:focus-visible { outline: 3px solid rgb(0 168 198 / 28%); outline-offset: -3px; }
 .mcu-ai-window > header > span { display: flex; align-items: center; gap: 7px; }
 .mcu-ai-window > header small { padding-left: 7px; color: #087f91; border-left: 1px solid #cbdce1; font-size: 11px; }
 .mcu-ai-window > header > div { display: flex; align-items: center; }
 .mcu-ai-window > header button { display: inline-flex; align-items: center; gap: 4px; min-height: 29px; padding: 0 7px; color: #5c7784; border: 0; border-radius: 5px; background: transparent; font-size: 11px; cursor: pointer; }
 .mcu-ai-window > header button:hover { color: #075f70; background: #e7f2f4; }
 .mcu-ai-window .chat-panel.is-compact { height: auto; min-height: 0; }
+.mcu-ai-resize-handle { position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 28px; height: 28px; padding: 0 3px 3px 0; color: #4f7f8b; border: 0; background: linear-gradient(135deg, transparent 48%, rgb(8 127 145 / 12%) 49%); cursor: nwse-resize; touch-action: none; }
+.mcu-ai-resize-handle:hover { color: #087f91; background: linear-gradient(135deg, transparent 42%, rgb(8 127 145 / 20%) 43%); }
 .mcu-ai-domain { min-height: 0; overflow: hidden; }
 .mcu-ai-domain:not([hidden]) { display: grid; }
 .mcu-ai-domain[hidden] { display: none; }
@@ -1281,7 +1282,6 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
   .mcu-guide-resizer { display: none; }
   .mcu-workbench-shell.is-explorer-open .mcu-development-area .student-code-studio { grid-template-columns: 44px minmax(0, 1fr); }
   .mcu-workbench-shell.is-explorer-open .mcu-development-area .student-file-rail { position: absolute; z-index: 17; inset: 0 auto 0 0; width: min(260px, calc(100% - 48px)); box-shadow: 14px 0 36px rgb(31 66 83 / 20%); }
-  .mcu-ai-window { top: 0; right: 0 !important; bottom: 0; left: auto !important; width: min(380px, calc(100% - 48px)); border-radius: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mcu-ai-button, .mcu-ai-window, .mcu-bottom-panel { transition: none; }

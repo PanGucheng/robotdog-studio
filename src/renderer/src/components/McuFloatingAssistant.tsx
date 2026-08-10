@@ -1,11 +1,25 @@
-import { ArrowLeft, Bot, Grip, MoveHorizontal, X } from 'lucide-react'
+import { ArrowLeft, Bot, Grip, MoveDiagonal2, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AgentEvent, CandidateSnapshot, WorkspaceSummary } from '../../../shared/types'
 import type { AppEditionProfile } from '../../../shared/edition'
 import { getRobotApi } from '../lib/browser-demo-api'
-import { clampFloatingPoint, isPointerDrag, resolveFloatingPoint, restoreFloatingPlacement, snapFloatingPlacement, viewportDeltaToLocal, type FloatingAiPlacement, type Point, type Rect } from '../lib/mcu-workspace-model'
+import {
+  clampFloatingPoint,
+  isPointerDrag,
+  moveFloatingWindowGeometry,
+  resizeFloatingWindowGeometry,
+  resolveFloatingPoint,
+  restoreFloatingPlacement,
+  restoreFloatingWindowGeometry,
+  snapFloatingPlacement,
+  viewportDeltaToLocal,
+  type FloatingAiPlacement,
+  type FloatingWindowGeometry,
+  type Point,
+  type Rect
+} from '../lib/mcu-workspace-model'
 import { ChatPanel } from './ChatPanel'
 
 export type FloatingAssistantIntent =
@@ -38,9 +52,12 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
   const [unread, setUnread] = useState({ workspace: false, lecture: false })
   const [draftRequest, setDraftRequest] = useState<{ text: string; nonce: number }>()
   const [point, setPoint] = useState<Point>({ x: 0, y: 0 })
+  const [windowGeometry, setWindowGeometry] = useState<FloatingWindowGeometry | undefined>(initial.windowGeometry)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const pointRef = useRef<Point>({ x: 0, y: 0 })
+  const windowGeometryRef = useRef<FloatingWindowGeometry | undefined>(initial.windowGeometry)
   const dragRef = useRef<{ pointerId: number; start: Point; origin: Point; scale: Point; dragged: boolean } | undefined>(undefined)
+  const windowInteractionRef = useRef<{ pointerId: number; kind: 'move' | 'resize'; start: Point; origin: FloatingWindowGeometry; scale: Point } | undefined>(undefined)
   const previousTerminalCount = useRef(terminalCount(props.events))
 
   const workspaceGeometry = (): { element?: HTMLElement; rect: Rect; scale: Point } => {
@@ -64,9 +81,18 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
     setPoint(next)
   }
 
+  const updateWindowGeometry = (next: FloatingWindowGeometry): void => {
+    windowGeometryRef.current = next
+    setWindowGeometry((current) => current && sameWindowGeometry(current, next) ? current : next)
+  }
+
   useLayoutEffect(() => {
     const geometry = workspaceGeometry()
-    const update = (): void => updatePoint(resolveFloatingPoint(placement, workspaceGeometry().rect))
+    const update = (): void => {
+      const rect = workspaceGeometry().rect
+      updatePoint(resolveFloatingPoint(placement, rect))
+      updateWindowGeometry(restoreFloatingWindowGeometry(windowGeometryRef.current, rect))
+    }
     update()
     const observer = geometry.element && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : undefined
     if (geometry.element) observer?.observe(geometry.element)
@@ -78,8 +104,9 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
   }, [placement.edge, placement.yRatio])
 
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify({ version: 1, open, placement }))
-  }, [storageKey, open, placement])
+    if (!windowGeometry) return
+    localStorage.setItem(storageKey, JSON.stringify({ version: 2, open, placement, windowGeometry }))
+  }, [storageKey, open, placement, windowGeometry])
 
   useEffect(() => {
     if (!props.intent) return
@@ -134,12 +161,68 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
     updatePoint(resolveFloatingPoint(placement, workspaceGeometry().rect))
   }
 
+  const startWindowInteraction = (kind: 'move' | 'resize', event: ReactPointerEvent<HTMLElement>): void => {
+    if (event.button !== 0 || !windowGeometryRef.current) return
+    if (kind === 'move' && (event.target as HTMLElement).closest('button')) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    windowInteractionRef.current = {
+      pointerId: event.pointerId,
+      kind,
+      start: { x: event.clientX, y: event.clientY },
+      origin: windowGeometryRef.current,
+      scale: workspaceGeometry().scale
+    }
+  }
+
+  const moveWindowInteraction = (event: ReactPointerEvent<HTMLElement>): void => {
+    const interaction = windowInteractionRef.current
+    if (!interaction || interaction.pointerId !== event.pointerId) return
+    event.preventDefault()
+    const delta = viewportDeltaToLocal(interaction.start, { x: event.clientX, y: event.clientY }, interaction.scale)
+    const rect = workspaceGeometry().rect
+    updateWindowGeometry(interaction.kind === 'move'
+      ? moveFloatingWindowGeometry(interaction.origin, delta, rect)
+      : resizeFloatingWindowGeometry(interaction.origin, delta, rect))
+  }
+
+  const endWindowInteraction = (event: ReactPointerEvent<HTMLElement>): void => {
+    const interaction = windowInteractionRef.current
+    if (!interaction || interaction.pointerId !== event.pointerId) return
+    windowInteractionRef.current = undefined
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const cancelWindowInteraction = (event: ReactPointerEvent<HTMLElement>): void => {
+    const interaction = windowInteractionRef.current
+    if (!interaction || interaction.pointerId !== event.pointerId) return
+    windowInteractionRef.current = undefined
+    updateWindowGeometry(restoreFloatingWindowGeometry(interaction.origin, workspaceGeometry().rect))
+  }
+
+  const keyboardWindowDelta = (kind: 'move' | 'resize', event: React.KeyboardEvent<HTMLElement>): void => {
+    if (event.currentTarget !== event.target || !windowGeometryRef.current) return
+    const distance = event.shiftKey ? 32 : 12
+    const delta = event.key === 'ArrowLeft' ? { x: -distance, y: 0 }
+      : event.key === 'ArrowRight' ? { x: distance, y: 0 }
+        : event.key === 'ArrowUp' ? { x: 0, y: -distance }
+          : event.key === 'ArrowDown' ? { x: 0, y: distance }
+            : undefined
+    if (!delta) return
+    event.preventDefault()
+    const rect = workspaceGeometry().rect
+    updateWindowGeometry(kind === 'move'
+      ? moveFloatingWindowGeometry(windowGeometryRef.current, delta, rect)
+      : resizeFloatingWindowGeometry(windowGeometryRef.current, delta, rect))
+  }
+
   return <div className={`mcu-floating-assistant edge-${placement.edge}`}>
     <button ref={buttonRef} type="button" className="mcu-ai-button" style={{ transform: `translate(${point.x}px, ${point.y}px)` }} aria-label={`${open ? '收起' : '打开'} AI 助教${unread.workspace || unread.lecture ? '，有新回答' : ''}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerCancel}><Bot size={22} />{(unread.workspace || unread.lecture) && <i />}</button>
-    {open && <section className="mcu-ai-window" role="dialog" aria-label="AI 助教" onKeyDown={(event) => { if (event.key === 'Escape') { setOpen(false); buttonRef.current?.focus() } }}>
-      <header><span><Grip size={15} /><strong>AI 助教</strong><small>{domain === 'workspace' ? '实验 AI' : '课程知识问答'}</small></span><div>{domain === 'lecture' && <button type="button" onClick={() => setDomain('workspace')}><ArrowLeft size={14} />返回实验 AI</button>}<button type="button" onClick={() => setPlacement((current) => ({ ...current, edge: current.edge === 'left' ? 'right' : 'left' }))} aria-label="移动到另一侧"><MoveHorizontal size={15} /></button><button type="button" onClick={() => { setOpen(false); buttonRef.current?.focus() }} aria-label="收起 AI 助教"><X size={16} /></button></div></header>
+    {open && windowGeometry && <section className="mcu-ai-window" style={{ left: windowGeometry.x, top: windowGeometry.y, width: windowGeometry.width, height: windowGeometry.height }} role="dialog" aria-label="AI 助教" onKeyDown={(event) => { if (event.key === 'Escape') { setOpen(false); buttonRef.current?.focus() } }}>
+      <header tabIndex={0} aria-label="移动 AI 助教窗口，可使用方向键" onKeyDown={(event) => keyboardWindowDelta('move', event)} onPointerDown={(event) => startWindowInteraction('move', event)} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction}><span><Grip size={15} /><strong>AI 助教</strong><small>{domain === 'workspace' ? '实验 AI' : '课程知识问答'}</small></span><div>{domain === 'lecture' && <button type="button" onClick={() => setDomain('workspace')}><ArrowLeft size={14} />返回实验 AI</button>}<button type="button" onClick={() => { setOpen(false); buttonRef.current?.focus() }} aria-label="收起 AI 助教"><X size={16} /></button></div></header>
       <div className="mcu-ai-domain" hidden={domain !== 'workspace'}><ChatPanel workspace={props.workspace} edition={props.edition} events={props.events} candidate={props.candidate} running={props.running} onPrompt={props.onPrompt} onCancel={props.onCancel} onReject={props.onReject} onPermission={props.onPermission} compact onOpenSettings={props.onOpenSettings} draftRequest={draftRequest} /></div>
       <div className="mcu-ai-domain" hidden={domain !== 'lecture'}><LectureHistory events={lectureEvents} /></div>
+      <button type="button" className="mcu-ai-resize-handle" aria-label="调整 AI 助教窗口大小，可使用方向键" title="拖动调整窗口大小" onKeyDown={(event) => keyboardWindowDelta('resize', event)} onPointerDown={(event) => startWindowInteraction('resize', event)} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction}><MoveDiagonal2 size={13} /></button>
     </section>}
   </div>
 }
@@ -165,10 +248,22 @@ async function loadLectureHistory(workspace: WorkspaceSummary): Promise<AgentEve
 }
 
 function terminalCount(events: AgentEvent[]): number { return events.filter((event) => event.type === 'completed' || event.type === 'cancelled' || event.type === 'failed').length }
-function readPreference(key: string): { open: boolean; placement: FloatingAiPlacement } {
+function readPreference(key: string): { open: boolean; placement: FloatingAiPlacement; windowGeometry?: FloatingWindowGeometry } {
   try {
-    const value = JSON.parse(localStorage.getItem(key) ?? 'null') as { version?: unknown; open?: unknown; placement?: unknown } | null
-    if (value?.version === 1 && typeof value.open === 'boolean') return { open: value.open, placement: restoreFloatingPlacement(value.placement) }
+    const value = JSON.parse(localStorage.getItem(key) ?? 'null') as { version?: unknown; open?: unknown; placement?: unknown; windowGeometry?: unknown } | null
+    if ((value?.version === 1 || value?.version === 2) && typeof value.open === 'boolean') {
+      return { open: value.open, placement: restoreFloatingPlacement(value.placement), ...(value.version === 2 && isStoredWindowGeometry(value.windowGeometry) ? { windowGeometry: value.windowGeometry } : {}) }
+    }
   } catch { /* fall through */ }
   return { open: false, placement: { edge: 'right', yRatio: 1 } }
+}
+
+function isStoredWindowGeometry(value: unknown): value is FloatingWindowGeometry {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const geometry = value as Record<string, unknown>
+  return ['x', 'y', 'width', 'height'].every((key) => typeof geometry[key] === 'number' && Number.isFinite(geometry[key]))
+}
+
+function sameWindowGeometry(left: FloatingWindowGeometry, right: FloatingWindowGeometry): boolean {
+  return left.x === right.x && left.y === right.y && left.width === right.width && left.height === right.height
 }
