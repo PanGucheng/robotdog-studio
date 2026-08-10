@@ -72,7 +72,8 @@ McuWorkbench
 | Flash | WCH-Link/USB 现有服务 | 保留设备检查、取消、错误与导航守卫 |
 | 课程步骤 | `CourseProgressSnapshot` | 继续作为唯一实验进度真相 |
 | Lecture Reference | Course Lecture API | 保留安全模型和阅读进度隔离 |
-| Workspace AI | `AgentSessionService`、每工作区事件历史 | 复用同一 ChatPanel 和可信课程上下文 |
+| Course Lecture AI 历史 | `CourseLectureHistoryService`、`listCourseLectureHistory(courseId, lessonId)` | 按 Course/Lesson/Version 独立保存，不并入 Workspace Agent 历史 |
+| Workspace AI 历史 | `AgentSessionService`、`listAgentHistory(workspaceId)` | 按 Workspace 独立保存，复用可信课程上下文与 Candidate 流程 |
 
 ### 2.3 当前需要修正的作用域问题
 
@@ -94,6 +95,7 @@ McuWorkbench
 - Tool Rail 和 `activeTool` 最终删除；
 - Candidate、Build、Output、Flash 和 AI 都靠近代码；
 - AI 打开时 Explorer、Code Surface、Bottom Panel 和 Lab Guide 不卸载；
+- Floating AI 只统一视觉外壳，Workspace AI 与 Course Lecture Q&A 的历史、权限和作用域必须隔离；
 - 保存草稿、检查 Candidate、Apply、生成 Firmware、Flash 保持五个不同动作；
 - 高缩放和窄窗口不恢复互斥工具页面。
 
@@ -116,18 +118,23 @@ McuWorkbench
 - 受众：正在学习 C 语言工程、编译链接和单片机烧录流程的大学低年级学生；
 - 单一任务：让学生持续对照“任务—代码—编译结果”，并在需要时召唤 AI。
 
-### 4.2 颜色与字体令牌
+### 4.2 颜色、字体与主题边界
 
-继续沿用现有仪器工作台语言，不套用通用 VS Code 皮肤：
+继续复用当前 RobotDog MCU 的浅色、青蓝工业实验台主题和既有 semantic token。本轮信息架构重构不得顺带更换整体主题，不得引入深色 Monaco 代码画布，也不得复制一套仅供新组件使用的近似色：
 
 | 令牌 | 色值 | 用途 |
 | --- | --- | --- |
-| `--mcu-structure` | `#10243A` | 顶栏、结构标题、深色边界 |
-| `--mcu-code` | `#10283A` | Monaco 代码画布基底 |
-| `--mcu-signal` | `#00A8C6` | 当前文件、活动 Tab、定位与拖动反馈 |
-| `--mcu-building` | `#F3A712` | 构建中、待处理、警告 |
-| `--mcu-passed` | `#16A36A` | 保存、检查、构建和连接通过 |
-| `--mcu-failed` | `#D92D20` | 阻断问题、失败和危险动作 |
+| `--navy` | `#10243A` | 标题、结构文本和高对比信息 |
+| `--canvas` | `#F6F8FB` | 工作台浅色画布 |
+| `--panel` | `#FFFFFF` | Explorer、Guide、Panel 与浮窗表面 |
+| `--sensor` | `#00A8C6` | 当前文件、活动 Tab、定位与交互反馈 |
+| `--amber` | `#F3A712` | 构建中、待处理与警告 |
+| `--green` | `#16A36A` | 保存、检查、构建和连接通过 |
+| `--red` | `#D92D20` | 阻断问题、失败和危险动作 |
+
+Monaco 继续使用现有 `robotdog-track` 主题：`base: 'vs'`、`editor.background: '#FFFFFF'`、`editor.foreground: '#17384A'`，以及既有 selection、line highlight、cursor 和语法色。Bottom Panel、Lab Guide、Floating AI 和构建信号带优先直接消费现有 token；确需补充 running/passed/failed 变体时，也从 `--amber`、`--green`、`--red` 派生，不改变编辑器明暗关系。
+
+若后续认为需要调整整体主题，必须另立视觉改版任务并单独验收，不在本轮信息架构重构中实施。
 
 字体固定为：
 
@@ -153,7 +160,7 @@ McuWorkbench
 ├──────────────┬───────────────────────────────────┬───────────────────┤
 │ Project      │ Code Action Bar                   │ Lab Guide         │
 │ Explorer     ├───────────────────────────────────┤ Current Step      │
-│              │ Monaco / Diff                     │                   │
+│              │ Monaco + Diff Layer               │                   │
 │              │                                   │                   │
 │              ├═══════════════════════════════════┤                   │
 │              │ Problems | Build | Output         │                   │
@@ -168,7 +175,7 @@ Sandbox：
 ┌──────────────┬───────────────────────────────────────────────────────┐
 │ Explorer     │ Code Action Bar                                       │
 │              ├───────────────────────────────────────────────────────┤
-│              │ Monaco / Diff                                         │
+│              │ Monaco + Diff Layer                                   │
 │              ├═══════════════════════════════════════════════════════┤
 │              │ Problems | Build | Output                             │
 └──────────────┴───────────────────────────────────────────────────────┘
@@ -186,11 +193,15 @@ McuWorkbench
 │     ├─ ProjectExplorerPane
 │     └─ CodeSurface
 │        ├─ CodeActionBar
-│        ├─ MonacoEditor | DiffReview
+│        ├─ EditorStage
+│        │  ├─ MonacoEditor             // 始终 mounted
+│        │  └─ DiffReview?              // 可见时作为覆盖层
 │        └─ McuBottomPanel
 ├─ McuLabGuide?                 // 仅 mcu-lesson-attempt
 └─ McuFloatingAssistant
-   └─ ChatPanel
+   └─ AssistantShell
+      ├─ WorkspaceAssistantView         // listAgentHistory(workspaceId)
+      └─ CourseLectureQaView            // listCourseLectureHistory(courseId, lessonId)
 ```
 
 外层 `McuWorkbench` 使用两列 Grid：`minmax(0, 1fr) + Lab Guide`。第一列内部的 `StudentCodeEditor` 再使用 `Explorer + Code Surface` 两列。这样视觉上是三列，但 Bottom Panel 天然只属于 Code Surface。
@@ -202,7 +213,7 @@ McuWorkbench
 - 判断 Lab 或 Sandbox；
 - 保存 Explorer、Guide、Bottom Panel 和 AI 的 UI preference；
 - 组合当前工作区 Candidate、Build、CourseProgress 和 Agent 视图模型；
-- 处理文件定位、Diff 展示、Bottom Panel 自动事件和统一 AI 打开请求；
+- 处理文件定位、Diff 展示、Bottom Panel 自动事件和 AI domain 路由；
 - 处理 Guide/Explorer 宽度拖动与响应式状态；
 - 保持 Monaco 组件实例不因 Guide、Panel 或 AI 状态变化而卸载。
 
@@ -228,9 +239,10 @@ McuWorkbench
 
 重构后：
 
-- `.student-editor-main` 固定为 `Action Bar / Editor-or-Diff / Bottom Panel` 三行；
+- `.student-editor-main` 固定为 `Action Bar / Editor Stage / Bottom Panel` 三行；
 - Bottom Panel 通过明确的组件插槽放在 `.student-editor-main` 内，而不是放在 `StudentCodeEditor` 外层；
-- Diff 只替换第二行，不覆盖 Action Bar 与 Bottom Panel；
+- Editor Stage 内的 Monaco host 从首次挂载到离开 Workspace 前始终存在；Diff 只在视觉上覆盖 Editor Stage，不得以条件分支替换或卸载 Monaco；
+- 打开/关闭 Diff 不得销毁 Monaco editor、model、undo stack 或 view state，也不得通过改变 React `key` 强制重建；
 - 删除 `compiler-help-card`、`editor-feedback` 中重复的完整诊断展示；
 - Candidate 失败只设置状态并通知 Workbench，Problems 成为唯一结构化诊断区；
 - 不再在失败后自动请求 AI，学生点击“让 AI 解释”才发起只读请求。
@@ -329,14 +341,21 @@ interface FloatingAiPlacement {
   yRatio: number
 }
 
+type AssistantDomain = 'workspace' | 'lecture'
+
 interface FloatingAiUiState {
   open: boolean
   placement: FloatingAiPlacement
-  unread: boolean
+  activeDomain: AssistantDomain
+  unread: Record<AssistantDomain, boolean>
 }
+
+type PersistedFloatingAiPreference = Pick<FloatingAiUiState, 'open' | 'placement'>
 ```
 
-首次进入工作区默认关闭，仅显示圆形按钮。返回同一工作区时恢复展开状态和位置。新的 Agent terminal event 在浮窗关闭时将 `unread` 设为 true，打开后清除；聊天内容仍来自 Main 保存的工作区事件历史。
+`activeDomain` 和 `unread` 只属于运行期，不写入 localStorage：进入 Workspace 默认是 `workspace`，Lecture 入口显式切到 `lecture`，Header 的“返回实验 AI”切回 `workspace`。两个 domain 各自保留当前会话内的草稿、滚动位置和加载状态，但不共享或拼接事件数组。
+
+首次进入工作区默认关闭，仅显示圆形按钮。返回同一工作区时恢复展开状态和位置。新的 Workspace Agent terminal event 在浮窗关闭时只更新 Workspace domain 的 `unread`；Lecture Q&A 可维护独立未读提示。历史内容始终从各自 Main 服务读取，不写入 UI preference。
 
 ### 6.4 localStorage 键
 
@@ -349,7 +368,7 @@ robotdog.mcu.lab-guide.v1.<workspaceId>
 robotdog.mcu.ai.v1.<workspaceId>
 ```
 
-`workspace-ui` 保存 Explorer/Guide 宽度和 Explorer 是否折叠；其余键分别保存对应 UI preference。
+`workspace-ui` 保存 Explorer/Guide 宽度和 Explorer 是否折叠；其余键分别保存对应 UI preference。`mcu.ai` 只保存 `open + placement`，不保存当前 domain、未读或任何历史内容。
 
 解析要求：
 
@@ -359,7 +378,18 @@ robotdog.mcu.ai.v1.<workspaceId>
 - 旧 Tool Rail 键不迁移，旧界面删除时一并清理；
 - 不保存 Candidate、Build、CourseProgress、Firmware proof 或硬件状态。
 
-当前文件继续使用已有 `robotdog.mcu-last-file.<workspaceId>`。Monaco view state 在组件存活期间由 Monaco 实例保持；本轮不增加跨应用重启的 cursor/scroll 序列化。
+当前文件继续使用已有 `robotdog.mcu-last-file.<workspaceId>`。此外，本轮必须增加仅存在于当前应用运行期的 Monaco view-state registry：
+
+```ts
+type MonacoSessionViewStateRegistry = Map<WorkspaceId, Map<ProjectPath, ICodeEditorViewState>>
+```
+
+- registry 必须位于 Workspace 页面生命周期之上，例如由 `App` 级 `useRef` 或等价的 session service 持有，不能只放在即将卸载的 `StudentCodeEditor` 内；
+- 切换文件、打开 Diff 前和从 Workspace 返回 Lesson 前调用 `editor.saveViewState()`，按 `workspaceId + projectPath` 保存；
+- 再次进入同一 Workspace 并打开文件后，在 model 就绪时调用 `editor.restoreViewState()`，随后 `layout()`；
+- 至少恢复 cursor、selection、scroll 和折叠等 `ICodeEditorViewState` 所含上下文；
+- 删除工作区时清理对应 registry；损坏或无法恢复时安全回退到 Monaco 默认位置；
+- 本轮不要求应用完全退出后继续恢复 cursor/scroll，因此不把 `ICodeEditorViewState` 写入 localStorage；跨应用重启仍只保证恢复当前文件。
 
 ## 7. Code Surface 详细行为
 
@@ -373,13 +403,14 @@ Action Bar 每次只突出一个下一步动作，不堆叠完整流水线按钮
 | 草稿保存中 | 正在保存草稿 | 无 | 放弃草稿 |
 | 草稿已保存 | 草稿已保存 | 检查代码 | 放弃草稿 |
 | Candidate 失败 | 代码检查失败 · N 个问题 | 查看问题 | 重新检查、让 AI 解释 |
-| Candidate 通过 | 代码检查通过 | 查看修改 | 放弃修改 |
 | Diff 打开 | 修改确认 | 保存到项目 | 放弃修改、返回代码 |
-| 已 Apply | 修改已保存到项目 | 打开构建 | 撤回上次保存（符合现有条件时） |
+| 已 Apply | ✓ 修改已保存到项目 | 生成完整程序 | 查看构建、撤回上次保存（符合现有条件时） |
 | Firmware 有效 | 程序已生成 | 烧录到开发板 | 查看构建 |
 | Firmware 过期 | 代码已变化，需要重新生成 | 生成完整程序 | 查看上次构建 |
 
 `busy` 只能禁用会启动或修改可信状态的动作；打开 Panel、Guide、AI、切换 Tab 和查看日志不因无关后台任务统一禁用。
+
+Candidate 通过是“自动进入 Diff”的转换事件，不是一个带“查看修改”按钮的稳定 Action Bar 状态。`生成完整程序` 明确调用 `startFirmwareBuild()`；`查看构建` 只打开 Bottom Panel 的 Build Tab，二者不得共用含混文案或 handler。
 
 ### 7.2 Candidate 流程
 
@@ -407,16 +438,20 @@ Action Bar 每次只突出一个下一步动作，不堆叠完整流水线按钮
 
 ### 7.3 Diff
 
-Diff 显示在 Code Surface 的 Editor 行：
+Diff 显示在 Code Surface 的 Editor Stage：
 
 ```text
 Code Surface
 ├─ Action Bar       保持可见
-├─ DiffReview       替换 Monaco
+├─ Editor Stage
+│  ├─ Monaco        始终 mounted，保留 editor/model/view state
+│  └─ Diff Layer    需要时覆盖并在视觉上替代 Monaco
 └─ Bottom Panel     保持可见
 ```
 
-关闭 Diff 后恢复原 Monaco 实例、当前文件和编辑状态。Diff 不使用全屏页面、不进入 Lab Guide、不覆盖 Explorer。
+实现上 `.editor-stage` 使用相对定位，Monaco host 保持原尺寸和实例；`DiffReview` 作为 `position: absolute; inset: 0` 的 layer 覆盖。Diff 打开时 Monaco 失去交互和可访问树焦点，但不得卸载、销毁 model 或清空 undo stack；关闭时移除 Diff layer，恢复打开前保存的 view state，调用 `layout()` 并按来源恢复焦点。
+
+Diff 可以视觉替代 Monaco，但不能生命周期替代 Monaco。Diff 不使用全屏页面、不进入 Lab Guide、不覆盖 Explorer、Action Bar 或 Bottom Panel。
 
 ## 8. Bottom Panel 详细方案
 
@@ -629,35 +664,44 @@ Reference 使用 Guide 内部子视图：
 - 返回后恢复 Current Step；
 - 阅读 Reference 不写 LessonLearningProgress；
 - Reference 中的 `codeTarget` 继续定位 Workspace 文件；
-- 选文问答仍调用 `askCourseLecture`，随后打开同一 Workspace AI 浮窗；
+- 选文问答仍调用 `askCourseLecture`，随后打开同一个 Floating AI 外壳并切换到“课程知识问答”；
+- 课程回答只从 `listCourseLectureHistory(courseId, lessonId)` 读取，并继续按 `contentVersion + documentDigest` 隔离当前版本与旧版本；
+- Lecture answer 不写入或拼接到 `listAgentHistory(workspaceId)`，也不能创建 Candidate；
 - 专注阅读不再覆盖 Explorer 和整个 Code Surface，只允许 Guide 扩展为贴边阅读 Drawer。
 
 ## 11. Floating AI 详细方案
 
-### 11.1 统一打开接口
+### 11.1 统一外壳与 domain 路由
 
 Renderer 内部统一使用：
 
 ```ts
-type WorkspaceAssistantIntent =
-  | { kind: 'open'; draft?: string }
-  | { kind: 'step'; draft: string }
-  | { kind: 'selection'; request: StudentCodeExplanationRequest }
-  | { kind: 'diagnostic'; request: StudentCodeExplanationRequest }
-  | { kind: 'lecture-answer' }
+type FloatingAssistantIntent =
+  | { kind: 'workspace-open'; draft?: string }
+  | { kind: 'workspace-step'; draft: string }
+  | { kind: 'workspace-selection'; request: StudentCodeExplanationRequest }
+  | { kind: 'workspace-diagnostic'; request: StudentCodeExplanationRequest }
+  | { kind: 'lecture-answer'; courseId: string; lessonId: string }
 ```
 
 处理规则：
 
 | Intent | 行为 |
 | --- | --- |
-| `open` | 打开并 focus 输入框 |
-| `step` | 打开、预填，不自动发送 |
-| `selection` | 调用现有只读解释 API，打开并显示进度 |
-| `diagnostic` | 调用现有只读诊断解释 API，打开并显示进度 |
-| `lecture-answer` | 只打开已有讲义回答所在的同一历史 |
+| `workspace-open` | 切到 Workspace Assistant，打开并 focus 输入框 |
+| `workspace-step` | 切到 Workspace Assistant，打开、预填，不自动发送 |
+| `workspace-selection` | 调用现有只读解释 API，切到 Workspace Assistant 并显示进度 |
+| `workspace-diagnostic` | 调用现有只读诊断解释 API，切到 Workspace Assistant 并显示进度 |
+| `lecture-answer` | 切到 Course Lecture Q&A，读取该 Course/Lesson 的讲义历史并定位最新回答 |
 
-不新增第二套 Chat product，不复制 Agent event store。
+一个 `McuFloatingAssistant` 视觉外壳不等于一个历史数据域。内部数据合同冻结为：
+
+| 子状态 | 历史 API 与主键 | 能力边界 |
+| --- | --- | --- |
+| Workspace Assistant | `listAgentHistory(workspaceId)` | 工程级问答；保留 current Step、Teaching Focus、权限上下文；可按现有安全流程进入 Candidate |
+| Course Lecture Q&A | `listCourseLectureHistory(courseId, lessonId)`，并尊重 `contentVersion + documentDigest` | 可信讲义问答；explanation only；不得进入 Candidate、Apply、Build 或 Flash |
+
+实现不得把两组 `AgentEvent[]` concat、复制或回写到另一历史服务。Floating shell 可以共享窗口、按钮、Markdown renderer 和事件卡片组件，但必须使用两个独立 history adapter。Lecture 回答完成后显示“返回实验 AI”，切回时恢复原 Workspace history、草稿和滚动位置。
 
 ### 11.2 Button 拖动与吸附
 
@@ -688,7 +732,8 @@ isPointerDrag(start, current, threshold = 6): boolean
 
 - 桌面宽度 380px，高度 `min(620px, workspaceHeight - 32px)`；
 - 固定贴在按钮所属边缘，不允许任意拖动；
-- Header 显示 AI 助教、当前 Step 摘要、最小化/关闭；
+- Header 显示 AI 助教、当前子状态（“实验 AI”或“课程知识问答”）、对应上下文摘要和最小化/关闭；
+- Course Lecture Q&A 显示“返回实验 AI”，切换只改变可见 domain，不迁移历史事件；
 - 关闭只改变 `open`，不调用 `cancelAgent`；
 - 用户显式点击“停止”才取消当前 Agent turn；
 - 运行中最小化后继续接收事件；
@@ -799,8 +844,9 @@ AI 不拥有 Flash handler，也不能通过 Assistant Intent 触发 Flash。
 - 课程实验渲染占位 Guide，Sandbox 不渲染；
 - 保留旧 Build/AI 组件为隐藏迁移路径，不删除 Tool Rail 状态；
 - 建立新的 Guide/Explorer 宽度和响应式容器规则。
+- 在 Workspace 页面生命周期之上建立按 `workspaceId + projectPath` 分区的 Monaco session view-state registry；
 
-完成条件：Lab 显示三列、Sandbox 显示两列，文件切换与 Monaco 状态正常，Guide 宽度变化不影响 Explorer 高度。
+完成条件：Lab 显示三列、Sandbox 显示两列，文件切换正常；Workspace → Lesson → 同一 Workspace 往返后恢复当前文件、cursor、selection 与 scroll；Guide 宽度变化不影响 Explorer 高度。
 
 回滚边界：可以恢复旧 McuWorkbench render，不涉及 Main/IPC。
 
@@ -808,13 +854,14 @@ AI 不拥有 Flash handler，也不能通过 Assistant Intent 触发 Flash。
 
 实施：
 
-- 将 `.student-editor-main` 拆为 Action Bar、Editor/Diff、Panel；
+- 将 `.student-editor-main` 拆为 Action Bar、Editor Stage、Panel；
+- Monaco host 常驻 Editor Stage，DiffReview 仅作为可见覆盖层，增加实例/model/view-state 不重建测试；
 - 新增 Panel reducer、状态条、三个 Tab、resize 和 localStorage；
 - 先使用现有快照只读展示，不删除旧 Build Tool；
-- 调整 Diff 只占 Editor 行；
-- 加入构建信号带令牌与样式。
+- 调整 Diff layer 只占 Editor Stage；
+- 使用现有 semantic token 实现构建信号带，不改变浅色 Monaco 主题。
 
-完成条件：Panel 展开/收起/resize 只改变 Monaco 高度，Explorer 和 Guide 全高不变。
+完成条件：Panel 展开/收起/resize 只改变 Monaco 高度，Explorer 和 Guide 全高不变；打开/关闭 Diff 前后 Monaco editor 与 model identity 不变，undo/view state 可继续使用。
 
 回滚边界：旧 Build Tool 仍可作为数据对照。
 
@@ -853,11 +900,12 @@ AI 不拥有 Flash handler，也不能通过 Assistant Intent 触发 Flash。
 
 - 新增浮动按钮、几何函数、吸附、持久化和 unread；
 - 用 ChatPanel 构建贴边 Window/Drawer；
-- 统一普通、Step、selection、diagnostic、lecture 打开入口；
+- 统一普通、Step、selection、diagnostic、lecture 的外壳打开入口；
+- 建立 Workspace Assistant 与 Course Lecture Q&A 两个独立 history adapter 和明确的 domain 切换；
 - 修正 running 与 event history 的 workspace scope；
 - 更新 ChatPanel 旧文案。
 
-完成条件：关闭不取消、后台回答保留、所有入口进入同一历史、按钮不会停在代码中央或超出 Workspace。
+完成条件：关闭不取消、后台回答保留；Workspace 入口只读取 `listAgentHistory(workspaceId)`，Lecture 入口只读取 `listCourseLectureHistory(courseId, lessonId)`，两组历史不拼接；按钮不会停在代码中央或超出 Workspace。
 
 回滚边界：Agent Main 与 API 不变，可临时恢复旧 Assistant Tool 展示。
 
@@ -917,6 +965,7 @@ AI 不拥有 Flash handler，也不能通过 Assistant Intent 触发 Flash。
 - proof 四项 identity 的 current/stale；
 - 其他 workspace Build/Agent 不驱动当前 UI；
 - Floating AI clamp、6px click/drag、left/right snap、resize 恢复；
+- Assistant intent 到 Workspace/Lecture domain 的路由和历史 selector 隔离；
 - localStorage 版本与损坏值回退；
 - Lab Guide current/overview/reference 恢复。
 
@@ -929,10 +978,12 @@ AI 不拥有 Flash handler，也不能通过 Assistant Intent 触发 Flash。
 - Bottom Panel DOM 位于 `.student-editor-main`，不位于 Workbench 根底部；
 - Candidate 失败打开 Problems，点击问题调用文件定位；
 - Build 开始/失败/成功切换正确 Tab；
-- Diff 只替换 Editor 行；
+- 打开/关闭 Diff 时 Monaco editor/model identity 不变，原 undo 与 view state 可继续使用；
+- Workspace → Lesson → 同一 Workspace 往返后恢复当前文件、cursor、selection、scroll；
 - AI close 不调用 cancel；
 - Step action 只预填不发送；
-- selection/diagnostic 打开同一 AI；
+- selection/diagnostic 打开同一 Floating AI 的 Workspace domain；
+- Lecture answer 打开同一 Floating AI 的 Course Lecture Q&A domain，两组事件数组不拼接；
 - Question/Observation 只调用对应 CourseProgress update；
 - Lecture Reference 不写 LessonLearningProgress。
 
@@ -944,6 +995,8 @@ AI 不拥有 Flash handler，也不能通过 Assistant Intent 触发 Flash。
 - 真实磁盘路径完全脱敏；
 - 缓存构建兼容缺少新字段的旧 proof；
 - Build cancel、单 active Build、artifact identity 不变；
+- `listAgentHistory(workspaceId)` 与 `listCourseLectureHistory(courseId, lessonId)` 继续使用独立存储；
+- Course Lecture history 的 `contentVersion + documentDigest` 过滤和旧版本查看行为不变；
 - Candidate、CourseProgress、Agent prompt、Lecture 和 WCH-Link 现有测试全量回归。
 
 ### 15.4 默认回归命令
@@ -975,6 +1028,8 @@ npm run smoke:electron:fun
 检查：
 
 - Monaco 实际可编辑面积；
+- 打开/关闭 Diff 后 cursor、selection、scroll、undo 和当前 Monaco model 不丢失；
+- Workspace → Lesson → 同一 Workspace 往返后恢复当前文件和运行期 Monaco view state；
 - Explorer 文件树与展开 Drawer；
 - Guide Current Step、Overview、Reference；
 - Bottom Panel Tab、resize、收起条；
@@ -1011,7 +1066,9 @@ npm run smoke:electron:fun
 - 吸附和 resize 校正正确；
 - 打开后代码与 Guide 不消失；
 - Step 只预填；
-- selection、Problems、Lecture 进入同一历史；
+- selection、Problems 进入 Workspace Assistant 历史；
+- Lecture 进入同一浮窗的“课程知识问答”，且不会出现在 Workspace Assistant 历史；
+- 在“课程知识问答”与“实验 AI”间切换后，两侧各自历史、草稿和滚动位置恢复；
 - 关闭不取消；
 - 后台完成显示 unread；
 - AI 不自动回答 Question、填写 Observation、Apply 或 Flash。
@@ -1041,7 +1098,7 @@ npm run smoke:electron:fun
 3. Bottom Panel 只覆盖中央代码区域；
 4. Candidate、Firmware、Output 和 Flash 全部接入新工作流；
 5. Diff/Apply、安全权限和 proof 合同没有改变；
-6. AI 是同一浮动助手，关闭不取消，所有入口共享历史；
+6. AI 是同一浮动外壳且关闭不取消；Workspace Assistant 与 Course Lecture Q&A 的历史、权限和作用域严格隔离；
 7. 后台任务严格按 workspace scope 展示；
 8. Tool Rail、`activeTool`、旧 Build/Course Tool 和重复 CSS 已删除；
 9. 自动回归命令全部通过；
@@ -1076,12 +1133,12 @@ npm run smoke:electron:fun
 1. 最终 Workspace DOM 与信息架构；
 2. Tool Rail、`activeTool` 和旧 localStorage 的删除情况；
 3. Lab Guide Current/Overview/Reference 的实现；
-4. Code Action Bar、Monaco/Diff、Bottom Panel 的边界；
+4. Code Action Bar、常驻 Monaco/Diff Layer、Bottom Panel 的边界与运行期 view-state 恢复；
 5. Problems/Build/Output 的数据来源；
 6. Candidate Validate/Build/Diff/Apply 的接入；
 7. Firmware stage、diagnostics、proof 与 stale 的接入；
 8. Flash/WCH-Link/USB 与导航守卫；
-9. Floating AI 的拖动、吸附、统一入口和后台历史；
+9. Floating AI 的拖动、吸附、统一外壳，以及 Workspace/Lecture 双历史隔离；
 10. workspace scope 修正；
 11. Sandbox 复用；
 12. 删除的旧组件、状态、CSS 和文案；
