@@ -64,6 +64,15 @@ describe('MCU workspace model', () => {
     const rect = { left: 0, top: 0, width: 900, height: 700 }
     const initial = { x: 400, y: 50, width: 390, height: 500 }
     expect(moveFloatingWindowGeometry(initial, { x: -600, y: 900 }, rect)).toMatchObject({ x: 16, y: 184 })
-    expect(resizeFloatingWindowGeometry(initial, { x: 900, y: -400 }, rect)).toEqual({ x: 16, y: 50, width: 868, height: 300 })
+    expect(resizeFloatingWindowGeometry(initial, { x: 900, y: -400 }, rect)).toEqual({ x: 400, y: 50, width: 484, height: 300 })
+  })
+
+  it('resizes from every corner while keeping the opposite corner anchored', () => {
+    const rect = { left: 0, top: 0, width: 1000, height: 800 }
+    const initial = { x: 400, y: 100, width: 390, height: 500 }
+    expect(resizeFloatingWindowGeometry(initial, { x: 40, y: 30 }, rect, 'north-west')).toEqual({ x: 440, y: 130, width: 350, height: 470 })
+    expect(resizeFloatingWindowGeometry(initial, { x: 40, y: 30 }, rect, 'north-east')).toEqual({ x: 400, y: 130, width: 430, height: 470 })
+    expect(resizeFloatingWindowGeometry(initial, { x: 40, y: 30 }, rect, 'south-west')).toEqual({ x: 440, y: 100, width: 350, height: 530 })
+    expect(resizeFloatingWindowGeometry(initial, { x: 40, y: 30 }, rect, 'south-east')).toEqual({ x: 400, y: 100, width: 430, height: 530 })
   })
 })

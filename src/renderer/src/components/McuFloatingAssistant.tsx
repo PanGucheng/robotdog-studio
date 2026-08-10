@@ -17,6 +17,7 @@ import {
   viewportDeltaToLocal,
   type FloatingAiPlacement,
   type FloatingWindowGeometry,
+  type FloatingWindowResizeCorner,
   type Point,
   type Rect
 } from '../lib/mcu-workspace-model'
@@ -57,7 +58,7 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
   const pointRef = useRef<Point>({ x: 0, y: 0 })
   const windowGeometryRef = useRef<FloatingWindowGeometry | undefined>(initial.windowGeometry)
   const dragRef = useRef<{ pointerId: number; start: Point; origin: Point; scale: Point; dragged: boolean } | undefined>(undefined)
-  const windowInteractionRef = useRef<{ pointerId: number; kind: 'move' | 'resize'; start: Point; origin: FloatingWindowGeometry; scale: Point } | undefined>(undefined)
+  const windowInteractionRef = useRef<{ pointerId: number; kind: 'move' | 'resize'; corner?: FloatingWindowResizeCorner; start: Point; origin: FloatingWindowGeometry; scale: Point } | undefined>(undefined)
   const previousTerminalCount = useRef(terminalCount(props.events))
 
   const workspaceGeometry = (): { element?: HTMLElement; rect: Rect; scale: Point } => {
@@ -161,7 +162,7 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
     updatePoint(resolveFloatingPoint(placement, workspaceGeometry().rect))
   }
 
-  const startWindowInteraction = (kind: 'move' | 'resize', event: ReactPointerEvent<HTMLElement>): void => {
+  const startWindowInteraction = (kind: 'move' | 'resize', event: ReactPointerEvent<HTMLElement>, corner?: FloatingWindowResizeCorner): void => {
     if (event.button !== 0 || !windowGeometryRef.current) return
     if (kind === 'move' && (event.target as HTMLElement).closest('button')) return
     event.preventDefault()
@@ -169,6 +170,7 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
     windowInteractionRef.current = {
       pointerId: event.pointerId,
       kind,
+      corner,
       start: { x: event.clientX, y: event.clientY },
       origin: windowGeometryRef.current,
       scale: workspaceGeometry().scale
@@ -183,7 +185,7 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
     const rect = workspaceGeometry().rect
     updateWindowGeometry(interaction.kind === 'move'
       ? moveFloatingWindowGeometry(interaction.origin, delta, rect)
-      : resizeFloatingWindowGeometry(interaction.origin, delta, rect))
+      : resizeFloatingWindowGeometry(interaction.origin, delta, rect, interaction.corner))
   }
 
   const endWindowInteraction = (event: ReactPointerEvent<HTMLElement>): void => {
@@ -213,7 +215,7 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
     const rect = workspaceGeometry().rect
     updateWindowGeometry(kind === 'move'
       ? moveFloatingWindowGeometry(windowGeometryRef.current, delta, rect)
-      : resizeFloatingWindowGeometry(windowGeometryRef.current, delta, rect))
+      : resizeFloatingWindowGeometry(windowGeometryRef.current, delta, rect, 'south-east'))
   }
 
   return <div className={`mcu-floating-assistant edge-${placement.edge}`}>
@@ -222,7 +224,10 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
       <header tabIndex={0} aria-label="移动 AI 助教窗口，可使用方向键" onKeyDown={(event) => keyboardWindowDelta('move', event)} onPointerDown={(event) => startWindowInteraction('move', event)} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction}><span><Grip size={15} /><strong>AI 助教</strong><small>{domain === 'workspace' ? '实验 AI' : '课程知识问答'}</small></span><div>{domain === 'lecture' && <button type="button" onClick={() => setDomain('workspace')}><ArrowLeft size={14} />返回实验 AI</button>}<button type="button" onClick={() => { setOpen(false); buttonRef.current?.focus() }} aria-label="收起 AI 助教"><X size={16} /></button></div></header>
       <div className="mcu-ai-domain" hidden={domain !== 'workspace'}><ChatPanel workspace={props.workspace} edition={props.edition} events={props.events} candidate={props.candidate} running={props.running} onPrompt={props.onPrompt} onCancel={props.onCancel} onReject={props.onReject} onPermission={props.onPermission} compact onOpenSettings={props.onOpenSettings} draftRequest={draftRequest} /></div>
       <div className="mcu-ai-domain" hidden={domain !== 'lecture'}><LectureHistory events={lectureEvents} /></div>
-      <button type="button" className="mcu-ai-resize-handle" aria-label="调整 AI 助教窗口大小，可使用方向键" title="拖动调整窗口大小" onKeyDown={(event) => keyboardWindowDelta('resize', event)} onPointerDown={(event) => startWindowInteraction('resize', event)} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction}><MoveDiagonal2 size={13} /></button>
+      <span className="mcu-ai-resize-zone corner-north-west" aria-hidden="true" onPointerDown={(event) => startWindowInteraction('resize', event, 'north-west')} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction} />
+      <span className="mcu-ai-resize-zone corner-north-east" aria-hidden="true" onPointerDown={(event) => startWindowInteraction('resize', event, 'north-east')} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction} />
+      <span className="mcu-ai-resize-zone corner-south-west" aria-hidden="true" onPointerDown={(event) => startWindowInteraction('resize', event, 'south-west')} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction} />
+      <button type="button" className="mcu-ai-resize-handle corner-south-east" aria-label="调整 AI 助教窗口大小，可使用方向键" title="拖动调整窗口大小" onKeyDown={(event) => keyboardWindowDelta('resize', event)} onPointerDown={(event) => startWindowInteraction('resize', event, 'south-east')} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction}><MoveDiagonal2 size={13} /></button>
     </section>}
   </div>
 }

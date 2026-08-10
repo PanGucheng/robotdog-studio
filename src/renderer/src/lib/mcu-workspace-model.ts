@@ -103,6 +103,7 @@ export interface Point { x: number; y: number }
 export interface Rect { left: number; top: number; width: number; height: number }
 export interface FloatingAiPlacement { edge: 'left' | 'right'; yRatio: number }
 export interface FloatingWindowGeometry { x: number; y: number; width: number; height: number }
+export type FloatingWindowResizeCorner = 'north-west' | 'north-east' | 'south-west' | 'south-east'
 
 const DEFAULT_FLOATING_WINDOW_WIDTH = 390
 const DEFAULT_FLOATING_WINDOW_HEIGHT = 560
@@ -147,8 +148,25 @@ export function moveFloatingWindowGeometry(geometry: FloatingWindowGeometry, del
   return clampFloatingWindowGeometry({ ...geometry, x: geometry.x + delta.x, y: geometry.y + delta.y }, rect)
 }
 
-export function resizeFloatingWindowGeometry(geometry: FloatingWindowGeometry, delta: Point, rect: Rect): FloatingWindowGeometry {
-  return clampFloatingWindowGeometry({ ...geometry, width: geometry.width + delta.x, height: geometry.height + delta.y }, rect)
+export function resizeFloatingWindowGeometry(geometry: FloatingWindowGeometry, delta: Point, rect: Rect, corner: FloatingWindowResizeCorner = 'south-east'): FloatingWindowGeometry {
+  const safe = clampFloatingWindowGeometry(geometry, rect)
+  const insetX = Math.min(FLOATING_WINDOW_MARGIN, Math.max(0, rect.width / 2))
+  const insetY = Math.min(FLOATING_WINDOW_MARGIN, Math.max(0, rect.height / 2))
+  const leftBound = rect.left + insetX
+  const rightBound = rect.left + rect.width - insetX
+  const topBound = rect.top + insetY
+  const bottomBound = rect.top + rect.height - insetY
+  const minimumWidth = Math.min(MIN_FLOATING_WINDOW_WIDTH, Math.max(0, rightBound - leftBound))
+  const minimumHeight = Math.min(MIN_FLOATING_WINDOW_HEIGHT, Math.max(0, bottomBound - topBound))
+  const fromWest = corner === 'north-west' || corner === 'south-west'
+  const fromNorth = corner === 'north-west' || corner === 'north-east'
+  const fixedX = fromWest ? safe.x + safe.width : safe.x
+  const fixedY = fromNorth ? safe.y + safe.height : safe.y
+  const maximumWidth = fromWest ? fixedX - leftBound : rightBound - fixedX
+  const maximumHeight = fromNorth ? fixedY - topBound : bottomBound - fixedY
+  const width = clamp(safe.width + (fromWest ? -delta.x : delta.x), Math.min(minimumWidth, maximumWidth), maximumWidth)
+  const height = clamp(safe.height + (fromNorth ? -delta.y : delta.y), Math.min(minimumHeight, maximumHeight), maximumHeight)
+  return { x: fromWest ? fixedX - width : fixedX, y: fromNorth ? fixedY - height : fixedY, width, height }
 }
 
 export function viewportDeltaToLocal(start: Point, current: Point, scale: Point): Point {
