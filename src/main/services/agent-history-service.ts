@@ -15,7 +15,7 @@ export class AgentHistoryService {
   async initialize(): Promise<void> { await mkdir(this.rootDir, { recursive: true }) }
 
   append(event: AgentEvent): Promise<void> {
-    if (event.type === 'turn_started') this.turnWorkspaces.set(event.turnId, event.workspaceId)
+    if (event.type === 'turn_started' && event.workspaceId) this.turnWorkspaces.set(event.turnId, event.workspaceId)
     const workspaceId = event.type === 'turn_started' ? event.workspaceId : this.turnWorkspaces.get(event.turnId)
     if (!workspaceId || !workspacePattern.test(workspaceId) || !persistedTypes.has(event.type)) return Promise.resolve()
     this.queue = this.queue.catch(() => undefined).then(async () => {
@@ -36,7 +36,7 @@ export class AgentHistoryService {
       } catch { return [] }
     })
     const compacted = compactAgentEvents(events)
-    for (const event of compacted) if (event.type === 'turn_started') this.turnWorkspaces.set(event.turnId, event.workspaceId)
+    for (const event of compacted) if (event.type === 'turn_started' && event.workspaceId) this.turnWorkspaces.set(event.turnId, event.workspaceId)
     return compacted
   }
 

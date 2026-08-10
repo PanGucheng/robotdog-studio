@@ -24,7 +24,7 @@ for (const entry of catalog.courses!) {
   requireValue(!courseIds.has(entry.courseId), `课程 ID 重复：${entry.courseId}`)
   courseIds.add(entry.courseId)
   const course = await readJsonInside(courseRoot, entry.manifest) as Record<string, unknown> & {
-    schemaVersion: number; courseId: string; contentVersion: number; status: string; lessonOrder: string[]; progressCompatibleFrom?: number[]
+    schemaVersion: number; courseId: string; contentVersion: number; status: string; lessonOrder: string[]; progressCompatibleFrom?: number[]; learningCompatibleFrom?: number[]
   }
   requireValue(course.schemaVersion === 1 && course.courseId === entry.courseId, `课程 manifest 身份不一致：${entry.courseId}`)
   requireValue(Number.isInteger(course.contentVersion) && course.contentVersion > 0, `课程 contentVersion 无效：${entry.courseId}`)
@@ -34,6 +34,8 @@ for (const entry of catalog.courses!) {
   requireValue(lessonIds.size === course.lessonOrder.length, `课次顺序存在重复 ID：${entry.courseId}`)
   const courseDir = entry.manifest.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
   const rawLessons = new Map<string, Record<string, unknown>>()
+  const lectureDigests: Record<string, string> = {}
+  const learningSectionIds: Record<string, string[]> = {}
 
   for (const [lessonIndex, lessonId] of course.lessonOrder.entries()) {
     requireId(lessonId, 'lessonId')
@@ -63,7 +65,12 @@ for (const entry of catalog.courses!) {
     const lecture = await service.getLecture(entry.courseId, lessonId)
     if (lesson.status === 'published') requireValue(lecture.status === 'ready', `正式课次讲义无效：${lessonId} (${lecture.status === 'invalid' ? lecture.errorCode : 'missing'})`)
     if (lecture.status === 'invalid') throw new Error(`课次讲义无效：${lessonId} (${lecture.errorCode}${lecture.line ? `:${lecture.line}:${lecture.column ?? 1}` : ''})`)
-    if (lecture.status === 'ready') lectureCount += 1
+    if (lecture.status === 'ready') {
+      lectureCount += 1
+      lectureDigests[lessonId] = lecture.document.documentDigest
+      learningSectionIds[lessonId] = lecture.document.sections.filter((section) => section.level === 2).map((section) => section.sectionId)
+      requireValue(learningSectionIds[lessonId].length > 0, `课次讲义没有顶层 H2 学习单元：${lessonId}`)
+    }
     lessonCount += 1
   }
 
@@ -81,12 +88,46 @@ for (const entry of catalog.courses!) {
     const normalizedCourse = structuredClone(course)
     delete normalizedCourse.contentVersion
     delete normalizedCourse.progressCompatibleFrom
+    delete normalizedCourse.learningCompatibleFrom
     requireValue(semanticHash(normalizedCourse) === compatibility.courseSemanticSha256, `课程教学语义与 v${fromVersion} 不兼容：${entry.courseId}`)
     for (const lessonId of compatibleLessons) {
       const normalizedLesson = structuredClone(rawLessons.get(lessonId)!) as { steps?: Array<Record<string, unknown>> }
       for (const step of normalizedLesson.steps ?? []) delete step.lectureSectionId
       requireValue(semanticHash(normalizedLesson) === compatibility.lessonSemanticSha256[lessonId], `课次教学语义与 v${fromVersion} 不兼容：${lessonId}`)
     }
+  }
+
+  for (const fromVersion of course.learningCompatibleFrom ?? []) {
+    requireValue(Number.isInteger(fromVersion) && fromVersion > 0 && fromVersion < course.contentVersion, `学习兼容来源版本无效：${entry.courseId} v${fromVersion}`)
+    const compatibility = await readJsonInside(courseRoot, `${courseDir}/compatibility/learning-v${fromVersion}.json`) as {
+      schemaVersion: number; fromContentVersion: number; sectionIdsByLesson: Record<string, string[]>
+    }
+    requireValue(compatibility.schemaVersion === 1 && compatibility.fromContentVersion === fromVersion, `学习兼容快照身份无效：${entry.courseId} v${fromVersion}`)
+    for (const [lessonId, oldSectionIds] of Object.entries(compatibility.sectionIdsByLesson)) {
+      requireValue(Array.isArray(learningSectionIds[lessonId]), `学习兼容快照包含未知课次：${lessonId}`)
+      requireValue(oldSectionIds.every((sectionId) => learningSectionIds[lessonId].includes(sectionId)), `讲义学习单元与 v${fromVersion} 不兼容：${lessonId}`)
+    }
+  }
+
+  const generatedContentFingerprint = {
+    schemaVersion: 1,
+    contentVersion: course.contentVersion,
+    courseSemanticSha256: semanticHash(course),
+    lessonSemanticSha256: Object.fromEntries(course.lessonOrder.map((lessonId) => [lessonId, semanticHash(rawLessons.get(lessonId))])),
+    lectureDocumentDigest: lectureDigests
+  }
+  if (process.env.ROBOTDOG_PRINT_COURSE_FINGERPRINT === '1') {
+    console.log(JSON.stringify(generatedContentFingerprint, null, 2))
+    continue
+  }
+  const contentFingerprint = await readJsonInside(courseRoot, `${courseDir}/compatibility/content-v${course.contentVersion}.json`) as {
+    schemaVersion: number; contentVersion: number; courseSemanticSha256: string; lessonSemanticSha256: Record<string, string>; lectureDocumentDigest: Record<string, string>
+  }
+  requireValue(contentFingerprint.schemaVersion === 1 && contentFingerprint.contentVersion === course.contentVersion, `当前内容指纹身份无效：${entry.courseId}`)
+  requireValue(generatedContentFingerprint.courseSemanticSha256 === contentFingerprint.courseSemanticSha256, `同版本课程资源被修改：${entry.courseId} v${course.contentVersion}`)
+  for (const lessonId of course.lessonOrder) {
+    requireValue(semanticHash(rawLessons.get(lessonId)) === contentFingerprint.lessonSemanticSha256[lessonId], `同版本课次资源被修改：${lessonId} v${course.contentVersion}`)
+    requireValue(lectureDigests[lessonId] === contentFingerprint.lectureDocumentDigest[lessonId], `同版本讲义资源被修改：${lessonId} v${course.contentVersion}`)
   }
 }
 

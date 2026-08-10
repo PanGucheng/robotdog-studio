@@ -1,5 +1,5 @@
 import { BookOpenCheck, ChevronRight, Clock3, Cpu, FlaskConical, GraduationCap, LockKeyhole } from 'lucide-react'
-import type { CourseDetail, CourseLesson, CourseLessonSummary, CourseSummary, WorkspaceSummary } from '../../../shared/types'
+import type { CourseDetail, CourseLesson, CourseLessonSummary, CourseSummary } from '../../../shared/types'
 
 interface CourseCenterProps {
   courses: CourseSummary[]
@@ -7,12 +7,9 @@ interface CourseCenterProps {
   lesson?: CourseLesson
   loading: boolean
   error?: string
-  attempts: WorkspaceSummary[]
-  busy: boolean
   completedLessonIds: string[]
   onSelectLesson(lessonId: string): void
-  onCreateLessonAttempt(lessonId: string): Promise<boolean>
-  onContinueAttempt(workspaceId: string): void
+  onOpenLesson(lessonId: string): void
 }
 
 const hardwareLabels = {
@@ -21,7 +18,7 @@ const hardwareLabels = {
   required: '需要开发板'
 } as const
 
-export function CourseCenter({ courses, course, lesson, loading, error, attempts, busy, completedLessonIds, onSelectLesson, onCreateLessonAttempt, onContinueAttempt }: CourseCenterProps): React.JSX.Element {
+export function CourseCenter({ courses, course, lesson, loading, error, completedLessonIds, onSelectLesson, onOpenLesson }: CourseCenterProps): React.JSX.Element {
   if (loading && !course) {
     return <div className="course-center-state"><Cpu className="spin" size={22} /><strong>正在读取课程目录</strong><span>课程内容保存在本机，可离线使用。</span></div>
   }
@@ -86,27 +83,21 @@ export function CourseCenter({ courses, course, lesson, loading, error, attempts
               <ul>{lesson.objectives.map((objective) => <li key={objective}>{objective}</li>)}</ul>
             </div>
 
-            <div className="lesson-preview">
-              <div className="lesson-preview-heading"><span className="eyebrow">实验路径</span><small>{lesson.steps.length} 个步骤</small></div>
-              <ol>
-                {lesson.steps.map((step, index) => (
-                  <li key={step.stepId}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{step.title}</strong><p>{step.instruction}</p></div></li>
-                ))}
-              </ol>
+            <div className="lesson-preview lesson-preview-summary">
+              <div><BookOpenCheck size={20} /><span><strong>讲义学习</strong><small>按知识章节阅读并记录学习进度</small></span></div>
+              <div><FlaskConical size={20} /><span><strong>{lesson.steps.length} 个实验步骤</strong><small>学习后进入独立实验工程验证</small></span></div>
             </div>
 
             <footer className="lesson-detail-actions">
-              <span>{lesson.status === 'draft' ? '硬件课通过真机检查并发布后才能创建练习。' : attempts.length > 0 ? `已保留 ${attempts.length} 次独立练习。` : '将从本课专用模板创建独立工程。'}</span>
+              <span>{lesson.status === 'draft' ? '课程发布后才可开始学习。' : '先阅读课程讲义，再进入配套实验工程。'}</span>
               <div>
-                {attempts[0] && <button type="button" onClick={() => onContinueAttempt(attempts[0].id)} disabled={busy}><BookOpenCheck size={16} /> 继续上次练习</button>}
-                <button type="button" className="course-start-button" disabled={busy || lesson.status !== 'published' || lesson.verification === 'pending-hardware-check'} onClick={() => {
+                <button type="button" className="course-start-button" disabled={lesson.status !== 'published' || lesson.verification === 'pending-hardware-check'} onClick={() => {
                   const incomplete = lesson.prerequisites.filter((lessonId) => !completedLessonIds.includes(lessonId))
-                  if (incomplete.length > 0 && !window.confirm('建议先完成前置课。这个练习可以独立进行，是否仍要开始？')) return
-                  void onCreateLessonAttempt(lesson.lessonId)
-                }}>{attempts.length > 0 ? '新建练习' : '开始学习'}</button>
+                  if (incomplete.length > 0 && !window.confirm('建议先完成前置课。是否仍要开始学习？')) return
+                  onOpenLesson(lesson.lessonId)
+                }}>开始学习</button>
               </div>
             </footer>
-            {attempts.length > 0 && <div className="lesson-attempts"><span className="eyebrow">练习记录</span>{attempts.map((attempt) => <button type="button" key={attempt.id} onClick={() => onContinueAttempt(attempt.id)}><strong>第 {attempt.courseBinding?.attemptNumber} 次</strong><span>{attempt.name}</span><small>{new Date(attempt.createdAt).toLocaleString('zh-CN', { hour12: false })}</small></button>)}</div>}
           </> : <div className="course-center-state"><BookOpenCheck size={22} /><strong>选择一个课次</strong><span>查看目标、实验步骤和硬件要求。</span></div>}
         </section>
       </div>

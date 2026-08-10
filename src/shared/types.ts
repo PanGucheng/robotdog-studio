@@ -177,6 +177,7 @@ export interface CourseLessonSummary {
   courseId: string
   contentVersion: number
   progressCompatibleFrom: number[]
+  learningCompatibleFrom: number[]
   lessonId: string
   title: string
   summary: string
@@ -267,7 +268,31 @@ export type CourseProgressUpdate =
   | { kind: 'step'; stepId: string; completed: boolean }
   | { kind: 'answer'; questionId: string; answer: string }
   | { kind: 'observation'; stepId: string; observation: string }
-  | { kind: 'lecture-read'; stepId: string; sectionId: string; lectureContentVersion: number; completed: boolean }
+
+export interface LessonLearningProgress {
+  schemaVersion: 1
+  courseId: string
+  lessonId: string
+  contentVersion: number
+  documentDigest: string
+  completedSectionIds: string[]
+  startedAt: string
+  updatedAt: string
+  completedAt?: string
+  recoveredFromCorruption?: boolean
+  integrityError?: boolean
+  legacySeed?: { sourceContentVersion: 3; importedSectionIds: string[]; seededAt: string }
+}
+
+export type LessonLearningProgressUpdate = { kind: 'section'; sectionId: string; completed: boolean }
+
+export type McuRecentActivity =
+  | { kind: 'lesson'; courseId: string; lessonId: string; openedAt: string }
+  | { kind: 'workspace'; workspaceId: string; openedAt: string }
+
+export type McuRecentActivityInput =
+  | { kind: 'lesson'; courseId: string; lessonId: string }
+  | { kind: 'workspace'; workspaceId: string }
 
 export type CourseLectureStatus = 'ready' | 'missing' | 'invalid'
 export type CourseLectureCalloutKind = 'concept' | 'note' | 'tip' | 'pitfall' | 'safety'
@@ -346,6 +371,18 @@ export interface CourseLectureSelectionRange {
 export interface StudentLectureQuestionRequest {
   selection: CourseLectureSelectionRange
   question: string
+}
+
+export interface CourseLectureHistoryScope {
+  courseId: string
+  lessonId: string
+  contentVersion: number
+  documentDigest: string
+  workspaceId?: string
+}
+
+export interface CourseLectureQuestionInput extends CourseLectureHistoryScope {
+  request: StudentLectureQuestionRequest
 }
 
 export interface FirmwareLegacyBaselineManifest {
@@ -538,7 +575,8 @@ export type AgentTurnState = 'preparing' | 'thinking' | 'editing' | 'validating'
 
 export interface AgentTurnSnapshot {
   turnId: string
-  workspaceId: string
+  workspaceId?: string
+  lectureScope?: CourseLectureHistoryScope
   candidateId?: string
   state: AgentTurnState
   message: string
@@ -570,7 +608,7 @@ interface AgentEventBase {
 }
 
 export type AgentEvent =
-  | AgentEventBase & { type: 'turn_started'; workspaceId: string; candidateId?: string; message: string; promptVersion?: string; promptHash?: string }
+  | AgentEventBase & { type: 'turn_started'; workspaceId?: string; lectureScope?: CourseLectureHistoryScope; candidateId?: string; message: string; promptVersion?: string; promptHash?: string }
   | AgentEventBase & { type: 'plan'; steps: StudentPlanStep[] }
   | AgentEventBase & { type: 'assistant_delta'; text: string }
   | AgentEventBase & { type: 'activity'; label: string; state: 'thinking' | 'editing' | 'validating' }
@@ -834,7 +872,13 @@ export interface RobotDogApi {
   getCourseLesson(courseId: string, lessonId: string): Promise<CourseLesson>
   getCourseLecture(courseId: string, lessonId: string): Promise<CourseLectureResult>
   getCourseLectureAsset(courseId: string, lessonId: string, documentDigest: string, assetId: string): Promise<CourseLectureAsset>
-  askCourseLecture(workspaceId: string, request: StudentLectureQuestionRequest): Promise<AgentTurnSnapshot>
+  askCourseLecture(input: CourseLectureQuestionInput): Promise<AgentTurnSnapshot>
+  listCourseLectureHistory(courseId: string, lessonId: string, includeOlder?: boolean): Promise<AgentEvent[]>
+  getLessonLearningProgress(courseId: string, lessonId: string): Promise<LessonLearningProgress>
+  listLessonLearningProgress(courseId?: string): Promise<LessonLearningProgress[]>
+  updateLessonLearningProgress(courseId: string, lessonId: string, update: LessonLearningProgressUpdate): Promise<LessonLearningProgress>
+  listMcuRecentActivity(): Promise<McuRecentActivity[]>
+  recordMcuRecentActivity(activity: McuRecentActivityInput): Promise<McuRecentActivity[]>
   openExternalUrl(url: string): Promise<boolean>
   listLessonAttempts(courseId: string, lessonId: string): Promise<WorkspaceSummary[]>
   createLessonAttempt(input: CreateLessonAttemptInput): Promise<WorkspaceSummary>

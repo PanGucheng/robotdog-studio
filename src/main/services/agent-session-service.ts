@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, StudentCodeExplanationRequest, StudentPlanStep } from '../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CourseLectureHistoryScope, StudentCodeExplanationRequest, StudentPlanStep } from '../../shared/types'
 import { CandidateService, type ManualRepairBackup } from './candidate-service'
 import type { AdapterEvent, ReasonixAdapter } from './reasonix-adapter'
 import { buildCourseLectureQuestionPrompt, buildStudentCodeExplanationPrompt, getStudentAgentPromptIdentity } from './student-agent-prompt'
@@ -24,7 +24,7 @@ interface ActiveTurn {
   lastAdapterSequence: number
   eventSequence: number
   readOnly?: boolean
-  explanation?: { root: string; policyVersion: string; kind: StudentCodeExplanationRequest['kind'] | 'lecture' }
+  explanation?: { root: string; policyVersion: string; kind: StudentCodeExplanationRequest['kind'] | 'lecture'; sessionKey?: string }
   agentMessage?: string
   courseContext?: string
   repair?: boolean
@@ -34,7 +34,7 @@ interface ActiveTurn {
 export class AgentSessionService extends EventEmitter {
   private active?: ActiveTurn
 
-  constructor(private readonly candidates: CandidateService, private readonly adapter: ReasonixAdapter, private readonly courseContext?: (workspaceId: string, taskKind: CourseAiTaskKind) => Promise<string | undefined>) {
+  constructor(private readonly candidates: CandidateService, private readonly adapter: ReasonixAdapter, private readonly courseContext?: (workspaceId: string, taskKind: CourseAiTaskKind) => Promise<string | undefined>, private readonly lessonRuntime?: { root: string; policyVersion: string }) {
     super()
   }
 
@@ -129,24 +129,26 @@ export class AgentSessionService extends EventEmitter {
     return structuredClone(snapshot)
   }
 
-  async explainCourseLecture(workspaceId: string, question: unknown, selectedText: string, trustedCourseContext: string): Promise<AgentTurnSnapshot> {
-    const validWorkspaceId = workspaceIdSchema.parse(workspaceId)
+  async explainCourseLecture(scope: CourseLectureHistoryScope, question: unknown, selectedText: string, trustedCourseContext: string): Promise<AgentTurnSnapshot> {
     const validQuestion = lectureQuestionSchema.parse(question)
     if (this.active) throw new Error('AGENT_BUSY')
-    const context = await this.candidates.getStudentCodeContextForMain(validWorkspaceId)
+    const context = scope.workspaceId
+      ? await this.candidates.getStudentCodeContextForMain(workspaceIdSchema.parse(scope.workspaceId))
+      : this.lessonRuntime
+    if (!context) throw new Error('LESSON_AGENT_RUNTIME_UNAVAILABLE')
     const promptIdentity = getStudentAgentPromptIdentity(context.policyVersion)
     const turnId = `turn_${randomBytes(12).toString('hex')}`
     const snapshot: AgentTurnSnapshot = {
-      turnId, workspaceId: validWorkspaceId, state: 'preparing', message: '请解释我选中的讲义内容',
+      turnId, workspaceId: scope.workspaceId, lectureScope: structuredClone(scope), state: 'preparing', message: '请解释我选中的讲义内容',
       promptVersion: promptIdentity.version, promptHash: promptIdentity.hash, startedAt: new Date().toISOString()
     }
     const active: ActiveTurn = {
       snapshot, controller: new AbortController(), done: Promise.resolve(), lastAdapterSequence: 0, eventSequence: 0, readOnly: true,
-      explanation: { root: context.root, policyVersion: context.policyVersion, kind: 'lecture' }
+      explanation: { root: context.root, policyVersion: context.policyVersion, kind: 'lecture', sessionKey: `lesson-${scope.courseId}-${scope.lessonId}-v${scope.contentVersion}` }
     }
     snapshot.message = buildCourseLectureQuestionPrompt(validQuestion, selectedText, { policyVersion: context.policyVersion, trustedCourseContext })
     this.active = active
-    this.publish(active, { type: 'turn_started', workspaceId: validWorkspaceId, message: '询问选中的讲义内容', promptVersion: promptIdentity.version, promptHash: promptIdentity.hash })
+    this.publish(active, { type: 'turn_started', workspaceId: scope.workspaceId, lectureScope: structuredClone(scope), message: '询问选中的讲义内容', promptVersion: promptIdentity.version, promptHash: promptIdentity.hash })
     active.done = this.runExplanation(active).finally(() => { if (this.active?.snapshot.turnId === turnId) this.active = undefined })
     return structuredClone(snapshot)
   }
@@ -185,7 +187,7 @@ export class AgentSessionService extends EventEmitter {
       const candidateRoot = await this.candidates.getCandidateRootForMain(candidateId)
       await this.adapter.runTurn({
         turnId: snapshot.turnId,
-        workspaceId: snapshot.workspaceId,
+        workspaceId: requireWorkspaceId(snapshot),
         candidateId,
         candidateRoot,
         message: active.agentMessage ?? snapshot.message,
@@ -234,7 +236,7 @@ export class AgentSessionService extends EventEmitter {
       const explanation = active.explanation
       if (!explanation) throw new Error('STUDENT_EXPLANATION_CONTEXT_MISSING')
       await this.adapter.runTurn({
-        turnId: snapshot.turnId, workspaceId: snapshot.workspaceId, candidateId: snapshot.candidateId ?? `readonly_${snapshot.workspaceId}`,
+        turnId: snapshot.turnId, workspaceId: explanation.sessionKey ?? requireWorkspaceId(snapshot), candidateId: snapshot.candidateId ?? `readonly_${explanation.sessionKey ?? requireWorkspaceId(snapshot)}`,
         candidateRoot: explanation.root, message: snapshot.message, policyVersion: explanation.policyVersion, readOnly: true,
         taskKind: explanation.kind === 'selection' ? 'explain_code' : explanation.kind === 'lecture' ? 'explain_lecture' : 'explain_diagnostic'
       }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
@@ -308,6 +310,11 @@ function isAdapterEvent(value: unknown): value is AdapterEvent {
 function requireCandidateId(snapshot: AgentTurnSnapshot): string {
   if (!snapshot.candidateId) throw new Error('CANDIDATE_ID_MISSING')
   return snapshot.candidateId
+}
+
+function requireWorkspaceId(snapshot: AgentTurnSnapshot): string {
+  if (!snapshot.workspaceId) throw new Error('WORKSPACE_ID_MISSING')
+  return snapshot.workspaceId
 }
 
 function buildStudentCandidateSummary(candidate: CandidateSnapshot): string {

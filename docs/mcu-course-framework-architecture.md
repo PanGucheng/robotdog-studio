@@ -1,12 +1,25 @@
 # RobotDog Studio 单片机课程框架架构说明
 
-更新日期：2026-08-07
+更新日期：2026-08-10
 
 状态：课程框架与代码优先工作台首个可用版本
 
 关联计划：[单片机入门版课程框架详细实施计划](./mcu-course-framework-implementation-plan.md) · [代码优先工作台改造计划](./mcu-code-first-workbench-redesign-plan.md) · [课程讲义系统实施计划](./mcu-lecture-system-implementation-plan.md)
 
-课程知识层采用 Main 单一解析的 Lecture v1：课程目录和 Lesson 不预载正文，指定课次按需解析为 Safe Lecture Model，再供 Renderer 与 AI 共同消费。Renderer 不接收原始 Markdown；图片通过文档摘要绑定的不透明 Asset ID 获取。课程 v3 对 v2 已发布课次是经过语义快照校验的纯增量兼容升级，最新版讲义不改变旧 Workspace 的任务和进度语义。
+课程知识层采用 Main 单一解析的 Lecture v1：课程目录和 Lesson 不预载正文，指定课次按需解析为 Safe Lecture Model，再供 Renderer 与 AI 共同消费。Renderer 不接收原始 Markdown；图片通过文档摘要绑定的不透明 Asset ID 获取。v4 起正式讲义学习和实验进度是两套独立事实，最新版讲义不改变旧 Workspace 的任务和进度语义。
+
+```text
+Lesson
+├── Learning
+│   ├── Lecture（H2 为完成单元）
+│   └── LessonLearningProgress
+└── Lab
+    ├── Workspace Template
+    ├── Experiment Steps
+    └── CourseProgress
+```
+
+`learningCompatibleFrom` 只声明讲义学习进度兼容；`progressCompatibleFrom` 只声明实验 Contract 兼容。v4 首次引入独立学习进度，因此其 `learningCompatibleFrom` 为空。v3 中明确完成的 `read + lectureSectionId` 只可作为一次性、逐 Section 的种子证据，不能推断整篇讲义已完成。
 
 ## 1. 当前实施范围
 
@@ -36,6 +49,8 @@ flowchart LR
   CourseService --> IPC["课程查询 / 练习 IPC"]
   WorkspaceService --> IPC
   Operations["候选预检 / 固件 / 烧录"] --> Progress["CourseProgressStore"]
+  CourseService --> Learning["LessonLearningProgressStore"]
+  Learning --> IPC
   Progress --> IPC
   Progress --> Context
   IPC --> Preload["contextBridge API"]
@@ -65,6 +80,8 @@ flowchart LR
 - 只记录应用过修改的教学文件路径，不绑定 Git commit 或产物哈希；代码应用或撤销后把受影响操作标为 `stale`；
 - 通过 `questionId` 和观察步骤 `stepId` 精确关联步骤与完成条件。
 
+`LessonLearningProgressStore` 只负责正式 Lecture 的开始、顶层 H2 完成与整课完成事实。阅读位置属于 Renderer 轻量 UI 状态，不使用强持久化。相同 `contentVersion` 下 `documentDigest` 变化会被标记为资源一致性异常；只有提升版本且在 `learningCompatibleFrom` 中显式声明，才迁移仍存在的 Section ID。
+
 首期不缓存课程，不建设旧版本运行时、内容哈希锁、规则引擎或学习证据系统。课程规模较小，启动时按需读取 JSON 更容易调试和维护。
 
 ### Preload 与 IPC
@@ -79,23 +96,27 @@ listLessonAttempts(courseId, lessonId)
 createLessonAttempt({ courseId, lessonId, studentDisplayName })
 getCourseProgress(workspaceId)
 updateCourseProgress({ workspaceId, ...受限更新 })
+getLessonLearningProgress(courseId, lessonId)
+updateLessonLearningProgress(courseId, lessonId, { sectionId, completed })
 ```
 
 课程 IPC 只在 `mcu-foundations` 注册。ID 由 Main 再校验；资源路径始终由 catalog 和 Main 推导。
 
 ### Renderer
 
-单片机版无项目时默认显示课程中心；课程练习进入工程树、代码编辑器和右侧课程工具组成的代码优先工作台。课程中心负责浏览和进入练习：
+单片机版由 `McuView` 唯一决定首页、课程中心、Lesson 学习页和 Workspace。课程、课次和 Workspace 对象只按其中 ID 加载，不反向决定页面。首页提供“课程学习”和“自由练习”两个入口；最近使用只是指向 Lesson 或 Workspace 的去重 deep link。
+
+课程中心负责“选学什么”，Lesson 页负责“学知识”，Lab Workspace 负责“做实验”：
 
 - 课程身份、受众、目标平台和课次数量；
 - 有序课次、预计时间和硬件要求；
-- 当前课次目标、步骤和待验证硬件警告；
-- 已发布无硬件课的开始学习、继续上次、新建练习和尝试记录；
+- 当前课次目标、讲义/实验规模和待验证硬件警告；
+- 已发布课程的正式学习入口；
 - 待硬件检查课不可点击的开始学习入口。
 
 右侧课程工具展示当前一步、完成比例、问题回答、人工观察和折叠的固定完成条件。步骤通过受校验的 `fileTarget` 直接定位文件和行号；这些数据用于继续学习，不是考试或审计证据。
 
-进入课次工程后，由左侧工程树和中央编辑器组成的代码主区持续存在，右侧只保留“课程”“构建与运行”“AI 助教”三个工具。设置由顶栏打开，工具和面板宽度轻量持久化。
+进入课次工程后，由左侧工程树和中央编辑器组成的代码主区持续存在，右侧只保留“实验任务”“构建与运行”“AI 助教”三个工具。实验中的既有 `read` 表示阅读/检查工程资源，使用普通步骤确认；`lectureSectionId` 只提供“相关知识”引用。正式讲义完成状态不再由 Workspace 更新。设置由顶栏打开，工具和面板宽度轻量持久化。
 
 原修改确认、烧录和程序资源不再成为独立页面：候选 Diff 在代码主区显示；修改确认、候选预检、完整构建、Flash/RAM 摘要和烧录按可信状态在“构建与运行”中逐步出现。默认界面只突出当前问题和唯一主动作，工具链组件、输出路径、产物哈希及完整日志进入设置或技术详情。设置由顶栏打开全局对话框，不占用学习工具位置。
 

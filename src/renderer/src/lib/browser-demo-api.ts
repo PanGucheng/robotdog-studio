@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LogEntry, ProjectExplorerNode, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, ProjectExplorerNode, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 import { EDITION_PROFILES } from '../../../shared/edition'
 import demoCourseResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/course.json'
 import firstLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/studio-first-build.json'
@@ -10,7 +10,7 @@ const browserEditionId = typeof window !== 'undefined' && new URLSearchParams(wi
   : 'fun-line-following'
 
 const demoLessons: CourseLesson[] = [firstLessonResource, secondLessonResource, hardwareLessonResource]
-  .map((lesson, order) => ({ ...lesson, contentVersion: demoCourseResource.contentVersion, progressCompatibleFrom: demoCourseResource.progressCompatibleFrom ?? [], order }) as unknown as CourseLesson)
+  .map((lesson, order) => ({ ...lesson, contentVersion: demoCourseResource.contentVersion, progressCompatibleFrom: demoCourseResource.progressCompatibleFrom ?? [], learningCompatibleFrom: demoCourseResource.learningCompatibleFrom ?? [], order }) as unknown as CourseLesson)
 
 const demoCourse: CourseDetail = {
   ...(demoCourseResource as unknown as Omit<CourseDetail, 'lessonCount' | 'lessons'>),
@@ -63,6 +63,8 @@ const demoHistories = new Map<string, WorkspaceHistoryEntry[]>(demoWorkspaces[0]
   ? [[demoWorkspaces[0].id, [{ commit: demoWorkspaces[0].headCommit, shortCommit: '86d826a', message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }]]]
   : [])
 const demoProgress = new Map<string, CourseProgressSnapshot>()
+const demoLearningProgress = new Map<string, LessonLearningProgress>()
+let demoRecentActivity: McuRecentActivity[] = []
 
 function getDemoLessonProgress(workspaceId: string): { workspace: WorkspaceSummary; lesson: CourseLesson; progress: CourseProgressSnapshot } {
   const workspace = demoWorkspaces.find((item) => item.id === workspaceId)
@@ -293,14 +295,48 @@ export const browserDemoApi: RobotDogApi = {
     return document ? { status: 'ready', document: structuredClone(document) } : { status: 'missing' }
   },
   getCourseLectureAsset: async () => { throw new Error('浏览器演示没有讲义图片资源') },
-  askCourseLecture: async (workspaceId, request) => {
+  askCourseLecture: async (input) => {
     if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')
-    const turn: AgentTurnSnapshot = { turnId: `turn_lecture_${Date.now()}`, workspaceId, state: 'preparing', message: '询问选中的讲义内容', startedAt: new Date().toISOString() }
+    const lectureScope = { courseId: input.courseId, lessonId: input.lessonId, contentVersion: input.contentVersion, documentDigest: input.documentDigest, ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}) }
+    const turn: AgentTurnSnapshot = { turnId: `turn_lecture_${Date.now()}`, workspaceId: input.workspaceId, lectureScope, state: 'preparing', message: '询问选中的讲义内容', startedAt: new Date().toISOString() }
     browserAgentTurn = turn
-    emitBrowserAgent(turn, 1, { type: 'turn_started', workspaceId, message: turn.message })
-    setTimeout(() => emitBrowserAgent(turn, 2, { type: 'assistant_delta', text: `你选中的讲义强调了当前概念之间的关系。针对“${request.question.slice(0, 40)}”，建议先回到对应代码定位声明、定义或调用位置，再用一次编译结果验证理解。` }), 120)
+    emitBrowserAgent(turn, 1, { type: 'turn_started', workspaceId: input.workspaceId, lectureScope, message: turn.message })
+    setTimeout(() => emitBrowserAgent(turn, 2, { type: 'assistant_delta', text: `你选中的讲义强调了当前概念之间的关系。针对“${input.request.question.slice(0, 40)}”，建议先回到对应代码定位声明、定义或调用位置，再用一次编译结果验证理解。` }), 120)
     setTimeout(() => { emitBrowserAgent(turn, 3, { type: 'completed', state: 'no_changes', message: '讲义解释完成，项目没有被 AI 修改。' }); browserAgentTurn = undefined }, 260)
     return { ...turn }
+  },
+  listCourseLectureHistory: async () => [],
+  getLessonLearningProgress: async (courseId, lessonId) => {
+    const key = `${courseId}:${lessonId}`
+    const lecture = demoLectures.get(lessonId)
+    if (!lecture) throw new Error('讲义不存在')
+    let progress = demoLearningProgress.get(key)
+    if (!progress) {
+      const now = new Date().toISOString()
+      progress = { schemaVersion: 1, courseId, lessonId, contentVersion: lecture.contentVersion, documentDigest: lecture.documentDigest, completedSectionIds: [], startedAt: now, updatedAt: now }
+      demoLearningProgress.set(key, progress)
+    }
+    return structuredClone(progress)
+  },
+  listLessonLearningProgress: async (courseId) => [...demoLearningProgress.values()].filter((item) => !courseId || item.courseId === courseId).map((item) => structuredClone(item)),
+  updateLessonLearningProgress: async (courseId, lessonId, update) => {
+    const current = await browserDemoApi.getLessonLearningProgress(courseId, lessonId)
+    const lecture = demoLectures.get(lessonId)!
+    const units = lecture.sections.filter((section) => section.level === 2).map((section) => section.sectionId)
+    const completed = new Set(current.completedSectionIds)
+    if (update.completed) completed.add(update.sectionId); else completed.delete(update.sectionId)
+    const now = new Date().toISOString()
+    const completedSectionIds = units.filter((sectionId) => completed.has(sectionId))
+    const next: LessonLearningProgress = { ...current, completedSectionIds, updatedAt: now, completedAt: completedSectionIds.length === units.length ? current.completedAt ?? now : undefined }
+    demoLearningProgress.set(`${courseId}:${lessonId}`, next)
+    return structuredClone(next)
+  },
+  listMcuRecentActivity: async () => structuredClone(demoRecentActivity),
+  recordMcuRecentActivity: async (activity) => {
+    const next = { ...activity, openedAt: new Date().toISOString() } as McuRecentActivity
+    const key = next.kind === 'lesson' ? `lesson:${next.courseId}:${next.lessonId}` : `workspace:${next.workspaceId}`
+    demoRecentActivity = [next, ...demoRecentActivity.filter((item) => (item.kind === 'lesson' ? `lesson:${item.courseId}:${item.lessonId}` : `workspace:${item.workspaceId}`) !== key)].slice(0, 50)
+    return structuredClone(demoRecentActivity)
   },
   openExternalUrl: async () => true,
   listLessonAttempts: async (courseId, lessonId) => structuredClone(demoWorkspaces.filter((workspace) => workspace.courseBinding?.courseId === courseId && workspace.courseBinding.lessonId === lessonId)),
@@ -329,7 +365,7 @@ export const browserDemoApi: RobotDogApi = {
   updateCourseProgress: async (workspaceId, input: CourseProgressUpdate) => {
     const { lesson, progress } = getDemoLessonProgress(workspaceId)
     const now = new Date().toISOString()
-    if (input.kind === 'step' || input.kind === 'lecture-read') {
+    if (input.kind === 'step') {
       if (!lesson.steps.some((step) => step.stepId === input.stepId)) throw new Error('步骤不存在')
       progress.steps = progress.steps.map((step) => step.stepId === input.stepId ? { stepId: step.stepId, completed: input.completed, completedAt: input.completed ? now : undefined } : step)
     } else if (input.kind === 'answer') {

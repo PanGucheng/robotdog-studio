@@ -62,6 +62,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | undefined>(undefined)
   const monacoRef = useRef<Monaco | undefined>(undefined)
   const explorerContentCache = useRef(new Map<string, string>())
+  const pendingDraftRef = useRef<{ candidateId?: string; path?: string; content: string; dirty: boolean; editable: boolean }>({ content: '', dirty: false, editable: false })
   const selectedNode = explorer?.nodes.find((node) => node.kind === 'file' && node.displayPath === selectedPath)
   const listedSelected = files.find((file) => file.path === selectedPath)
   const selected = listedSelected ?? (selectedNode ? {
@@ -76,6 +77,13 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   const diagnosticCards = useMemo(() => buildStudentDiagnosticCards(buildDiagnostics), [buildDiagnostics])
   const keyDiagnostics = diagnosticCards.slice(0, 3)
   const fileGroups = useMemo(() => getStudentFileGroups(files), [files])
+  pendingDraftRef.current = { candidateId: manualCandidate?.id, path: selected?.path, content, dirty, editable: Boolean(selected?.editable) }
+
+  useEffect(() => () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    const pending = pendingDraftRef.current
+    if (pending.dirty && pending.editable && pending.candidateId && pending.path) void api.writeManualDraft(pending.candidateId, pending.path, pending.content)
+  }, [api])
 
   useEffect(() => {
     if (!workspace) { setFiles([]); setExplorer(undefined); setContent(''); return }

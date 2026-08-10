@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, Settings2, ShieldAlert, X } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
+import { ChevronLeft, CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, Settings2, ShieldAlert, X } from 'lucide-react'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
@@ -12,6 +12,7 @@ import { LearningCenter, type LearningDestination } from './components/LearningC
 import { DisplaySettings } from './components/DisplaySettings'
 import { toStudentErrorMessage } from './lib/student-errors'
 import { EDITION_PROFILES, type AppEditionProfile } from '../../shared/edition'
+import type { McuView } from './components/mcu-navigation'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -75,6 +76,7 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string>()
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>()
+  const [mcuView, setMcuView] = useState<McuView>({ kind: 'home', panel: 'landing' })
   const [agentEventsByWorkspace, setAgentEventsByWorkspace] = useState<Record<string, AgentEvent[]>>({})
   const [agentTurn, setAgentTurn] = useState<AgentTurnSnapshot>()
   const [candidate, setCandidate] = useState<CandidateSnapshot>()
@@ -93,6 +95,8 @@ export function App(): React.JSX.Element {
   const [workspaceLesson, setWorkspaceLesson] = useState<CourseLesson>()
   const [courseProgress, setCourseProgress] = useState<CourseProgressSnapshot>()
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([])
+  const [lessonLearningProgress, setLessonLearningProgress] = useState<LessonLearningProgress[]>([])
+  const [mcuRecentActivity, setMcuRecentActivity] = useState<McuRecentActivity[]>([])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
   const seenAgentEvents = useRef(new Set<string>())
@@ -136,6 +140,14 @@ export function App(): React.JSX.Element {
   }, [api, edition.id])
 
   useEffect(() => {
+    if (edition.id !== 'mcu-foundations') { setLessonLearningProgress([]); setMcuRecentActivity([]); return }
+    void Promise.all([api.listLessonLearningProgress(), api.listMcuRecentActivity()]).then(([learning, recent]) => {
+      setLessonLearningProgress(learning)
+      setMcuRecentActivity(recent)
+    }).catch((caught) => setError(toStudentErrorMessage(caught)))
+  }, [api, edition.id])
+
+  useEffect(() => {
     void api.getEditionProfile().then(setEdition).catch((caught) => setError(toStudentErrorMessage(caught)))
     void api.getStatus().then(setStatus)
     void api.getToolchainStatus().then(setToolchain).catch((caught) => {
@@ -155,7 +167,7 @@ export function App(): React.JSX.Element {
           for (const [workspaceId, history] of histories) {
             for (const event of history) {
               seenAgentEvents.current.add(event.eventId)
-              if (event.type === 'turn_started') turnWorkspaces.current.set(event.turnId, event.workspaceId)
+              if (event.type === 'turn_started' && event.workspaceId) turnWorkspaces.current.set(event.turnId, event.workspaceId)
             }
             const live = next[workspaceId] ?? []
             const liveIds = new Set(live.map((event) => event.eventId))
@@ -169,7 +181,10 @@ export function App(): React.JSX.Element {
     const offCcd = api.onCcd(setFrame)
     const offLog = api.onLog((entry) => setLogs((current) => [...current.slice(-49), entry]))
     const offBuild = api.onFirmwareBuild((event) => {
-      if ('snapshot' in event) setBuild(event.snapshot)
+      if ('snapshot' in event) {
+        setBuild(event.snapshot)
+        if (['completed', 'failed', 'cancelled'].includes(event.snapshot.state) && event.snapshot.workspaceId) void refreshCourseProgress(event.snapshot.workspaceId)
+      }
     })
     const offConnection = api.onDeviceConnection(setConnection)
     const offUpdate = api.onFirmwareUpdate((event) => setFirmwareUpdate(event.snapshot))
@@ -177,7 +192,7 @@ export function App(): React.JSX.Element {
     const offWchLink = api.onWchLinkFlash((event) => setWchLink(event.snapshot))
     const offWorkspace = api.onWorkspaceChanged((workspace) => {
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
-      setActiveWorkspaceId(workspace.id)
+      if (workspace.learningPath !== 'mcu-foundations') setActiveWorkspaceId(workspace.id)
     })
     const offCandidate = api.onCandidateChanged((nextCandidate) => {
       setCandidate(nextCandidate)
@@ -186,7 +201,7 @@ export function App(): React.JSX.Element {
     const offAgent = api.onAgentEvent((event) => {
       if (seenAgentEvents.current.has(event.eventId)) return
       seenAgentEvents.current.add(event.eventId)
-      if (event.type === 'turn_started') turnWorkspaces.current.set(event.turnId, event.workspaceId)
+      if (event.type === 'turn_started' && event.workspaceId) turnWorkspaces.current.set(event.turnId, event.workspaceId)
       const workspaceId = event.type === 'turn_started' ? event.workspaceId : turnWorkspaces.current.get(event.turnId)
       if (workspaceId) setAgentEventsByWorkspace((current) => ({ ...current, [workspaceId]: compactAgentEvents([...(current[workspaceId] ?? []), event]) }))
       if (event.type === 'candidate_ready') setCandidate(event.candidate)
@@ -236,24 +251,24 @@ export function App(): React.JSX.Element {
   const capture = (): void => { void run(() => api.captureCcd()) }
   const action = (value: RobotAction): void => { void run(() => api.runAction(value)) }
   const buildFirmware = (): void => { void run(async () => {
-    if (!activeWorkspaceId) throw new Error('请先新建一个学生对话')
-    setBuild(await api.startFirmwareBuild(activeWorkspaceId))
-    await refreshCourseProgress(activeWorkspaceId)
+    if (!currentWorkspaceId) throw new Error('请先新建一个学生对话')
+    setBuild(await api.startFirmwareBuild(currentWorkspaceId))
+    await refreshCourseProgress(currentWorkspaceId)
   }) }
   const cancelBuild = (): void => { void run(async () => { setBuild(await api.cancelFirmwareBuild()) }) }
   const toggleUsb = (): void => { void run(async () => { setConnection(await api.setDemoUsbConnected(connection.updatePort.state === 'disconnected')) }) }
   const startUpdate = (): void => { void run(async () => {
-    if (!activeWorkspaceId) throw new Error('请先选择学生对话')
-    setFirmwareUpdate(await api.startFirmwareUpdate(activeWorkspaceId))
+    if (!currentWorkspaceId) throw new Error('请先选择学生对话')
+    setFirmwareUpdate(await api.startFirmwareUpdate(currentWorkspaceId))
   }) }
   const cancelUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.cancelFirmwareUpdate()) }) }
   const startRecovery = (): void => { void run(async () => { setRecovery(await api.startRecovery()) }) }
   const cancelRecovery = (): void => { void run(async () => { setRecovery(await api.cancelRecovery()) }) }
   const probeWchLink = (): void => { void run(async () => { setWchLink(await api.probeWchLink()) }) }
   const flashWchLink = (): void => { void run(async () => {
-    if (!activeWorkspaceId) throw new Error('请先选择学生对话')
-    setWchLink(await api.flashWchLink(activeWorkspaceId))
-    await refreshCourseProgress(activeWorkspaceId)
+    if (!currentWorkspaceId) throw new Error('请先选择学生对话')
+    setWchLink(await api.flashWchLink(currentWorkspaceId))
+    await refreshCourseProgress(currentWorkspaceId)
   }) }
   const cancelWchLink = (): void => { void run(async () => { setWchLink(await api.cancelWchLink()) }) }
   const createWorkspace = (): void => {
@@ -261,6 +276,7 @@ export function App(): React.JSX.Element {
       const workspace = await api.createWorkspace({ studentDisplayName: activeWorkspace?.studentDisplayName ?? (edition.id === 'fun-line-following' ? '林同学' : '学习者') })
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setActiveWorkspaceId(workspace.id)
+      if (edition.id === 'mcu-foundations') openMcuView({ kind: 'workspace', workspaceId: workspace.id })
     })
   }
   const renameWorkspace = (): void => {
@@ -272,12 +288,39 @@ export function App(): React.JSX.Element {
       setWorkspaces((current) => current.map((workspace) => workspace.id === updated.id ? updated : workspace))
     })
   }
-  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+  const currentWorkspaceId = edition.id === 'mcu-foundations' ? (mcuView.kind === 'workspace' ? mcuView.workspaceId : undefined) : activeWorkspaceId
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === currentWorkspaceId)
+  const openMcuView = (next: McuView): void => {
+    if (mcuView.kind === 'workspace' && (next.kind !== 'workspace' || next.workspaceId !== mcuView.workspaceId)) {
+      const updateActive = !['idle', 'completed', 'failed', 'cancelled'].includes(firmwareUpdate.state)
+      const recoveryActive = !['idle', 'completed', 'failed', 'cancelled'].includes(recovery.state)
+      const wchWriteActive = ['flashing', 'verifying', 'resetting'].includes(wchLink.state)
+      if (updateActive || recoveryActive || wchWriteActive) {
+        setError(updateActive ? '程序正在写入开发板，请等待完成或取消后再离开工程。' : recoveryActive ? '教师恢复正在进行，请等待完成或取消后再离开工程。' : 'WCH-Link 正在写入或校验，请等待完成或取消后再离开工程。')
+        return
+      }
+    }
+    setError(undefined)
+    setMcuView(next)
+    const lessonTarget = next.kind === 'lesson' || (next.kind === 'course-center' && next.lessonId)
+      ? { courseId: next.courseId ?? course?.courseId, lessonId: next.lessonId }
+      : undefined
+    if (lessonTarget?.courseId && lessonTarget.lessonId && (courseLesson?.courseId !== lessonTarget.courseId || courseLesson.lessonId !== lessonTarget.lessonId)) {
+      setCourseLoading(true)
+      void api.getCourseLesson(lessonTarget.courseId, lessonTarget.lessonId).then(setCourseLesson).catch((caught) => setCourseError(toStudentErrorMessage(caught))).finally(() => setCourseLoading(false))
+    }
+    if (next.kind === 'workspace') {
+      setActiveWorkspaceId(next.workspaceId)
+      void api.recordMcuRecentActivity({ kind: 'workspace', workspaceId: next.workspaceId }).then(setMcuRecentActivity).catch(() => undefined)
+    } else if (next.kind === 'lesson') {
+      void api.recordMcuRecentActivity({ kind: 'lesson', courseId: next.courseId, lessonId: next.lessonId }).then(setMcuRecentActivity).catch(() => undefined)
+    }
+  }
   const courseAttempts = courseLesson ? workspaces
     .filter((workspace) => workspace.courseBinding?.courseId === courseLesson.courseId && workspace.courseBinding.lessonId === courseLesson.lessonId)
     .sort((left, right) => (right.courseBinding?.attemptNumber ?? 0) - (left.courseBinding?.attemptNumber ?? 0)) : []
   const activeCandidateId = activeWorkspace?.activeCandidateId
-  const agentEvents = activeWorkspaceId ? agentEventsByWorkspace[activeWorkspaceId] ?? [] : []
+  const agentEvents = currentWorkspaceId ? agentEventsByWorkspace[currentWorkspaceId] ?? [] : []
   const diagnosticHelp = useMemo(() => buildDiagnosticHelp(agentEvents, candidate?.id), [agentEvents, candidate?.id])
   const navigateFromLearning = (destination: LearningDestination): void => {
     setLearningDestination(destination)
@@ -306,12 +349,13 @@ export function App(): React.JSX.Element {
       })
       setWorkspaces((current) => [created!, ...current.filter((item) => item.id !== created!.id)])
       setActiveWorkspaceId(created.id)
+      openMcuView({ kind: 'workspace', workspaceId: created.id })
     })
     return Boolean(created)
   }
-  const continueCourseAttempt = (workspaceId: string): void => setActiveWorkspaceId(workspaceId)
+  const continueCourseAttempt = (workspaceId: string): void => openMcuView({ kind: 'workspace', workspaceId })
 
-  async function refreshCourseProgress(workspaceId = activeWorkspaceId): Promise<void> {
+  async function refreshCourseProgress(workspaceId = currentWorkspaceId): Promise<void> {
     if (!workspaceId) return
     const workspace = workspaces.find((item) => item.id === workspaceId)
     if (workspace?.workspacePurpose !== 'mcu-lesson-attempt') return
@@ -337,9 +381,9 @@ export function App(): React.JSX.Element {
   }, [api, activeWorkspace?.id])
 
   const updateCourseProgress = async (update: CourseProgressUpdate): Promise<void> => {
-    if (!activeWorkspaceId) return
+    if (!currentWorkspaceId) return
     try {
-      const progress = await api.updateCourseProgress(activeWorkspaceId, update)
+      const progress = await api.updateCourseProgress(currentWorkspaceId, update)
       setCourseProgress(progress)
       setCompletedLessonIds((current) => progress.state === 'completed' ? current.includes(progress.lessonId) ? current : [...current, progress.lessonId] : current.filter((lessonId) => lessonId !== progress.lessonId))
     }
@@ -362,9 +406,9 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let disposed = false
-    if (!activeWorkspaceId) { setCandidate(undefined); return }
+    if (!currentWorkspaceId) { setCandidate(undefined); return }
     if (!activeCandidateId) {
-      setCandidate((current) => current?.workspaceId === activeWorkspaceId ? current : undefined)
+      setCandidate((current) => current?.workspaceId === currentWorkspaceId ? current : undefined)
       return
     }
     void api.getCandidate(activeCandidateId).then((recovered) => {
@@ -373,24 +417,24 @@ export function App(): React.JSX.Element {
       if (!disposed) setError(toStudentErrorMessage(caught))
     })
     return () => { disposed = true }
-  }, [api, activeCandidateId, activeWorkspaceId])
+  }, [api, activeCandidateId, currentWorkspaceId])
 
   useEffect(() => {
     let disposed = false
-    if (!activeWorkspaceId) { setWorkspaceHistory([]); return }
-    void api.getWorkspaceHistory(activeWorkspaceId, 20).then((history) => {
+    if (!currentWorkspaceId) { setWorkspaceHistory([]); return }
+    void api.getWorkspaceHistory(currentWorkspaceId, 20).then((history) => {
       if (!disposed) setWorkspaceHistory(history)
     }).catch((caught) => {
       if (!disposed) setError(toStudentErrorMessage(caught))
     })
     return () => { disposed = true }
-  }, [api, activeWorkspace?.headCommit, activeWorkspaceId])
+  }, [api, activeWorkspace?.headCommit, currentWorkspaceId])
 
   useEffect(() => {
     let disposed = false
     setCandidateDiff(undefined)
     setCandidateDiffError(undefined)
-    if (!candidate || candidate.workspaceId !== activeWorkspaceId || !['review_ready', 'building', 'build_passed', 'awaiting_apply'].includes(candidate.state)) {
+    if (!candidate || candidate.workspaceId !== currentWorkspaceId || !['review_ready', 'building', 'build_passed', 'awaiting_apply'].includes(candidate.state)) {
       setCandidateDiffLoading(false)
       return
     }
@@ -403,7 +447,7 @@ export function App(): React.JSX.Element {
       if (!disposed) setCandidateDiffLoading(false)
     })
     return () => { disposed = true }
-  }, [api, activeWorkspaceId, candidate?.id, candidate?.diffHash, candidate?.state, candidate?.workspaceId])
+  }, [api, currentWorkspaceId, candidate?.id, candidate?.diffHash, candidate?.state, candidate?.workspaceId])
 
   const promptAgent = (message: string): void => {
     if (!activeWorkspace) return
@@ -446,12 +490,12 @@ export function App(): React.JSX.Element {
     })
   }
   const undoWorkspace = (): void => {
-    if (!activeWorkspaceId) return
+    if (!currentWorkspaceId) return
     void run(async () => {
-      const workspace = await api.undoWorkspace(activeWorkspaceId)
+      const workspace = await api.undoWorkspace(currentWorkspaceId)
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
-      setWorkspaceHistory(await api.getWorkspaceHistory(activeWorkspaceId, 20))
-      await refreshCourseProgress(activeWorkspaceId)
+      setWorkspaceHistory(await api.getWorkspaceHistory(currentWorkspaceId, 20))
+      await refreshCourseProgress(currentWorkspaceId)
     })
   }
 
@@ -467,7 +511,7 @@ export function App(): React.JSX.Element {
           </div>
         </div>
 
-        {edition.id === 'fun-line-following' ? <PipelineRail connected={connected} buildState={build.state} updateState={firmwareUpdate.state} /> : <div className="mcu-top-status"><span className={candidate ? 'is-active' : ''} />{candidate ? '修改待处理' : build.state === 'running' ? '正在生成程序' : build.state === 'completed' ? '程序已生成' : '代码工作台'}</div>}
+        {edition.id === 'fun-line-following' ? <PipelineRail connected={connected} buildState={build.state} updateState={firmwareUpdate.state} /> : <div className="mcu-top-status"><span className={candidate || agentTurn || build.state === 'running' ? 'is-active' : ''} />{!['idle', 'completed', 'failed', 'cancelled'].includes(firmwareUpdate.state) ? '正在写入程序' : ['flashing', 'verifying', 'resetting'].includes(wchLink.state) ? 'WCH-Link 正在工作' : agentTurn ? 'AI 助教正在回答' : build.state === 'running' ? '正在生成程序' : candidate ? '修改待处理' : build.state === 'completed' ? '程序已生成' : mcuView.kind === 'workspace' ? '代码工作台' : '学习模式'}</div>}
 
         <div className="topbar-actions">
           <div className={`connection-pill ${connected ? 'is-connected' : ''}`}>
@@ -484,16 +528,19 @@ export function App(): React.JSX.Element {
         </div>
       </header>
 
-      <div className="context-bar">
-        <span className="workspace-picker"><GraduationCap size={15} />
+      <div className={`context-bar ${edition.id === 'mcu-foundations' && mcuView.kind !== 'workspace' ? 'is-learning-context' : ''}`}>
+        {(edition.id !== 'mcu-foundations' || mcuView.kind === 'workspace') && <span className="workspace-picker">
+          {edition.id === 'mcu-foundations' && activeWorkspace && <button type="button" onClick={() => activeWorkspace.courseBinding ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId }) : openMcuView({ kind: 'home', panel: 'free-practice' })}><ChevronLeft size={13} /> {activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</button>}
+          <GraduationCap size={15} />
           {workspaces.length > 0 ? (
-            <select aria-label="当前项目" value={activeWorkspaceId} onChange={(event) => setActiveWorkspaceId(event.target.value)}>
+            <select aria-label="当前项目" value={currentWorkspaceId} onChange={(event) => edition.id === 'mcu-foundations' ? openMcuView({ kind: 'workspace', workspaceId: event.target.value }) : setActiveWorkspaceId(event.target.value)}>
               {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}</option>)}
             </select>
           ) : <strong>还没有项目</strong>}
           {activeWorkspace && <button type="button" onClick={renameWorkspace} disabled={busy} title="修改当前项目名称"><Pencil size={13} /> 重命名</button>}
-          <button type="button" onClick={createWorkspace} disabled={busy} title="从当前版本模板创建独立项目"><Plus size={13} /> 新建项目</button>
-        </span>
+          {edition.id !== 'mcu-foundations' && <button type="button" onClick={createWorkspace} disabled={busy} title="从当前版本模板创建独立项目"><Plus size={13} /> 新建项目</button>}
+        </span>}
+        {edition.id === 'mcu-foundations' && mcuView.kind !== 'workspace' && <span className="mcu-learning-context"><GraduationCap size={15} /> {mcuView.kind === 'home' ? '学习大厅' : mcuView.kind === 'course-center' ? '课程中心' : courseLesson?.title ?? '课程学习'}</span>}
         <span className={`edition-tag edition-${edition.id}`}>{edition.shortName}</span>
         {activeWorkspace && <span className="checkpoint-tag">存档 {activeWorkspace.headCommit.slice(0, 7)}</span>}
         <span>固件：{status.firmware}</span>
@@ -517,7 +564,7 @@ export function App(): React.JSX.Element {
           teacherMode={teacherMode}
           edition={edition}
           busy={busy || Boolean(agentTurn)}
-          candidate={candidate?.workspaceId === activeWorkspaceId ? candidate : undefined}
+          candidate={candidate?.workspaceId === currentWorkspaceId ? candidate : undefined}
           workspace={activeWorkspace}
           candidateDiff={candidateDiff}
           candidateDiffLoading={candidateDiffLoading}
@@ -564,6 +611,13 @@ export function App(): React.JSX.Element {
           onAgentCancel={cancelAgent}
           onAgentPermission={respondAgentPermission}
           onOpenSettings={() => setSettingsOpen(true)}
+          mcuView={mcuView}
+          onMcuNavigate={openMcuView}
+          onCreateMcuWorkspace={createWorkspace}
+          lessonLearningProgress={lessonLearningProgress}
+          onLessonLearningProgressChanged={(progress) => setLessonLearningProgress((current) => [progress, ...current.filter((item) => item.courseId !== progress.courseId || item.lessonId !== progress.lessonId || item.contentVersion !== progress.contentVersion)])}
+          mcuRecentActivity={mcuRecentActivity}
+          mcuWorkspaces={workspaces}
         />
       </div>
 

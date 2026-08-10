@@ -18,11 +18,14 @@ import { WchLinkFlashService } from '../services/wch-link-flash-service'
 import { CourseService } from '../services/course-service'
 import { CourseProgressStore } from '../services/course-progress-store'
 import { ProjectExplorerService } from '../services/project-explorer-service'
+import { LessonLearningProgressStore, topLevelSectionIds } from '../services/lesson-learning-progress-store'
+import { McuRecentActivityStore } from '../services/mcu-recent-activity-store'
+import { CourseLectureHistoryService } from '../services/course-lecture-history-service'
 import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink = new WchLinkFlashService(toolchain, firmware), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink = new WchLinkFlashService(toolchain, firmware), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -48,8 +51,21 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
   const recoveryListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.recoveryEvent, payload)
   const wchLinkListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.wchLinkEvent, payload)
   const agentListener = (payload: unknown): void => {
-    if (agentHistory) void agentHistory.append(payload as import('../../shared/types').AgentEvent)
+    const event = payload as import('../../shared/types').AgentEvent
+    if (agentHistory) void agentHistory.append(event)
+    if (lectureHistory) void lectureHistory.append(event)
     sendToAll(IPC_CHANNELS.agentEvent, payload)
+  }
+
+  async function getLegacyLearningSeed(courseId: string, lessonId: string, lesson: Awaited<ReturnType<CourseService['getLesson']>>, document: import('../../shared/types').CourseLectureDocument): Promise<string[]> {
+    if (!workspaces || !courseProgress || lesson.contentVersion !== 4) return []
+    const attempts = (await workspaces.listLessonAttempts(courseId, lessonId)).filter((workspace) => workspace.courseBinding?.contentVersion === 3)
+    const evidence = new Set<string>()
+    for (const workspace of attempts) {
+      for (const sectionId of await courseProgress.getCompletedLegacyLectureSectionIds(workspace, lesson).catch(() => [])) evidence.add(sectionId)
+    }
+    const learningUnits = new Set(topLevelSectionIds(document))
+    return [...evidence].filter((sectionId) => learningUnits.has(sectionId))
   }
 
   async function getCourseProgressContext(workspaceId: string): Promise<{ workspace: Awaited<ReturnType<WorkspaceService['get']>>; lesson: Awaited<ReturnType<CourseService['getLesson']>>; files: string[] }> {
@@ -214,14 +230,55 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof courseId !== 'string' || typeof lessonId !== 'string' || typeof documentDigest !== 'string' || typeof assetId !== 'string') throw new Error('COURSE_LECTURE_ASSET_INPUT_INVALID')
       return courses.getLectureAsset(courseId, lessonId, documentDigest, assetId)
     })
-    if (agents && edition.id === 'mcu-foundations') ipcMain.handle(IPC_CHANNELS.courseLectureAsk, async (_event, workspaceId: unknown, request: unknown) => {
-      if (typeof workspaceId !== 'string' || !request || typeof request !== 'object') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
-      const value = request as import('../../shared/types').StudentLectureQuestionRequest
-      if (typeof value.question !== 'string' || !value.selection || typeof value.selection !== 'object') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
-      const context = await getCourseProgressContext(workspaceId)
-      const progress = courseProgress ? await courseProgress.get(context.workspace, context.lesson, context.files) : undefined
-      const rebuilt = await courses!.buildLectureQuestionContext(context.lesson.courseId, context.lesson.lessonId, value, progress)
-      return agents.explainCourseLecture(workspaceId, value.question, rebuilt.selectedText, rebuilt.trustedContext)
+    if (agents && edition.id === 'mcu-foundations') ipcMain.handle(IPC_CHANNELS.courseLectureAsk, async (_event, input: unknown) => {
+      if (!input || typeof input !== 'object') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
+      const value = input as import('../../shared/types').CourseLectureQuestionInput
+      if (typeof value.courseId !== 'string' || typeof value.lessonId !== 'string' || typeof value.contentVersion !== 'number' || typeof value.documentDigest !== 'string' || !value.request || typeof value.request.question !== 'string') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
+      const lesson = await courses!.getLesson(value.courseId, value.lessonId)
+      const lecture = await courses!.getLecture(value.courseId, value.lessonId)
+      if (lecture.status !== 'ready' || lecture.document.contentVersion !== value.contentVersion || lecture.document.documentDigest !== value.documentDigest) throw new Error('LECTURE_DOCUMENT_STALE')
+      let progress: import('../../shared/types').CourseProgressSnapshot | undefined
+      if (value.workspaceId) {
+        const context = await getCourseProgressContext(value.workspaceId)
+        if (context.lesson.courseId !== value.courseId || context.lesson.lessonId !== value.lessonId) throw new Error('COURSE_LECTURE_WORKSPACE_MISMATCH')
+        progress = courseProgress ? await courseProgress.get(context.workspace, context.lesson, context.files) : undefined
+      }
+      const rebuilt = await courses!.buildLectureQuestionContext(lesson.courseId, lesson.lessonId, value.request, progress)
+      return agents.explainCourseLecture({ courseId: value.courseId, lessonId: value.lessonId, contentVersion: value.contentVersion, documentDigest: value.documentDigest, ...(value.workspaceId ? { workspaceId: value.workspaceId } : {}) }, value.request.question, rebuilt.selectedText, rebuilt.trustedContext)
+    })
+    ipcMain.handle(IPC_CHANNELS.courseLectureHistoryList, async (_event, courseId: unknown, lessonId: unknown, includeOlder: unknown) => {
+      if (!lectureHistory || !courses || typeof courseId !== 'string' || typeof lessonId !== 'string' || (includeOlder !== undefined && typeof includeOlder !== 'boolean')) throw new Error('COURSE_LECTURE_HISTORY_INPUT_INVALID')
+      const lecture = await courses.getLecture(courseId, lessonId)
+      if (lecture.status !== 'ready') return []
+      return lectureHistory.list(courseId, lessonId, Boolean(includeOlder), { contentVersion: lecture.document.contentVersion, documentDigest: lecture.document.documentDigest })
+    })
+    ipcMain.handle(IPC_CHANNELS.lessonLearningProgressGet, async (_event, courseId: unknown, lessonId: unknown) => {
+      if (!lessonLearning || !courses || typeof courseId !== 'string' || typeof lessonId !== 'string') throw new Error('LESSON_LEARNING_PROGRESS_INPUT_INVALID')
+      const lesson = await courses.getLesson(courseId, lessonId)
+      const lecture = await courses.getLecture(courseId, lessonId)
+      if (lecture.status !== 'ready') throw new Error('LESSON_LEARNING_LECTURE_UNAVAILABLE')
+      const seed = await getLegacyLearningSeed(courseId, lessonId, lesson, lecture.document)
+      return lessonLearning.get(lesson, lecture.document, seed)
+    })
+    ipcMain.handle(IPC_CHANNELS.lessonLearningProgressList, (_event, courseId: unknown) => {
+      if (!lessonLearning || (courseId !== undefined && typeof courseId !== 'string')) throw new Error('LESSON_LEARNING_PROGRESS_INPUT_INVALID')
+      return lessonLearning.list(courseId as string | undefined)
+    })
+    ipcMain.handle(IPC_CHANNELS.lessonLearningProgressUpdate, async (_event, courseId: unknown, lessonId: unknown, update: unknown) => {
+      if (!lessonLearning || !courses || typeof courseId !== 'string' || typeof lessonId !== 'string' || !update || typeof update !== 'object') throw new Error('LESSON_LEARNING_PROGRESS_INPUT_INVALID')
+      const lesson = await courses.getLesson(courseId, lessonId)
+      const lecture = await courses.getLecture(courseId, lessonId)
+      if (lecture.status !== 'ready') throw new Error('LESSON_LEARNING_LECTURE_UNAVAILABLE')
+      await lessonLearning.get(lesson, lecture.document, await getLegacyLearningSeed(courseId, lessonId, lesson, lecture.document))
+      return lessonLearning.update(lesson, lecture.document, update as import('../../shared/types').LessonLearningProgressUpdate)
+    })
+    ipcMain.handle(IPC_CHANNELS.mcuRecentActivityList, () => {
+      if (!mcuRecentActivity) throw new Error('MCU_RECENT_ACTIVITY_UNAVAILABLE')
+      return mcuRecentActivity.list()
+    })
+    ipcMain.handle(IPC_CHANNELS.mcuRecentActivityRecord, (_event, activity: unknown) => {
+      if (!mcuRecentActivity || !activity || typeof activity !== 'object') throw new Error('MCU_RECENT_ACTIVITY_INVALID')
+      return mcuRecentActivity.record(activity as never)
     })
     ipcMain.handle(IPC_CHANNELS.externalUrlOpen, async (_event, input: unknown) => {
       if (typeof input !== 'string' || input.length > 2_000) throw new Error('EXTERNAL_URL_INVALID')
@@ -256,13 +313,6 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof workspaceId !== 'string' || !update || typeof update !== 'object') throw new Error('COURSE_PROGRESS_UPDATE_INVALID')
       if (!courseProgress || !courses) throw new Error('COURSE_PROGRESS_SERVICE_UNAVAILABLE')
       const context = await getCourseProgressContext(workspaceId)
-      if ((update as { kind?: unknown }).kind === 'lecture-read') {
-        const request = update as { sectionId?: unknown; lectureContentVersion?: unknown }
-        if (typeof request.sectionId !== 'string' || typeof request.lectureContentVersion !== 'number') throw new Error('COURSE_PROGRESS_LECTURE_INPUT_INVALID')
-        const lecture = await courses.getLecture(context.lesson.courseId, context.lesson.lessonId)
-        if (lecture.status !== 'ready') throw new Error('COURSE_PROGRESS_LECTURE_UNAVAILABLE')
-        if (lecture.document.contentVersion !== request.lectureContentVersion || !lecture.document.sections.some((section) => section.sectionId === request.sectionId)) throw new Error('COURSE_PROGRESS_LECTURE_SECTION_INVALID')
-      }
       return courseProgress.update(context.workspace, context.lesson, update as never, context.files)
     })
   }

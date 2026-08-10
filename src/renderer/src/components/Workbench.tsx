@@ -1,6 +1,6 @@
 import { Activity, BookOpenCheck, Cable, CheckSquare2, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { AgentEvent, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LogEntry, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
+import type { AgentEvent, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { RecoveryPanel } from './RecoveryPanel'
@@ -18,6 +18,7 @@ import { CourseCenter } from './CourseCenter'
 import { CourseTaskPage } from './CourseTaskPage'
 import type { WorkbenchRoute } from './workbench-routes'
 import { McuWorkbench } from './McuWorkbench'
+import type { McuView } from './mcu-navigation'
 
 export interface WorkbenchProps {
   frame: CcdFrame
@@ -80,6 +81,13 @@ export interface WorkbenchProps {
   onAgentCancel?(): void
   onAgentPermission?(requestId: string, optionId: string): void
   onOpenSettings?(): void
+  mcuView?: McuView
+  onMcuNavigate?(view: McuView): void
+  onCreateMcuWorkspace?(): void
+  lessonLearningProgress?: LessonLearningProgress[]
+  onLessonLearningProgressChanged?(progress: LessonLearningProgress): void
+  mcuRecentActivity?: McuRecentActivity[]
+  mcuWorkspaces?: WorkspaceSummary[]
 }
 
 const funTabs = [
@@ -137,7 +145,7 @@ export function Workbench(props: WorkbenchProps): React.JSX.Element {
         ))}
       </nav>
 
-      {activeTab === 'course-center' ? <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} attempts={courseAttempts} busy={busy} completedLessonIds={completedLessonIds} onSelectLesson={onSelectCourseLesson} onCreateLessonAttempt={async (lessonId) => { const created = await onCreateCourseAttempt(lessonId); if (created) setActiveTab('course-tasks'); return created }} onContinueAttempt={(workspaceId) => { onContinueCourseAttempt(workspaceId); setActiveTab('course-tasks') }} /> : activeTab === 'course-tasks' ? <CourseTaskPage workspace={workspace} lesson={workspaceLesson} progress={courseProgress} busy={busy} onUpdate={onUpdateCourseProgress} onNavigate={setActiveTab} /> : activeTab === 'code' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('review')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === 'review' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === 'settings' ? (
+      {activeTab === 'course-center' ? <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} completedLessonIds={completedLessonIds} onSelectLesson={onSelectCourseLesson} onOpenLesson={onSelectCourseLesson} /> : activeTab === 'course-tasks' ? <CourseTaskPage workspace={workspace} lesson={workspaceLesson} progress={courseProgress} busy={busy} onUpdate={onUpdateCourseProgress} onNavigate={setActiveTab} /> : activeTab === 'code' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('review')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === 'review' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === 'settings' ? (
         <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={onUiScaleChange} />
       ) : ['wch-link', 'flash'].includes(activeTab) ? (
         <WchLinkFlasherPanel

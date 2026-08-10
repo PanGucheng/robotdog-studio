@@ -96,23 +96,16 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
     setHighlightedStepId(stepId)
     setMode('tasks')
   }
-  const currentReadStep = currentVersion && activeSection
-    ? lesson.steps.find((step) => step.type === 'read' && step.lectureSectionId === activeSection.sectionId)
-    : undefined
-  const currentReadCompleted = currentReadStep ? progress.steps.find((step) => step.stepId === currentReadStep.stepId)?.completed : undefined
-
   return <div className={`mcu-course-tool ${mode === 'lecture' ? 'is-lecture-mode' : ''}`} style={{ '--lecture-font-size': `${lectureFontSize}px` } as CSSProperties}>
     <header className="mcu-tool-heading">
       <div><span className="eyebrow">第 {workspace.courseBinding?.attemptNumber} 次练习</span><h2>{lesson.title}</h2></div>
-      <button type="button" className="mcu-text-button" onClick={onBrowseCourses}>全部课程</button>
+      <button type="button" className="mcu-text-button" onClick={onBrowseCourses}>返回课程</button>
     </header>
 
     {!currentVersion && <div className="mcu-version-warning"><AlertTriangle size={15} /><span><strong>最新版讲义 · 仅供参考</strong>此练习基于课程 v{workspace.courseBinding?.contentVersion}，当前课程为 v{lesson.contentVersion}。讲义不会升级原任务和进度。</span></div>}
 
-    <div className="mcu-course-switch" role="tablist" aria-label="课程内容">
-      <button type="button" role="tab" aria-selected={mode === 'tasks'} className={mode === 'tasks' ? 'active' : ''} onClick={() => setMode('tasks')}><ListChecks size={14} /> 任务</button>
-      <button type="button" role="tab" aria-selected={mode === 'lecture'} className={mode === 'lecture' ? 'active' : ''} onClick={() => openLecture()}><BookOpen size={14} /> 讲义</button>
-    </div>
+    {mode === 'tasks' && lecture?.status === 'ready' && <button type="button" className="mcu-reference-open" onClick={() => openLecture()}><BookOpen size={14} /> 查看相关知识</button>}
+    {mode === 'lecture' && <button type="button" className="mcu-reference-back" onClick={() => setMode('tasks')}><ArrowLeft size={14} /> 返回实验任务</button>}
 
     {mode === 'tasks' ? <>
       <div className={`mcu-progress-line ${complete ? 'is-complete' : progress.state === 'needs-attention' ? 'needs-attention' : ''}`}>
@@ -141,9 +134,8 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
         <div>{lesson.steps.map((step, index) => {
           const item = progress.steps.find((entry) => entry.stepId === step.stepId)
           const automatic = automaticTypes.has(step.type)
-          const lectureControlled = currentVersion && step.type === 'read' && Boolean(step.lectureSectionId)
           return <article key={step.stepId} className={`${item?.completed ? 'is-complete' : ''} ${highlightedStepId === step.stepId ? 'is-highlighted' : ''}`}>
-            <button type="button" aria-label={`${item?.completed ? '取消完成' : '标记完成'}：${step.title}`} disabled={busy || automatic || lectureControlled} onClick={() => void onUpdate({ kind: 'step', stepId: step.stepId, completed: !item?.completed })}>{item?.completed ? <Check size={13} /> : <Circle size={13} />}</button>
+            <button type="button" aria-label={`${item?.completed ? '取消完成' : '标记完成'}：${step.title}`} disabled={busy || automatic} onClick={() => void onUpdate({ kind: 'step', stepId: step.stepId, completed: !item?.completed })}>{item?.completed ? <Check size={13} /> : <Circle size={13} />}</button>
             <span><small>{String(index + 1).padStart(2, '0')}</small><strong>{step.title}</strong></span>
             <span className="mcu-step-row-actions">{step.lectureSectionId && <button type="button" onClick={() => openLecture(step.lectureSectionId)} aria-label={`阅读相关讲义：${step.title}`}><BookOpen size={13} /></button>}{step.fileTarget && <button type="button" onClick={() => onOpenStep(step)} aria-label={`定位代码：${step.title}`}><FileCode2 size={13} /></button>}</span>
           </article>
@@ -174,11 +166,10 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
             : <div className="lecture-empty"><AlertTriangle size={22} /><strong>{lecture?.status === 'missing' ? '本课暂时没有讲义' : '当前讲义暂时无法加载'}</strong><p>课程任务、代码和构建仍可继续使用。{lecture?.status === 'invalid' ? ` 错误：${lecture.errorCode}` : ''}</p></div>}
       </div>
 
-      {lectureSelection && <aside className="lecture-question-box"><span>已选讲义</span><blockquote>{lectureSelection.preview}</blockquote><textarea value={lectureQuestion} onChange={(event) => setLectureQuestion(event.target.value)} placeholder="针对这段内容问 AI 助教…" maxLength={1000} />{lectureQuestionError && <small>{lectureQuestionError}</small>}<div><button type="button" onClick={() => setLectureSelection(undefined)}>取消</button><button type="button" className="button-primary" disabled={!lectureQuestion.trim() || busy} onClick={() => { setLectureQuestionError(undefined); void api.askCourseLecture(workspace.id, { selection: lectureSelection.range, question: lectureQuestion }).then(() => { setLectureSelection(undefined); setLectureQuestion(''); onAssistantOpen() }).catch(() => setLectureQuestionError('这段选文已失效或 AI 暂时不可用，请重新选择后再试。')) }}>询问 AI</button></div></aside>}
+      {lectureSelection && document && <aside className="lecture-question-box"><span>已选讲义</span><blockquote>{lectureSelection.preview}</blockquote><textarea value={lectureQuestion} onChange={(event) => setLectureQuestion(event.target.value)} placeholder="针对这段内容问 AI 助教…" maxLength={1000} />{lectureQuestionError && <small>{lectureQuestionError}</small>}<div><button type="button" onClick={() => setLectureSelection(undefined)}>取消</button><button type="button" className="button-primary" disabled={!lectureQuestion.trim() || busy} onClick={() => { setLectureQuestionError(undefined); void api.askCourseLecture({ courseId: lesson.courseId, lessonId: lesson.lessonId, contentVersion: document.contentVersion, documentDigest: document.documentDigest, workspaceId: workspace.id, request: { selection: lectureSelection.range, question: lectureQuestion } }).then(() => { setLectureSelection(undefined); setLectureQuestion(''); onAssistantOpen() }).catch(() => setLectureQuestionError('这段选文已失效或 AI 暂时不可用，请重新选择后再试。')) }}>询问 AI</button></div></aside>}
 
       {document && activeSection && <footer className="lecture-footer-actions">
         <button type="button" onClick={() => setActiveSectionId(document.sections[Math.max(0, activeSection.order - 1)].sectionId)} disabled={activeSection.order === 0}><ArrowLeft size={13} /> 上一节</button>
-        {currentReadStep && <button type="button" className={currentReadCompleted ? '' : 'button-primary'} onClick={() => void onUpdate({ kind: 'lecture-read', stepId: currentReadStep.stepId, sectionId: activeSection.sectionId, lectureContentVersion: document.contentVersion, completed: !currentReadCompleted })} disabled={busy}>{currentReadCompleted ? <><Check size={13} /> 已完成阅读</> : '完成本节阅读'}</button>}
         <button type="button" onClick={() => setActiveSectionId(document.sections[Math.min(document.sections.length - 1, activeSection.order + 1)].sectionId)} disabled={activeSection.order === document.sections.length - 1}>下一节 <ArrowRight size={13} /></button>
       </footer>}
     </section>}

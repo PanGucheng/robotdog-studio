@@ -1,6 +1,6 @@
 # 单片机课次编写与硬件验证清单
 
-更新日期：2026-08-07
+更新日期：2026-08-10
 
 适用范围：RobotDog Studio 单片机入门版新增或修改课次。该流程面向小范围教学与个人维护，保留必要安全门禁，不建设复杂审批系统。
 
@@ -15,6 +15,15 @@
 7. 使用固定完成检查：文件存在、指定教学文件已应用修改、候选编译、完整构建、问题回答。问题步骤必须填写对应 `questionId`，人工观察检查必须填写对应观察步骤的 `stepId`；不要加入脚本或标准答案逐字比较。
 8. 递增课程唯一的 `contentVersion`，运行 `npm run courses:validate`、相关测试和 MCU 冒烟。
 9. 正式课在固定目录 `lectures/<lessonId>/lecture.md` 维护讲义，并遵守 [RobotDog Lecture Markdown v1](./robotdog-lecture-markdown-v1.md)；图片只放在本课 `assets/`，不得在 Lesson 中配置自由路径。
+
+课程 manifest 中的两个兼容字段必须独立判断：
+
+- `progressCompatibleFrom`：旧版 Lab 的 `stepId`、`type`、`questionId` 和完成条件仍兼容；
+- `learningCompatibleFrom`：旧版 Lecture 的顶层 H2 Section ID 仍可继承学习完成记录。
+
+只改讲义文字不代表实验兼容，实验未改也不代表讲义兼容。修改已发布内容必须提升 `contentVersion` 并更新兼容快照；`courses:validate` 会拒绝同版本内容摘要变化。
+
+Lecture v1 只有 H2 是学习完成单元，H3 只是章节内部结构。不要为了制造更多进度点拆分 H3。Lab 中的 `read` 表示阅读/观察工程代码或配置，不表示正式讲义阅读；已发布步骤不得改成 `inspect`。未来未发布的新课可使用 `inspect` 作为更明确的工程观察类型。
 
 新增第四课不应修改课程中心或实验任务页组件；除 `lessonOrder` 注册外，主要变化应限于 manifest、模板、测试夹具和课程文字。
 

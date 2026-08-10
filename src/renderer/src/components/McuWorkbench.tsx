@@ -8,12 +8,13 @@ import { McuBuildRunTool } from './McuBuildRunTool'
 import { McuCourseTool } from './McuCourseTool'
 import { StudentCodeEditor } from './StudentCodeEditor'
 import type { WorkbenchProps } from './Workbench'
+import { LessonLearnPage } from './LessonLearnPage'
+import { McuHome } from './McuHome'
 
 type McuToolId = 'course' | 'run' | 'assistant'
 
 export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
   const { workspace, candidate, workspaceLesson, courseProgress, busy, course, courseLesson, courses, courseLoading, courseError, courseAttempts, completedLessonIds } = props
-  const [catalogOpen, setCatalogOpen] = useState(!workspace)
   const [activeTool, setActiveTool] = useState<McuToolId>(() => workspace?.workspacePurpose === 'mcu-lesson-attempt' ? 'course' : 'assistant')
   const [showDiff, setShowDiff] = useState(false)
   const [focusRequest, setFocusRequest] = useState<{ path: string; line?: number; nonce: number }>()
@@ -27,11 +28,10 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
   const shellRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (!workspace) setCatalogOpen(true)
-    else {
-      setCatalogOpen(false)
+    if (workspace) {
       const saved = localStorage.getItem(`robotdog.mcu-tool.${workspace.id}`) as McuToolId | null
-      setActiveTool(saved && ['course', 'run', 'assistant'].includes(saved) ? saved : workspace.workspacePurpose === 'mcu-lesson-attempt' ? 'course' : 'assistant')
+      const allowed = workspace.workspacePurpose === 'mcu-lesson-attempt' ? ['course', 'run', 'assistant'] : ['run', 'assistant']
+      setActiveTool(saved && allowed.includes(saved) ? saved : workspace.workspacePurpose === 'mcu-lesson-attempt' ? 'course' : 'assistant')
     }
   }, [workspace?.id])
 
@@ -80,10 +80,19 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
     if (workspace && !localStorage.getItem('robotdog.mcu-project-tour-seen')) { setTourIndex(0); setTourOpen(true) }
   }, [workspace?.id])
 
-  if (catalogOpen || !workspace) return <section className="mcu-catalog-shell">
-    {workspace && <button type="button" className="mcu-back-workspace" onClick={() => setCatalogOpen(false)}><ChevronLeft size={15} /> 返回代码</button>}
-    <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} attempts={courseAttempts} busy={busy} completedLessonIds={completedLessonIds} onSelectLesson={props.onSelectCourseLesson} onCreateLessonAttempt={async (lessonId) => { const created = await props.onCreateCourseAttempt(lessonId); if (created) { setCatalogOpen(false); setActiveTool('course') } return created }} onContinueAttempt={(workspaceId) => { props.onContinueCourseAttempt(workspaceId); setCatalogOpen(false); setActiveTool('course') }} />
+  const view = props.mcuView ?? { kind: 'home' as const, panel: 'landing' as const }
+  const navigate = props.onMcuNavigate ?? (() => undefined)
+  if (view.kind === 'home') return <McuHome panel={view.panel} course={course} workspaces={props.mcuWorkspaces ?? []} learning={props.lessonLearningProgress ?? []} recent={props.mcuRecentActivity ?? []} busy={busy} onNavigate={navigate} onCreateWorkspace={props.onCreateMcuWorkspace ?? (() => undefined)} />
+  if (view.kind === 'course-center') return <section className="mcu-catalog-shell">
+    <button type="button" className="mcu-page-back" onClick={() => navigate({ kind: 'home', panel: 'landing' })}><ChevronLeft size={15} /> 返回首页</button>
+    <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} completedLessonIds={completedLessonIds} onSelectLesson={(lessonId) => { props.onSelectCourseLesson(lessonId); if (course) navigate({ kind: 'course-center', courseId: course.courseId, lessonId }) }} onOpenLesson={(lessonId) => { props.onSelectCourseLesson(lessonId); if (course) navigate({ kind: 'lesson', courseId: course.courseId, lessonId }) }} />
   </section>
+  if (view.kind === 'lesson') {
+    const selected = courseLesson?.courseId === view.courseId && courseLesson.lessonId === view.lessonId ? courseLesson : undefined
+    if (!course || !selected) return <section className="course-center-state"><Cpu className="spin" size={22} /><strong>正在打开课程</strong></section>
+    return <LessonLearnPage course={course} lesson={selected} attempts={courseAttempts} busy={busy} onBack={() => navigate({ kind: 'course-center', courseId: view.courseId, lessonId: view.lessonId })} onCreateAttempt={props.onCreateCourseAttempt} onContinueAttempt={props.onContinueCourseAttempt} onProgress={props.onLessonLearningProgressChanged ?? (() => undefined)} />
+  }
+  if (!workspace || workspace.id !== view.workspaceId) return <section className="course-center-state"><Cpu className="spin" size={22} /><strong>正在打开工程</strong></section>
 
   const focusFile = (path: string, line?: number): void => {
     setShowDiff(false)
@@ -95,7 +104,7 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
     if (step.type === 'review-apply') setShowDiff(true)
   }
   const toolButtons: Array<{ id: McuToolId; label: string; icon: typeof Cpu; attention?: boolean }> = [
-    { id: 'course', label: '课程', icon: BookOpenCheck, attention: courseProgress?.state === 'needs-attention' },
+    ...(workspace.workspacePurpose === 'mcu-lesson-attempt' ? [{ id: 'course' as const, label: '实验任务', icon: BookOpenCheck, attention: courseProgress?.state === 'needs-attention' }] : []),
     { id: 'run', label: '构建与运行', icon: Cpu, attention: Boolean(candidate) || props.build.state === 'failed' || props.wchLink.state === 'failed' },
     { id: 'assistant', label: 'AI 助教', icon: Bot, attention: Boolean(props.agentRunning) }
   ]
@@ -133,7 +142,7 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
     <nav className="mcu-tool-rail" aria-label="课程与开发工具">{toolButtons.map(({ id, label, icon: Icon, attention }) => <button type="button" key={id} className={activeTool === id && toolPanelOpen ? 'active' : ''} onClick={() => { if (activeTool === id) setToolPanelOpen((value) => !value); else { setActiveTool(id); setToolPanelOpen(true) } }} aria-label={`${label}${activeTool === id && toolPanelOpen ? '，点击收起' : ''}`} title={label}><Icon size={18} />{attention && <i />}</button>)}</nav>
 
     <aside className="mcu-tool-panel" aria-label={toolButtons.find((item) => item.id === activeTool)?.label}>
-      {activeTool === 'course' ? <McuCourseTool workspace={workspace} lesson={workspaceLesson} progress={courseProgress} busy={busy} activeFilePath={activeFilePath} lectureFocus={lectureFocus} onLectureFocusChange={setLectureFocus} onUpdate={props.onUpdateCourseProgress} onBrowseCourses={() => setCatalogOpen(true)} onOpenStep={openStep} onFocusFile={focusFile} onAssistantOpen={() => { setLectureFocus(false); setActiveTool('assistant'); setToolPanelOpen(true) }} />
+      {activeTool === 'course' ? <McuCourseTool workspace={workspace} lesson={workspaceLesson} progress={courseProgress} busy={busy} activeFilePath={activeFilePath} lectureFocus={lectureFocus} onLectureFocusChange={setLectureFocus} onUpdate={props.onUpdateCourseProgress} onBrowseCourses={() => workspace.courseBinding ? navigate({ kind: 'lesson', courseId: workspace.courseBinding.courseId, lessonId: workspace.courseBinding.lessonId }) : navigate({ kind: 'course-center' })} onOpenStep={openStep} onFocusFile={focusFile} onAssistantOpen={() => { setLectureFocus(false); setActiveTool('assistant'); setToolPanelOpen(true) }} />
         : activeTool === 'run' ? <McuBuildRunTool workspace={workspace} candidate={candidate} build={props.build} baseline={props.baseline} connection={props.connection} update={props.update} wchLink={props.wchLink} history={props.workspaceHistory} busy={busy} onShowDiff={() => setShowDiff(true)} onFocusFile={focusFile} onBuildCandidate={props.onBuildCandidate} onApplyCandidate={props.onApplyCandidate} onRejectCandidate={props.onRejectCandidate} onUndo={props.onUndoWorkspace} onBuildFirmware={props.onBuildFirmware} onCancelBuild={props.onCancelBuild} onToggleUsb={props.onToggleUsb} onStartUpdate={props.onStartUpdate} onCancelUpdate={props.onCancelUpdate} onProbeWchLink={props.onProbeWchLink} onFlashWchLink={props.onFlashWchLink} onCancelWchLink={props.onCancelWchLink} />
           : <div className="mcu-assistant-tool"><ChatPanel workspace={workspace} edition={props.edition} events={props.agentEvents ?? []} candidate={candidate} running={Boolean(props.agentRunning)} onPrompt={props.onAgentPrompt ?? (() => undefined)} onCancel={props.onAgentCancel ?? (() => undefined)} onReject={props.onRejectCandidate} onPermission={props.onAgentPermission ?? (() => undefined)} compact onOpenSettings={props.onOpenSettings} /></div>}
     </aside>

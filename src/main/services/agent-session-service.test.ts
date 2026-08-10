@@ -150,7 +150,7 @@ describe('AgentSessionService', () => {
     const service = new AgentSessionService(candidates, adapter)
     const events: AgentEvent[] = []
     service.on('event', (event) => events.push(event))
-    const turn = await service.explainCourseLecture(workspaceId, '声明和定义有什么区别？', '函数声明', '<course_context_json>{"lessonId":"lesson-one"}</course_context_json>')
+    const turn = await service.explainCourseLecture({ courseId: 'course-one', lessonId: 'lesson-one', contentVersion: 1, documentDigest: 'a'.repeat(64), workspaceId }, '声明和定义有什么区别？', '函数声明', '<course_context_json>{"lessonId":"lesson-one"}</course_context_json>')
     await waitUntilIdle(service)
     expect(turn.candidateId).toBeUndefined()
     expect(adapter.contexts[0]).toMatchObject({ readOnly: true, taskKind: 'explain_lecture' })

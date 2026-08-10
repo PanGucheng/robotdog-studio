@@ -31,6 +31,7 @@ const courseManifestSchema = z.object({
   boardScope: z.string().min(1).max(120),
   lessonOrder: z.array(idSchema).min(1),
   progressCompatibleFrom: z.array(z.number().int().positive()).default([]),
+  learningCompatibleFrom: z.array(z.number().int().positive()).default([]),
   sourceAttribution: z.array(z.string().min(1).max(240))
 }).strict()
 
@@ -344,7 +345,7 @@ export class CourseService {
         if (check.type === 'manual-observation-confirmed' && (!check.target || !lesson.steps.some((step) => step.stepId === check.target && ['serial-observation', 'hardware-observation'].includes(step.type)))) throw new Error(`COURSE_OBSERVATION_CHECK_INVALID:${lessonId}`)
         if (check.type === 'student-change-applied' && check.target && !lesson.editableGlobs.includes(check.target)) throw new Error(`COURSE_CHANGE_CHECK_INVALID:${lessonId}:${check.target}`)
       }
-      lessons.push({ ...lesson, contentVersion: course.contentVersion, progressCompatibleFrom: [...course.progressCompatibleFrom], order })
+      lessons.push({ ...lesson, contentVersion: course.contentVersion, progressCompatibleFrom: [...course.progressCompatibleFrom], learningCompatibleFrom: [...course.learningCompatibleFrom], order })
     }
     return lessons
   }
@@ -363,8 +364,8 @@ export class CourseService {
   }
 
   private toLessonSummary(lesson: CourseLesson): CourseLessonSummary {
-    const { courseId, contentVersion, progressCompatibleFrom, lessonId, title, summary, estimatedMinutes, hardware, verification, status, prerequisites, order } = lesson
-    return { courseId, contentVersion, progressCompatibleFrom: [...progressCompatibleFrom], lessonId, title, summary, estimatedMinutes, hardware, verification, status, prerequisites: [...prerequisites], order }
+    const { courseId, contentVersion, progressCompatibleFrom, learningCompatibleFrom, lessonId, title, summary, estimatedMinutes, hardware, verification, status, prerequisites, order } = lesson
+    return { courseId, contentVersion, progressCompatibleFrom: [...progressCompatibleFrom], learningCompatibleFrom: [...learningCompatibleFrom], lessonId, title, summary, estimatedMinutes, hardware, verification, status, prerequisites: [...prerequisites], order }
   }
 
   private requireId(value: string): void {

@@ -52,11 +52,7 @@ const storedProgressSchema = z.object({
 const updateSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('step'), stepId: z.string().min(1).max(96), completed: z.boolean() }).strict(),
   z.object({ kind: z.literal('answer'), questionId: z.string().min(1).max(96), answer: z.string().max(2_000) }).strict(),
-  z.object({ kind: z.literal('observation'), stepId: z.string().min(1).max(96), observation: z.string().max(2_000) }).strict(),
-  z.object({
-    kind: z.literal('lecture-read'), stepId: z.string().min(1).max(96), sectionId: z.string().min(1).max(96),
-    lectureContentVersion: z.number().int().positive(), completed: z.boolean()
-  }).strict()
+  z.object({ kind: z.literal('observation'), stepId: z.string().min(1).max(96), observation: z.string().max(2_000) }).strict()
 ])
 
 type StoredProgress = z.infer<typeof storedProgressSchema>
@@ -96,8 +92,6 @@ export class CourseProgressStore {
     const now = new Date().toISOString()
     if (update.kind === 'step') {
       if (!next.contract.steps.some((step) => step.stepId === update.stepId)) throw new Error('COURSE_PROGRESS_STEP_NOT_FOUND')
-      const currentStep = lesson.steps.find((step) => step.stepId === update.stepId)
-      if (workspace.courseBinding?.contentVersion === lesson.contentVersion && currentStep?.type === 'read' && currentStep.lectureSectionId) throw new Error('COURSE_PROGRESS_LECTURE_READ_REQUIRED')
       next.steps = next.steps.map((step) => step.stepId === update.stepId
         ? { stepId: step.stepId, completed: update.completed, completedAt: update.completed ? now : undefined }
         : step)
@@ -118,20 +112,22 @@ export class CourseProgressStore {
       next.steps = next.steps.map((step) => step.stepId === update.stepId
         ? { stepId: step.stepId, completed: Boolean(observation), completedAt: observation ? now : undefined }
         : step)
-    } else {
-      if (workspace.courseBinding?.contentVersion !== lesson.contentVersion || update.lectureContentVersion !== lesson.contentVersion) throw new Error('COURSE_PROGRESS_LECTURE_VERSION_MISMATCH')
-      const target = lesson.steps.find((step) => step.stepId === update.stepId)
-      if (!target || target.type !== 'read' || !target.lectureSectionId || target.lectureSectionId !== update.sectionId) throw new Error('COURSE_PROGRESS_LECTURE_STEP_INVALID')
-      if (!next.contract.steps.some((step) => step.stepId === update.stepId && step.type === 'read')) throw new Error('COURSE_PROGRESS_STEP_NOT_FOUND')
-      next.steps = next.steps.map((step) => step.stepId === update.stepId
-        ? { stepId: step.stepId, completed: update.completed, completedAt: update.completed ? now : undefined }
-        : step)
     }
     next.updatedAt = now
     const snapshot = this.toSnapshot(next, lesson, existingFiles)
     next.completedAt = snapshot.state === 'completed' ? next.completedAt ?? now : undefined
     await this.write(next)
     return this.toSnapshot(next, lesson, existingFiles)
+  }
+
+  async getCompletedLegacyLectureSectionIds(workspace: WorkspaceSummary, lesson: CourseLesson): Promise<string[]> {
+    if (workspace.courseBinding?.contentVersion !== 3) return []
+    return this.serialize(workspace.id, async () => {
+      const { stored } = await this.readOrCreate(workspace, lesson)
+      const completed = new Set(stored.steps.filter((step) => step.completed).map((step) => step.stepId))
+      return lesson.steps.flatMap((step) => stored.contract.steps.some((contractStep) => contractStep.stepId === step.stepId && contractStep.type === 'read')
+        && completed.has(step.stepId) && step.lectureSectionId ? [step.lectureSectionId] : [])
+    })
   }
 
   async recordOperation(workspace: WorkspaceSummary, lesson: CourseLesson, kind: CourseOperationKind, passed: boolean, detail?: string, existingFiles: string[] = []): Promise<CourseProgressSnapshot> {

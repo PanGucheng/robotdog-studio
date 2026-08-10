@@ -18,6 +18,9 @@ import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
 import { CourseService } from './services/course-service'
 import { CourseProgressStore } from './services/course-progress-store'
+import { LessonLearningProgressStore } from './services/lesson-learning-progress-store'
+import { McuRecentActivityStore } from './services/mcu-recent-activity-store'
+import { CourseLectureHistoryService } from './services/course-lecture-history-service'
 import { ProjectExplorerService } from './services/project-explorer-service'
 import { DEFAULT_EDITION_ID, getEditionProfile, parseEditionId } from '../shared/edition'
 
@@ -80,7 +83,7 @@ function createWindow(): void {
             if (step.type === 'read' && step.lectureSectionId && attempt.courseBinding.contentVersion === lesson.contentVersion) {
               const lecture = await window.robotDog.getCourseLecture(lesson.courseId, lesson.lessonId)
               if (lecture.status !== 'ready') throw new Error('SMOKE_LECTURE_MISSING')
-              await window.robotDog.updateCourseProgress(attempt.id, { kind: 'lecture-read', stepId: step.stepId, sectionId: step.lectureSectionId, lectureContentVersion: lecture.document.contentVersion, completed: true })
+              await window.robotDog.updateCourseProgress(attempt.id, { kind: 'step', stepId: step.stepId, completed: true })
             } else await window.robotDog.updateCourseProgress(attempt.id, { kind: 'step', stepId: step.stepId, completed: true })
           }
           for (const question of lesson.reflectionQuestions) {
@@ -183,6 +186,10 @@ app.whenReady().then(async () => {
     : undefined
   const courseProgress = courses ? new CourseProgressStore(join(workspaceRoot, 'course-progress')) : undefined
   await courseProgress?.initialize()
+  const lessonLearning = courses ? new LessonLearningProgressStore(join(workspaceRoot, 'lesson-learning-progress')) : undefined
+  await lessonLearning?.initialize()
+  const mcuRecentActivity = courses ? new McuRecentActivityStore(join(workspaceRoot, 'ui-state', 'mcu-recent-activity.json')) : undefined
+  await mcuRecentActivity?.initialize()
   const reasonixRuntime = await readReasonixRuntimeManifest(app.getAppPath(), staticRoot)
   const reasonixVersion = reasonixRuntime.version
   const processes = new ReasonixProcessManager({
@@ -194,6 +201,10 @@ app.whenReady().then(async () => {
   const secrets = new DeepSeekSecretStore(join(app.getPath('userData'), 'secure', 'deepseek-api-key.bin'))
   const agentHistory = new AgentHistoryService(join(workspaceRoot, 'conversations'))
   await agentHistory.initialize()
+  const lectureHistory = courses ? new CourseLectureHistoryService(join(workspaceRoot, 'course-conversations')) : undefined
+  await lectureHistory?.initialize()
+  const lessonAgentRoot = join(workspaceRoot, 'lesson-agent-readonly')
+  await mkdir(lessonAgentRoot, { recursive: true })
   const agents = new AgentSessionService(candidates, new ReasonixAcpAdapter(processes, () => secrets.get()), courses && courseProgress ? async (workspaceId, taskKind) => {
     const workspace = await workspaces.get(workspaceId)
     if (!workspace.courseBinding || workspace.workspacePurpose !== 'mcu-lesson-attempt') return undefined
@@ -201,7 +212,7 @@ app.whenReady().then(async () => {
     const files = (await candidates.listStudentCodeFiles(workspaceId)).map((file) => file.path)
     const progress = await courseProgress.get(workspace, lesson, files)
     return courses.buildAiContext(workspace.courseBinding.courseId, workspace.courseBinding.lessonId, taskKind, progress)
-  } : undefined)
+  } : undefined, courses ? { root: lessonAgentRoot, policyVersion: 'mcu-foundations-v1:1' } : undefined)
   const firmwareBuild = new FirmwareBuildService(toolchain, { baseline, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
   await firmwareBuild.initialize()
   const runtime = { secrets, processes, version: reasonixVersion }
@@ -217,7 +228,7 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, undefined, courseProgress, projectExplorer)
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, undefined, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -11,14 +11,15 @@ interface CourseLectureRendererProps {
   onOpenCode(path: string, line?: number): void
   onOpenTask(stepId: string): void
   onSelection(selection: CourseLectureSelectionRange, preview: string): void
+  mode?: 'learn' | 'reference'
 }
 
-export function CourseLectureRenderer({ document, sectionId, onOpenSection, onOpenCode, onOpenTask, onSelection }: CourseLectureRendererProps): React.JSX.Element {
+export function CourseLectureRenderer({ document, sectionId, onOpenSection, onOpenCode, onOpenTask, onSelection, mode = 'reference' }: CourseLectureRendererProps): React.JSX.Element {
   const section = document.sections.find((item) => item.sectionId === sectionId) ?? document.sections[0]
   if (!section) return <div className="lecture-empty"><BookOpen size={22} /><p>这份讲义暂时没有可阅读章节。</p></div>
   return <article className="lecture-document" data-lecture-digest={document.documentDigest} data-section-id={section.sectionId} onMouseUp={() => captureLectureSelection(document, section.sectionId, onSelection)}>
     <header className="lecture-section-heading"><span>第 {section.order + 1} 节</span><h2>{section.title}</h2></header>
-    <div className="lecture-section-body">{section.blocks.map((block, index) => <LectureBlockView key={`${section.sectionId}-${index}`} block={block} document={document} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</div>
+    <div className="lecture-section-body">{section.blocks.map((block, index) => <LectureBlockView key={`${section.sectionId}-${index}`} block={block} document={document} mode={mode} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</div>
   </article>
 }
 
@@ -53,30 +54,32 @@ function offsetWithin(element: HTMLElement, container: Node, offset: number): nu
   return range.toString().length
 }
 
-function LectureBlockView({ block, document, onOpenSection, onOpenCode, onOpenTask }: { block: CourseLectureBlock; document: CourseLectureDocument; onOpenSection(sectionId: string): void; onOpenCode(path: string, line?: number): void; onOpenTask(stepId: string): void }): React.JSX.Element {
+function LectureBlockView({ block, document, mode, onOpenSection, onOpenCode, onOpenTask }: { block: CourseLectureBlock; document: CourseLectureDocument; mode: 'learn' | 'reference'; onOpenSection(sectionId: string): void; onOpenCode(path: string, line?: number): void; onOpenTask(stepId: string): void }): React.JSX.Element {
   const inlineProps = { document, onOpenSection }
   if (block.type === 'heading') {
     const Tag = `h${block.depth}` as 'h1'
     return <Tag>{renderInline(block.children, inlineProps)}</Tag>
   }
   if (block.type === 'paragraph') return <p>{renderInline(block.children, inlineProps)}</p>
-  if (block.type === 'blockquote') return <blockquote>{block.children.map((child, index) => <LectureBlockView key={index} block={child} document={document} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</blockquote>
+  if (block.type === 'blockquote') return <blockquote>{block.children.map((child, index) => <LectureBlockView key={index} block={child} document={document} mode={mode} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</blockquote>
   if (block.type === 'list') {
     const Tag = block.ordered ? 'ol' : 'ul'
-    return <Tag start={block.start}>{block.items.map((item, index) => <li key={index}>{item.map((child, childIndex) => <LectureBlockView key={childIndex} block={child} document={document} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</li>)}</Tag>
+    return <Tag start={block.start}>{block.items.map((item, index) => <li key={index}>{item.map((child, childIndex) => <LectureBlockView key={childIndex} block={child} document={document} mode={mode} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</li>)}</Tag>
   }
   if (block.type === 'code') return <figure className="lecture-code-example"><figcaption>讲义示例 · 不会写入工程{block.language ? ` · ${block.language}` : ''}</figcaption><pre data-lecture-text-node={block.textNodeId}><code>{block.value}</code></pre></figure>
   if (block.type === 'math') return <div className="lecture-math-block" data-lecture-text-node={block.textNodeId}><SafeMath value={block.value} displayMode /></div>
   if (block.type === 'thematic-break') return <hr />
   if (block.type === 'table') return <div className="lecture-table-wrap"><table><tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => rowIndex === 0 ? <th key={cellIndex}>{renderInline(cell, inlineProps)}</th> : <td key={cellIndex}>{renderInline(cell, inlineProps)}</td>)}</tr>)}</tbody></table></div>
-  if (block.type === 'callout') return <LectureCallout block={block} document={document} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />
-  if (block.type === 'code-target') return <button type="button" className="lecture-action lecture-code-target" onClick={() => onOpenCode(block.path, block.line)}><FileCode2 size={15} /><span><strong>{block.label}</strong><small>{block.path}{block.line ? ` · 第 ${block.line} 行` : ''}</small></span></button>
-  return <button type="button" className="lecture-action lecture-task-link" onClick={() => onOpenTask(block.stepId)}><Link2 size={15} /><span><strong>{block.label}</strong><small>返回课程任务</small></span></button>
+  if (block.type === 'callout') return <LectureCallout block={block} document={document} mode={mode} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />
+  if (block.type === 'code-target') return mode === 'learn'
+    ? <div className="lecture-action lecture-code-target is-learning"><FileCode2 size={15} /><span><strong>{block.label}</strong><small>{block.path}{block.line ? ` · 第 ${block.line} 行` : ''} · 该文件将在实验中使用</small></span></div>
+    : <button type="button" className="lecture-action lecture-code-target" onClick={() => onOpenCode(block.path, block.line)}><FileCode2 size={15} /><span><strong>{block.label}</strong><small>{block.path}{block.line ? ` · 第 ${block.line} 行` : ''}</small></span></button>
+  return <button type="button" className="lecture-action lecture-task-link" onClick={() => onOpenTask(block.stepId)}><Link2 size={15} /><span><strong>{block.label}</strong><small>{mode === 'learn' ? '进入实验后完成' : '返回实验任务'}</small></span></button>
 }
 
-function LectureCallout({ block, document, onOpenSection, onOpenCode, onOpenTask }: { block: Extract<CourseLectureBlock, { type: 'callout' }>; document: CourseLectureDocument; onOpenSection(sectionId: string): void; onOpenCode(path: string, line?: number): void; onOpenTask(stepId: string): void }): React.JSX.Element {
+function LectureCallout({ block, document, mode, onOpenSection, onOpenCode, onOpenTask }: { block: Extract<CourseLectureBlock, { type: 'callout' }>; document: CourseLectureDocument; mode: 'learn' | 'reference'; onOpenSection(sectionId: string): void; onOpenCode(path: string, line?: number): void; onOpenTask(stepId: string): void }): React.JSX.Element {
   const Icon = CALLOUT_META[block.kind].icon
-  return <aside className={`lecture-callout is-${block.kind}`}><header><Icon size={16} /><strong>{CALLOUT_META[block.kind].label}{block.title ? ` · ${block.title}` : ''}</strong></header><div>{block.children.map((child, index) => <LectureBlockView key={index} block={child} document={document} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</div></aside>
+  return <aside className={`lecture-callout is-${block.kind}`}><header><Icon size={16} /><strong>{CALLOUT_META[block.kind].label}{block.title ? ` · ${block.title}` : ''}</strong></header><div>{block.children.map((child, index) => <LectureBlockView key={index} block={child} document={document} mode={mode} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</div></aside>
 }
 
 const CALLOUT_META: Record<CourseLectureCalloutKind, { label: string; icon: typeof Lightbulb }> = {

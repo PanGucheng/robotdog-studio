@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": 4,
+  "courseSemanticSha256": "413504af03f4507954aa164b6c2fb885bcb8f67cd5423e721d27bf3665df9020",
+  "lessonSemanticSha256": {
+    "studio-first-build": "e0da75d4d05576c64a0307ab98e9181bf731272a7f981f189aad7f9d4b9cebc3",
+    "c-files-and-functions": "f0af792fcbb02632d24caba4b46006eb9abd0ed7aca5cfc413e98151fb19c5fa",
+    "first-hardware-placeholder": "41e9b312e59720f5b7e9e2ea71c12febc9b2f2f55bfc9645820af4c378aa5225"
+  },
+  "lectureDocumentDigest": {
+    "studio-first-build": "cc9fbe1a1fb0c424835bb9066198c3b971a2a896539a305449a159ba47ec92f6",
+    "c-files-and-functions": "881defe0edc4bc2fa2dff7bed11bc447d47decc90d2b044b813781e803090f68"
+  }
+}

@@ -20,7 +20,7 @@ function workspace(): WorkspaceSummary {
 
 function lesson(): CourseLesson {
   return {
-    courseId: 'course-one', contentVersion: 1, progressCompatibleFrom: [], lessonId: 'lesson-one', title: '第一课', summary: '测试课程进度', estimatedMinutes: 45,
+    courseId: 'course-one', contentVersion: 1, progressCompatibleFrom: [], learningCompatibleFrom: [], lessonId: 'lesson-one', title: '第一课', summary: '测试课程进度', estimatedMinutes: 45,
     hardware: 'none', verification: 'not-required', status: 'published', prerequisites: [], order: 0,
     objectives: ['完成一次练习'], expectedObservation: '编译成功', templateId: 'lesson-one', editableGlobs: ['App/**'], readableFiles: [], deniedGlobs: [],
     steps: [
@@ -138,18 +138,11 @@ describe('CourseProgressStore', () => {
     expect(result.checks.every((check) => check.passed)).toBe(true)
   })
 
-  it('requires Main-authorized lecture confirmation for a current lecture-bound read step', async () => {
+  it('treats a lecture-bound read step as an ordinary lab observation', async () => {
     const { store } = await fixture()
     const currentLesson = lesson()
     currentLesson.steps[0].lectureSectionId = 'studio-workflow'
-    await expect(store.update(workspace(), currentLesson, { kind: 'step', stepId: 'read-entry', completed: true }))
-      .rejects.toThrow('COURSE_PROGRESS_LECTURE_READ_REQUIRED')
-    await expect(store.update(workspace(), currentLesson, {
-      kind: 'lecture-read', stepId: 'read-entry', sectionId: 'wrong-section', lectureContentVersion: 1, completed: true
-    })).rejects.toThrow('COURSE_PROGRESS_LECTURE_STEP_INVALID')
-    const updated = await store.update(workspace(), currentLesson, {
-      kind: 'lecture-read', stepId: 'read-entry', sectionId: 'studio-workflow', lectureContentVersion: 1, completed: true
-    })
+    const updated = await store.update(workspace(), currentLesson, { kind: 'step', stepId: 'read-entry', completed: true })
     expect(updated.steps.find((step) => step.stepId === 'read-entry')?.completed).toBe(true)
   })
 
@@ -164,9 +157,6 @@ describe('CourseProgressStore', () => {
     const updated = await store.update(oldWorkspace, latestLesson, { kind: 'step', stepId: 'read-entry', completed: true })
     expect(updated.contentVersion).toBe(2)
     expect(updated.steps.find((step) => step.stepId === 'read-entry')?.completed).toBe(true)
-    await expect(store.update(oldWorkspace, latestLesson, {
-      kind: 'lecture-read', stepId: 'read-entry', sectionId: 'studio-workflow', lectureContentVersion: 3, completed: true
-    })).rejects.toThrow('COURSE_PROGRESS_LECTURE_VERSION_MISMATCH')
   })
 
   it('migrates a compatible schema v1 progress file to the compact contract', async () => {
