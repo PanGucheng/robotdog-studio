@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "fromContentVersion": 4,
+  "sectionIdsByLesson": {
+    "studio-first-build": [
+      "source-code",
+      "compile-build-flash",
+      "studio-workflow",
+      "build-results",
+      "summary"
+    ],
+    "c-files-and-functions": [
+      "multi-file-project",
+      "source-files",
+      "header-files",
+      "declaration-and-definition",
+      "include",
+      "compile-and-link",
+      "lesson-project",
+      "common-errors",
+      "summary"
+    ]
+  }
+}

@@ -6,6 +6,10 @@
 源代码描述程序应该做什么。芯片不能直接运行 C 源文件，必须先由工具链完成编译和链接。
 :::
 
+![典型单片机封装安装在电路板上](./assets/microcontroller-on-board.png "单片机与电路板")
+
+单片机通常以这种封装焊接在电路板上。图中器件仅作外观示意，并非本课程使用的 CH32V203；本课关注的是源代码如何变成芯片可执行的程序。
+
 ::code-target[打开实验代码]{path="App/Src/experiment.c" line="1"}
 
 ## 编译、生成程序与烧录 {#compile-build-flash}

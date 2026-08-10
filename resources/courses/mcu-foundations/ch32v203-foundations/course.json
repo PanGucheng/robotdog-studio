@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "courseId": "ch32v203-foundations",
-  "contentVersion": 4,
+  "contentVersion": 5,
   "title": "CH32V203 单片机入门",
   "summary": "从读懂工程、编译程序开始，逐步认识 C 文件组织和真实开发板实验。",
   "audience": "电子类专业大学低年级学生",
@@ -17,8 +17,8 @@
     "c-files-and-functions",
     "first-hardware-placeholder"
   ],
-  "progressCompatibleFrom": [2, 3],
-  "learningCompatibleFrom": [],
+  "progressCompatibleFrom": [2, 3, 4],
+  "learningCompatibleFrom": [4],
   "sourceAttribution": [
     "RobotDog Studio 当前 CH32V203 固件基线与学生工作区模板",
     "WCH CH32V20x EVT 外设库及官方示例，仅作为开发期适配参考"

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "fromContentVersion": 4,
+  "publishedLessonIds": [
+    "studio-first-build",
+    "c-files-and-functions"
+  ],
+  "courseSemanticSha256": "905c374301a122e70a27e93164da994400b55dde83f510ea41569186217d7e45",
+  "lessonSemanticSha256": {
+    "studio-first-build": "cb02ce717ec8972fb1e9b6d8b71e98194d49a7d6c456635f665dbced29b0548e",
+    "c-files-and-functions": "2af6b38a5688708bfb46eb5c1a5f43ba5701e8d69e5106d9524b7871fe104e0d"
+  }
+}
