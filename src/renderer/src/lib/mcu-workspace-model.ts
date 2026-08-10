@@ -103,10 +103,21 @@ export interface Point { x: number; y: number }
 export interface Rect { left: number; top: number; width: number; height: number }
 export interface FloatingAiPlacement { edge: 'left' | 'right'; yRatio: number }
 
-export function clampFloatingPoint(point: Point, rect: Rect, buttonSize = 52, margin = 16): Point {
+export function viewportDeltaToLocal(start: Point, current: Point, scale: Point): Point {
   return {
-    x: clamp(point.x, rect.left + margin, rect.left + rect.width - buttonSize - margin),
-    y: clamp(point.y, rect.top + margin, rect.top + rect.height - buttonSize - margin)
+    x: (current.x - start.x) / safeScale(scale.x),
+    y: (current.y - start.y) / safeScale(scale.y)
+  }
+}
+
+export function clampFloatingPoint(point: Point, rect: Rect, buttonSize = 52, margin = 16): Point {
+  const minX = rect.left + Math.min(margin, Math.max(0, rect.width - buttonSize))
+  const minY = rect.top + Math.min(margin, Math.max(0, rect.height - buttonSize))
+  const maxX = Math.max(minX, rect.left + rect.width - buttonSize - margin)
+  const maxY = Math.max(minY, rect.top + rect.height - buttonSize - margin)
+  return {
+    x: clamp(point.x, minX, maxX),
+    y: clamp(point.y, minY, maxY)
   }
 }
 
@@ -120,10 +131,10 @@ export function snapFloatingPlacement(point: Point, rect: Rect, buttonSize = 52,
 
 export function resolveFloatingPoint(placement: FloatingAiPlacement, rect: Rect, buttonSize = 52, margin = 16): Point {
   const safe = restoreFloatingPlacement(placement)
-  return {
+  return clampFloatingPoint({
     x: safe.edge === 'left' ? rect.left + margin : rect.left + rect.width - buttonSize - margin,
     y: rect.top + margin + Math.max(0, rect.height - buttonSize - margin * 2) * safe.yRatio
-  }
+  }, rect, buttonSize, margin)
 }
 
 export function isPointerDrag(start: Point, current: Point, threshold = 6): boolean {
@@ -138,3 +149,4 @@ export function restoreFloatingPlacement(value: unknown): FloatingAiPlacement {
 function isPanelTab(value: unknown): value is BottomPanelTab { return value === 'problems' || value === 'build' || value === 'output' }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value) }
 function clamp(value: number, min: number, max: number): number { return Math.max(min, Math.min(max, value)) }
+function safeScale(value: number): number { return Number.isFinite(value) && value > 0 ? value : 1 }

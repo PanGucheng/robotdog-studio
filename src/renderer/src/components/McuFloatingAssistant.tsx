@@ -1,11 +1,11 @@
 import { ArrowLeft, Bot, Grip, MoveHorizontal, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AgentEvent, CandidateSnapshot, WorkspaceSummary } from '../../../shared/types'
 import type { AppEditionProfile } from '../../../shared/edition'
 import { getRobotApi } from '../lib/browser-demo-api'
-import { clampFloatingPoint, isPointerDrag, resolveFloatingPoint, restoreFloatingPlacement, snapFloatingPlacement, type FloatingAiPlacement, type Point } from '../lib/mcu-workspace-model'
+import { clampFloatingPoint, isPointerDrag, resolveFloatingPoint, restoreFloatingPlacement, snapFloatingPlacement, viewportDeltaToLocal, type FloatingAiPlacement, type Point, type Rect } from '../lib/mcu-workspace-model'
 import { ChatPanel } from './ChatPanel'
 
 export type FloatingAssistantIntent =
@@ -39,18 +39,42 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
   const [draftRequest, setDraftRequest] = useState<{ text: string; nonce: number }>()
   const [point, setPoint] = useState<Point>({ x: 0, y: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const pointRef = useRef<Point>({ x: 0, y: 0 })
+  const dragRef = useRef<{ pointerId: number; start: Point; origin: Point; scale: Point; dragged: boolean } | undefined>(undefined)
   const previousTerminalCount = useRef(terminalCount(props.events))
 
-  const workspaceRect = (): { left: number; top: number; width: number; height: number } => {
-    const rect = buttonRef.current?.closest('.mcu-workbench-shell')?.getBoundingClientRect()
-    return rect ? { left: 0, top: 0, width: rect.width, height: rect.height } : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+  const workspaceGeometry = (): { element?: HTMLElement; rect: Rect; scale: Point } => {
+    const element = buttonRef.current?.closest<HTMLElement>('.mcu-workbench-shell')
+    if (!element) return { rect: { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }, scale: { x: 1, y: 1 } }
+    const viewport = element.getBoundingClientRect()
+    const width = element.clientWidth
+    const height = element.clientHeight
+    return {
+      element,
+      rect: { left: 0, top: 0, width, height },
+      scale: {
+        x: width > 0 && viewport.width > 0 ? viewport.width / width : 1,
+        y: height > 0 && viewport.height > 0 ? viewport.height / height : 1
+      }
+    }
   }
 
-  useEffect(() => {
-    const update = (): void => setPoint(resolveFloatingPoint(placement, workspaceRect()))
+  const updatePoint = (next: Point): void => {
+    pointRef.current = next
+    setPoint(next)
+  }
+
+  useLayoutEffect(() => {
+    const geometry = workspaceGeometry()
+    const update = (): void => updatePoint(resolveFloatingPoint(placement, workspaceGeometry().rect))
     update()
+    const observer = geometry.element && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : undefined
+    if (geometry.element) observer?.observe(geometry.element)
     window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', update)
+    }
   }, [placement.edge, placement.yRatio])
 
   useEffect(() => {
@@ -79,25 +103,39 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
 
   const pointerDown = (event: ReactPointerEvent<HTMLButtonElement>): void => {
     event.preventDefault()
-    const start = { x: event.clientX, y: event.clientY }
-    const origin = point
-    let dragged = false
-    const move = (moveEvent: PointerEvent): void => {
-      if (!dragged) dragged = isPointerDrag(start, { x: moveEvent.clientX, y: moveEvent.clientY })
-      if (dragged) setPoint(clampFloatingPoint({ x: origin.x + moveEvent.clientX - start.x, y: origin.y + moveEvent.clientY - start.y }, workspaceRect()))
-    }
-    const stop = (upEvent: PointerEvent): void => {
-      document.removeEventListener('pointermove', move)
-      document.removeEventListener('pointerup', stop)
-      if (dragged) setPlacement(snapFloatingPlacement({ x: origin.x + upEvent.clientX - start.x, y: origin.y + upEvent.clientY - start.y }, workspaceRect()))
-      else { setDomain('workspace'); setOpen((value) => !value); setUnread((current) => ({ ...current, workspace: false })) }
-    }
-    document.addEventListener('pointermove', move)
-    document.addEventListener('pointerup', stop)
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = { pointerId: event.pointerId, start: { x: event.clientX, y: event.clientY }, origin: pointRef.current, scale: workspaceGeometry().scale, dragged: false }
+  }
+
+  const pointerMove = (event: ReactPointerEvent<HTMLButtonElement>): void => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const current = { x: event.clientX, y: event.clientY }
+    if (!drag.dragged) drag.dragged = isPointerDrag(drag.start, current)
+    if (!drag.dragged) return
+    event.preventDefault()
+    const delta = viewportDeltaToLocal(drag.start, current, drag.scale)
+    updatePoint(clampFloatingPoint({ x: drag.origin.x + delta.x, y: drag.origin.y + delta.y }, workspaceGeometry().rect))
+  }
+
+  const pointerUp = (event: ReactPointerEvent<HTMLButtonElement>): void => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = undefined
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (drag.dragged) setPlacement(snapFloatingPlacement(pointRef.current, workspaceGeometry().rect))
+    else { setDomain('workspace'); setOpen((value) => !value); setUnread((current) => ({ ...current, workspace: false })) }
+  }
+
+  const pointerCancel = (event: ReactPointerEvent<HTMLButtonElement>): void => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = undefined
+    updatePoint(resolveFloatingPoint(placement, workspaceGeometry().rect))
   }
 
   return <div className={`mcu-floating-assistant edge-${placement.edge}`}>
-    <button ref={buttonRef} type="button" className="mcu-ai-button" style={{ transform: `translate(${point.x}px, ${point.y}px)` }} aria-label={`${open ? '收起' : '打开'} AI 助教${unread.workspace || unread.lecture ? '，有新回答' : ''}`} onPointerDown={pointerDown}><Bot size={22} />{(unread.workspace || unread.lecture) && <i />}</button>
+    <button ref={buttonRef} type="button" className="mcu-ai-button" style={{ transform: `translate(${point.x}px, ${point.y}px)` }} aria-label={`${open ? '收起' : '打开'} AI 助教${unread.workspace || unread.lecture ? '，有新回答' : ''}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerCancel}><Bot size={22} />{(unread.workspace || unread.lecture) && <i />}</button>
     {open && <section className="mcu-ai-window" role="dialog" aria-label="AI 助教" onKeyDown={(event) => { if (event.key === 'Escape') { setOpen(false); buttonRef.current?.focus() } }}>
       <header><span><Grip size={15} /><strong>AI 助教</strong><small>{domain === 'workspace' ? '实验 AI' : '课程知识问答'}</small></span><div>{domain === 'lecture' && <button type="button" onClick={() => setDomain('workspace')}><ArrowLeft size={14} />返回实验 AI</button>}<button type="button" onClick={() => setPlacement((current) => ({ ...current, edge: current.edge === 'left' ? 'right' : 'left' }))} aria-label="移动到另一侧"><MoveHorizontal size={15} /></button><button type="button" onClick={() => { setOpen(false); buttonRef.current?.focus() }} aria-label="收起 AI 助教"><X size={16} /></button></div></header>
       <div className="mcu-ai-domain" hidden={domain !== 'workspace'}><ChatPanel workspace={props.workspace} edition={props.edition} events={props.events} candidate={props.candidate} running={props.running} onPrompt={props.onPrompt} onCancel={props.onCancel} onReject={props.onReject} onPermission={props.onPermission} compact onOpenSettings={props.onOpenSettings} draftRequest={draftRequest} /></div>

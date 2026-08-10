@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CandidateSnapshot, FirmwareBuildSnapshot, WorkspaceSummary } from '../../../shared/types'
-import { aggregateWorkspaceProblems, bottomPanelReducer, clampBottomPanelHeight, DEFAULT_BOTTOM_PANEL, firmwareBelongsToWorkspace, isFirmwareArtifactCurrent, isPointerDrag, resolveFloatingPoint, restoreBottomPanel, restoreFloatingPlacement, snapFloatingPlacement } from './mcu-workspace-model'
+import { aggregateWorkspaceProblems, bottomPanelReducer, clampBottomPanelHeight, clampFloatingPoint, DEFAULT_BOTTOM_PANEL, firmwareBelongsToWorkspace, isFirmwareArtifactCurrent, isPointerDrag, resolveFloatingPoint, restoreBottomPanel, restoreFloatingPlacement, snapFloatingPlacement, viewportDeltaToLocal } from './mcu-workspace-model'
 
 const build = (overrides: Partial<FirmwareBuildSnapshot> = {}): FirmwareBuildSnapshot => ({ state: 'idle', firmwareRoot: '', completedFiles: 0, totalFiles: 0, logs: [], artifacts: [], ...overrides })
 
@@ -41,5 +41,16 @@ describe('MCU workspace model', () => {
     expect(snapFloatingPlacement({ x: 430, y: 200 }, rect)).toMatchObject({ edge: 'right' })
     expect(resolveFloatingPoint({ edge: 'right', yRatio: 1 }, rect)).toEqual({ x: 432, y: 332 })
     expect(restoreFloatingPlacement({ edge: 'left', yRatio: 5 })).toEqual({ edge: 'left', yRatio: 1 })
+  })
+
+  it('converts scaled pointer movement into local workspace coordinates', () => {
+    expect(viewportDeltaToLocal({ x: 100, y: 50 }, { x: 135, y: 85 }, { x: 1.75, y: 1.75 })).toEqual({ x: 20, y: 20 })
+    expect(viewportDeltaToLocal({ x: 10, y: 10 }, { x: 30, y: 40 }, { x: Number.NaN, y: 0 })).toEqual({ x: 20, y: 30 })
+  })
+
+  it('keeps the floating button recoverable in a workspace smaller than its normal margins', () => {
+    const tiny = { left: 0, top: 0, width: 60, height: 58 }
+    expect(clampFloatingPoint({ x: -100, y: 500 }, tiny)).toEqual({ x: 8, y: 6 })
+    expect(resolveFloatingPoint({ edge: 'right', yRatio: 1 }, tiny)).toEqual({ x: 8, y: 6 })
   })
 })
