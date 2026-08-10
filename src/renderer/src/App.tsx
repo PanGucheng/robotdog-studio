@@ -101,6 +101,8 @@ export function App(): React.JSX.Element {
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
+  const currentWorkspaceIdRef = useRef<string | undefined>(undefined)
+  const workspacesRef = useRef<WorkspaceSummary[]>([])
 
   useEffect(() => { applyUiScale(uiScale); document.getElementById('root')?.scrollTo(0, 0) }, [uiScale])
   const closeMcuSettings = (): void => {
@@ -195,7 +197,7 @@ export function App(): React.JSX.Element {
       if (workspace.learningPath !== 'mcu-foundations') setActiveWorkspaceId(workspace.id)
     })
     const offCandidate = api.onCandidateChanged((nextCandidate) => {
-      setCandidate(nextCandidate)
+      if (nextCandidate.workspaceId === currentWorkspaceIdRef.current) setCandidate(nextCandidate)
       void api.listWorkspaces().then(setWorkspaces).catch(() => undefined)
     })
     const offAgent = api.onAgentEvent((event) => {
@@ -204,7 +206,7 @@ export function App(): React.JSX.Element {
       if (event.type === 'turn_started' && event.workspaceId) turnWorkspaces.current.set(event.turnId, event.workspaceId)
       const workspaceId = event.type === 'turn_started' ? event.workspaceId : turnWorkspaces.current.get(event.turnId)
       if (workspaceId) setAgentEventsByWorkspace((current) => ({ ...current, [workspaceId]: compactAgentEvents([...(current[workspaceId] ?? []), event]) }))
-      if (event.type === 'candidate_ready') setCandidate(event.candidate)
+      if (event.type === 'candidate_ready' && event.candidate.workspaceId === currentWorkspaceIdRef.current) setCandidate(event.candidate)
       if (event.type === 'completed' && event.state === 'no_changes') setCandidate((current) => current?.state === 'no_changes' ? undefined : current)
       if (['completed', 'cancelled', 'failed'].includes(event.type)) setAgentTurn(undefined)
     })
@@ -289,6 +291,8 @@ export function App(): React.JSX.Element {
     })
   }
   const currentWorkspaceId = edition.id === 'mcu-foundations' ? (mcuView.kind === 'workspace' ? mcuView.workspaceId : undefined) : activeWorkspaceId
+  currentWorkspaceIdRef.current = currentWorkspaceId
+  workspacesRef.current = workspaces
   const activeWorkspace = workspaces.find((workspace) => workspace.id === currentWorkspaceId)
   const openMcuView = (next: McuView): void => {
     if (mcuView.kind === 'workspace' && (next.kind !== 'workspace' || next.workspaceId !== mcuView.workspaceId)) {
@@ -357,11 +361,14 @@ export function App(): React.JSX.Element {
 
   async function refreshCourseProgress(workspaceId = currentWorkspaceId): Promise<void> {
     if (!workspaceId) return
-    const workspace = workspaces.find((item) => item.id === workspaceId)
+    const workspace = workspacesRef.current.find((item) => item.id === workspaceId)
     if (workspace?.workspacePurpose !== 'mcu-lesson-attempt') return
     const progress = await api.getCourseProgress(workspaceId)
-    setCourseProgress(progress)
-    setCompletedLessonIds((current) => progress.state === 'completed'
+    if (currentWorkspaceIdRef.current === workspaceId) setCourseProgress(progress)
+    const siblingIds = workspacesRef.current.filter((item) => item.id !== workspaceId && item.workspacePurpose === 'mcu-lesson-attempt' && item.courseBinding?.courseId === progress.courseId && item.courseBinding.lessonId === progress.lessonId).map((item) => item.id)
+    const siblingProgress = await Promise.all(siblingIds.map((id) => api.getCourseProgress(id).catch(() => undefined)))
+    const lessonCompleted = progress.state === 'completed' || siblingProgress.some((item) => item?.state === 'completed')
+    setCompletedLessonIds((current) => lessonCompleted
       ? current.includes(progress.lessonId) ? current : [...current, progress.lessonId]
       : current.filter((lessonId) => lessonId !== progress.lessonId))
   }
@@ -563,7 +570,7 @@ export function App(): React.JSX.Element {
           wchLink={wchLink}
           teacherMode={teacherMode}
           edition={edition}
-          busy={busy || Boolean(agentTurn)}
+          busy={busy || Boolean(agentTurn?.workspaceId === currentWorkspaceId)}
           candidate={candidate?.workspaceId === currentWorkspaceId ? candidate : undefined}
           workspace={activeWorkspace}
           candidateDiff={candidateDiff}
@@ -606,7 +613,7 @@ export function App(): React.JSX.Element {
           onUpdateCourseProgress={updateCourseProgress}
           completedLessonIds={completedLessonIds}
           agentEvents={agentEvents}
-          agentRunning={Boolean(agentTurn)}
+          agentRunning={Boolean(agentTurn?.workspaceId === currentWorkspaceId)}
           onAgentPrompt={promptAgent}
           onAgentCancel={cancelAgent}
           onAgentPermission={respondAgentPermission}

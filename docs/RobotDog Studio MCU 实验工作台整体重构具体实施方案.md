@@ -2,7 +2,7 @@
 
 更新日期：2026-08-10
 
-状态：待实施
+状态：代码实施完成，待项目所有者人工界面与真实硬件验收
 
 代码基线：`main@1e974dad75fa32fa11ba1615f92b8d32579b0f3f`
 
@@ -1146,3 +1146,37 @@ npm run smoke:electron:fun
 14. 自动测试命令与结果；
 15. 项目所有者仍需人工复核的界面项目；
 16. 仍需真实硬件复核的项目。
+
+## 19. 2026-08-10 实施记录
+
+本次已经按照阶段顺序完成 Renderer 工作台重构与 Firmware Main 的向后兼容扩展：
+
+- Lab 使用 Development Area + Lab Guide，Sandbox 复用同一 Development Area 且不渲染 Guide；
+- Tool Rail、`activeTool`、旧工具区 localStorage 和 `McuBuildRunTool` 已删除；
+- Code Surface 包含 Action Bar、常驻 Monaco/Diff Layer 和只压缩中央编辑区的 Bottom Panel；
+- Candidate 失败进入 Problems，成功自动进入 Diff；失败不自动请求 AI；
+- Firmware Snapshot 已增加可选 `stage` 与 `diagnostics`，现有 IPC/Preload 签名不变；
+- Problems、Build、Output、Flash/WCH-Link/USB 已迁入 Bottom Panel；
+- Floating AI 使用 52px 可拖动吸附按钮，并保留 Workspace Assistant 与 Course Lecture Q&A 两套独立历史；
+- Lab Guide 已提供 Current、Overview、Reference 三个持久化子视图；
+- Workspace → Lesson → Workspace 的运行期 Monaco view state 通过会话注册表恢复；
+- Candidate、Build、Agent 与 CourseProgress 的当前页面消费已按 `workspaceId` 约束；
+- 主题继续使用当前浅色 `robotdog-track` Monaco 和既有 semantic token，没有实施深色主题改版。
+
+自动验证结果：
+
+```text
+npm run typecheck             PASS
+npm test                      PASS · 34 files / 162 tests，另有 1 项既有条件测试跳过
+npm run courses:validate      PASS · courses=1 lessons=3 lectures=2
+npm run smoke:electron:mcu    PASS · firmwareState=completed / artifacts=elf,hex,bin,map
+npm run smoke:electron:fun    PASS · firmwareState=completed / artifacts=elf,hex,bin,map
+```
+
+未运行安装包构建。
+
+以下项目仍明确由项目所有者人工完成，不由本次自动工具替代：
+
+- 1920×1080、1366×768、最小窗口与 100%–175% 缩放；
+- Candidate、Diff、Apply、Build、Flash、AI、Question/Observation 和 Sandbox 的完整界面交互；
+- WCH-Link、USB 下载、导航守卫和真实硬件观察。

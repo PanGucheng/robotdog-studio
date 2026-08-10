@@ -416,6 +416,7 @@ export const browserDemoApi: RobotDogApi = {
       outputDir: '.firmware-build\\demo',
       completedFiles: 0,
       totalFiles: 29,
+      stage: 'preparing',
       logs: ['浏览器演示：开始模拟编译'],
       artifacts: [],
       startedAt: new Date().toISOString()
@@ -425,12 +426,15 @@ export const browserDemoApi: RobotDogApi = {
       await new Promise((resolve) => setTimeout(resolve, 28))
       buildSnapshot = {
         ...buildSnapshot,
+        stage: index < 29 ? 'compiling' : 'linking',
         completedFiles: index,
         currentFile: index < 29 ? `模拟源文件 ${index}.c` : '链接 GPIO_Toggle.elf',
         logs: [...buildSnapshot.logs.slice(-20), `[${index}/29] 模拟源文件 ${index}`]
       }
       emitBuild({ type: 'progress', snapshot: buildSnapshot })
     }
+    buildSnapshot = { ...buildSnapshot, stage: 'packaging', currentFile: '正在生成 HEX/BIN 与构建证明' }
+    emitBuild({ type: 'progress', snapshot: buildSnapshot })
     buildSnapshot = {
       ...buildSnapshot,
       state: 'completed',
@@ -875,7 +879,7 @@ async function runBrowserAgent(turn: AgentTurnSnapshot, token: number): Promise<
     validation: { valid: true, policyVersion: 'student-v1:1', files: [{ path: 'student-config/line-following.yaml', status: 'modified', bytes: 36, additions: 1, deletions: 1 }], violations: [], warnings: [], changedFiles: 1, patchBytes: 36 }
   }
   demoCandidates.set(ready.id, ready)
-  emitBrowserAgent(turn, 8, { type: 'candidate_ready', candidate: ready, summary: '已准备好巡线参数的修改。请在右侧看看改动，再决定是否保存。' })
+  emitBrowserAgent(turn, 8, { type: 'candidate_ready', candidate: ready, summary: '已准备好巡线参数的修改。请在代码区核对改动，再决定是否保存。' })
   emitBrowserAgent(turn, 9, { type: 'completed', state: 'review_ready', message: '修改已通过安全核对，等你查看。' })
   browserAgentTurn = undefined
 }

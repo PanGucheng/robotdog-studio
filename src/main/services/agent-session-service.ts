@@ -328,7 +328,7 @@ function buildStudentCandidateSummary(candidate: CandidateSnapshot): string {
     return '学生代码'
   })
   const uniqueLabels = [...new Set(labels)]
-  return `已准备好${uniqueLabels.join('、')}的修改。请在右侧看看改动，再决定是否保存。`
+  return `已准备好${uniqueLabels.join('、')}的修改。请在代码区核对改动，再决定是否保存。`
 }
 
 function buildDiagnosticRepairMessage(diagnostics: NonNullable<CandidateSnapshot['diagnostics']>): string {

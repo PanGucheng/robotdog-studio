@@ -1,11 +1,11 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, BookOpenCheck, Check, ChevronDown, Circle, Expand, FileCode2, ListChecks, Minimize2, RotateCcw } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, BookOpenCheck, Check, Circle, Expand, FileCode2, ListChecks, Minimize2, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { CourseLectureResult, CourseLectureSelectionRange, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 import { CourseLectureRenderer } from './CourseLectureRenderer'
 
-interface McuCourseToolProps {
+interface McuLabGuideProps {
   workspace: WorkspaceSummary
   lesson?: CourseLesson
   progress?: CourseProgressSnapshot
@@ -17,14 +17,14 @@ interface McuCourseToolProps {
   onBrowseCourses(): void
   onOpenStep(step: CourseLesson['steps'][number]): void
   onFocusFile(path: string, line?: number): void
-  onAssistantOpen(): void
+  onAssistantOpen(intent: 'step' | 'lecture'): void
 }
 
 const automaticTypes = new Set(['candidate-build', 'firmware-build', 'flash'])
 
-export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePath, lectureFocus, onLectureFocusChange, onUpdate, onBrowseCourses, onOpenStep, onFocusFile, onAssistantOpen }: McuCourseToolProps): React.JSX.Element {
+export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath, lectureFocus, onLectureFocusChange, onUpdate, onBrowseCourses, onOpenStep, onFocusFile, onAssistantOpen }: McuLabGuideProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
-  const [mode, setMode] = useState<'tasks' | 'lecture'>(() => readCourseMode(workspace.id))
+  const [mode, setMode] = useState<'current' | 'overview' | 'reference'>(() => readCourseMode(workspace.id))
   const [lecture, setLecture] = useState<CourseLectureResult>()
   const [lectureLoading, setLectureLoading] = useState(false)
   const [activeSectionId, setActiveSectionId] = useState<string>()
@@ -50,8 +50,8 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
   }, [progress?.updatedAt, nextStep?.stepId, question?.questionId])
 
   useEffect(() => {
-    localStorage.setItem(`robotdog.mcu-course-mode.${workspace.id}`, mode)
-    if (mode !== 'lecture') onLectureFocusChange(false)
+    localStorage.setItem(`robotdog.mcu.lab-guide.v1.${workspace.id}`, JSON.stringify({ version: 1, kind: mode }))
+    if (mode !== 'reference') onLectureFocusChange(false)
   }, [workspace.id, mode, onLectureFocusChange])
 
   useEffect(() => { localStorage.setItem('robotdog.mcu-lecture-font-size', String(lectureFontSize)) }, [lectureFontSize])
@@ -90,13 +90,13 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
   const complete = progress.state === 'completed'
   const openLecture = (sectionId?: string): void => {
     if (sectionId && document?.sections.some((section) => section.sectionId === sectionId)) setActiveSectionId(sectionId)
-    setMode('lecture')
+    setMode('reference')
   }
   const openTask = (stepId: string): void => {
     setHighlightedStepId(stepId)
-    setMode('tasks')
+    setMode('current')
   }
-  return <div className={`mcu-course-tool ${mode === 'lecture' ? 'is-lecture-mode' : ''}`} style={{ '--lecture-font-size': `${lectureFontSize}px` } as CSSProperties}>
+  return <div className={`mcu-course-tool mcu-lab-guide ${mode === 'reference' ? 'is-lecture-mode' : ''}`} style={{ '--lecture-font-size': `${lectureFontSize}px` } as CSSProperties}>
     <header className="mcu-tool-heading">
       <div><span className="eyebrow">第 {workspace.courseBinding?.attemptNumber} 次练习</span><h2>{lesson.title}</h2></div>
       <button type="button" className="mcu-text-button" onClick={onBrowseCourses}>返回课程</button>
@@ -104,10 +104,11 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
 
     {!currentVersion && <div className="mcu-version-warning"><AlertTriangle size={15} /><span><strong>最新版讲义 · 仅供参考</strong>此练习基于课程 v{workspace.courseBinding?.contentVersion}，当前课程为 v{lesson.contentVersion}。讲义不会升级原任务和进度。</span></div>}
 
-    {mode === 'tasks' && lecture?.status === 'ready' && <button type="button" className="mcu-reference-open" onClick={() => openLecture()}><BookOpen size={14} /> 查看相关知识</button>}
-    {mode === 'lecture' && <button type="button" className="mcu-reference-back" onClick={() => setMode('tasks')}><ArrowLeft size={14} /> 返回实验任务</button>}
+    {mode === 'current' && lecture?.status === 'ready' && <button type="button" className="mcu-reference-open" onClick={() => openLecture()}><BookOpen size={14} /> 查看相关知识</button>}
+    {mode === 'overview' && <button type="button" className="mcu-reference-back" onClick={() => setMode('current')}><ArrowLeft size={14} /> 返回当前步骤</button>}
+    {mode === 'reference' && <button type="button" className="mcu-reference-back" onClick={() => setMode('current')}><ArrowLeft size={14} /> 返回当前步骤</button>}
 
-    {mode === 'tasks' ? <>
+    {mode !== 'reference' ? <>
       <div className={`mcu-progress-line ${complete ? 'is-complete' : progress.state === 'needs-attention' ? 'needs-attention' : ''}`}>
         <span><i style={{ width: `${progress.completionPercent}%` }} /></span><strong>{progress.completedSteps}/{progress.totalSteps}</strong><small>{complete ? '本课已完成' : progress.state === 'needs-attention' ? '需要重新检查' : '学习进度'}</small>
       </div>
@@ -115,22 +116,23 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
       {progress.recoveredFromCorruption && <div className="mcu-compact-warning"><RotateCcw size={14} /> 进度记录已重建，代码没有变化。</div>}
       {lesson.verification === 'pending-hardware-check' && <div className="mcu-compact-warning"><AlertTriangle size={14} /> 本课尚未通过真机检查。</div>}
 
-      <section className="mcu-current-step">
+      {mode === 'current' && <section className="mcu-current-step">
         <span className="eyebrow">{complete ? '完成' : '当前一步'}</span>
         <h3>{nextStep?.title ?? '检查本课完成情况'}</h3>
         <p>{nextStep?.instruction ?? '所有步骤已经记录，可以继续复习或返回课程目录。'}</p>
         {nextStep && <div className="mcu-step-actions">
           {nextStep.lectureSectionId && <button type="button" onClick={() => openLecture(nextStep.lectureSectionId)} disabled={busy || lecture?.status !== 'ready'}><BookOpen size={14} /> 阅读相关讲义</button>}
           {nextStep.fileTarget && <button type="button" onClick={() => onOpenStep(nextStep)} disabled={busy}><FileCode2 size={14} /> 定位代码</button>}
+          <button type="button" onClick={() => onAssistantOpen('step')}><BookOpenCheck size={14} /> 问 AI 这一步</button>
           {!nextStep.fileTarget && !nextStep.lectureSectionId && <button type="button" className="button-primary" onClick={() => onOpenStep(nextStep)} disabled={busy}>{stepActionLabel(nextStep.type)} <ArrowRight size={14} /></button>}
         </div>}
-      </section>
+      </section>}
 
-      {question && nextStep && <section className="mcu-inline-response"><label>{question.prompt}</label><textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="用自己的话写下理解。" /><button type="button" onClick={() => void onUpdate({ kind: 'answer', questionId: question.questionId, answer })} disabled={busy || !answer.trim()}>保存回答</button></section>}
-      {nextStep && ['serial-observation', 'hardware-observation'].includes(nextStep.type) && <section className="mcu-inline-response"><label>记录实际观察</label><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="没有观察到时不要猜测。" /><button type="button" onClick={() => void onUpdate({ kind: 'observation', stepId: nextStep.stepId, observation })} disabled={busy || !observation.trim()}>保存观察</button></section>}
+      {mode === 'current' && question && nextStep && <section className="mcu-inline-response"><label>{question.prompt}</label><textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="用自己的话写下理解。" /><button type="button" onClick={() => void onUpdate({ kind: 'answer', questionId: question.questionId, answer })} disabled={busy || !answer.trim()}>保存回答</button></section>}
+      {mode === 'current' && nextStep && ['serial-observation', 'hardware-observation'].includes(nextStep.type) && <section className="mcu-inline-response"><label>记录实际观察</label><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="没有观察到时不要猜测。" /><button type="button" onClick={() => void onUpdate({ kind: 'observation', stepId: nextStep.stepId, observation })} disabled={busy || !observation.trim()}>保存观察</button></section>}
 
-      <details className="mcu-step-list" open={Boolean(highlightedStepId)}>
-        <summary><ListChecks size={15} /> 全部步骤 <ChevronDown size={14} /></summary>
+      {mode === 'current' && <button type="button" className="mcu-reference-open" onClick={() => setMode('overview')}><ListChecks size={15} /> 查看全部任务</button>}
+      {mode === 'overview' && <div className="mcu-step-list is-overview">
         <div>{lesson.steps.map((step, index) => {
           const item = progress.steps.find((entry) => entry.stepId === step.stepId)
           const automatic = automaticTypes.has(step.type)
@@ -140,9 +142,9 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
             <span className="mcu-step-row-actions">{step.lectureSectionId && <button type="button" onClick={() => openLecture(step.lectureSectionId)} aria-label={`阅读相关讲义：${step.title}`}><BookOpen size={13} /></button>}{step.fileTarget && <button type="button" onClick={() => onOpenStep(step)} aria-label={`定位代码：${step.title}`}><FileCode2 size={13} /></button>}</span>
           </article>
         })}</div>
-      </details>
+      </div>}
 
-      <details className="mcu-completion-details"><summary>完成条件 · {progress.checks.filter((check) => check.passed).length}/{progress.checks.length}</summary>{progress.checks.map((check, index) => <p key={`${check.type}-${check.target ?? index}`} className={check.passed ? 'is-passed' : ''}>{check.passed ? <Check size={12} /> : <Circle size={12} />}{check.label}</p>)}</details>
+      {mode === 'overview' && <details className="mcu-completion-details" open><summary>完成条件 · {progress.checks.filter((check) => check.passed).length}/{progress.checks.length}</summary>{progress.checks.map((check, index) => <p key={`${check.type}-${check.target ?? index}`} className={check.passed ? 'is-passed' : ''}>{check.passed ? <Check size={12} /> : <Circle size={12} />}{check.label}</p>)}</details>}
     </> : <section className="mcu-lecture-view">
       <div className="lecture-toolbar">
         <label><span>章节</span><select value={activeSection?.sectionId ?? ''} onChange={(event) => setActiveSectionId(event.target.value)} disabled={!document}>{document?.sections.map((section) => <option value={section.sectionId} key={section.sectionId}>{String(section.order + 1).padStart(2, '0')} · {section.title}</option>)}</select></label>
@@ -166,7 +168,7 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
             : <div className="lecture-empty"><AlertTriangle size={22} /><strong>{lecture?.status === 'missing' ? '本课暂时没有讲义' : '当前讲义暂时无法加载'}</strong><p>课程任务、代码和构建仍可继续使用。{lecture?.status === 'invalid' ? ` 错误：${lecture.errorCode}` : ''}</p></div>}
       </div>
 
-      {lectureSelection && document && <aside className="lecture-question-box"><span>已选讲义</span><blockquote>{lectureSelection.preview}</blockquote><textarea value={lectureQuestion} onChange={(event) => setLectureQuestion(event.target.value)} placeholder="针对这段内容问 AI 助教…" maxLength={1000} />{lectureQuestionError && <small>{lectureQuestionError}</small>}<div><button type="button" onClick={() => setLectureSelection(undefined)}>取消</button><button type="button" className="button-primary" disabled={!lectureQuestion.trim() || busy} onClick={() => { setLectureQuestionError(undefined); void api.askCourseLecture({ courseId: lesson.courseId, lessonId: lesson.lessonId, contentVersion: document.contentVersion, documentDigest: document.documentDigest, workspaceId: workspace.id, request: { selection: lectureSelection.range, question: lectureQuestion } }).then(() => { setLectureSelection(undefined); setLectureQuestion(''); onAssistantOpen() }).catch(() => setLectureQuestionError('这段选文已失效或 AI 暂时不可用，请重新选择后再试。')) }}>询问 AI</button></div></aside>}
+      {lectureSelection && document && <aside className="lecture-question-box"><span>已选讲义</span><blockquote>{lectureSelection.preview}</blockquote><textarea value={lectureQuestion} onChange={(event) => setLectureQuestion(event.target.value)} placeholder="针对这段内容问 AI 助教…" maxLength={1000} />{lectureQuestionError && <small>{lectureQuestionError}</small>}<div><button type="button" onClick={() => setLectureSelection(undefined)}>取消</button><button type="button" className="button-primary" disabled={!lectureQuestion.trim() || busy} onClick={() => { setLectureQuestionError(undefined); void api.askCourseLecture({ courseId: lesson.courseId, lessonId: lesson.lessonId, contentVersion: document.contentVersion, documentDigest: document.documentDigest, workspaceId: workspace.id, request: { selection: lectureSelection.range, question: lectureQuestion } }).then(() => { setLectureSelection(undefined); setLectureQuestion(''); onAssistantOpen('lecture') }).catch(() => setLectureQuestionError('这段选文已失效或 AI 暂时不可用，请重新选择后再试。')) }}>询问 AI</button></div></aside>}
 
       {document && activeSection && <footer className="lecture-footer-actions">
         <button type="button" onClick={() => setActiveSectionId(document.sections[Math.max(0, activeSection.order - 1)].sectionId)} disabled={activeSection.order === 0}><ArrowLeft size={13} /> 上一节</button>
@@ -176,8 +178,11 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
   </div>
 }
 
-function readCourseMode(workspaceId: string): 'tasks' | 'lecture' {
-  return localStorage.getItem(`robotdog.mcu-course-mode.${workspaceId}`) === 'lecture' ? 'lecture' : 'tasks'
+function readCourseMode(workspaceId: string): 'current' | 'overview' | 'reference' {
+  try {
+    const stored = JSON.parse(localStorage.getItem(`robotdog.mcu.lab-guide.v1.${workspaceId}`) ?? 'null') as { version?: unknown; kind?: unknown } | null
+    return stored?.version === 1 && (stored.kind === 'overview' || stored.kind === 'reference') ? stored.kind : 'current'
+  } catch { return 'current' }
 }
 
 interface StoredLectureState { sectionId?: string; scrollTop: number }

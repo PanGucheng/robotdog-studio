@@ -52,7 +52,7 @@ describe('AgentSessionService', () => {
     expect(events[0]).toMatchObject({ type: 'turn_started', promptVersion: 'robotdog-student-v1.0.0' })
     expect(turn.promptHash).toMatch(/^[a-f0-9]{64}$/)
     expect((await candidates.get(turn.candidateId!)).state).toBe('review_ready')
-    expect(events.find((event) => event.type === 'candidate_ready')).toMatchObject({ summary: '已准备好巡线参数的修改。请在右侧看看改动，再决定是否保存。' })
+    expect(events.find((event) => event.type === 'candidate_ready')).toMatchObject({ summary: '已准备好巡线参数的修改。请在代码区核对改动，再决定是否保存。' })
     expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'student-config', 'line-following.yaml'), 'utf8')).toContain('turn_strength: 18')
   })
 

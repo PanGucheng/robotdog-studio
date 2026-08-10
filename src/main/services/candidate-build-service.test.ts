@@ -28,4 +28,11 @@ describe('candidate line configuration preflight', () => {
       { path: 'Core/Src/student_control.c', line: 11, column: 3, severity: 'warning', message: "this 'if' clause does not guard..." }
     ])
   })
+
+  it('supports firmware assembly paths and a caller-defined diagnostic limit', () => {
+    const lines = Array.from({ length: 8 }, (_, index) => `[受保护路径]/Startup/startup_ch32v20x_D6.S:${index + 1}:2: error: firmware issue ${index + 1}`)
+    const diagnostics = parseCompilerDiagnostics(lines.join('\n'), 7)
+    expect(diagnostics).toHaveLength(7)
+    expect(diagnostics[0]).toMatchObject({ path: 'Startup/startup_ch32v20x_D6.S', line: 1, column: 2 })
+  })
 })

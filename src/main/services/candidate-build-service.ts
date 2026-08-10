@@ -113,12 +113,12 @@ export class CandidateBuildService implements CandidateBuilder {
   }
 }
 
-export function parseCompilerDiagnostics(detail: string): CandidateDiagnostic[] {
+export function parseCompilerDiagnostics(detail: string, maximum = 6): CandidateDiagnostic[] {
   const diagnostics: CandidateDiagnostic[] = []
-  const pattern = /([^\r\n:]*?\.(?:c|h)):(\d+)(?::(\d+))?:\s*(fatal error|error|warning):\s*([^\r\n]+)/gi
+  const pattern = /([^\r\n:]*?\.(?:c|h|s)):(\d+)(?::(\d+))?:\s*(fatal error|error|warning):\s*([^\r\n]+)/gi
   for (const match of detail.matchAll(pattern)) {
     const source = match[1].replaceAll('\\', '/').replace(/^\[候选项目\]\/?/i, '')
-    const knownStart = source.search(/(?:Core|App|student-config)\//i)
+    const knownStart = source.search(/(?:Core|App|User|Peripheral|Startup|Debug|student-config)\//i)
     const path = knownStart >= 0 ? source.slice(knownStart) : undefined
     diagnostics.push({
       path,
@@ -127,7 +127,7 @@ export function parseCompilerDiagnostics(detail: string): CandidateDiagnostic[] 
       severity: match[4].toLowerCase().includes('warning') ? 'warning' : 'error',
       message: cleanCompilerMessage(match[5])
     })
-    if (diagnostics.length >= 6) break
+    if (diagnostics.length >= maximum) break
   }
   if (diagnostics.length > 0) return diagnostics
   const fallback = detail.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)

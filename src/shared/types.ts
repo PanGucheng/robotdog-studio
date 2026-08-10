@@ -647,6 +647,7 @@ export interface ToolchainStatus {
 }
 
 export type FirmwareBuildState = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type FirmwareBuildStage = 'preparing' | 'compiling' | 'linking' | 'packaging'
 
 export interface FirmwareBuildArtifact {
   name: string
@@ -680,6 +681,8 @@ export interface FirmwareBuildSnapshot {
   error?: string
   startedAt?: string
   completedAt?: string
+  stage?: FirmwareBuildStage
+  diagnostics?: CandidateDiagnostic[]
 }
 
 export interface FirmwareBuildProof {

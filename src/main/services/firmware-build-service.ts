@@ -11,7 +11,7 @@ import type {
   FirmwareBuildState,
   FirmwareSizeInfo
 } from '../../shared/types'
-import { parseLineConfigText, renderStudentConfigHeader } from './candidate-build-service'
+import { parseCompilerDiagnostics, parseLineConfigText, renderStudentConfigHeader } from './candidate-build-service'
 import { FirmwareBaselineService } from './firmware-baseline-service'
 import { SourceFingerprintService } from './source-fingerprint-service'
 import { ToolchainService } from './toolchain-service'
@@ -136,7 +136,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       this.redactions = [sourceRoot, projectRoot, temporaryRoot, this.outputBase]
       this.activeSnapshot = {
         id: buildId, workspaceId: workspace.id, state: 'running', firmwareRoot: sourceRoot, outputDir: publishedRoot,
-        completedFiles: 0, totalFiles: manifest.build.sources.length + 1, logs: [], artifacts: [], startedAt: new Date().toISOString()
+        completedFiles: 0, totalFiles: manifest.build.sources.length + 1, logs: [], artifacts: [], stage: 'preparing', startedAt: new Date().toISOString()
       }
       this.emitSnapshot('snapshot')
       this.addLog(`正在准备 ${manifest.label}`)
@@ -158,6 +158,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const teachingSources = workspace.learningPath === 'mcu-foundations' ? await this.collectMcuSources(projectRoot) : []
       const sources = [...manifest.build.sources, manifest.studentOverlay.source, ...teachingSources]
       const objectFiles: string[] = []
+      this.activeSnapshot.stage = 'compiling'
       for (const [index, source] of sources.entries()) {
         this.throwIfCancelled()
         const sourcePath = join(stagingRoot, ...source.split('/'))
@@ -182,12 +183,14 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const hexPath = join(outputRoot, manifest.artifacts.hex)
       const binPath = join(outputRoot, manifest.artifacts.bin)
       const mapPath = join(outputRoot, manifest.artifacts.map)
+      this.activeSnapshot.stage = 'linking'
       this.activeSnapshot.currentFile = `链接 ${manifest.artifacts.elf}`
       await this.runProcess(toolchain.gcc.path, [
         `-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`,
         ...manifest.build.linkFlags, `-Wl,-Map=${mapPath}`, '-T', join(stagingRoot, ...manifest.target.linkerScript.split('/')),
         '-o', elfPath, ...objectFiles
       ], stagingRoot)
+      this.activeSnapshot.stage = 'packaging'
       await this.runProcess(toolchain.objcopy.path, ['-O', 'ihex', elfPath, hexPath], stagingRoot)
       await this.runProcess(toolchain.objcopy.path, ['-O', 'binary', elfPath, binPath], stagingRoot)
       const sizeOutput = await this.runProcess(toolchain.size.path, [elfPath], stagingRoot)
@@ -253,7 +256,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     this.redactions = [sourceRoot, projectRoot, temporaryRoot, this.outputBase]
     this.activeSnapshot = {
       id: buildId, workspaceId: workspace.id, state: 'running', firmwareRoot: sourceRoot, outputDir: publishedRoot,
-      completedFiles: 0, totalFiles: 2, logs: [], artifacts: [], startedAt: new Date().toISOString()
+      completedFiles: 0, totalFiles: 2, logs: [], artifacts: [], stage: 'preparing', startedAt: new Date().toISOString()
     }
     this.emitSnapshot('snapshot')
     this.addLog(`正在使用内置 WCH GCC 构建 ${manifest.label}`)
@@ -276,6 +279,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     const sources = [...LIVE_BASELINE_SOURCES, manifest.studentOverlay.source, ...teachingSources]
     this.activeSnapshot.totalFiles = sources.length + 1
     const objectFiles: string[] = []
+    this.activeSnapshot.stage = 'compiling'
     for (const [index, source] of sources.entries()) {
       this.throwIfCancelled()
       const sourcePath = join(stagingRoot, ...source.split('/'))
@@ -301,12 +305,14 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     const hexPath = join(outputRoot, manifest.artifacts.hex)
     const binPath = join(outputRoot, manifest.artifacts.bin)
     const mapPath = join(outputRoot, manifest.artifacts.map)
+    this.activeSnapshot.stage = 'linking'
     this.activeSnapshot.currentFile = `链接 ${manifest.artifacts.elf}`
     const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
     await this.runProcess(toolchain.gcc.path, [
       ...targetArgs, ...LIVE_LINK_FLAGS, `-Wl,-Map=${mapPath}`, '-T', join(stagingRoot, ...manifest.target.linkerScript.split('/')),
       '-o', elfPath, ...objectFiles
     ], stagingRoot)
+    this.activeSnapshot.stage = 'packaging'
     await this.runProcess(toolchain.objcopy.path, ['-O', 'ihex', elfPath, hexPath], stagingRoot)
     await this.runProcess(toolchain.objcopy.path, ['-O', 'binary', elfPath, binPath], stagingRoot)
     const sizeOutput = await this.runProcess(toolchain.size.path, [elfPath], stagingRoot)
@@ -424,7 +430,8 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
   }
 
   private complete(state: Exclude<FirmwareBuildState, 'idle' | 'running'>, error?: string): void {
-    this.activeSnapshot = { ...this.activeSnapshot, state, error, currentFile: undefined, completedAt: new Date().toISOString() }
+    const diagnostics = state === 'failed' ? parseCompilerDiagnostics([...this.activeSnapshot.logs, error].filter(Boolean).join('\n'), 20) : undefined
+    this.activeSnapshot = { ...this.activeSnapshot, state, error, diagnostics, currentFile: undefined, completedAt: new Date().toISOString() }
     this.emitSnapshot(state)
   }
 
