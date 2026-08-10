@@ -101,7 +101,7 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
     : undefined
   const currentReadCompleted = currentReadStep ? progress.steps.find((step) => step.stepId === currentReadStep.stepId)?.completed : undefined
 
-  return <div className={`mcu-course-tool ${mode === 'lecture' ? 'is-lecture-mode' : ''}`}>
+  return <div className={`mcu-course-tool ${mode === 'lecture' ? 'is-lecture-mode' : ''}`} style={{ '--lecture-font-size': `${lectureFontSize}px` } as CSSProperties}>
     <header className="mcu-tool-heading">
       <div><span className="eyebrow">第 {workspace.courseBinding?.attemptNumber} 次练习</span><h2>{lesson.title}</h2></div>
       <button type="button" className="mcu-text-button" onClick={onBrowseCourses}>全部课程</button>
@@ -151,13 +151,13 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
       </details>
 
       <details className="mcu-completion-details"><summary>完成条件 · {progress.checks.filter((check) => check.passed).length}/{progress.checks.length}</summary>{progress.checks.map((check, index) => <p key={`${check.type}-${check.target ?? index}`} className={check.passed ? 'is-passed' : ''}>{check.passed ? <Check size={12} /> : <Circle size={12} />}{check.label}</p>)}</details>
-    </> : <section className="mcu-lecture-view" style={{ '--lecture-font-size': `${lectureFontSize}px` } as CSSProperties}>
+    </> : <section className="mcu-lecture-view">
       <div className="lecture-toolbar">
         <label><span>章节</span><select value={activeSection?.sectionId ?? ''} onChange={(event) => setActiveSectionId(event.target.value)} disabled={!document}>{document?.sections.map((section) => <option value={section.sectionId} key={section.sectionId}>{String(section.order + 1).padStart(2, '0')} · {section.title}</option>)}</select></label>
         <div className="lecture-font-controls" aria-label="讲义字号">
           <button type="button" onClick={() => setLectureFontSize((value) => Math.max(13, value - 2))} disabled={lectureFontSize <= 13} aria-label="缩小讲义字号">A−</button>
           <output aria-live="polite">{lectureFontSize}px</output>
-          <button type="button" onClick={() => setLectureFontSize((value) => Math.min(19, value + 2))} disabled={lectureFontSize >= 19} aria-label="放大讲义字号">A+</button>
+          <button type="button" onClick={() => setLectureFontSize((value) => value + 2)} aria-label="放大讲义字号">A+</button>
         </div>
         <button type="button" onClick={() => onLectureFocusChange(!lectureFocus)} aria-label={lectureFocus ? '退出专注阅读' : '进入专注阅读'}>{lectureFocus ? <Minimize2 size={14} /> : <Expand size={14} />}{lectureFocus ? '退出专注' : '专注阅读'}</button>
       </div>
@@ -212,5 +212,5 @@ function stepActionLabel(type: string): string {
 
 function readLectureFontSize(): number {
   const stored = Number(localStorage.getItem('robotdog.mcu-lecture-font-size'))
-  return [13, 15, 17, 19].includes(stored) ? stored : 15
+  return Number.isFinite(stored) && stored >= 13 ? stored : 15
 }
