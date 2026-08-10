@@ -1,4 +1,4 @@
-import type { CandidateDiagnostic, CandidateSnapshot, FirmwareBuildSnapshot, WorkspaceSummary } from '../../../shared/types'
+import type { CandidateDiagnostic, CandidateSnapshot, CourseLesson, FirmwareBuildSnapshot, WorkspaceSummary } from '../../../shared/types'
 
 export type BottomPanelTab = 'problems' | 'build' | 'output'
 
@@ -97,6 +97,13 @@ export function firmwareBelongsToWorkspace(build: FirmwareBuildSnapshot, workspa
 export function isFirmwareArtifactCurrent(build: FirmwareBuildSnapshot, workspace: WorkspaceSummary): boolean {
   const proof = build.proof
   return build.state === 'completed' && Boolean(proof && proof.workspaceId === workspace.id && proof.workspaceCommit === workspace.headCommit && proof.firmwareBaselineId === workspace.firmwareBaselineId && proof.baselineCommit === workspace.baselineCommit)
+}
+
+export function shouldShowProjectTour(workspace: WorkspaceSummary | undefined, lesson: CourseLesson | undefined): boolean {
+  return workspace?.workspacePurpose === 'mcu-lesson-attempt'
+    && lesson?.order === 0
+    && workspace.courseBinding?.courseId === lesson.courseId
+    && workspace.courseBinding.lessonId === lesson.lessonId
 }
 
 export interface Point { x: number; y: number }

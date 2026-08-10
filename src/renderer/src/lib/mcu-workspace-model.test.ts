@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { CandidateSnapshot, FirmwareBuildSnapshot, WorkspaceSummary } from '../../../shared/types'
-import { aggregateWorkspaceProblems, bottomPanelReducer, clampBottomPanelHeight, clampFloatingPoint, DEFAULT_BOTTOM_PANEL, defaultFloatingWindowGeometry, firmwareBelongsToWorkspace, isFirmwareArtifactCurrent, isPointerDrag, moveFloatingWindowGeometry, resizeFloatingWindowGeometry, resolveFloatingPoint, restoreBottomPanel, restoreFloatingPlacement, restoreFloatingWindowGeometry, snapFloatingPlacement, viewportDeltaToLocal } from './mcu-workspace-model'
+import type { CandidateSnapshot, CourseLesson, FirmwareBuildSnapshot, WorkspaceSummary } from '../../../shared/types'
+import { aggregateWorkspaceProblems, bottomPanelReducer, clampBottomPanelHeight, clampFloatingPoint, DEFAULT_BOTTOM_PANEL, defaultFloatingWindowGeometry, firmwareBelongsToWorkspace, isFirmwareArtifactCurrent, isPointerDrag, moveFloatingWindowGeometry, resizeFloatingWindowGeometry, resolveFloatingPoint, restoreBottomPanel, restoreFloatingPlacement, restoreFloatingWindowGeometry, shouldShowProjectTour, snapFloatingPlacement, viewportDeltaToLocal } from './mcu-workspace-model'
 
 const build = (overrides: Partial<FirmwareBuildSnapshot> = {}): FirmwareBuildSnapshot => ({ state: 'idle', firmwareRoot: '', completedFiles: 0, totalFiles: 0, logs: [], artifacts: [], ...overrides })
 
@@ -32,6 +32,15 @@ describe('MCU workspace model', () => {
     expect(firmwareBelongsToWorkspace({ ...current, workspaceId: 'w2' }, 'w1')).toBe(false)
     expect(isFirmwareArtifactCurrent(current, workspace)).toBe(true)
     expect(isFirmwareArtifactCurrent({ ...current, proof: { ...current.proof!, workspaceCommit: 'old' } }, workspace)).toBe(false)
+  })
+
+  it('shows the project tour only in a matching first-lesson workspace', () => {
+    const lesson = { courseId: 'course', lessonId: 'lesson-1', order: 0 } as CourseLesson
+    const workspace = { workspacePurpose: 'mcu-lesson-attempt', courseBinding: { courseId: 'course', lessonId: 'lesson-1' } } as WorkspaceSummary
+    expect(shouldShowProjectTour(workspace, lesson)).toBe(true)
+    expect(shouldShowProjectTour(workspace, { ...lesson, order: 1 })).toBe(false)
+    expect(shouldShowProjectTour({ ...workspace, workspacePurpose: 'mcu-sandbox' }, lesson)).toBe(false)
+    expect(shouldShowProjectTour(workspace, { ...lesson, lessonId: 'lesson-2' })).toBe(false)
   })
 
   it('distinguishes click from drag and snaps to safe edges', () => {
