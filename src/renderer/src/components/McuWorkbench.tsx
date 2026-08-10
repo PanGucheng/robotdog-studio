@@ -1,5 +1,5 @@
 import { Bot, BookOpenCheck, ChevronLeft, ChevronRight, Cpu, FolderTree, GraduationCap, X } from 'lucide-react'
-import { useEffect, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { CourseLesson } from '../../../shared/types'
 import { ChatPanel } from './ChatPanel'
 import { CourseCenter } from './CourseCenter'
@@ -18,12 +18,13 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
   const [showDiff, setShowDiff] = useState(false)
   const [focusRequest, setFocusRequest] = useState<{ path: string; line?: number; nonce: number }>()
   const [explorerWidth, setExplorerWidth] = useState(() => readStoredWidth('robotdog.mcu-explorer-width', 260, 220, 340))
-  const [toolWidth, setToolWidth] = useState(() => readStoredWidth('robotdog.mcu-tool-width', 390, 340, 520))
+  const [toolWidth, setToolWidth] = useState(() => readStoredWidth('robotdog.mcu-tool-width', 390, 340, Number.MAX_SAFE_INTEGER))
   const [tourOpen, setTourOpen] = useState(false)
   const [tourIndex, setTourIndex] = useState(0)
   const [toolPanelOpen, setToolPanelOpen] = useState(() => localStorage.getItem('robotdog.mcu-tool-panel-open') !== '0')
   const [lectureFocus, setLectureFocus] = useState(false)
   const [activeFilePath, setActiveFilePath] = useState<string>()
+  const shellRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (!workspace) setCatalogOpen(true)
@@ -66,6 +67,16 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
   useEffect(() => { localStorage.setItem('robotdog.mcu-tool-width', String(toolWidth)) }, [toolWidth])
   useEffect(() => { localStorage.setItem('robotdog.mcu-tool-panel-open', toolPanelOpen ? '1' : '0') }, [toolPanelOpen])
   useEffect(() => {
+    const shell = shellRef.current
+    if (!shell) return
+    const observer = new ResizeObserver(([entry]) => {
+      const available = Math.max(340, Math.floor(entry.contentRect.width - 48))
+      setToolWidth((current) => Math.min(current, available))
+    })
+    observer.observe(shell)
+    return () => observer.disconnect()
+  }, [])
+  useEffect(() => {
     if (workspace && !localStorage.getItem('robotdog.mcu-project-tour-seen')) { setTourIndex(0); setTourOpen(true) }
   }, [workspace?.id])
 
@@ -94,7 +105,8 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
     const startWidth = kind === 'explorer' ? explorerWidth : toolWidth
     const move = (moveEvent: PointerEvent): void => {
       const width = kind === 'explorer' ? startWidth + moveEvent.clientX - startX : startWidth + startX - moveEvent.clientX
-      const clamped = Math.round(Math.max(kind === 'explorer' ? 220 : 340, Math.min(kind === 'explorer' ? 340 : 520, width)))
+      const maximum = kind === 'explorer' ? 340 : Math.max(340, Math.floor((shellRef.current?.getBoundingClientRect().width ?? window.innerWidth) - 48))
+      const clamped = Math.round(Math.max(kind === 'explorer' ? 220 : 340, Math.min(maximum, width)))
       if (kind === 'explorer') setExplorerWidth(clamped); else setToolWidth(clamped)
     }
     const stop = (): void => {
@@ -105,7 +117,7 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
     document.addEventListener('pointerup', stop)
   }
 
-  return <section className={`mcu-workbench-shell ${toolPanelOpen ? '' : 'is-tool-collapsed'} ${lectureFocus ? 'is-lecture-focus' : ''}`} style={{ '--mcu-explorer-width': `${explorerWidth}px`, '--mcu-tool-width': `${toolWidth}px` } as CSSProperties}>
+  return <section ref={shellRef} className={`mcu-workbench-shell ${toolPanelOpen ? '' : 'is-tool-collapsed'} ${lectureFocus ? 'is-lecture-focus' : ''}`} style={{ '--mcu-explorer-width': `${explorerWidth}px`, '--mcu-tool-width': `${toolWidth}px` } as CSSProperties}>
     <div className="mcu-code-surface">
       <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={props.onCandidateChanged} onReadyForReview={() => { setActiveTool('run'); setToolPanelOpen(true); setShowDiff(true) }} onExplainCode={(request) => { setActiveTool('assistant'); setToolPanelOpen(true); props.onExplainCode(request) }} diagnosticHelp={props.diagnosticHelp} onRepairStudentCode={props.onRepairStudentCode} explorerMode focusRequest={focusRequest} onActiveFileChange={setActiveFilePath} />
       {showDiff && candidate && <div className="mcu-diff-surface"><header><span><FolderTree size={15} /> 修改差异</span><button type="button" onClick={() => setShowDiff(false)} aria-label="关闭修改差异"><X size={16} /></button></header><DiffReview candidate={candidate} diff={props.candidateDiff} loading={props.candidateDiffLoading} error={props.candidateDiffError} history={props.workspaceHistory} busy={busy} onReject={props.onRejectCandidate} onBuild={props.onBuildCandidate} onApply={props.onApplyCandidate} onUndo={props.onUndoWorkspace} surfaceOnly /></div>}
@@ -117,10 +129,10 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
       }} onClose={() => { localStorage.setItem('robotdog.mcu-project-tour-seen', '1'); setTourOpen(false) }} />}
     </div>
 
+    <button type="button" className="mcu-tool-resizer" aria-label="调整右侧工具区宽度" onPointerDown={(event) => resize('tool', event)} />
     <nav className="mcu-tool-rail" aria-label="课程与开发工具">{toolButtons.map(({ id, label, icon: Icon, attention }) => <button type="button" key={id} className={activeTool === id && toolPanelOpen ? 'active' : ''} onClick={() => { if (activeTool === id) setToolPanelOpen((value) => !value); else { setActiveTool(id); setToolPanelOpen(true) } }} aria-label={`${label}${activeTool === id && toolPanelOpen ? '，点击收起' : ''}`} title={label}><Icon size={18} />{attention && <i />}</button>)}</nav>
 
     <aside className="mcu-tool-panel" aria-label={toolButtons.find((item) => item.id === activeTool)?.label}>
-      <button type="button" className="mcu-tool-resizer" aria-label="调整工具侧栏宽度" onPointerDown={(event) => resize('tool', event)} />
       {activeTool === 'course' ? <McuCourseTool workspace={workspace} lesson={workspaceLesson} progress={courseProgress} busy={busy} activeFilePath={activeFilePath} lectureFocus={lectureFocus} onLectureFocusChange={setLectureFocus} onUpdate={props.onUpdateCourseProgress} onBrowseCourses={() => setCatalogOpen(true)} onOpenStep={openStep} onFocusFile={focusFile} onAssistantOpen={() => { setLectureFocus(false); setActiveTool('assistant'); setToolPanelOpen(true) }} />
         : activeTool === 'run' ? <McuBuildRunTool workspace={workspace} candidate={candidate} build={props.build} baseline={props.baseline} connection={props.connection} update={props.update} wchLink={props.wchLink} history={props.workspaceHistory} busy={busy} onShowDiff={() => setShowDiff(true)} onFocusFile={focusFile} onBuildCandidate={props.onBuildCandidate} onApplyCandidate={props.onApplyCandidate} onRejectCandidate={props.onRejectCandidate} onUndo={props.onUndoWorkspace} onBuildFirmware={props.onBuildFirmware} onCancelBuild={props.onCancelBuild} onToggleUsb={props.onToggleUsb} onStartUpdate={props.onStartUpdate} onCancelUpdate={props.onCancelUpdate} onProbeWchLink={props.onProbeWchLink} onFlashWchLink={props.onFlashWchLink} onCancelWchLink={props.onCancelWchLink} />
           : <div className="mcu-assistant-tool"><ChatPanel workspace={workspace} edition={props.edition} events={props.agentEvents ?? []} candidate={candidate} running={Boolean(props.agentRunning)} onPrompt={props.onAgentPrompt ?? (() => undefined)} onCancel={props.onAgentCancel ?? (() => undefined)} onReject={props.onRejectCandidate} onPermission={props.onAgentPermission ?? (() => undefined)} compact onOpenSettings={props.onOpenSettings} /></div>}

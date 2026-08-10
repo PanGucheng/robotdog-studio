@@ -914,8 +914,8 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .mcu-workbench-shell { --mcu-explorer-width: 260px; --mcu-tool-width: 380px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 48px var(--mcu-tool-width); min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: #fff; }
 .mcu-workbench-shell.is-tool-collapsed { grid-template-columns: minmax(0, 1fr) 48px 0; }
 .mcu-workbench-shell.is-tool-collapsed .mcu-tool-panel { visibility: hidden; }
-.mcu-workbench-shell.is-lecture-focus { --mcu-tool-width: clamp(460px, 48vw, 760px) !important; }
-.mcu-workbench-shell.is-lecture-focus .mcu-tool-panel { z-index: 9; box-shadow: -18px 0 42px rgb(31 66 83 / 13%); }
+.mcu-workbench-shell.is-lecture-focus .mcu-tool-panel { position: absolute; z-index: 9; inset: 0 48px 0 var(--mcu-explorer-width); width: auto; box-shadow: -18px 0 42px rgb(31 66 83 / 13%); }
+.mcu-workbench-shell.is-lecture-focus .mcu-tool-resizer { display: none; }
 .mcu-code-surface { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .mcu-code-surface .student-code-studio { grid-template-columns: var(--mcu-explorer-width) minmax(0, 1fr); }
 .mcu-code-surface .student-code-studio { background: #fff; }
@@ -945,7 +945,7 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .explorer-warning { display: flex; gap: 6px; margin: 8px 10px; padding: 8px; color: #8a611e; border: 1px solid #e5cea0; border-radius: 7px; background: #fff8e8; font-size: 9px; line-height: 1.45; }
 .mcu-explorer-resizer, .mcu-tool-resizer { position: absolute; z-index: 12; width: 7px; height: 100%; padding: 0; border: 0; background: transparent; cursor: col-resize; touch-action: none; }
 .mcu-explorer-resizer { top: 0; left: calc(var(--mcu-explorer-width) - 3px); }
-.mcu-tool-resizer { top: 0; left: -4px; }
+.mcu-tool-resizer { top: 0; left: calc(100% - var(--mcu-tool-width) - 51px); }
 .mcu-explorer-resizer:hover, .mcu-explorer-resizer:focus-visible, .mcu-tool-resizer:hover, .mcu-tool-resizer:focus-visible { outline: 0; background: #24b8c7; }
 .mcu-tool-rail { z-index: 3; display: flex; flex-direction: column; gap: 2px; padding-top: 7px; border-inline: 1px solid #d3e0e5; background: #f7fafb; }
 .mcu-tool-rail button { position: relative; display: grid; place-items: center; width: 47px; height: 44px; padding: 0; color: #78909c; border: 0; background: transparent; cursor: pointer; }
