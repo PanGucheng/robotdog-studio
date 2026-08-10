@@ -76,7 +76,7 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
   if (view.kind === 'lesson') {
     const selected = courseLesson?.courseId === view.courseId && courseLesson.lessonId === view.lessonId ? courseLesson : undefined
     if (!course || !selected) return <section className="course-center-state"><Cpu className="spin" size={22} /><strong>正在打开课程</strong></section>
-    return <LessonLearnPage course={course} lesson={selected} attempts={courseAttempts} busy={busy} onBack={() => navigate({ kind: 'course-center', courseId: view.courseId, lessonId: view.lessonId })} onCreateAttempt={props.onCreateCourseAttempt} onContinueAttempt={props.onContinueCourseAttempt} onProgress={props.onLessonLearningProgressChanged ?? (() => undefined)} />
+    return <LessonLearnPage course={course} lesson={selected} attempts={courseAttempts} onBack={() => navigate({ kind: 'course-center', courseId: view.courseId, lessonId: view.lessonId })} onCreateAttempt={props.onCreateCourseAttempt} onContinueAttempt={props.onContinueCourseAttempt} onProgress={props.onLessonLearningProgressChanged ?? (() => undefined)} />
   }
   if (!workspace || workspace.id !== view.workspaceId) return <section className="course-center-state"><Cpu className="spin" size={22} /><strong>正在打开工程</strong></section>
 

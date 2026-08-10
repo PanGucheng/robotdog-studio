@@ -8,14 +8,13 @@ interface LessonLearnPageProps {
   course: CourseDetail
   lesson: CourseLesson
   attempts: WorkspaceSummary[]
-  busy: boolean
   onBack(): void
   onCreateAttempt(lessonId: string): Promise<boolean>
   onContinueAttempt(workspaceId: string): void
   onProgress(progress: LessonLearningProgress): void
 }
 
-export function LessonLearnPage({ course, lesson, attempts, busy, onBack, onCreateAttempt, onContinueAttempt, onProgress }: LessonLearnPageProps): React.JSX.Element {
+export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAttempt, onContinueAttempt, onProgress }: LessonLearnPageProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const [lecture, setLecture] = useState<CourseLectureResult>()
   const [progress, setProgress] = useState<LessonLearningProgress>()
@@ -28,6 +27,8 @@ export function LessonLearnPage({ course, lesson, attempts, busy, onBack, onCrea
   const [historyOpen, setHistoryOpen] = useState(false)
   const [includeOlderHistory, setIncludeOlderHistory] = useState(false)
   const [historyEvents, setHistoryEvents] = useState<AgentEvent[]>([])
+  const [progressSaving, setProgressSaving] = useState(false)
+  const [attemptStarting, setAttemptStarting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const document = lecture?.status === 'ready' ? lecture.document : undefined
   const units = useMemo(() => groupLearningUnits(document), [document?.documentDigest])
@@ -68,15 +69,25 @@ export function LessonLearnPage({ course, lesson, attempts, busy, onBack, onCrea
     writeLectureView(lesson, document!.documentDigest, { activeSectionId: root.sectionId, scrollTopBySection: {} })
   }
   const toggleComplete = (): void => {
-    if (!activeUnit || !progress || progress.integrityError) return
+    if (!activeUnit || !progress || progress.integrityError || progressSaving) return
     const completed = !progress.completedSectionIds.includes(activeUnit.root.sectionId)
-    void api.updateLessonLearningProgress(lesson.courseId, lesson.lessonId, { kind: 'section', sectionId: activeUnit.root.sectionId, completed }).then((next) => { setProgress(next); onProgress(next) })
+    setProgressSaving(true)
+    void api.updateLessonLearningProgress(lesson.courseId, lesson.lessonId, { kind: 'section', sectionId: activeUnit.root.sectionId, completed })
+      .then((next) => { setProgress(next); onProgress(next) })
+      .finally(() => setProgressSaving(false))
   }
   const startLab = (): void => {
+    if (attemptStarting) return
     const remaining = units.length - (progress?.completedSectionIds.length ?? 0)
     if (remaining > 0 && !window.confirm(`还有 ${remaining} 个课程章节尚未标记完成。你可以先进入实验，之后随时返回课程。\n\n仍然开始实验吗？`)) return
     if (attempts.length > 0) setAttemptChooser(true)
-    else void onCreateAttempt(lesson.lessonId)
+    else void createAttempt()
+  }
+  const createAttempt = async (): Promise<void> => {
+    if (attemptStarting) return
+    setAttemptStarting(true)
+    try { await onCreateAttempt(lesson.lessonId) }
+    finally { setAttemptStarting(false) }
   }
   const askAi = (): void => {
     if (!document || !selection || !question.trim()) return
@@ -86,6 +97,7 @@ export function LessonLearnPage({ course, lesson, attempts, busy, onBack, onCrea
 
   if (!document || !activeUnit) return <section className="lesson-learn-state"><button type="button" onClick={onBack}><ArrowLeft size={15} /> 返回课程</button><BookOpen size={24} /><strong>{lecture?.status === 'invalid' ? '讲义暂时无法加载' : '正在准备课程内容'}</strong></section>
   const allComplete = progress?.completedSectionIds.length === units.length
+  const actionAvailability = getLessonActionAvailability({ progressSaving, attemptStarting, integrityError: Boolean(progress?.integrityError) })
 
   return <section className="lesson-learn-page">
     <header className="lesson-learn-header"><button type="button" onClick={onBack}><ArrowLeft size={15} /> 返回课程</button><div><span>第 {lesson.order + 1} 课</span><strong>{lesson.title}</strong></div><span className="lesson-header-actions"><small>{progress?.completedSectionIds.length ?? 0}/{units.length} 个学习单元</small><button type="button" onClick={() => setHistoryOpen(true)}><History size={14} /> AI 历史</button></span></header>
@@ -97,16 +109,23 @@ export function LessonLearnPage({ course, lesson, attempts, busy, onBack, onCrea
           const state = readLectureView(lesson, document.documentDigest)
           writeLectureView(lesson, document.documentDigest, { activeSectionId: activeUnit.root.sectionId, scrollTopBySection: { ...state.scrollTopBySection, [activeUnit.root.sectionId]: event.currentTarget.scrollTop } })
         }}>{activeUnit.sections.map((section) => <CourseLectureRenderer key={section.sectionId} document={document} sectionId={section.sectionId} mode="learn" onOpenSection={selectUnit} onOpenCode={() => undefined} onOpenTask={() => startLab()} onSelection={(range, preview) => setSelection({ range, preview })} />)}
-          {activeIndex === units.length - 1 && <section className="lesson-to-lab"><span><Check size={18} /></span><div><small>{allComplete ? '本课知识学习完成' : '接下来，用实验验证知识'}</small><h2>{lesson.title}</h2><ul>{lesson.objectives.map((objective) => <li key={objective}>{objective}</li>)}</ul><p><strong>实验目标：</strong>{lesson.expectedObservation}</p><button type="button" className="button-primary" onClick={startLab} disabled={busy}><FlaskConical size={16} /> 开始实验 <ArrowRight size={14} /></button></div></section>}
+          {activeIndex === units.length - 1 && <section className="lesson-to-lab"><span><Check size={18} /></span><div><small>{allComplete ? '本课知识学习完成' : '接下来，用实验验证知识'}</small><h2>{lesson.title}</h2><ul>{lesson.objectives.map((objective) => <li key={objective}>{objective}</li>)}</ul><p><strong>实验目标：</strong>{lesson.expectedObservation}</p><button type="button" className="button-primary" onClick={startLab} disabled={actionAvailability.startLabDisabled}><FlaskConical size={16} /> {attemptStarting ? '正在准备实验…' : '开始实验'} <ArrowRight size={14} /></button></div></section>}
         </div>
-        <footer className="lesson-reading-footer"><button type="button" onClick={() => selectUnit(units[Math.max(0, activeIndex - 1)].root.sectionId)} disabled={activeIndex === 0}><ArrowLeft size={13} /> 上一节</button><button type="button" className={progress?.completedSectionIds.includes(activeUnit.root.sectionId) ? '' : 'button-primary'} onClick={toggleComplete} disabled={busy || progress?.integrityError}>{progress?.completedSectionIds.includes(activeUnit.root.sectionId) ? <><Check size={13} /> 已完成本节</> : '完成本节阅读'}</button><button type="button" onClick={() => selectUnit(units[Math.min(units.length - 1, activeIndex + 1)].root.sectionId)} disabled={activeIndex === units.length - 1}>下一节 <ArrowRight size={13} /></button></footer>
+        <footer className="lesson-reading-footer"><button type="button" onClick={() => selectUnit(units[Math.max(0, activeIndex - 1)].root.sectionId)} disabled={activeIndex === 0}><ArrowLeft size={13} /> 上一节</button><button type="button" className={progress?.completedSectionIds.includes(activeUnit.root.sectionId) ? '' : 'button-primary'} onClick={toggleComplete} disabled={actionAvailability.completeReadingDisabled}>{progressSaving ? '正在保存…' : progress?.completedSectionIds.includes(activeUnit.root.sectionId) ? <><Check size={13} /> 已完成本节</> : '完成本节阅读'}</button><button type="button" onClick={() => selectUnit(units[Math.min(units.length - 1, activeIndex + 1)].root.sectionId)} disabled={activeIndex === units.length - 1}>下一节 <ArrowRight size={13} /></button></footer>
       </main>
     </div>
     {selection && <aside className="lesson-ai-drawer"><header><Sparkles size={16} /><strong>问问课程 AI</strong><button type="button" onClick={() => setSelection(undefined)}>×</button></header><blockquote>{selection.preview}</blockquote><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="针对这段内容提问…" /><button type="button" className="button-primary" onClick={askAi} disabled={!question.trim()}>发送问题</button></aside>}
     {aiText && <aside className="lesson-ai-answer"><header><Sparkles size={15} /> 课程 AI</header><p>{aiText}</p><button type="button" onClick={() => setAiText('')}>关闭</button></aside>}
     {historyOpen && <aside className="lesson-history-drawer"><header><div><span className="eyebrow">COURSE AI</span><strong>课程问答历史</strong></div><button type="button" onClick={() => setHistoryOpen(false)}>×</button></header><label><input type="checkbox" checked={includeOlderHistory} onChange={(event) => setIncludeOlderHistory(event.target.checked)} /> 显示旧版课程回答</label><div>{groupLectureHistory(historyEvents).map((turn) => <article key={turn.turnId}><small>{turn.version === document.contentVersion && turn.digest === document.documentDigest ? `当前课程 v${turn.version}` : `来自课程 v${turn.version}`}</small><strong>{turn.question}</strong><p>{turn.answer || '回答未完成'}</p></article>)}{historyEvents.length === 0 && <p>还没有课程问答记录。</p>}</div></aside>}
-    {attemptChooser && <div className="lesson-attempt-overlay" role="dialog" aria-modal="true"><section><header><div><span className="eyebrow">实验记录</span><h2>选择一次实验</h2></div><button type="button" onClick={() => setAttemptChooser(false)}>×</button></header>{attempts.map((attempt) => <button type="button" key={attempt.id} onClick={() => onContinueAttempt(attempt.id)}><FlaskConical size={16} /><span><strong>第 {attempt.courseBinding?.attemptNumber} 次实验</strong><small>{attempt.name} · {new Date(attempt.updatedAt).toLocaleString('zh-CN', { hour12: false })}</small></span><ChevronRight size={15} /></button>)}<button type="button" className="button-primary" onClick={() => void onCreateAttempt(lesson.lessonId)}>新建一次实验</button></section></div>}
+    {attemptChooser && <div className="lesson-attempt-overlay" role="dialog" aria-modal="true"><section><header><div><span className="eyebrow">实验记录</span><h2>选择一次实验</h2></div><button type="button" onClick={() => setAttemptChooser(false)}>×</button></header>{attempts.map((attempt) => <button type="button" key={attempt.id} onClick={() => onContinueAttempt(attempt.id)} disabled={attemptStarting}><FlaskConical size={16} /><span><strong>第 {attempt.courseBinding?.attemptNumber} 次实验</strong><small>{attempt.name} · {new Date(attempt.updatedAt).toLocaleString('zh-CN', { hour12: false })}</small></span><ChevronRight size={15} /></button>)}<button type="button" className="button-primary" onClick={() => void createAttempt()} disabled={attemptStarting}>{attemptStarting ? '正在新建实验…' : '新建一次实验'}</button></section></div>}
   </section>
+}
+
+export function getLessonActionAvailability(state: { progressSaving: boolean; attemptStarting: boolean; integrityError: boolean }): { completeReadingDisabled: boolean; startLabDisabled: boolean } {
+  return {
+    completeReadingDisabled: state.progressSaving || state.integrityError,
+    startLabDisabled: state.attemptStarting
+  }
 }
 
 function groupLearningUnits(document?: import('../../../shared/types').CourseLectureDocument): Array<{ root: import('../../../shared/types').CourseLectureSection; sections: import('../../../shared/types').CourseLectureSection[] }> {
