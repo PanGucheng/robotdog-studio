@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, BookOpenCheck, Check, ChevronDown, Circle, Expand, FileCode2, ListChecks, Minimize2, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import type { CourseLectureResult, CourseLectureSelectionRange, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 import { CourseLectureRenderer } from './CourseLectureRenderer'
@@ -33,6 +34,7 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
   const [lectureSelection, setLectureSelection] = useState<{ range: CourseLectureSelectionRange; preview: string }>()
   const [lectureQuestion, setLectureQuestion] = useState('')
   const [lectureQuestionError, setLectureQuestionError] = useState<string>()
+  const [lectureFontSize, setLectureFontSize] = useState(readLectureFontSize)
   const lectureScrollRef = useRef<HTMLDivElement>(null)
   const restoringScrollRef = useRef(false)
   const nextStep = useMemo(() => lesson?.steps.find((step) => !progress?.steps.find((item) => item.stepId === step.stepId)?.completed), [lesson, progress])
@@ -51,6 +53,8 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
     localStorage.setItem(`robotdog.mcu-course-mode.${workspace.id}`, mode)
     if (mode !== 'lecture') onLectureFocusChange(false)
   }, [workspace.id, mode, onLectureFocusChange])
+
+  useEffect(() => { localStorage.setItem('robotdog.mcu-lecture-font-size', String(lectureFontSize)) }, [lectureFontSize])
 
   useEffect(() => {
     if (!lesson || workspace.workspacePurpose !== 'mcu-lesson-attempt') { setLecture(undefined); return }
@@ -147,9 +151,14 @@ export function McuCourseTool({ workspace, lesson, progress, busy, activeFilePat
       </details>
 
       <details className="mcu-completion-details"><summary>完成条件 · {progress.checks.filter((check) => check.passed).length}/{progress.checks.length}</summary>{progress.checks.map((check, index) => <p key={`${check.type}-${check.target ?? index}`} className={check.passed ? 'is-passed' : ''}>{check.passed ? <Check size={12} /> : <Circle size={12} />}{check.label}</p>)}</details>
-    </> : <section className="mcu-lecture-view">
+    </> : <section className="mcu-lecture-view" style={{ '--lecture-font-size': `${lectureFontSize}px` } as CSSProperties}>
       <div className="lecture-toolbar">
         <label><span>章节</span><select value={activeSection?.sectionId ?? ''} onChange={(event) => setActiveSectionId(event.target.value)} disabled={!document}>{document?.sections.map((section) => <option value={section.sectionId} key={section.sectionId}>{String(section.order + 1).padStart(2, '0')} · {section.title}</option>)}</select></label>
+        <div className="lecture-font-controls" aria-label="讲义字号">
+          <button type="button" onClick={() => setLectureFontSize((value) => Math.max(13, value - 2))} disabled={lectureFontSize <= 13} aria-label="缩小讲义字号">A−</button>
+          <output aria-live="polite">{lectureFontSize}px</output>
+          <button type="button" onClick={() => setLectureFontSize((value) => Math.min(19, value + 2))} disabled={lectureFontSize >= 19} aria-label="放大讲义字号">A+</button>
+        </div>
         <button type="button" onClick={() => onLectureFocusChange(!lectureFocus)} aria-label={lectureFocus ? '退出专注阅读' : '进入专注阅读'}>{lectureFocus ? <Minimize2 size={14} /> : <Expand size={14} />}{lectureFocus ? '退出专注' : '专注阅读'}</button>
       </div>
 
@@ -199,4 +208,9 @@ function stepActionLabel(type: string): string {
   if (type === 'flash') return '写入开发板'
   if (type === 'question') return '填写回答'
   return '记录完成'
+}
+
+function readLectureFontSize(): number {
+  const stored = Number(localStorage.getItem('robotdog.mcu-lecture-font-size'))
+  return [13, 15, 17, 19].includes(stored) ? stored : 15
 }
