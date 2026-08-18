@@ -25,7 +25,7 @@ export interface LabGuideModel {
   unmappedBlockingChecks: CourseCompletionCheckResult[]
 }
 
-const manualTypes = new Set(['read', 'edit', 'summary'])
+const manualTypes = new Set(['read', 'summary'])
 const operationTypes: Record<CourseOperationKind, string> = {
   'candidate-build': 'candidate-build',
   'firmware-build': 'firmware-build',
@@ -118,9 +118,10 @@ function uniqueStepOfType(lesson: CourseLesson, type: string): string | undefine
 }
 
 export function completionHint(type: string): string {
-  if (manualTypes.has(type)) return type === 'read' ? '阅读并确认理解后完成。' : type === 'edit' ? '完成本步要求的操作并自行确认。' : '完成总结并确认后完成。'
-  if (type === 'candidate-build') return 'Candidate 检查通过后自动完成。'
-  if (type === 'review-apply') return '修改成功保存到项目后自动完成。'
+  if (manualTypes.has(type)) return type === 'read' ? '阅读并确认理解后完成。' : '完成总结并确认后完成。'
+  if (type === 'edit') return '实际修改指定文件并成功自动保存后完成。'
+  if (type === 'candidate-build') return '当前 Workspace 通过 Compiler / Linker 构建后自动完成。'
+  if (type === 'review-apply') return '手工修改自动保存，或 AI 修改确认应用后完成。'
   if (type === 'firmware-build') return '完整程序生成成功后自动完成。'
   if (type === 'flash') return '程序成功写入开发板后自动完成。'
   if (type === 'question') return '保存有效回答后自动完成。'

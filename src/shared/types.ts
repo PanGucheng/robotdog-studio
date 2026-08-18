@@ -863,6 +863,7 @@ export interface RobotDogApi {
   listStudentCodeFiles(workspaceId: string, candidateId?: string): Promise<StudentCodeFile[]>
   getProjectExplorer(workspaceId: string, candidateId?: string): Promise<ProjectExplorerSnapshot>
   readProjectExplorerFile(workspaceId: string, nodeId: string, candidateId?: string): Promise<ProjectExplorerFile>
+  writeWorkspaceFile(workspaceId: string, path: StudentCodeFile['path'], content: string): Promise<WorkspaceSummary>
   openManualDraft(workspaceId: string): Promise<CandidateSnapshot>
   writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot>
   explainStudentCode(workspaceId: string, request: StudentCodeExplanationRequest): Promise<AgentTurnSnapshot>

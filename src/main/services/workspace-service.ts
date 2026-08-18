@@ -272,6 +272,15 @@ export class WorkspaceService {
     return this.toSummary(updated)
   }
 
+  async completeDirectEdit(workspaceId: string, commit: string): Promise<WorkspaceSummary> {
+    if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error('WORKSPACE_COMMIT_INVALID')
+    const metadata = await this.readMetadata(workspaceId)
+    if (metadata.state !== 'ready' || metadata.activeCandidateId) throw new Error('WORKSPACE_BUSY')
+    const updated: WorkspaceMetadata = { ...metadata, lastCheckpoint: commit, updatedAt: new Date().toISOString() }
+    await this.writeMetadata(updated)
+    return this.toSummary(updated)
+  }
+
   async restoreCandidateAfterApplyFailure(workspaceId: string, candidateId: string): Promise<WorkspaceSummary> {
     const metadata = await this.readMetadata(workspaceId)
     if (metadata.activeCandidateId !== candidateId) throw new Error('WORKSPACE_CANDIDATE_MISMATCH')

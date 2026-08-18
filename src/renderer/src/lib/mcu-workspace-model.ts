@@ -1,6 +1,6 @@
 import type { CandidateDiagnostic, CandidateSnapshot, CourseLesson, FirmwareBuildSnapshot, WorkspaceSummary } from '../../../shared/types'
 
-export type BottomPanelTab = 'problems' | 'build' | 'output'
+export type BottomPanelTab = 'terminal' | 'problems'
 
 export interface BottomPanelUiState {
   open: boolean
@@ -19,7 +19,7 @@ export type BottomPanelAction =
   | { type: 'FIRMWARE_COMPLETED' }
   | { type: 'RESTORE'; value: unknown; surfaceHeight: number }
 
-export const DEFAULT_BOTTOM_PANEL: BottomPanelUiState = { open: true, tab: 'problems', height: 240 }
+export const DEFAULT_BOTTOM_PANEL: BottomPanelUiState = { open: true, tab: 'terminal', height: 260 }
 
 export function maxBottomPanelHeight(surfaceHeight: number): number {
   return Math.max(160, surfaceHeight - 78 - 32 - 220)
@@ -39,9 +39,9 @@ export function bottomPanelReducer(state: BottomPanelUiState, action: BottomPane
       return height === state.height ? state : { ...state, height }
     }
     case 'CANDIDATE_FAILED': return { ...state, open: true, tab: 'problems' }
-    case 'FIRMWARE_STARTED': return { ...state, open: true, tab: 'build' }
-    case 'FIRMWARE_FAILED': return { ...state, open: true, tab: 'problems' }
-    case 'FIRMWARE_COMPLETED': return { ...state, open: true, tab: 'build' }
+    case 'FIRMWARE_STARTED': return { ...state, open: true, tab: 'terminal' }
+    case 'FIRMWARE_FAILED': return { ...state, open: true, tab: 'terminal' }
+    case 'FIRMWARE_COMPLETED': return { ...state, open: true, tab: 'terminal' }
     case 'RESTORE': return restoreBottomPanel(action.value, action.surfaceHeight)
   }
 }
@@ -80,7 +80,7 @@ function toProblems(items: CandidateDiagnostic[], source: WorkspaceProblem['sour
 }
 
 function classifyProblem(message: string): 'linker' | 'safety' {
-  return /undefined reference|linker|collect2/i.test(message) ? 'linker' : 'safety'
+  return /undefined reference|multiple definition|linker|collect2|ld returned/i.test(message) ? 'linker' : 'safety'
 }
 
 function problemRank(problem: WorkspaceProblem): number {
@@ -219,7 +219,7 @@ export function restoreFloatingPlacement(value: unknown): FloatingAiPlacement {
   return { edge: value.edge, yRatio: clamp(value.yRatio, 0, 1) }
 }
 
-function isPanelTab(value: unknown): value is BottomPanelTab { return value === 'problems' || value === 'build' || value === 'output' }
+function isPanelTab(value: unknown): value is BottomPanelTab { return value === 'problems' || value === 'terminal' }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value) }
 function isFiniteNumber(value: unknown): value is number { return typeof value === 'number' && Number.isFinite(value) }
 function clamp(value: number, min: number, max: number): number { return Math.max(min, Math.min(max, value)) }

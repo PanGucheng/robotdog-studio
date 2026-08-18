@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { dirname, extname, join, relative, resolve } from 'node:path'
+import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import type {
   FirmwareBuildArtifact,
   FirmwareBuildEvent,
@@ -405,6 +405,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
   private runProcess(command: string, args: string[], cwd: string): Promise<string> {
     return new Promise((resolveRun, reject) => {
       this.throwIfCancelled()
+      this.addLog(this.redact(`> ${basename(command)} ${args.map(formatCommandArgument).join(' ')}`))
       const child = spawn(command, args, { cwd, windowsHide: true, shell: false, env: { PATH: process.env.PATH ?? '', SystemRoot: process.env.SystemRoot ?? '' } })
       this.activeProcess = child
       let output = ''
@@ -414,8 +415,8 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       child.on('close', (code) => {
         this.activeProcess = undefined
         if (this.cancelRequested) reject(new Error('构建已取消'))
-        else if (code !== 0) reject(new Error(`构建命令退出码 ${code ?? 'unknown'}`))
-        else resolveRun(output)
+        else if (code !== 0) { this.addLog(`进程结束 · exit code ${code ?? 'unknown'}`, 'error'); reject(new Error(`构建命令退出码 ${code ?? 'unknown'}`)) }
+        else { this.addLog('进程结束 · exit code 0', 'success'); resolveRun(output) }
       })
     })
   }
@@ -483,4 +484,9 @@ function classifyLog(line: string): 'info' | 'warning' | 'error' | 'success' {
   if (/error|错误|failed/i.test(line)) return 'error'
   if (/warning|警告/i.test(line)) return 'warning'
   return 'info'
+}
+
+function formatCommandArgument(value: string): string {
+  const safe = /\s/.test(value) ? `"${value.replaceAll('"', '\\"')}"` : value
+  return safe.replace(/^[A-Za-z]:\\[^ ]+/i, (match) => match.split(/[\\/]/).at(-1) ?? match)
 }

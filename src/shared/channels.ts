@@ -57,6 +57,7 @@ export const IPC_CHANNELS = {
   studentFilesList: 'student-files:list',
   projectExplorerGet: 'project-explorer:get',
   projectExplorerFileRead: 'project-explorer:file:read',
+  workspaceFileWrite: 'workspace:file:write',
   manualDraftOpen: 'manual-draft:open',
   manualDraftWrite: 'manual-draft:write',
   manualDraftExplain: 'manual-draft:explain',

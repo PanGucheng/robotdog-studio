@@ -1268,7 +1268,12 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .mcu-build-lead button.button-primary { color: #fff; border-color: #087f91; background: #087f91; }
 .mcu-artifact-row { display: flex; flex-wrap: wrap; gap: 7px; }
 .mcu-artifact-row span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; color: #51707d; border: 1px solid #d3e1e5; border-radius: 5px; background: #f7fafb; font: 11px var(--mono); }
-.mcu-output-view { display: block; min-height: 100%; margin: 0; padding: 13px 15px; color: #355666; background: #f8fbfc; font: 12px/1.6 var(--mono); white-space: pre-wrap; user-select: text; }
+.mcu-terminal-view { display: grid; grid-template-rows: auto minmax(72px, 1fr) auto; min-height: 100%; background: #f8fbfc; }
+.mcu-terminal-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; padding: 3px 10px; border-bottom: 1px solid #dbe5e8; color: #607b87; font: 11px var(--mono); }
+.mcu-terminal-toolbar > span, .mcu-terminal-toolbar > div { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mcu-terminal-toolbar button { padding: 3px 7px; color: #2f6474; border: 1px solid #c9dce1; border-radius: 4px; background: #fff; font: 10px var(--mono); cursor: pointer; }
+.mcu-output-view { display: block; min-height: 0; max-height: 310px; overflow: auto; margin: 0; padding: 11px 15px; color: #294d5e; background: #f8fbfc; font: 12px/1.55 var(--mono); white-space: pre-wrap; user-select: text; }
+.mcu-terminal-view .mcu-build-panel { padding: 10px 15px; border-top: 1px solid #d3e1e5; background: #fff; }
 
 .mcu-floating-assistant { position: absolute; z-index: 60; inset: 0; pointer-events: none; }
 .mcu-ai-button { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 52px; height: 52px; padding: 0; color: #fff; border: 1px solid #087f91; border-radius: 50%; background: #087f91; box-shadow: 0 10px 28px rgb(8 127 145 / 28%); cursor: grab; pointer-events: auto; touch-action: none; }

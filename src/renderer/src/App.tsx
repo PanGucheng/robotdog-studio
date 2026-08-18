@@ -195,6 +195,7 @@ export function App(): React.JSX.Element {
     const offWorkspace = api.onWorkspaceChanged((workspace) => {
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       if (workspace.learningPath !== 'mcu-foundations') setActiveWorkspaceId(workspace.id)
+      else if (workspace.id === currentWorkspaceIdRef.current) void refreshCourseProgress(workspace.id)
     })
     const offCandidate = api.onCandidateChanged((nextCandidate) => {
       if (nextCandidate.workspaceId === currentWorkspaceIdRef.current) setCandidate(nextCandidate)

@@ -1,8 +1,9 @@
 # RobotDog Studio MCU 课程制作指南
 
-更新日期：2026-08-10  
+更新日期：2026-08-19
+
 适用项目：RobotDog Studio MCU Foundations  
-当前参考课程：`ch32v203-foundations`，`contentVersion: 5`
+当前参考课程：`ch32v203-foundations`，`contentVersion: 6`
 
 ## 1. 指南目标
 
@@ -18,7 +19,7 @@
 8. 自动测试；
 9. 硬件课的真机验证记录。
 
-课程不是一组展示页面。Lesson 中的文件权限、任务、完成条件和 AI 上下文会直接驱动 Main 服务、学生工作区、Candidate、Firmware Build、Flash 和课程进度状态。
+课程不是一组展示页面。Lesson 中的文件权限、任务、完成条件和 AI 上下文会直接驱动 Main 服务、学生 Workspace、Firmware Build、AI Candidate、Flash 和课程进度状态。
 
 ## 2. 权威规则与优先级
 
@@ -48,7 +49,7 @@ catalog.json
           ├─ 课程中心 / Lesson 页面
           ├─ Lab Guide
           ├─ 学生 Workspace 权限
-          ├─ Candidate / Build / Flash 完成证据
+          ├─ Workspace / Build / Flash 完成证据
           └─ Course AI 可信上下文
 ```
 
@@ -271,18 +272,6 @@ resources/courses/mcu-foundations/<courseId>/lessons/<lessonId>.json
       }
     },
     {
-      "stepId": "candidate-build",
-      "type": "candidate-build",
-      "title": "检查候选代码",
-      "instruction": "根据第一条有效错误修复代码。"
-    },
-    {
-      "stepId": "review-change",
-      "type": "review-apply",
-      "title": "检查并保存修改",
-      "instruction": "阅读 Diff，确认文件范围后保存。"
-    },
-    {
       "stepId": "build-firmware",
       "type": "firmware-build",
       "title": "生成完整程序",
@@ -300,9 +289,6 @@ resources/courses/mcu-foundations/<courseId>/lessons/<lessonId>.json
     {
       "type": "student-change-applied",
       "target": "App/Src/experiment.c"
-    },
-    {
-      "type": "candidate-build-passed"
     },
     {
       "type": "firmware-build-passed"
@@ -348,9 +334,9 @@ resources/courses/mcu-foundations/<courseId>/lessons/<lessonId>.json
 | 类型 | 用途 | 通常由谁确认 |
 | --- | --- | --- |
 | `read` | 阅读或观察工程代码、配置 | 学生手动推进 |
-| `edit` | 修改教学文件 | 学生操作 |
-| `candidate-build` | 检查受控候选代码 | Candidate 服务 |
-| `review-apply` | 阅读 Diff 并保存 | Apply proof |
+| `edit` | 修改教学文件并自动保存到 Workspace | Workspace 写入证据 |
+| `candidate-build` | 旧课程兼容类型；新课不要用于手工编辑主路径 | Firmware proof 兼容桥接 |
+| `review-apply` | 旧课程兼容或 AI 修改的 Diff / Apply | Workspace 写入或 Apply proof |
 | `firmware-build` | 生成完整固件 | Firmware proof |
 | `flash` | 写入真实开发板 | Flash proof |
 | `serial-observation` | 记录串口现象 | 学生人工确认 |
@@ -360,7 +346,7 @@ resources/courses/mcu-foundations/<courseId>/lessons/<lessonId>.json
 
 已发布旧课中的 `read` 不要改名以追求术语统一。未来未发布的新课可在产品支持时再采用更明确的观察类型。
 
-Lab Guide 只维护一套线性 Stepper，并严格按 `stepId` 与 CourseProgress 对齐。`read`、`edit`、`summary` 由学生在当前步骤内部确认；`candidate-build`、`review-apply`、`firmware-build`、`flash` 分别由 Candidate、Apply、Firmware、Flash proof 自动确认；`question` 和两种 observation 在保存有效内容后自动确认。自动确认型步骤不得通过通用 Step 更新人工完成，Upcoming 步骤也不得越级完成。
+Lab Guide 只维护一套线性 Stepper，并严格按 `stepId` 与 CourseProgress 对齐。新课的默认主线应是 `read → edit → firmware-build → flash / observation → summary`。`edit` 由真实 Workspace 写入完成；`firmware-build`、`flash` 分别由 Firmware、Flash proof 自动确认；`question` 和两种 observation 在保存有效内容后自动确认。`candidate-build` 与 `review-apply` 仅为旧课兼容或明确的 AI Review 教学保留，不应再作为学生手工编辑的默认步骤。
 
 Completion Check 是实验验收证据，不是第二套学生任务。能够可靠映射时应显示在对应 Step 内；无法唯一映射的条件只在其阻止最终验收时独立提示。所有 Step 完成不等于实验完成，只有 CourseProgress 的最终状态为 `completed` 才能显示“实验完成”。
 
@@ -369,8 +355,8 @@ Completion Check 是实验验收证据，不是第二套学生任务。能够可
 | 类型 | `target` | 含义 |
 | --- | --- | --- |
 | `file-exists` | 文件路径 | 指定文件存在 |
-| `student-change-applied` | 可编辑文件路径 | 修改已通过 Diff/Apply 保存 |
-| `candidate-build-passed` | 无 | 候选检查通过 |
+| `student-change-applied` | 可编辑文件路径 | 手工修改已保存到 Workspace，或 AI 修改已 Apply |
+| `candidate-build-passed` | 无 | 旧课兼容证据；新课优先使用 `firmware-build-passed` |
 | `firmware-build-passed` | 无 | 当前 Workspace 完整构建通过 |
 | `flash-succeeded` | 无 | 当前产物成功写入开发板 |
 | `manual-observation-confirmed` | 观察步骤 ID | 学生确认真实观察结果 |
@@ -382,7 +368,7 @@ Completion Check 是实验验收证据，不是第二套学生任务。能够可
 
 ### 8.1 权限字段的职责
 
-- `editableGlobs`：Candidate 和手动草稿允许修改的最小范围；
+- `editableGlobs`：学生 Workspace 直写与 AI Candidate 允许修改的最小范围；
 - `readableFiles`：课程明确允许阅读和定位的参考文件；
 - `deniedGlobs`：显式保护的文件或目录；
 - 实际权限仍由 Main、Project Explorer 和 Workspace 策略共同执行，Lesson 不能扩大底层权限。
@@ -638,7 +624,7 @@ compatibility/content-v6.json
 - [ ] 目标芯片、RobotDog 板版本和原理图一致；
 - [ ] 引脚复用、时钟、调试口、CCD、运动控制和通信占用已核对；
 - [ ] 电源、电平、接线方向和运动风险已评估；
-- [ ] Candidate 检查和完整 Firmware Build 通过；
+- [ ] 当前 Workspace 的完整 Firmware Build 通过；
 - [ ] Flash/RAM 未超过课程允许范围；
 - [ ] WCH-Link 或指定下载方式真实烧录成功；
 - [ ] 复位后的实际现象与课程描述一致；
@@ -751,7 +737,7 @@ npm run package:win:mcu:test
 - [ ] `editableGlobs` 最小化；
 - [ ] 只读适配层和底层固件受保护；
 - [ ] `fileTarget`、`code-target` 指向真实可见路径；
-- [ ] Candidate、Firmware 和 Flash 证据与当前 Workspace 绑定；
+- [ ] Workspace 写入、AI Candidate、Firmware 和 Flash 证据均与当前 Workspace 绑定；
 - [ ] 硬件课已完成真机门禁。
 
 ### 讲义

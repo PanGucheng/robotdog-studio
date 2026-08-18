@@ -69,9 +69,35 @@ describe('CourseProgressStore', () => {
     expect(completed.completedAt).toBeTruthy()
   })
 
+  it('bridges direct Workspace saves and full builds into legacy course evidence', async () => {
+    const { store } = await fixture()
+    const legacy = lesson()
+    legacy.steps.splice(1, 0,
+      { stepId: 'edit-code', type: 'edit', title: '修改', instruction: '修改代码', fileTarget: { path: 'App/Src/experiment.c' } },
+      { stepId: 'review-change', type: 'review-apply', title: '保存', instruction: '旧版保存步骤' })
+    legacy.completionChecks.splice(1, 0, { type: 'student-change-applied', target: 'App/Src/experiment.c' })
+    const files = ['App/Src/experiment.c']
+
+    const saved = await store.recordSourceChange(workspace(), legacy, 'workspace-edited', ['App/Src/experiment.c'], files)
+    expect(saved.steps.find((step) => step.stepId === 'edit-code')?.completed).toBe(true)
+    expect(saved.steps.find((step) => step.stepId === 'review-change')?.completed).toBe(true)
+    const built = await store.recordOperation(workspace(), legacy, 'firmware-build', true, '完整构建通过', files)
+    expect(built.operations['candidate-build'].state).toBe('passed')
+    expect(built.steps.find((step) => step.stepId === 'candidate-build')?.completed).toBe(true)
+    expect(built.checks.find((check) => check.type === 'candidate-build-passed')?.passed).toBe(true)
+  })
+
   it('rejects manual completion for steps owned by trusted system evidence', async () => {
     const { store } = await fixture()
     await expect(store.update(workspace(), lesson(), { kind: 'step', stepId: 'candidate-build', completed: true }))
+      .rejects.toThrow('COURSE_PROGRESS_STEP_AUTOMATIC')
+  })
+
+  it('does not accept a claimed edit without a Workspace write', async () => {
+    const { store } = await fixture()
+    const current = lesson()
+    current.steps.splice(1, 0, { stepId: 'edit-code', type: 'edit', title: '修改', instruction: '修改代码', fileTarget: { path: 'App/Src/experiment.c' } })
+    await expect(store.update(workspace(), current, { kind: 'step', stepId: 'edit-code', completed: true }))
       .rejects.toThrow('COURSE_PROGRESS_STEP_AUTOMATIC')
   })
 

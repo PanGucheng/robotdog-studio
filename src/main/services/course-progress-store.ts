@@ -93,7 +93,7 @@ export class CourseProgressStore {
     if (update.kind === 'step') {
       const target = next.contract.steps.find((step) => step.stepId === update.stepId)
       if (!target) throw new Error('COURSE_PROGRESS_STEP_NOT_FOUND')
-      if (!['read', 'edit', 'summary'].includes(target.type)) throw new Error('COURSE_PROGRESS_STEP_AUTOMATIC')
+      if (!['read', 'summary'].includes(target.type)) throw new Error('COURSE_PROGRESS_STEP_AUTOMATIC')
       next.steps = next.steps.map((step) => step.stepId === update.stepId
         ? { stepId: step.stepId, completed: update.completed, completedAt: update.completed ? now : undefined }
         : step)
@@ -141,8 +141,14 @@ export class CourseProgressStore {
     const next = this.synchronizeSteps(stored)
     const now = new Date().toISOString()
     next.operations[kind] = { state: passed ? 'passed' : 'failed', checkedAt: now, detail: detail?.slice(0, 240) }
+    if (kind === 'firmware-build' && next.contract.steps.some((step) => step.type === 'candidate-build')) {
+      next.operations['candidate-build'] = { state: passed ? 'passed' : 'failed', checkedAt: now, detail: passed ? '当前 Workspace 已通过完整 Compiler / Linker 构建。' : detail?.slice(0, 240) }
+    }
     const stepType = kind === 'candidate-build' ? 'candidate-build' : kind === 'firmware-build' ? 'firmware-build' : 'flash'
     next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === stepType
+      ? passed ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : { stepId: step.stepId, completed: false }
+      : step)
+    if (kind === 'firmware-build') next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === 'candidate-build'
       ? passed ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : { stepId: step.stepId, completed: false }
       : step)
     next.updatedAt = now
@@ -152,7 +158,7 @@ export class CourseProgressStore {
     return this.toSnapshot(next, lesson, existingFiles)
   }
 
-  async recordSourceChange(workspace: WorkspaceSummary, lesson: CourseLesson, kind: 'candidate-applied' | 'workspace-undone', changedFiles: string[] = [], existingFiles: string[] = []): Promise<CourseProgressSnapshot> {
+  async recordSourceChange(workspace: WorkspaceSummary, lesson: CourseLesson, kind: 'candidate-applied' | 'workspace-edited' | 'workspace-undone', changedFiles: string[] = [], existingFiles: string[] = []): Promise<CourseProgressSnapshot> {
     return this.serialize(workspace.id, async () => {
       const { stored } = await this.readOrCreate(workspace, lesson)
       const next = this.synchronizeSteps(stored)
@@ -168,13 +174,17 @@ export class CourseProgressStore {
           ? { stepId: step.stepId, completed: false }
           : step)
       }
-      next.appliedFiles = kind === 'candidate-applied'
+      next.appliedFiles = kind === 'candidate-applied' || kind === 'workspace-edited'
         ? [...new Set([...next.appliedFiles, ...changedFiles])]
         : []
       next.steps = next.steps.map((step) => {
         const contractStep = next.contract.steps.find((item) => item.stepId === step.stepId)
+        const lessonStep = lesson.steps.find((item) => item.stepId === step.stepId)
+        if (kind === 'workspace-edited' && contractStep?.type === 'edit' && lessonStep?.fileTarget?.path && changedFiles.includes(lessonStep.fileTarget.path)) {
+          return { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now }
+        }
         if (contractStep?.type !== 'review-apply') return step
-        return kind === 'candidate-applied'
+        return kind === 'candidate-applied' || kind === 'workspace-edited'
           ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now }
           : { stepId: step.stepId, completed: false }
       })
@@ -241,7 +251,7 @@ export class CourseProgressStore {
     const checks = stored.contract.completionChecks.map((check) => {
       if (check.type === 'file-exists') return { ...check, passed: Boolean(check.target && files.has(check.target)), label: check.target ? `文件存在：${check.target}` : '指定文件存在' }
       if (check.type === 'student-change-applied') return { ...check, passed: check.target ? stored.appliedFiles.includes(check.target) : stored.appliedFiles.length > 0, label: check.target ? `已保存教学文件修改：${check.target}` : '已保存一次代码修改' }
-      if (check.type === 'candidate-build-passed') return { ...check, passed: stored.operations['candidate-build'].state === 'passed', label: '候选代码编译通过' }
+      if (check.type === 'candidate-build-passed') return { ...check, passed: stored.operations['candidate-build'].state === 'passed', label: 'Workspace 编译与链接通过' }
       if (check.type === 'firmware-build-passed') return { ...check, passed: stored.operations['firmware-build'].state === 'passed', label: '完整程序生成成功' }
       if (check.type === 'flash-succeeded') return { ...check, passed: stored.operations.flash.state === 'passed', label: '最近一次烧录成功' }
       if (check.type === 'manual-observation-confirmed') return { ...check, passed: Boolean(check.target && stored.observations[check.target]?.trim()), label: check.target ? `已经记录观察：${check.target}` : '已经记录指定观察' }

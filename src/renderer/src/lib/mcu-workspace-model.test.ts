@@ -7,14 +7,14 @@ const build = (overrides: Partial<FirmwareBuildSnapshot> = {}): FirmwareBuildSna
 describe('MCU workspace model', () => {
   it('routes trusted events to the expected panel tab', () => {
     expect(bottomPanelReducer(DEFAULT_BOTTOM_PANEL, { type: 'CANDIDATE_FAILED' })).toMatchObject({ open: true, tab: 'problems' })
-    expect(bottomPanelReducer(DEFAULT_BOTTOM_PANEL, { type: 'FIRMWARE_STARTED' })).toMatchObject({ open: true, tab: 'build' })
-    expect(bottomPanelReducer(DEFAULT_BOTTOM_PANEL, { type: 'FIRMWARE_FAILED' })).toMatchObject({ open: true, tab: 'problems' })
-    expect(bottomPanelReducer({ ...DEFAULT_BOTTOM_PANEL, open: false }, { type: 'FIRMWARE_COMPLETED' })).toMatchObject({ open: true, tab: 'build' })
+    expect(bottomPanelReducer(DEFAULT_BOTTOM_PANEL, { type: 'FIRMWARE_STARTED' })).toMatchObject({ open: true, tab: 'terminal' })
+    expect(bottomPanelReducer(DEFAULT_BOTTOM_PANEL, { type: 'FIRMWARE_FAILED' })).toMatchObject({ open: true, tab: 'terminal' })
+    expect(bottomPanelReducer({ ...DEFAULT_BOTTOM_PANEL, open: false }, { type: 'FIRMWARE_COMPLETED' })).toMatchObject({ open: true, tab: 'terminal' })
   })
 
   it('restores only versioned valid state and clamps its height', () => {
-    expect(restoreBottomPanel({ version: 2, open: false, tab: 'output', height: 999 }, 700)).toEqual({ ...DEFAULT_BOTTOM_PANEL, height: 240 })
-    expect(restoreBottomPanel({ version: 1, open: false, tab: 'output', height: 999 }, 700)).toEqual({ open: false, tab: 'output', height: 370 })
+    expect(restoreBottomPanel({ version: 2, open: false, tab: 'output', height: 999 }, 700)).toEqual({ ...DEFAULT_BOTTOM_PANEL, height: 260 })
+    expect(restoreBottomPanel({ version: 1, open: false, tab: 'terminal', height: 999 }, 700)).toEqual({ open: false, tab: 'terminal', height: 370 })
     expect(clampBottomPanelHeight(20, 700)).toBe(160)
   })
 
@@ -23,6 +23,7 @@ describe('MCU workspace model', () => {
     const result = aggregateWorkspaceProblems(candidate, build({ workspaceId: 'w1', state: 'failed', diagnostics: [{ severity: 'error', message: 'undefined reference to x' }] }), 'w1')
     expect(result.map((item) => item.source)).toEqual(['candidate', 'candidate', 'linker'])
     expect(aggregateWorkspaceProblems(candidate, build({ workspaceId: 'other', error: 'hidden' }), 'w1')).toHaveLength(2)
+    expect(aggregateWorkspaceProblems(undefined, build({ workspaceId: 'w1', state: 'failed', diagnostics: [{ severity: 'error', message: "multiple definition of `limit'" }] }), 'w1')[0].source).toBe('linker')
   })
 
   it('checks workspace and four-part firmware proof identity', () => {

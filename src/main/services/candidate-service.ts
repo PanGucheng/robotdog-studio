@@ -183,6 +183,34 @@ export class CandidateService {
     })
   }
 
+  async writeWorkspaceFile(workspaceId: string, path: StudentCodeFile['path'], content: string): Promise<import('../../shared/types').WorkspaceSummary> {
+    const workspace = await this.workspaces.get(workspaceId)
+    if (workspace.learningPath !== 'mcu-foundations') throw new Error('WORKSPACE_DIRECT_EDIT_UNAVAILABLE')
+    if (workspace.state !== 'ready' || workspace.activeCandidateId) throw new Error('请先完成或放弃当前 AI 修改，再继续编辑工程。')
+    const root = await this.workspaces.getProjectRootForMain(workspaceId)
+    const listedFile = (await this.listStudentCodeFiles(workspaceId)).find((file) => file.path === path)
+    if (!isSafeRelativePath(path) || !listedFile?.editable || !(await this.policy.isEditablePath(root, path))) throw new Error('这个文件只能查看，不能修改。')
+    const bytes = Buffer.byteLength(content, 'utf8')
+    if (bytes > 64_000 || content.includes('\0')) throw new Error('代码内容过大或包含不支持的字符。')
+    if (listedFile.content === content) return workspace
+    if (!(await this.git.isClean(root))) throw new Error('WORKSPACE_DIRTY')
+    const target = join(root, ...path.split('/'))
+    const temporary = `${target}.workspace.tmp`
+    try {
+      await mkdir(dirname(target), { recursive: true })
+      await writeFile(temporary, content, 'utf8')
+      await rename(temporary, target)
+      const currentWorkspace = await this.workspaces.get(workspaceId)
+      if (currentWorkspace.state !== 'ready' || currentWorkspace.activeCandidateId) throw new Error('请先完成或放弃当前 AI 修改，再继续编辑工程。')
+      const commit = await this.git.commitAll(root, `feat(student): save ${path}`)
+      return this.workspaces.completeDirectEdit(workspaceId, commit)
+    } catch (caught) {
+      await rm(temporary, { force: true }).catch(() => undefined)
+      await this.git.restoreManagedChanges(root).catch(() => undefined)
+      throw caught
+    }
+  }
+
   async prepareManualRepair(candidateId: string): Promise<CandidateSnapshot> {
     const snapshot = await this.get(candidateId)
     if (snapshot.origin !== 'manual' || !activeStates.has(snapshot.state) || !snapshot.diagnostics?.length) throw new Error('MANUAL_REPAIR_NOT_READY')

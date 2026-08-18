@@ -1,5 +1,5 @@
 import { AlertTriangle, Cable, CheckCircle2, ChevronDown, ChevronUp, CircleAlert, Cpu, FileArchive, Hammer, LoaderCircle, Square, TerminalSquare, Usb, Zap } from 'lucide-react'
-import { useEffect, useMemo, useReducer, useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import type { CandidateSnapshot, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, StudentCodeExplanationRequest, WchLinkFlashSnapshot, WorkspaceSummary } from '../../../shared/types'
 import { aggregateWorkspaceProblems, bottomPanelReducer, DEFAULT_BOTTOM_PANEL, firmwareBelongsToWorkspace, isFirmwareArtifactCurrent, maxBottomPanelHeight, restoreBottomPanel, type BottomPanelTab, type WorkspaceProblem } from '../lib/mcu-workspace-model'
 
@@ -88,17 +88,15 @@ export function McuBottomPanel(props: McuBottomPanelProps): React.JSX.Element {
     <button type="button" className="mcu-panel-resizer" role="separator" aria-orientation="horizontal" aria-valuemin={160} aria-valuemax={maxBottomPanelHeight(rootRef.current?.parentElement?.getBoundingClientRect().height ?? window.innerHeight)} aria-valuenow={state.height} onPointerDown={resize} onKeyDown={resizeByKeyboard} />
     <header className="mcu-panel-bar">
       <nav aria-label="底部面板">
+        <PanelTab id="terminal" label="终端" active={state.tab === 'terminal'} onSelect={(tab) => dispatch({ type: 'USER_SELECT_TAB', tab })} />
         <PanelTab id="problems" label={`问题${problems.length ? ` ${problems.length}` : ''}`} active={state.tab === 'problems'} onSelect={(tab) => dispatch({ type: 'USER_SELECT_TAB', tab })} />
-        <PanelTab id="build" label="构建" active={state.tab === 'build'} onSelect={(tab) => dispatch({ type: 'USER_SELECT_TAB', tab })} />
-        <PanelTab id="output" label="输出" active={state.tab === 'output'} onSelect={(tab) => dispatch({ type: 'USER_SELECT_TAB', tab })} />
       </nav>
       <span className="mcu-panel-summary"><i />{status.summary}</span>
       <button type="button" onClick={() => dispatch({ type: state.open ? 'USER_CLOSE' : 'USER_OPEN' })} aria-label={state.open ? '收起底部面板' : '展开底部面板'}>{state.open ? <ChevronDown size={16} /> : <ChevronUp size={16} />}</button>
     </header>
     {state.open && <div className="mcu-panel-body">
       {state.tab === 'problems' ? <ProblemsView problems={problems} candidate={props.candidate} onFocus={props.onFocusFile} onExplain={props.onExplain} />
-        : state.tab === 'build' ? <BuildView {...props} belongs={belongs} artifactCurrent={artifactCurrent} />
-          : <OutputView build={belongs ? props.build : undefined} wchLink={props.wchLink} />}
+        : <TerminalView {...props} belongs={belongs} artifactCurrent={artifactCurrent} problems={problems} />}
     </div>}
   </section>
 }
@@ -130,9 +128,21 @@ function BuildView(props: McuBottomPanelProps & { belongs: boolean; artifactCurr
   return <div className="mcu-build-panel"><div className="mcu-build-lead"><CheckCircle2 size={19} /><span><strong>程序已生成并通过哈希校验</strong><small>Flash {formatBytes(flash)} / {formatBytes(baseline?.memory.flashBytes ?? 0)} · RAM {formatBytes(ram)} / {formatBytes(baseline?.memory.ramBytes ?? 0)}</small></span>{flashing ? <button type="button" onClick={activeWch.has(wchLink.state) ? props.onCancelWchLink : props.onCancelUpdate}><Square size={14} />取消写入</button> : targetReady ? <button type="button" className="button-primary" onClick={props.onFlashWchLink}><Zap size={14} />烧录到开发板</button> : usbReady ? <button type="button" className="button-primary" onClick={props.onStartUpdate}><Usb size={14} />通过 USB 写入</button> : <button type="button" onClick={props.onProbeWchLink}><Cable size={14} />检测开发板</button>}</div><div className="mcu-artifact-row">{build.artifacts.map((item) => <span key={item.kind}><FileArchive size={13} />{item.kind.toUpperCase()} {item.bytes ? formatBytes(item.bytes) : ''}</span>)}</div></div>
 }
 
-function OutputView({ build, wchLink }: { build?: FirmwareBuildSnapshot; wchLink: WchLinkFlashSnapshot }): React.JSX.Element {
-  const lines = [...(build?.logs ?? []), ...(wchLink.logs.length ? ['— WCH-Link —', ...wchLink.logs] : [])]
-  return <pre className="mcu-output-view" aria-label="只读构建输出"><TerminalSquare size={14} />{lines.length ? lines.join('\n') : '还没有构建输出。'}</pre>
+function TerminalView(props: McuBottomPanelProps & { belongs: boolean; artifactCurrent: boolean; problems: WorkspaceProblem[] }): React.JSX.Element {
+  const outputRef = useRef<HTMLPreElement>(null)
+  const pinned = useRef(true)
+  const [clearedBuildId, setClearedBuildId] = useState<string>()
+  const visible = clearedBuildId !== (props.build.id ?? `${props.build.workspaceId}:${props.build.startedAt}`)
+  const lines = visible ? [...(props.belongs ? props.build.logs : []), ...(props.wchLink.logs.length ? ['— WCH-Link —', ...props.wchLink.logs] : [])] : []
+  useEffect(() => {
+    if (!pinned.current || !outputRef.current) return
+    outputRef.current.scrollTop = outputRef.current.scrollHeight
+  }, [lines.length, props.build.state, props.wchLink.logs.length])
+  return <div className="mcu-terminal-view">
+    <div className="mcu-terminal-toolbar"><span><TerminalSquare size={14} /> Managed build console</span><div>{props.problems.filter((item) => item.path).slice(0, 3).map((problem) => <button type="button" key={problem.id} onClick={() => props.onFocusFile(problem.path!, problem.line)}>{problem.path?.split('/').at(-1)}:{problem.line ?? 1}</button>)}<button type="button" onClick={() => setClearedBuildId(props.build.id ?? `${props.build.workspaceId}:${props.build.startedAt}`)}>清空</button></div></div>
+    <pre ref={outputRef} className="mcu-output-view" aria-label="只读构建输出" tabIndex={0} onScroll={(event) => { const element = event.currentTarget; pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 28 }}>{lines.length ? lines.join('\n') : '> 等待生成程序\n构建命令、Compiler / Linker 输出和烧录日志会连续显示在这里。'}</pre>
+    <BuildView {...props} />
+  </div>
 }
 
 function panelStatus(build: FirmwareBuildSnapshot, belongs: boolean, current: boolean, problems: WorkspaceProblem[]): { tone: 'idle' | 'running' | 'passed' | 'failed' | 'stale'; summary: string } {

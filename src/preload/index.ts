@@ -61,6 +61,7 @@ const api: RobotDogApi = {
   listStudentCodeFiles: (workspaceId, candidateId) => ipcRenderer.invoke(IPC_CHANNELS.studentFilesList, workspaceId, candidateId),
   getProjectExplorer: (workspaceId, candidateId) => ipcRenderer.invoke(IPC_CHANNELS.projectExplorerGet, workspaceId, candidateId),
   readProjectExplorerFile: (workspaceId, nodeId, candidateId) => ipcRenderer.invoke(IPC_CHANNELS.projectExplorerFileRead, workspaceId, nodeId, candidateId),
+  writeWorkspaceFile: (workspaceId, path, content) => ipcRenderer.invoke(IPC_CHANNELS.workspaceFileWrite, workspaceId, path, content),
   openManualDraft: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.manualDraftOpen, workspaceId),
   writeManualDraft: (candidateId, path, content) => ipcRenderer.invoke(IPC_CHANNELS.manualDraftWrite, candidateId, path, content),
   explainStudentCode: (workspaceId, request) => ipcRenderer.invoke(IPC_CHANNELS.manualDraftExplain, workspaceId, request),

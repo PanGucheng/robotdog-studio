@@ -15,7 +15,7 @@ describe('CourseService', () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
     const courses = await service.listCourses()
     expect(courses).toHaveLength(1)
-    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 5, lessonCount: 3 })
+    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 6, lessonCount: 3 })
     const course = await service.getCourse('ch32v203-foundations')
     expect(course.lessons.map((lesson) => lesson.lessonId)).toEqual([
       'studio-first-build',
@@ -40,8 +40,8 @@ describe('CourseService', () => {
     const spec = await service.getWorkspaceCreationSpec('ch32v203-foundations', 'c-files-and-functions')
     expect(spec).toMatchObject({
       templateId: 'c-files-and-functions',
-      templateVersion: 'content-v5',
-      courseBinding: { courseId: 'ch32v203-foundations', lessonId: 'c-files-and-functions', contentVersion: 5 }
+      templateVersion: 'content-v6',
+      courseBinding: { courseId: 'ch32v203-foundations', lessonId: 'c-files-and-functions', contentVersion: 6 }
     })
     expect(spec.allowedEditGlobs).toContain('App/Src/number_tools.c')
     await expect(service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-hardware-placeholder')).rejects.toThrow('COURSE_LESSON_NOT_PUBLISHED')

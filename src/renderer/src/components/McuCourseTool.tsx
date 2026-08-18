@@ -117,8 +117,8 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
     </> : <div className="mcu-lab-sticky">
       <header className="mcu-tool-heading"><div><span className="eyebrow">实验任务</span><h2>{lesson.title}</h2></div><button type="button" className="mcu-text-button" onClick={onBrowseCourses}>返回本课</button></header>
       <div className="mcu-lab-meta"><span>第 {workspace.courseBinding?.attemptNumber} 次实验</span><strong>{guide?.experimentCompleted ? <><Check size={13} /> 实验完成</> : guide?.awaitingAcceptance ? `${guide.completedSteps} / ${guide.totalSteps} 步 · 等待验收` : `已完成 ${guide?.completedSteps ?? 0} / ${guide?.totalSteps ?? 0} 步`}</strong></div>
-      {guide?.compatible && <nav className="mcu-step-indicator" aria-label="实验步骤进度">{guide.steps.map((item) => <button key={item.step.stepId} type="button" className={`is-${item.status}`} aria-label={`第 ${item.index + 1} 步，${item.step.title}，${item.statusLabel}`} aria-current={item.status === 'current' || item.status === 'needs-attention' ? 'step' : undefined} onClick={() => { setSelectedStepId(item.step.stepId); stepRefs.current.get(item.step.stepId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }}><i>{item.status === 'completed' ? <Check size={11} /> : item.status === 'needs-attention' ? '!' : String(item.index + 1).padStart(2, '0')}</i></button>)}</nav>}
-      <div className="mcu-lab-announcer" aria-live="polite">{guide?.currentStep ? `${guide.currentStep.statusLabel}：第 ${guide.currentStep.index + 1} 步 ${guide.currentStep.step.title}` : guide?.experimentCompleted ? '实验已完成并通过验收' : ''}</div>
+      {guide?.compatible && <nav className="mcu-step-indicator" aria-label="实验步骤进度">{guide.steps.map((item) => <button key={item.step.stepId} type="button" className={`is-${item.status}`} aria-label={`第 ${item.index + 1} 步，${displayStepTitle(item.step)}，${item.statusLabel}`} aria-current={item.status === 'current' || item.status === 'needs-attention' ? 'step' : undefined} onClick={() => { setSelectedStepId(item.step.stepId); stepRefs.current.get(item.step.stepId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }}><i>{item.status === 'completed' ? <Check size={11} /> : item.status === 'needs-attention' ? '!' : String(item.index + 1).padStart(2, '0')}</i></button>)}</nav>}
+      <div className="mcu-lab-announcer" aria-live="polite">{guide?.currentStep ? `${guide.currentStep.statusLabel}：第 ${guide.currentStep.index + 1} 步 ${displayStepTitle(guide.currentStep.step)}` : guide?.experimentCompleted ? '实验已完成并通过验收' : ''}</div>
     </div>}
 
     {!currentVersion && <div className="mcu-version-warning"><AlertTriangle size={15} /><span><strong>兼容的历史练习</strong>此练习使用课程 v{workspace.courseBinding?.contentVersion} 的稳定任务身份；当前讲义为 v{lesson.contentVersion}，进度仍按 stepId 对齐。</span></div>}
@@ -138,9 +138,9 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
           const hardwareBlocked = lesson.verification === 'pending-hardware-check' && ['flash', 'serial-observation', 'hardware-observation'].includes(item.step.type)
           return <article key={item.step.stepId} ref={(node) => { if (node) stepRefs.current.set(item.step.stepId, node); else stepRefs.current.delete(item.step.stepId) }} tabIndex={-1} className={`mcu-lab-step is-${item.status} ${expanded ? 'is-expanded' : ''}`}>
             <span className="mcu-lab-step-rail" aria-hidden="true">{stepStatusIcon(item)}</span>
-            <button type="button" className="mcu-lab-step-summary" aria-expanded={expanded} onClick={() => setSelectedStepId(expanded && item === guide.currentStep ? undefined : item.step.stepId)}><span><small>{String(item.index + 1).padStart(2, '0')} · {item.statusLabel}</small><strong>{item.step.title}</strong></span><ArrowRight size={13} /></button>
+            <button type="button" className="mcu-lab-step-summary" aria-expanded={expanded} onClick={() => setSelectedStepId(expanded && item === guide.currentStep ? undefined : item.step.stepId)}><span><small>{String(item.index + 1).padStart(2, '0')} · {item.statusLabel}</small><strong>{displayStepTitle(item.step)}</strong></span><ArrowRight size={13} /></button>
             {expanded && <div className="mcu-lab-step-body">
-              <p>{item.step.instruction}</p>
+              <p>{displayStepInstruction(item.step)}</p>
               {item.detail && <div className="mcu-step-attention"><AlertTriangle size={14} />{item.detail}</div>}
               {item.step.fileTarget && <div className="mcu-step-file"><FileCode2 size={13} /><span>涉及文件</span><code>{item.step.fileTarget.path}{item.step.fileTarget.line ? `:${item.step.fileTarget.line}` : ''}</code></div>}
               <div className="mcu-step-actions">
@@ -210,12 +210,24 @@ function writeLectureState(workspaceId: string, displayedContentVersion: number,
 }
 
 function stepActionLabel(type: string): string {
-  if (type === 'candidate-build') return '检查修改'
-  if (type === 'review-apply') return '确认差异'
+  if (type === 'candidate-build') return '生成并排查'
+  if (type === 'review-apply') return '确认已保存'
   if (type === 'firmware-build') return '生成程序'
   if (type === 'flash') return '写入开发板'
   if (type === 'question') return '填写回答'
   return '记录完成'
+}
+
+function displayStepTitle(step: CourseLesson['steps'][number]): string {
+  if (step.type === 'candidate-build') return '编译并解决问题'
+  if (step.type === 'review-apply') return '确认修改已保存'
+  return step.title
+}
+
+function displayStepInstruction(step: CourseLesson['steps'][number]): string {
+  if (step.type === 'candidate-build') return '生成当前 Workspace，在 Terminal 阅读 Compiler / Linker 输出，并根据 Problems 定位修复。'
+  if (step.type === 'review-apply') return '确认编辑器显示“已保存”。手工修改已直接写入 Workspace；只有 AI 修改需要阅读 Diff 后应用。'
+  return step.instruction
 }
 
 function isSystemAction(type: string): boolean {

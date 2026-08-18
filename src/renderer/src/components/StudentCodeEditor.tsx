@@ -25,6 +25,7 @@ interface StudentCodeEditorProps {
   overlayVisible?: boolean
   bottomPanel?: ReactNode
   workspaceAction?: { summary: string; primaryLabel: string; onPrimary(): void; secondaryLabel: string; onSecondary(): void; disabled?: boolean }
+  workspaceDiagnostics?: CandidateDiagnostic[]
 }
 
 const configureMonaco: BeforeMount = (monaco) => {
@@ -46,7 +47,7 @@ const configureMonaco: BeforeMount = (monaco) => {
   })
 }
 
-export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp: _diagnosticHelp, onRepairStudentCode: _onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange, editorOverlay, overlayVisible = false, bottomPanel, workspaceAction }: StudentCodeEditorProps): React.JSX.Element {
+export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp: _diagnosticHelp, onRepairStudentCode: _onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange, editorOverlay, overlayVisible = false, bottomPanel, workspaceAction, workspaceDiagnostics = [] }: StudentCodeEditorProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const manualCandidate = candidate?.origin === 'manual' ? candidate : undefined
   const [files, setFiles] = useState<StudentCodeFile[]>([])
@@ -59,10 +60,13 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   const [message, setMessage] = useState<string>()
   const [diagnostic, setDiagnostic] = useState<string>()
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const saveInFlightRef = useRef<Promise<CandidateSnapshot | undefined> | undefined>(undefined)
+  const editVersionRef = useRef(0)
+  const contentRef = useRef(content)
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | undefined>(undefined)
   const monacoRef = useRef<Monaco | undefined>(undefined)
   const explorerContentCache = useRef(new Map<string, string>())
-  const pendingDraftRef = useRef<{ candidateId?: string; path?: string; content: string; dirty: boolean; editable: boolean }>({ content: '', dirty: false, editable: false })
+  const pendingDraftRef = useRef<{ workspaceId?: string; candidateId?: string; path?: string; content: string; dirty: boolean; direct: boolean; editable: boolean }>({ content: '', dirty: false, direct: false, editable: false })
   const viewContextRef = useRef<{ workspaceId?: string; path?: string }>({})
   const selectedNode = explorer?.nodes.find((node) => node.kind === 'file' && node.displayPath === selectedPath)
   const listedSelected = files.find((file) => file.path === selectedPath)
@@ -74,15 +78,25 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
     editable: selectedNode.access === 'editable',
     content
   } : undefined)
-  const buildDiagnostics = manualCandidate?.diagnostics ?? []
+  const directEditing = workspace?.learningPath === 'mcu-foundations'
+  const aiReviewActive = candidate?.origin === 'ai'
+  const editorWritable = Boolean(selected?.editable && (directEditing ? !aiReviewActive : manualCandidate))
+  const buildDiagnostics = directEditing ? workspaceDiagnostics : manualCandidate?.diagnostics ?? []
   const fileGroups = useMemo(() => getStudentFileGroups(files), [files])
-  pendingDraftRef.current = { candidateId: manualCandidate?.id, path: selected?.path, content, dirty, editable: Boolean(selected?.editable) }
+  contentRef.current = content
+  pendingDraftRef.current = { workspaceId: workspace?.id, candidateId: manualCandidate?.id, path: selected?.path, content, dirty, direct: directEditing, editable: editorWritable }
   viewContextRef.current = { workspaceId: workspace?.id, path: selectedPath }
 
   useEffect(() => () => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     const pending = pendingDraftRef.current
-    if (pending.dirty && pending.editable && pending.candidateId && pending.path) void api.writeManualDraft(pending.candidateId, pending.path, pending.content)
+    if (pending.dirty && pending.editable && pending.path) {
+      const flush = (): Promise<unknown> | undefined => pending.direct && pending.workspaceId
+        ? api.writeWorkspaceFile(pending.workspaceId, pending.path!, pending.content)
+        : pending.candidateId ? api.writeManualDraft(pending.candidateId, pending.path!, pending.content) : undefined
+      if (saveInFlightRef.current) void saveInFlightRef.current.then(flush, flush)
+      else void flush()
+    }
     const view = viewContextRef.current
     if (view.workspaceId && view.path) saveMcuEditorViewState(view.workspaceId, view.path, editorRef.current?.saveViewState() ?? null)
   }, [api])
@@ -142,11 +156,11 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   }, [focusRequest?.nonce, explorer?.nodes.length])
 
   useEffect(() => {
-    if (!dirty || !manualCandidate || !selected?.editable) return
+    if (!dirty || !editorWritable) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => { void saveCurrent() }, 550)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [content, dirty, manualCandidate?.id, selectedPath])
+  }, [content, dirty, manualCandidate?.id, selectedPath, editorWritable, workspace?.id])
 
   useEffect(() => {
     const model = editorRef.current?.getModel()
@@ -184,16 +198,32 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   }, [overlayVisible, workspace?.id, selectedPath])
 
   const saveCurrent = async (): Promise<CandidateSnapshot | undefined> => {
-    if (!manualCandidate || !selected?.editable || !dirty) return manualCandidate
+    if (!selected?.editable || !dirty) return manualCandidate
+    if (saveInFlightRef.current) await saveInFlightRef.current
+    const savedContent = contentRef.current
+    const savedVersion = editVersionRef.current
     setSaving(true)
+    const operation = (async (): Promise<CandidateSnapshot | undefined> => {
+      const updated = directEditing && workspace
+        ? await api.writeWorkspaceFile(workspace.id, selected.path, savedContent)
+        : manualCandidate ? await api.writeManualDraft(manualCandidate.id, selected.path, savedContent) : undefined
+      if (!updated) return manualCandidate
+      setFiles((current) => current.map((file) => file.path === selected.path ? { ...file, content: savedContent } : file))
+      if (selectedNode) rememberExplorerContent(explorerContentCache.current, `${directEditing ? 'project' : manualCandidate?.id}:${selectedNode.id}`, savedContent)
+      if (editVersionRef.current === savedVersion) setDirty(false)
+      if (!directEditing) onCandidateChanged(updated as CandidateSnapshot)
+      return directEditing ? undefined : updated as CandidateSnapshot
+    })()
+    saveInFlightRef.current = operation
     try {
-      const updated = await api.writeManualDraft(manualCandidate.id, selected.path, content)
-      setFiles((current) => current.map((file) => file.path === selected.path ? { ...file, content } : file))
-      if (selectedNode) rememberExplorerContent(explorerContentCache.current, `${manualCandidate.id}:${selectedNode.id}`, content)
-      setDirty(false)
-      onCandidateChanged(updated)
-      return updated
-    } finally { setSaving(false) }
+      return await operation
+    } catch (caught) {
+      setMessage(toStudentErrorMessage(caught))
+      return manualCandidate
+    } finally {
+      if (saveInFlightRef.current === operation) saveInFlightRef.current = undefined
+      setSaving(false)
+    }
   }
 
   const startDraft = (): void => {
@@ -284,7 +314,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   return (
     <div className="student-code-studio">
       <aside className={`student-file-rail ${explorerMode ? 'is-project-explorer' : ''}`}>
-        <div className="editor-rail-heading"><span>{mcu ? '工程文件' : '代码赛道'}</span><strong>{manualCandidate ? '安全草稿' : '项目原稿'}</strong></div>
+        <div className="editor-rail-heading"><span>{mcu ? '工程文件' : '代码赛道'}</span><strong>{mcu ? 'Workspace' : manualCandidate ? '安全草稿' : '项目原稿'}</strong></div>
         {explorerMode && explorer ? <ProjectExplorerTree snapshot={explorer} selectedPath={selectedPath} expanded={expandedNodes} errorPaths={new Set(buildDiagnostics.map((item) => item.path).filter((path): path is string => Boolean(path)))} onToggle={(id) => setExpandedNodes((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next })} onSelect={(path) => switchFile(path)} /> : fileGroups.map((group) => (
           <div className="student-file-group" key={group}>
             <span>{group}</span>
@@ -305,7 +335,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           <div><span className="eyebrow">{selected?.group ?? '学生代码'}</span><h2>{selected?.label ?? '选择一个文件'}</h2><p>{selected?.path}{selectedNode ? ` · ${selectedNode.origin === 'lesson-overlay' ? `课程工程 ${workspace.headCommit.slice(0, 7)}` : `主固件 ${workspace.baselineCommit.slice(0, 7)}`}` : ''}</p></div>
           <div className="student-editor-actions">
             <button type="button" onClick={explainSelection} disabled={busy || !selected}><Sparkles size={14} /> 解释选中代码</button>
-            {!manualCandidate ? workspaceAction ? <><span className="draft-save-state"><CheckCircle2 size={13} />{workspaceAction.summary}</span><button type="button" onClick={workspaceAction.onSecondary}>{workspaceAction.secondaryLabel}</button><button type="button" className="button-primary" onClick={workspaceAction.onPrimary} disabled={workspaceAction.disabled}><Play size={14} />{workspaceAction.primaryLabel}</button></> : <button type="button" className="button-primary" onClick={startDraft} disabled={busy}><Play size={14} /> 开始编写</button> : <>
+            {mcu ? <><span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`} role="status" aria-live="polite">{saving || dirty ? '正在保存…' : <><CheckCircle2 size={13} /> 已保存</>}</span>{workspaceAction && <><button type="button" onClick={workspaceAction.onSecondary}>{workspaceAction.secondaryLabel}</button><button type="button" className="button-primary" onClick={workspaceAction.onPrimary} disabled={workspaceAction.disabled || saving || dirty}><Play size={14} />{workspaceAction.primaryLabel}</button></>}</> : !manualCandidate ? workspaceAction ? <><span className="draft-save-state"><CheckCircle2 size={13} />{workspaceAction.summary}</span><button type="button" onClick={workspaceAction.onSecondary}>{workspaceAction.secondaryLabel}</button><button type="button" className="button-primary" onClick={workspaceAction.onPrimary} disabled={workspaceAction.disabled}><Play size={14} />{workspaceAction.primaryLabel}</button></> : <button type="button" className="button-primary" onClick={startDraft} disabled={busy}><Play size={14} /> 开始编写</button> : <>
               <span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`}>{saving ? '正在保存草稿…' : dirty ? '等待自动保存…' : <><CheckCircle2 size={13} /> 草稿已保存</>}</span>
               <button type="button" onClick={discard} disabled={busy}><RotateCcw size={14} /> 放弃草稿</button>
               <button type="button" className="button-primary" onClick={checkCode} disabled={busy || saving}><Save size={14} /> 检查代码</button>
@@ -313,7 +343,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           </div>
         </header>
         <div className="mcu-editor-stage">
-        <div className={`student-monaco-shell ${selected?.editable && manualCandidate ? '' : 'is-readonly'} ${overlayVisible ? 'is-covered' : ''}`} aria-hidden={overlayVisible || undefined}>
+        <div className={`student-monaco-shell ${editorWritable ? '' : 'is-readonly'} ${overlayVisible ? 'is-covered' : ''}`} aria-hidden={overlayVisible || undefined}>
           <Editor
             beforeMount={configureMonaco}
             onMount={(editor, monaco) => {
@@ -328,16 +358,16 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
               language={selectedNode ? monacoLanguage(selectedNode.language) : selected?.language ?? 'c'}
             path={selected?.path}
             value={content}
-            onChange={(value) => { if (selected?.editable && manualCandidate) { setContent(value ?? ''); setDirty(true); setDiagnostic(undefined) } }}
+            onChange={(value) => { if (editorWritable) { editVersionRef.current += 1; setContent(value ?? ''); setDirty(true); setDiagnostic(undefined) } }}
             options={{
-              readOnly: !selected?.editable || !manualCandidate, automaticLayout: true, minimap: { enabled: false },
-              readOnlyMessage: { value: !selected?.editable ? '这是接口说明，只能查看。' : '当前正在查看项目原稿。请点击右上角的“开始编写”按钮后再修改。' },
+              readOnly: !editorWritable, automaticLayout: true, minimap: { enabled: false },
+              readOnlyMessage: { value: !selected?.editable ? '这是受保护文件，只能查看。' : aiReviewActive ? '请先完成或放弃当前 AI 修改。' : '请点击右上角的“开始编写”按钮后再修改。' },
               fontFamily: "'Cascadia Code', Consolas, monospace", fontSize: 15, lineHeight: 24, tabSize: 4,
               padding: { top: 14, bottom: 14 }, scrollBeyondLastLine: false, wordWrap: 'on',
               renderLineHighlight: 'all', smoothScrolling: true, bracketPairColorization: { enabled: true }
             }}
           />
-          {(!selected?.editable || !manualCandidate) && <div className="editor-readonly-flag"><BookOpen size={13} /> {!selected?.editable ? (selectedNode?.origin === 'firmware-baseline' ? '主固件文件只读' : '课程适配文件只读') : '点击“开始编写”后进入安全草稿'}</div>}
+          {!editorWritable && <div className="editor-readonly-flag"><BookOpen size={13} /> {!selected?.editable ? (selectedNode?.origin === 'firmware-baseline' ? '主固件文件只读' : '课程适配文件只读') : aiReviewActive ? 'AI 修改等待确认，当前工程暂时只读' : '点击“开始编写”后进入安全草稿'}</div>}
         </div>
         {editorOverlay}
         </div>

@@ -8,6 +8,7 @@ import { WorkspaceService } from './workspace-service'
 import { GitWorkspaceService } from './git-workspace-service'
 import { PatchPolicyService } from './patch-policy-service'
 import { CandidateBuildError, type CandidateBuilder, type CandidateBuildInput } from './candidate-build-service'
+import { EDITION_PROFILES } from '../../shared/edition'
 
 const passingBuilder: CandidateBuilder = {
   async build(input: CandidateBuildInput) {
@@ -82,6 +83,32 @@ describe('CandidateService', () => {
     expect((await candidates.listStudentCodeFiles(workspaceId, draft.id)).find((file) => file.path === 'Core/Src/student_control.c')?.content).toBe(changed)
     expect(await readFile(join(dataRoot, 'workspaces', workspaceId, 'project', 'Core', 'Src', 'student_control.c'), 'utf8')).not.toContain('学生草稿')
   })
+
+  it('writes MCU student files directly to Workspace while retaining policy and AI boundaries', async () => {
+    const mcuTemplate = join(sandbox, 'mcu-template')
+    await mkdir(join(mcuTemplate, 'App', 'Src'), { recursive: true })
+    await mkdir(join(mcuTemplate, 'App', 'Inc'), { recursive: true })
+    await mkdir(join(mcuTemplate, 'Core', 'Src'), { recursive: true })
+    await mkdir(join(mcuTemplate, 'Core', 'Inc'), { recursive: true })
+    await writeFile(join(mcuTemplate, 'App', 'Src', 'experiment.c'), 'void Experiment(void) {}\n')
+    await writeFile(join(mcuTemplate, 'App', 'Inc', 'experiment.h'), 'void Experiment(void);\n')
+    await writeFile(join(mcuTemplate, 'Core', 'Src', 'student_control.c'), 'void StudentControl(void) {}\n')
+    await writeFile(join(mcuTemplate, 'Core', 'Inc', 'student_control.h'), 'void StudentControl(void);\n')
+    const mcuWorkspaces = new WorkspaceService({ rootDir: join(sandbox, 'mcu-data'), templateRoot: mcuTemplate, edition: EDITION_PROFILES['mcu-foundations'] })
+    const mcuWorkspace = await mcuWorkspaces.create({ name: 'MCU 直写', studentDisplayName: '陈同学' })
+    const service = new CandidateService({ rootDir: join(sandbox, 'mcu-data'), workspaces: mcuWorkspaces, builder: passingBuilder })
+    await service.initialize()
+
+    const changed = 'void Experiment(void) { /* direct */ }\n'
+    const saved = await service.writeWorkspaceFile(mcuWorkspace.id, 'App/Src/experiment.c', changed)
+    expect(saved.headCommit).not.toBe(mcuWorkspace.headCommit)
+    expect(await readFile(join(sandbox, 'mcu-data', 'workspaces', mcuWorkspace.id, 'project', 'App', 'Src', 'experiment.c'), 'utf8')).toBe(changed)
+    expect((await mcuWorkspaces.history(mcuWorkspace.id, 1))[0].message).toBe('feat(student): save App/Src/experiment.c')
+    await expect(service.writeWorkspaceFile(mcuWorkspace.id, 'Core/Src/student_control.c', 'changed')).rejects.toThrow('只能查看')
+
+    await service.create(mcuWorkspace.id)
+    await expect(service.writeWorkspaceFile(mcuWorkspace.id, 'App/Src/experiment.c', 'concurrent')).rejects.toThrow('AI 修改')
+  }, 15_000)
 
   it('validates, builds, reviews, and applies a manual draft as one Git checkpoint', async () => {
     const draft = await candidates.openManualDraft(workspaceId)

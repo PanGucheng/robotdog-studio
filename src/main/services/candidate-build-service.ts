@@ -130,6 +130,19 @@ export function parseCompilerDiagnostics(detail: string, maximum = 6): Candidate
     if (diagnostics.length >= maximum) break
   }
   if (diagnostics.length > 0) return diagnostics
+  const linkerPattern = /([^\r\n:]*?\.(?:c|h))(?::(\d+))?(?::[^\r\n]*)?:\s*((?:undefined reference to|multiple definition of)[^\r\n]+)/gi
+  for (const match of detail.matchAll(linkerPattern)) {
+    const source = match[1].replaceAll('\\', '/').replace(/^\[(?:候选项目|受保护路径)\]\/?/i, '')
+    const knownStart = source.search(/(?:Core|App|User|Peripheral|Startup|Debug|student-config)\//i)
+    diagnostics.push({
+      path: knownStart >= 0 ? source.slice(knownStart) : undefined,
+      line: match[2] ? Number(match[2]) : undefined,
+      severity: 'error',
+      message: match[3].trim().slice(0, 300)
+    })
+    if (diagnostics.length >= maximum) break
+  }
+  if (diagnostics.length > 0) return diagnostics
   const fallback = detail.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
     .find((line) => /error|undefined|failed|expected/i.test(line)) ?? '编译器没有认出这段代码。'
   return [{ severity: 'error', message: cleanCompilerMessage(fallback) }]

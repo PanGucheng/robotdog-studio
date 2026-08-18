@@ -13,7 +13,7 @@ interface CourseTaskPageProps {
   onNavigate(route: WorkbenchRoute): void
 }
 
-const automaticTypes = new Set(['candidate-build', 'firmware-build', 'flash'])
+const automaticTypes = new Set(['edit', 'candidate-build', 'firmware-build', 'flash'])
 
 export function CourseTaskPage({ workspace, lesson, progress, busy, onUpdate, onNavigate }: CourseTaskPageProps): React.JSX.Element {
   const [answers, setAnswers] = useState<Record<string, string>>({})
@@ -132,6 +132,7 @@ function handleStepAction(type: CourseLesson['steps'][number]['type'], stepId: s
 }
 
 function operationHint(type: CourseLesson['steps'][number]['type'], progress: CourseProgressSnapshot): string {
+  if (type === 'edit') return '实际修改保存到 Workspace 后自动完成'
   const kind = type === 'candidate-build' ? 'candidate-build' : type === 'firmware-build' ? 'firmware-build' : 'flash'
   const operation = progress.operations[kind]
   return operation.state === 'not-run' ? '尚未执行' : `${operation.state === 'passed' ? '已通过' : operation.state === 'stale' ? '代码已变化，请重新检查' : '未通过'}${operation.checkedAt ? ` · ${new Date(operation.checkedAt).toLocaleString('zh-CN')}` : ''}`

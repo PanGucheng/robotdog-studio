@@ -72,14 +72,8 @@ function createWindow(): void {
           const requiredChangedFile = lesson.completionChecks.find((check) => check.type === 'student-change-applied')?.target
           const editable = files.find((file) => file.editable && file.path === requiredChangedFile) ?? files.find((file) => file.editable && file.path.endsWith('.c'))
           if (!editable) throw new Error('SMOKE_EDITABLE_FILE_MISSING')
-          const draft = await window.robotDog.openManualDraft(attempt.id)
-          await window.robotDog.writeManualDraft(draft.id, editable.path, editable.content + '\\n/* Electron smoke lesson edit */\\n')
-          const validated = await window.robotDog.validateCandidate(draft.id)
-          if (validated.state !== 'review_ready') throw new Error('SMOKE_CANDIDATE_VALIDATE_FAILED')
-          const built = await window.robotDog.buildCandidate(draft.id)
-          if (built.state !== 'build_passed') throw new Error('SMOKE_CANDIDATE_BUILD_FAILED')
-          await window.robotDog.applyCandidate(draft.id)
-          for (const step of lesson.steps.filter((item) => ['read', 'edit', 'summary'].includes(item.type))) {
+          await window.robotDog.writeWorkspaceFile(attempt.id, editable.path, editable.content + '\\n/* Electron smoke lesson edit */\\n')
+          for (const step of lesson.steps.filter((item) => ['read', 'summary'].includes(item.type))) {
             if (step.type === 'read' && step.lectureSectionId && attempt.courseBinding.contentVersion === lesson.contentVersion) {
               const lecture = await window.robotDog.getCourseLecture(lesson.courseId, lesson.lessonId)
               if (lecture.status !== 'ready') throw new Error('SMOKE_LECTURE_MISSING')
@@ -101,12 +95,7 @@ function createWindow(): void {
           const files = await window.robotDog.listStudentCodeFiles(attempt.id)
           const editable = files.find((file) => file.editable && file.path === requiredChangedFile)
           if (!editable) throw new Error('SMOKE_INVALIDATION_FILE_MISSING')
-          const draft = await window.robotDog.openManualDraft(attempt.id)
-          await window.robotDog.writeManualDraft(draft.id, editable.path, editable.content + '\\n/* Source changed after completion */\\n')
-          await window.robotDog.validateCandidate(draft.id)
-          const built = await window.robotDog.buildCandidate(draft.id)
-          if (built.state !== 'build_passed') throw new Error('SMOKE_INVALIDATION_BUILD_FAILED')
-          await window.robotDog.applyCandidate(draft.id)
+          await window.robotDog.writeWorkspaceFile(attempt.id, editable.path, editable.content + '\\n/* Source changed after completion */\\n')
           return window.robotDog.getCourseProgress(attempt.id)
         }
         const invalidatedFirstLessonProgress = firstLessonResult ? await invalidateCompletedLesson(lessonAttempt, course?.lessons[0]) : undefined
@@ -118,7 +107,7 @@ function createWindow(): void {
         const explorerMainFile = explorerMain ? await window.robotDog.readProjectExplorerFile(workspace.id, explorerMain.id) : undefined
         const firmware = secondLessonResult?.firmware ?? firstLessonResult?.firmware ?? await window.robotDog.startFirmwareBuild(workspace.id)
         return {
-          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && firstLecture?.status === 'ready' && !JSON.stringify(firstLecture).includes('lecture.md') && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && explorer?.baselineAvailable && explorer.nodes.some((node) => node.displayPath === 'App/Src/number_tools.c' && node.access === 'editable') && explorerMain?.access === 'read-only' && explorerMainFile?.content.includes('main') && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed' && invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['candidate-build'].state === 'passed' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'))),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && firstLecture?.status === 'ready' && !JSON.stringify(firstLecture).includes('lecture.md') && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && explorer?.baselineAvailable && explorer.nodes.some((node) => node.displayPath === 'App/Src/number_tools.c' && node.access === 'editable') && explorerMain?.access === 'read-only' && explorerMainFile?.content.includes('main') && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed' && invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['candidate-build'].state === 'stale' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'))),
           edition: activeEdition.id,
           courseCount: courses.length, lessonCount: course?.lessons.length ?? 0, lessonAttemptCount: lessonAttempts.length, secondLessonFileCount: secondLessonFiles.length,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,

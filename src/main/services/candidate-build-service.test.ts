@@ -35,4 +35,15 @@ describe('candidate line configuration preflight', () => {
     expect(diagnostics).toHaveLength(7)
     expect(diagnostics[0]).toMatchObject({ path: 'Startup/startup_ch32v20x_D6.S', line: 1, column: 2 })
   })
+
+  it('keeps GNU linker failures as structured diagnostics', () => {
+    const diagnostics = parseCompilerDiagnostics([
+      "[受保护路径]/App/Src/experiment.c:14: undefined reference to `number_limit'",
+      "[受保护路径]/App/Src/number_tools.c:(.text+0x18): multiple definition of `number_limit'"
+    ].join('\n'))
+    expect(diagnostics).toEqual([
+      { path: 'App/Src/experiment.c', line: 14, severity: 'error', message: "undefined reference to `number_limit'" },
+      { path: 'App/Src/number_tools.c', line: undefined, severity: 'error', message: "multiple definition of `number_limit'" }
+    ])
+  })
 })

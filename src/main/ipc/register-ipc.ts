@@ -86,7 +86,7 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     await courseProgress.recordOperation(workspace, lesson, kind, passed, detail, files)
   }
 
-  async function recordCourseSourceChange(workspaceId: string, kind: 'candidate-applied' | 'workspace-undone', changedFiles: string[] = []): Promise<void> {
+  async function recordCourseSourceChange(workspaceId: string, kind: 'candidate-applied' | 'workspace-edited' | 'workspace-undone', changedFiles: string[] = []): Promise<void> {
     if (!courseProgress || !courses || !workspaces) return
     const workspace = await workspaces.get(workspaceId).catch(() => undefined)
     if (!workspace?.courseBinding || workspace.workspacePurpose !== 'mcu-lesson-attempt') return
@@ -338,6 +338,13 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       ipcMain.handle(IPC_CHANNELS.projectExplorerFileRead, (_event, workspaceId: unknown, nodeId: unknown, candidateId: unknown) => {
         if (typeof workspaceId !== 'string' || typeof nodeId !== 'string' || (candidateId !== undefined && typeof candidateId !== 'string')) throw new Error('PROJECT_EXPLORER_INPUT_INVALID')
         return projectExplorer.readFile(workspaceId, nodeId, candidateId as string | undefined)
+      })
+      ipcMain.handle(IPC_CHANNELS.workspaceFileWrite, async (_event, workspaceId: unknown, path: unknown, content: unknown) => {
+        if (typeof workspaceId !== 'string' || typeof path !== 'string' || typeof content !== 'string') throw new Error('WORKSPACE_FILE_INPUT_INVALID')
+        const workspace = await candidates.writeWorkspaceFile(workspaceId, path as never, content)
+        await recordCourseSourceChange(workspaceId, 'workspace-edited', [path])
+        sendToAll(IPC_CHANNELS.workspaceChangedEvent, workspace)
+        return workspace
       })
     }
     ipcMain.handle(IPC_CHANNELS.manualDraftOpen, (_event, workspaceId: unknown) => {
