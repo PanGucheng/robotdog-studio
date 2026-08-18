@@ -79,7 +79,7 @@ function createWindow(): void {
           const built = await window.robotDog.buildCandidate(draft.id)
           if (built.state !== 'build_passed') throw new Error('SMOKE_CANDIDATE_BUILD_FAILED')
           await window.robotDog.applyCandidate(draft.id)
-          for (const step of lesson.steps.filter((item) => ['read', 'edit', 'review-apply', 'summary'].includes(item.type))) {
+          for (const step of lesson.steps.filter((item) => ['read', 'edit', 'summary'].includes(item.type))) {
             if (step.type === 'read' && step.lectureSectionId && attempt.courseBinding.contentVersion === lesson.contentVersion) {
               const lecture = await window.robotDog.getCourseLecture(lesson.courseId, lesson.lessonId)
               if (lecture.status !== 'ready') throw new Error('SMOKE_LECTURE_MISSING')

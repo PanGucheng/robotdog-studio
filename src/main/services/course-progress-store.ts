@@ -91,7 +91,9 @@ export class CourseProgressStore {
     const next = this.synchronizeSteps(stored)
     const now = new Date().toISOString()
     if (update.kind === 'step') {
-      if (!next.contract.steps.some((step) => step.stepId === update.stepId)) throw new Error('COURSE_PROGRESS_STEP_NOT_FOUND')
+      const target = next.contract.steps.find((step) => step.stepId === update.stepId)
+      if (!target) throw new Error('COURSE_PROGRESS_STEP_NOT_FOUND')
+      if (!['read', 'edit', 'summary'].includes(target.type)) throw new Error('COURSE_PROGRESS_STEP_AUTOMATIC')
       next.steps = next.steps.map((step) => step.stepId === update.stepId
         ? { stepId: step.stepId, completed: update.completed, completedAt: update.completed ? now : undefined }
         : step)
@@ -140,8 +142,8 @@ export class CourseProgressStore {
     const now = new Date().toISOString()
     next.operations[kind] = { state: passed ? 'passed' : 'failed', checkedAt: now, detail: detail?.slice(0, 240) }
     const stepType = kind === 'candidate-build' ? 'candidate-build' : kind === 'firmware-build' ? 'firmware-build' : 'flash'
-    if (passed) next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === stepType
-      ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now }
+    next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === stepType
+      ? passed ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : { stepId: step.stepId, completed: false }
       : step)
     next.updatedAt = now
     const snapshot = this.toSnapshot(next, lesson, existingFiles)
@@ -169,6 +171,13 @@ export class CourseProgressStore {
       next.appliedFiles = kind === 'candidate-applied'
         ? [...new Set([...next.appliedFiles, ...changedFiles])]
         : []
+      next.steps = next.steps.map((step) => {
+        const contractStep = next.contract.steps.find((item) => item.stepId === step.stepId)
+        if (contractStep?.type !== 'review-apply') return step
+        return kind === 'candidate-applied'
+          ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now }
+          : { stepId: step.stepId, completed: false }
+      })
       next.updatedAt = now
       next.completedAt = undefined
       await this.write(next)

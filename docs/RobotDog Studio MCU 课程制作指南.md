@@ -360,6 +360,10 @@ resources/courses/mcu-foundations/<courseId>/lessons/<lessonId>.json
 
 已发布旧课中的 `read` 不要改名以追求术语统一。未来未发布的新课可在产品支持时再采用更明确的观察类型。
 
+Lab Guide 只维护一套线性 Stepper，并严格按 `stepId` 与 CourseProgress 对齐。`read`、`edit`、`summary` 由学生在当前步骤内部确认；`candidate-build`、`review-apply`、`firmware-build`、`flash` 分别由 Candidate、Apply、Firmware、Flash proof 自动确认；`question` 和两种 observation 在保存有效内容后自动确认。自动确认型步骤不得通过通用 Step 更新人工完成，Upcoming 步骤也不得越级完成。
+
+Completion Check 是实验验收证据，不是第二套学生任务。能够可靠映射时应显示在对应 Step 内；无法唯一映射的条件只在其阻止最终验收时独立提示。所有 Step 完成不等于实验完成，只有 CourseProgress 的最终状态为 `completed` 才能显示“实验完成”。
+
 ### 7.4 Completion Check 类型
 
 | 类型 | `target` | 含义 |

@@ -69,6 +69,12 @@ describe('CourseProgressStore', () => {
     expect(completed.completedAt).toBeTruthy()
   })
 
+  it('rejects manual completion for steps owned by trusted system evidence', async () => {
+    const { store } = await fixture()
+    await expect(store.update(workspace(), lesson(), { kind: 'step', stepId: 'candidate-build', completed: true }))
+      .rejects.toThrow('COURSE_PROGRESS_STEP_AUTOMATIC')
+  })
+
   it('backs up damaged progress and recreates an empty snapshot', async () => {
     const { store, root } = await fixture()
     await store.get(workspace(), lesson())
@@ -82,20 +88,24 @@ describe('CourseProgressStore', () => {
 
   it('marks a failed operation as needing attention', async () => {
     const { store } = await fixture()
+    await store.recordOperation(workspace(), lesson(), 'candidate-build', true, '先前通过')
     const failed = await store.recordOperation(workspace(), lesson(), 'candidate-build', false, '语法错误')
     expect(failed.state).toBe('needs-attention')
     expect(failed.operations['candidate-build']).toMatchObject({ state: 'failed', detail: '语法错误' })
+    expect(failed.steps.find((step) => step.stepId === 'candidate-build')?.completed).toBe(false)
   })
 
   it('invalidates source-dependent results after apply and undo without discarding manual learning notes', async () => {
     const { store } = await fixture()
     const currentLesson = lesson()
+    currentLesson.steps.splice(2, 0, { stepId: 'review-change', type: 'review-apply', title: '保存', instruction: '检查并保存' })
     currentLesson.completionChecks.splice(1, 0, { type: 'student-change-applied', target: 'App/Src/experiment.c' })
     const files = ['App/Src/experiment.c']
     await store.update(workspace(), currentLesson, { kind: 'step', stepId: 'read-entry', completed: true }, files)
     await store.update(workspace(), currentLesson, { kind: 'answer', questionId: 'build-versus-flash', answer: '编译和烧录不是同一步。' }, files)
     await store.recordOperation(workspace(), currentLesson, 'candidate-build', true, '预检通过', files)
     await store.recordSourceChange(workspace(), currentLesson, 'candidate-applied', ['App/Src/experiment.c'], files)
+    expect((await store.get(workspace(), currentLesson, files)).steps.find((step) => step.stepId === 'review-change')?.completed).toBe(true)
     const completed = await store.recordOperation(workspace(), currentLesson, 'firmware-build', true, '固件生成成功', files)
     expect(completed.state).toBe('completed')
 
@@ -108,6 +118,7 @@ describe('CourseProgressStore', () => {
     const undone = await store.recordSourceChange(workspace(), currentLesson, 'workspace-undone', [], files)
     expect(undone.operations['candidate-build'].state).toBe('stale')
     expect(undone.appliedFiles).toEqual([])
+    expect(undone.steps.find((step) => step.stepId === 'review-change')?.completed).toBe(false)
     expect(undone.completedAt).toBeUndefined()
   })
 

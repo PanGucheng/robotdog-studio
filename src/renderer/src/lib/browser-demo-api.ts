@@ -115,6 +115,9 @@ function recordDemoSourceChange(workspaceId: string, kind: 'candidate-applied' |
     progress.steps = progress.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === type ? { stepId: step.stepId, completed: false } : step)
   }
   progress.appliedFiles = kind === 'candidate-applied' ? [...new Set([...progress.appliedFiles, ...changedFiles])] : []
+  progress.steps = progress.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === 'review-apply'
+    ? kind === 'candidate-applied' ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : { stepId: step.stepId, completed: false }
+    : step)
   progress.updatedAt = now
   progress.completedAt = undefined
   demoProgress.set(workspaceId, deriveDemoProgress(progress, lesson))
@@ -125,7 +128,9 @@ function recordDemoOperation(workspaceId: string, kind: CourseOperationKind, pas
   const now = new Date().toISOString()
   progress.operations[kind] = { state: passed ? 'passed' : 'failed', checkedAt: now, detail }
   const type = kind === 'candidate-build' ? 'candidate-build' : kind === 'firmware-build' ? 'firmware-build' : 'flash'
-  if (passed) progress.steps = progress.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === type ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : step)
+  progress.steps = progress.steps.map((step) => lesson.steps.find((item) => item.stepId === step.stepId)?.type === type
+    ? passed ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : { stepId: step.stepId, completed: false }
+    : step)
   progress.updatedAt = now
   demoProgress.set(workspaceId, deriveDemoProgress(progress, lesson))
 }
@@ -366,7 +371,9 @@ export const browserDemoApi: RobotDogApi = {
     const { lesson, progress } = getDemoLessonProgress(workspaceId)
     const now = new Date().toISOString()
     if (input.kind === 'step') {
-      if (!lesson.steps.some((step) => step.stepId === input.stepId)) throw new Error('步骤不存在')
+      const target = lesson.steps.find((step) => step.stepId === input.stepId)
+      if (!target) throw new Error('步骤不存在')
+      if (!['read', 'edit', 'summary'].includes(target.type)) throw new Error('此步骤由系统结果自动确认')
       progress.steps = progress.steps.map((step) => step.stepId === input.stepId ? { stepId: step.stepId, completed: input.completed, completedAt: input.completed ? now : undefined } : step)
     } else if (input.kind === 'answer') {
       const answer = input.answer.trim()

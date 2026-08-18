@@ -1023,31 +1023,10 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .mcu-course-tool button.button-primary { color: white; border-color: #087f91; background: #087f91; box-shadow: 0 3px 10px rgb(8 127 145 / 18%); }
 .mcu-course-tool button.button-primary:hover:not(:disabled) { color: white; border-color: #076e80; background: #076e80; }
 .mcu-text-button { min-height: 24px !important; padding: 3px 0 !important; color: #168297 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; font-size: 12px; cursor: pointer; }
-.mcu-progress-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; align-items: center; }
-.mcu-progress-line > span { height: 6px; overflow: hidden; border-radius: 99px; background: #d7e3e7; }
-.mcu-progress-line i { display: block; height: 100%; background: #15a7b7; }
-.mcu-progress-line.is-complete i { background: #35a878; }
-.mcu-progress-line.needs-attention i { background: #d99b31; }
-.mcu-progress-line strong { color: #587381; font: 12px var(--mono); }
-.mcu-current-step { padding: 15px; border: 1px solid #ccdce2; border-left: 4px solid #16a5b7; border-radius: 10px; background: white; box-shadow: 0 8px 22px rgb(22 52 72 / 5%); }
-.mcu-current-step h3 { margin: 5px 0 7px; color: #183e51; font-size: 16px; }
-.mcu-current-step p { margin: 0 0 12px; color: #607a87; font-size: 12px; line-height: 1.65; }
-.mcu-current-step button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; }
 .mcu-inline-response { display: grid; gap: 7px; padding: 12px; border: 1px solid #d4e1e6; border-radius: 9px; background: white; }
 .mcu-inline-response label { color: #315467; font-size: 12px; line-height: 1.5; }
 .mcu-inline-response textarea { min-height: 76px; padding: 8px; border: 1px solid #c7d8df; border-radius: 7px; resize: vertical; }
 .mcu-inline-response button { justify-self: end; }
-.mcu-step-list, .mcu-completion-details { border: 1px solid #d4e1e6; border-radius: 8px; background: white; }
-.mcu-step-list > summary, .mcu-completion-details > summary { display: flex; align-items: center; gap: 6px; padding: 10px; color: #426171; font-size: 12px; font-weight: 750; cursor: pointer; }
-.mcu-step-list article { display: grid; grid-template-columns: 26px minmax(120px, 1fr) 27px; gap: 8px; align-items: center; padding: 8px 10px; border-top: 1px solid #e3eaed; }
-.mcu-step-list article > button:first-child { display: grid; place-items: center; width: 24px; height: 24px; min-height: 24px; padding: 0; color: #718791; border: 1px solid #c8d7dd; border-radius: 50%; background: white; box-shadow: none; }
-.mcu-step-list article.is-complete > button:first-child { color: white; border-color: #35a878; background: #35a878; }
-.mcu-step-list article > span { display: grid; grid-template-columns: 23px minmax(0, 1fr); gap: 5px; align-items: center; min-width: 0; }
-.mcu-step-list article strong { min-width: 0; color: #355668; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
-.mcu-step-list article small { color: #7b909a; font: 12px var(--mono); }
-.mcu-step-open { display: grid !important; place-items: center; width: 26px; height: 26px; min-height: 26px !important; padding: 0 !important; color: #25879a; border: 1px solid #c5dce1; border-radius: 6px; background: #eff8f9; box-shadow: none !important; cursor: pointer; }
-.mcu-completion-details p { display: flex; gap: 6px; align-items: center; margin: 0; padding: 7px 10px; color: #81909a; border-top: 1px solid #e5ecef; font-size: 12px; }
-.mcu-completion-details p.is-passed { color: #167750; }
 .mcu-compact-warning { display: flex; gap: 7px; padding: 8px 9px; color: #8a611e; border: 1px solid #e8d3a7; border-radius: 7px; background: #fff7e5; font-size: 12px; line-height: 1.45; }
 .mcu-tool-empty { display: grid; place-items: center; align-content: center; gap: 8px; min-height: 100%; padding: 28px; color: #55707f; text-align: center; }
 .mcu-tool-empty strong { color: #254b5f; }
@@ -1056,18 +1035,73 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .mcu-course-tool.is-lecture-mode .mcu-lecture-view { flex: 1 1 auto; }
 .mcu-course-tool.is-lecture-mode .mcu-tool-heading .eyebrow { font-size: max(13px, calc(var(--lecture-font-size, 15px) * .9)); }
 .mcu-course-tool.is-lecture-mode .mcu-tool-heading h2 { font-size: calc(var(--lecture-font-size, 15px) * 1.4); }
-.mcu-course-switch { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid #cfdee4; border-radius: 8px; background: #eaf1f3; }
-.mcu-course-switch button { min-height: 30px; border: 0; background: transparent; box-shadow: none; }
-.mcu-course-switch button.active { color: #075f70; background: #fff; box-shadow: 0 1px 4px rgb(31 66 83 / 10%); }
 .mcu-version-warning { display: flex; gap: 8px; padding: 9px 10px; color: #76591e; border: 1px solid #e3cf9d; border-radius: 8px; background: #fff8e8; font-size: 12px; line-height: 1.45; }
 .mcu-version-warning > span { display: grid; gap: 2px; }
 .mcu-version-warning strong { color: #684b12; }
-.mcu-progress-line small { grid-column: 1 / -1; color: #718691; font-size: 12px; }
 .mcu-step-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-.mcu-step-list article { transition: background .18s ease, box-shadow .18s ease; }
-.mcu-step-list article.is-highlighted { background: #e9f7f9; box-shadow: inset 3px 0 #16a5b7; }
-.mcu-step-row-actions { display: flex !important; grid-template-columns: none !important; gap: 3px !important; justify-content: flex-end; }
-.mcu-step-row-actions button { width: 26px; height: 26px; min-height: 26px; padding: 0; border-color: #c8dce2; background: #f5fafb; box-shadow: none; }
+.mcu-lab-guide { gap: 10px; }
+.mcu-lab-sticky { position: sticky; z-index: 6; top: -16px; display: grid; gap: 9px; margin: -16px -15px 0; padding: 16px 15px 11px; border-bottom: 1px solid #d4e2e6; background: rgb(243 247 248 / 96%); backdrop-filter: blur(8px); }
+.mcu-lab-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #718690; font-size: 11px; }
+.mcu-lab-meta strong { display: inline-flex; align-items: center; gap: 4px; color: #315667; font: 700 11px var(--mono); }
+.mcu-step-indicator { display: flex; align-items: center; width: 100%; padding: 1px 0; }
+.mcu-step-indicator button { position: relative; flex: 1 1 0; min-width: 18px; min-height: 26px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.mcu-step-indicator button::before { content: ""; position: absolute; z-index: -1; top: 50%; right: 50%; width: 100%; height: 2px; background: #cbd9de; transform: translateY(-50%); }
+.mcu-step-indicator button:first-child::before { display: none; }
+.mcu-step-indicator i { display: grid; place-items: center; width: 22px; height: 22px; margin: auto; color: #70858f; border: 1px solid #bfcfd5; border-radius: 50%; background: #f8fbfb; font: normal 650 9px var(--mono); }
+.mcu-step-indicator .is-completed::before, .mcu-step-indicator .is-completed i { border-color: #2d9b70; background: #2d9b70; }
+.mcu-step-indicator .is-completed i { color: #fff; }
+.mcu-step-indicator .is-current i { color: transparent; border: 5px solid #d8f2f4; background: #07899b; box-shadow: 0 0 0 1px #07899b; }
+.mcu-step-indicator .is-needs-attention i { color: #fff; border-color: #ca7b22; background: #ca7b22; font-size: 12px; }
+.mcu-step-indicator button:focus-visible i { outline: 2px solid #075f70; outline-offset: 2px; }
+.mcu-lab-announcer { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.mcu-lab-task-scroll { display: grid; gap: 10px; min-height: 0; }
+.mcu-lab-compatibility { display: grid; justify-items: start; gap: 8px; padding: 15px; color: #80521a; border: 1px solid #dfc186; border-left: 4px solid #c88127; border-radius: 8px; background: #fff9ec; }
+.mcu-lab-compatibility strong { color: #71420e; }
+.mcu-lab-compatibility p { margin: 0; font-size: 12px; line-height: 1.55; }
+.mcu-completion-closure { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 9px; padding: 14px; color: #17704f; border: 1px solid #a8d7c3; border-left: 4px solid #2d9b70; border-radius: 9px; background: #f0faf5; }
+.mcu-completion-closure > div { min-width: 0; }
+.mcu-completion-closure span { font: 750 11px var(--mono); letter-spacing: .06em; }
+.mcu-completion-closure h3 { margin: 3px 0 5px; color: #184e3c; font-size: 15px; }
+.mcu-completion-closure p { margin: 0; color: #527a6d; font-size: 12px; line-height: 1.5; }
+.mcu-completion-closure footer { grid-column: 1 / -1; display: flex; gap: 7px; justify-content: flex-end; }
+.mcu-acceptance-wait, .mcu-unmapped-checks { padding: 10px; color: #80591c; border: 1px solid #e2ca99; border-radius: 8px; background: #fff8e9; font-size: 12px; }
+.mcu-acceptance-wait { display: flex; gap: 8px; align-items: flex-start; }
+.mcu-acceptance-wait span { display: grid; gap: 2px; }
+.mcu-unmapped-checks { display: grid; gap: 6px; }
+.mcu-unmapped-checks p { display: flex; gap: 6px; align-items: center; margin: 0; }
+.mcu-vertical-stepper { display: grid; }
+.mcu-lab-step { position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr); min-width: 0; outline: none; }
+.mcu-lab-step::before { content: ""; position: absolute; top: 29px; bottom: -1px; left: 15px; width: 2px; background: #cedce1; }
+.mcu-lab-step:last-child::before { display: none; }
+.mcu-lab-step-rail { z-index: 1; display: grid; place-items: center; align-self: start; width: 27px; height: 27px; color: #728690; border: 1px solid #bdcdd3; border-radius: 50%; background: #f5f8f9; font: 650 9px var(--mono); }
+.mcu-lab-step.is-completed .mcu-lab-step-rail { color: #fff; border-color: #2d9b70; background: #2d9b70; }
+.mcu-lab-step.is-current .mcu-lab-step-rail { border: 5px solid #d7f1f3; background: #07899b; box-shadow: 0 0 0 1px #07899b; }
+.mcu-lab-step.is-current .mcu-lab-step-rail span { width: 5px; height: 5px; border-radius: 50%; background: #fff; }
+.mcu-lab-step.is-needs-attention .mcu-lab-step-rail { color: #fff; border-color: #c77921; background: #c77921; font-size: 14px; }
+.mcu-lab-step-summary { justify-content: space-between !important; min-width: 0; min-height: 35px !important; margin: 0 0 8px; padding: 1px 5px 8px !important; text-align: left; border: 0 !important; border-bottom: 1px solid #e0e8eb !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
+.mcu-lab-step-summary > span { display: grid; min-width: 0; gap: 2px; }
+.mcu-lab-step-summary small { color: #7a8d96; font: 650 10px var(--mono); text-transform: uppercase; }
+.mcu-lab-step-summary strong { overflow: hidden; color: #3a5968; font-size: 12px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.mcu-lab-step-summary > svg { flex: none; transition: transform .15s ease; }
+.mcu-lab-step.is-expanded .mcu-lab-step-summary > svg { transform: rotate(90deg); }
+.mcu-lab-step.is-current .mcu-lab-step-summary strong, .mcu-lab-step.is-needs-attention .mcu-lab-step-summary strong { color: #173f51; }
+.mcu-lab-step-body { grid-column: 2; display: grid; gap: 10px; margin: -2px 0 12px; padding: 12px; border: 1px solid #c9dbe1; border-left: 3px solid #0d95a6; border-radius: 8px; background: #fff; box-shadow: 0 7px 18px rgb(25 62 78 / 5%); }
+.mcu-lab-step.is-needs-attention .mcu-lab-step-body { border-color: #e0c28e; border-left-color: #c77921; background: #fffdf8; }
+.mcu-lab-step-body > p { margin: 0; color: #5c7480; font-size: 12px; line-height: 1.6; }
+.mcu-step-attention { display: flex; gap: 7px; align-items: flex-start; padding: 8px; color: #875313; border: 1px solid #ebd2a6; border-radius: 6px; background: #fff6e3; font-size: 12px; line-height: 1.45; }
+.mcu-step-file { display: grid; grid-template-columns: 16px auto minmax(0, 1fr); gap: 5px; align-items: center; color: #748992; font-size: 11px; }
+.mcu-step-file code { min-width: 0; overflow: hidden; color: #376273; font: 11px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.mcu-completion-method { display: grid; gap: 5px; padding: 9px; border: 1px solid #d5e2e6; border-radius: 7px; background: #f5f9fa; }
+.mcu-completion-method > span, .mcu-step-evidence > span { color: #337684; font: 750 10px var(--mono); letter-spacing: .05em; }
+.mcu-completion-method p { margin: 0; color: #596f79; font-size: 12px; line-height: 1.45; }
+.mcu-completion-method button { justify-self: start; margin-top: 2px; }
+.mcu-step-evidence { display: grid; gap: 5px; padding-top: 8px; border-top: 1px solid #e0e8eb; }
+.mcu-step-evidence p { display: flex; gap: 6px; align-items: center; margin: 0; color: #7b8c94; font-size: 11px; }
+.mcu-step-evidence p.is-passed { color: #1c7957; }
+.mcu-compact-warning span { display: grid; gap: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .mcu-step-indicator *, .mcu-lab-step-summary > svg { scroll-behavior: auto !important; transition: none !important; }
+}
 .mcu-lecture-view { position: relative; display: grid; grid-template-rows: auto auto minmax(0, 1fr) 54px; min-height: 0; overflow: hidden; border: 1px solid #d2e0e5; border-radius: 9px; background: #fff; }
 .lecture-toolbar { display: flex; gap: 7px; align-items: end; padding: 9px 10px; border-bottom: 1px solid #dce7eb; background: #f8fbfc; }
 .lecture-toolbar { grid-row: 1; }
