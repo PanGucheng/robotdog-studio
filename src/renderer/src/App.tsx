@@ -198,7 +198,9 @@ export function App(): React.JSX.Element {
       else if (workspace.id === currentWorkspaceIdRef.current) void refreshCourseProgress(workspace.id)
     })
     const offCandidate = api.onCandidateChanged((nextCandidate) => {
-      if (nextCandidate.workspaceId === currentWorkspaceIdRef.current) setCandidate(nextCandidate)
+      if (nextCandidate.workspaceId === currentWorkspaceIdRef.current) {
+        setCandidate(['applied', 'rejected', 'cancelled', 'stale'].includes(nextCandidate.state) ? undefined : nextCandidate)
+      }
       void api.listWorkspaces().then(setWorkspaces).catch(() => undefined)
     })
     const offAgent = api.onAgentEvent((event) => {
@@ -416,7 +418,7 @@ export function App(): React.JSX.Element {
     let disposed = false
     if (!currentWorkspaceId) { setCandidate(undefined); return }
     if (!activeCandidateId) {
-      setCandidate((current) => current?.workspaceId === currentWorkspaceId ? current : undefined)
+      setCandidate(undefined)
       return
     }
     void api.getCandidate(activeCandidateId).then((recovered) => {

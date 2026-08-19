@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CandidateSnapshot, ProjectExplorerNode, StudentCodeFile } from '../../../shared/types'
-import { getStudentFileGroups, shouldClearCompilerIssue, withExpandedAncestors } from './StudentCodeEditor'
+import { getStudentFileGroups, isActiveAiCandidate, shouldClearCompilerIssue, withExpandedAncestors } from './StudentCodeEditor'
 
 describe('StudentCodeEditor compiler issue lifecycle', () => {
   it('clears stale compiler issue UI after a manual draft is fixed', () => {
@@ -14,6 +14,17 @@ describe('StudentCodeEditor compiler issue lifecycle', () => {
 
   it('does not clear unrelated AI review candidates', () => {
     expect(shouldClearCompilerIssue({ ...candidate({ state: 'build_passed' }), origin: 'ai' }, 0)).toBe(false)
+  })
+})
+
+describe('StudentCodeEditor AI candidate lock', () => {
+  it('locks editing only while an AI candidate still needs a decision', () => {
+    expect(isActiveAiCandidate({ ...candidate({ state: 'build_passed' }), origin: 'ai' })).toBe(true)
+    expect(isActiveAiCandidate({ ...candidate({ state: 'failed' }), origin: 'ai' })).toBe(true)
+  })
+
+  it.each(['applied', 'rejected', 'cancelled', 'stale'] as const)('does not lock editing for a %s AI candidate', (state) => {
+    expect(isActiveAiCandidate({ ...candidate({ state }), origin: 'ai' })).toBe(false)
   })
 })
 

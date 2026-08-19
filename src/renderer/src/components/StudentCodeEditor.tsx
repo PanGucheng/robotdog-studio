@@ -79,7 +79,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
     content
   } : undefined)
   const directEditing = workspace?.learningPath === 'mcu-foundations'
-  const aiReviewActive = candidate?.origin === 'ai'
+  const aiReviewActive = isActiveAiCandidate(candidate)
   const editorWritable = Boolean(selected?.editable && (directEditing ? !aiReviewActive : manualCandidate))
   const buildDiagnostics = directEditing ? workspaceDiagnostics : manualCandidate?.diagnostics ?? []
   const fileGroups = useMemo(() => getStudentFileGroups(files), [files])
@@ -383,6 +383,11 @@ export function shouldClearCompilerIssue(candidate: CandidateSnapshot | undefine
   if (!candidate) return false
   if (candidate.origin !== 'manual') return false
   return diagnosticCount === 0 || candidate.state === 'build_passed'
+}
+
+export function isActiveAiCandidate(candidate: CandidateSnapshot | undefined): boolean {
+  if (candidate?.origin !== 'ai') return false
+  return !['applied', 'rejected', 'cancelled', 'stale'].includes(candidate.state)
 }
 
 export function getStudentFileGroups(files: StudentCodeFile[]): string[] {
