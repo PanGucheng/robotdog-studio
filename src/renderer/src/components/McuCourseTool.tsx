@@ -99,7 +99,7 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
     return () => cancelAnimationFrame(frame)
   }, [mode, selectedStepId, guide?.currentStep?.step.stepId])
 
-  if (!lesson || !progress || workspace.workspacePurpose !== 'mcu-lesson-attempt') return <div className="mcu-tool-empty"><BookOpenCheck size={24} /><strong>自由练习项目</strong><p>这个项目不绑定课程。你仍然可以阅读工程、编写代码、生成程序或询问 AI。</p><button type="button" onClick={onBrowseCourses}>浏览课程</button></div>
+  if (!lesson || !progress || workspace.workspacePurpose !== 'mcu-lesson-attempt') return <div className="mcu-tool-empty"><BookOpenCheck size={24} /><strong>自由练习项目</strong><p>这个项目不绑定课程。你仍然可以阅读工程、编写代码、编译或询问 AI。</p><button type="button" onClick={onBrowseCourses}>浏览课程</button></div>
 
   const complete = progress.state === 'completed'
   const openLecture = (sectionId?: string): void => {
@@ -212,7 +212,7 @@ function writeLectureState(workspaceId: string, displayedContentVersion: number,
 function stepActionLabel(type: string): string {
   if (type === 'candidate-build') return '生成并排查'
   if (type === 'review-apply') return '确认已保存'
-  if (type === 'firmware-build') return '生成程序'
+  if (type === 'firmware-build') return '编译'
   if (type === 'flash') return '写入开发板'
   if (type === 'question') return '填写回答'
   return '记录完成'

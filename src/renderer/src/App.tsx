@@ -521,7 +521,7 @@ export function App(): React.JSX.Element {
           </div>
         </div>
 
-        {edition.id === 'fun-line-following' ? <PipelineRail connected={connected} buildState={build.state} updateState={firmwareUpdate.state} /> : <div className="mcu-top-status"><span className={candidate || agentTurn || build.state === 'running' ? 'is-active' : ''} />{!['idle', 'completed', 'failed', 'cancelled'].includes(firmwareUpdate.state) ? '正在写入程序' : ['flashing', 'verifying', 'resetting'].includes(wchLink.state) ? 'WCH-Link 正在工作' : agentTurn ? 'AI 助教正在回答' : build.state === 'running' ? '正在生成程序' : candidate ? '修改待处理' : build.state === 'completed' ? '程序已生成' : mcuView.kind === 'workspace' ? '代码工作台' : '学习模式'}</div>}
+        {edition.id === 'fun-line-following' ? <PipelineRail connected={connected} buildState={build.state} updateState={firmwareUpdate.state} /> : <div className="mcu-top-status"><span className={candidate || agentTurn || build.state === 'running' ? 'is-active' : ''} />{!['idle', 'completed', 'failed', 'cancelled'].includes(firmwareUpdate.state) ? '正在烧录' : ['probing', 'flashing', 'verifying', 'resetting'].includes(wchLink.state) ? '正在烧录' : agentTurn ? 'AI 助教正在回答' : build.state === 'running' ? '正在编译' : candidate ? '修改待处理' : build.state === 'completed' ? '编译完成' : mcuView.kind === 'workspace' ? '代码工作台' : '学习模式'}</div>}
 
         <div className="topbar-actions">
           <div className={`connection-pill ${connected ? 'is-connected' : ''}`}>

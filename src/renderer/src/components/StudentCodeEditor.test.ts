@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CandidateSnapshot, ProjectExplorerNode, StudentCodeFile } from '../../../shared/types'
-import { getStudentFileGroups, isActiveAiCandidate, shouldClearCompilerIssue, withExpandedAncestors } from './StudentCodeEditor'
+import { getStudentFileGroups, isActiveAiCandidate, MCU_AUTO_SAVE_DELAY_MS, shouldClearCompilerIssue, withExpandedAncestors } from './StudentCodeEditor'
 
 describe('StudentCodeEditor compiler issue lifecycle', () => {
   it('clears stale compiler issue UI after a manual draft is fixed', () => {
@@ -25,6 +25,12 @@ describe('StudentCodeEditor AI candidate lock', () => {
 
   it.each(['applied', 'rejected', 'cancelled', 'stale'] as const)('does not lock editing for a %s AI candidate', (state) => {
     expect(isActiveAiCandidate({ ...candidate({ state }), origin: 'ai' })).toBe(false)
+  })
+})
+
+describe('StudentCodeEditor save cadence', () => {
+  it('keeps explicit save responsive while spacing out fallback auto-saves', () => {
+    expect(MCU_AUTO_SAVE_DELAY_MS).toBeGreaterThanOrEqual(8_000)
   })
 })
 

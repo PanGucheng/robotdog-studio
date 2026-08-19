@@ -1,6 +1,6 @@
 import { BookOpenCheck, ChevronLeft, Cpu, FolderTree, GraduationCap, PanelLeft, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import type { CourseLesson, StudentCodeExplanationRequest } from '../../../shared/types'
+import type { CourseLesson, FirmwareUpdateSnapshot, StudentCodeExplanationRequest, WchLinkFlashSnapshot } from '../../../shared/types'
 import { CourseCenter } from './CourseCenter'
 import { DiffReview } from './DiffReview'
 import { McuBottomPanel } from './McuBottomPanel'
@@ -106,19 +106,24 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
 
   const diffLayer = showDiff && candidate ? <div className="mcu-diff-surface"><header><span><FolderTree size={15} /> 修改确认</span><button type="button" onClick={() => setShowDiff(false)} aria-label="返回代码"><X size={16} /></button></header><DiffReview candidate={candidate} diff={props.candidateDiff} loading={props.candidateDiffLoading} error={props.candidateDiffError} history={props.workspaceHistory} busy={busy} onReject={props.onRejectCandidate} onBuild={props.onBuildCandidate} onApply={props.onApplyCandidate} onUndo={props.onUndoWorkspace} surfaceOnly /></div> : undefined
   const artifactCurrent = isFirmwareArtifactCurrent(props.build, workspace)
-  const buildForWorkspace = props.build.workspaceId === workspace.id
-  const recentlyApplied = /^feat\(student\): apply (?:AI candidate|manual draft) /.test(props.workspaceHistory[0]?.message ?? '')
-  const workspaceAction = artifactCurrent ? {
-    summary: '程序已生成', primaryLabel: '烧录到开发板', secondaryLabel: '查看终端', onSecondary: () => openPanel('terminal'),
-    onPrimary: () => { openPanel('terminal'); if (props.wchLink.state === 'target_ready' || props.wchLink.state === 'completed') props.onFlashWchLink(); else if (['connected', 'bootloader'].includes(props.connection.updatePort.state)) props.onStartUpdate(); else props.onProbeWchLink() }, disabled: busy
-  } : (recentlyApplied || (buildForWorkspace && props.build.state === 'completed')) ? {
-    summary: recentlyApplied ? '修改已保存到项目' : '代码已变化，需要重新生成', primaryLabel: '生成程序', secondaryLabel: '查看终端', onSecondary: () => openPanel('terminal'), onPrimary: props.onBuildFirmware, disabled: busy || props.build.state === 'running'
-  } : { summary: '已保存', primaryLabel: '生成程序', secondaryLabel: '查看终端', onSecondary: () => openPanel('terminal'), onPrimary: props.onBuildFirmware, disabled: busy || props.build.state === 'running' }
+  const flashProgram = (): void => {
+    openPanel('terminal')
+    if (['connected', 'bootloader'].includes(props.connection.updatePort.state)) props.onStartUpdate()
+    else props.onFlashWchLink()
+  }
+  const workspaceAction = {
+    onCompile: () => { openPanel('terminal'); props.onBuildFirmware() },
+    compileDisabled: busy || props.build.state === 'running',
+    onFlash: flashProgram,
+    flashDisabled: busy || !artifactCurrent,
+    flashTitle: artifactCurrent ? '烧录当前编译产物；烧录前会自动检测开发板。' : '请先编译当前代码。'
+  }
+  const workspaceNotice = flashNotice(workspace.id, artifactCurrent, props.wchLink, props.update)
 
   return <section ref={shellRef} className={`mcu-workbench-shell ${hasGuide ? 'has-lab-guide' : 'is-sandbox'} ${lectureFocus ? 'is-reference-expanded' : ''} ${guideDrawerOpen ? 'is-guide-drawer-open' : ''} ${explorerOpen ? 'is-explorer-open' : ''}`} style={{ '--mcu-explorer-width': `${explorerWidth}px`, '--mcu-guide-width': `${guideWidth}px` } as CSSProperties}>
     <div className="mcu-development-area">
       <button type="button" className="mcu-explorer-toggle" onClick={() => setExplorerOpen((value) => !value)} aria-label={explorerOpen ? '收起工程目录' : '打开工程目录'}><PanelLeft size={17} /></button>
-      <StudentCodeEditor key={workspace.id} workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={props.onCandidateChanged} onReadyForReview={() => setShowDiff(true)} onExplainCode={explain} diagnosticHelp={props.diagnosticHelp} onRepairStudentCode={props.onRepairStudentCode} explorerMode focusRequest={focusRequest} onActiveFileChange={setActiveFilePath} editorOverlay={diffLayer} overlayVisible={Boolean(diffLayer)} workspaceAction={workspaceAction} workspaceDiagnostics={props.build.workspaceId === workspace.id ? props.build.diagnostics : []} bottomPanel={<McuBottomPanel key={workspace.id} workspace={workspace} candidate={candidate} build={props.build} baseline={props.baseline} connection={props.connection} update={props.update} wchLink={props.wchLink} busy={busy} request={panelRequest} onFocusFile={focusFile} onExplain={explain} onBuildFirmware={props.onBuildFirmware} onCancelBuild={props.onCancelBuild} onToggleUsb={props.onToggleUsb} onStartUpdate={props.onStartUpdate} onCancelUpdate={props.onCancelUpdate} onProbeWchLink={props.onProbeWchLink} onFlashWchLink={props.onFlashWchLink} onCancelWchLink={props.onCancelWchLink} />} />
+      <StudentCodeEditor key={workspace.id} workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={props.onCandidateChanged} onReadyForReview={() => setShowDiff(true)} onExplainCode={explain} diagnosticHelp={props.diagnosticHelp} onRepairStudentCode={props.onRepairStudentCode} explorerMode focusRequest={focusRequest} onActiveFileChange={setActiveFilePath} editorOverlay={diffLayer} overlayVisible={Boolean(diffLayer)} workspaceAction={workspaceAction} workspaceNotice={workspaceNotice} workspaceDiagnostics={props.build.workspaceId === workspace.id ? props.build.diagnostics : []} bottomPanel={<McuBottomPanel key={workspace.id} workspace={workspace} candidate={candidate} build={props.build} baseline={props.baseline} connection={props.connection} update={props.update} wchLink={props.wchLink} busy={busy} request={panelRequest} onFocusFile={focusFile} onExplain={explain} onBuildFirmware={props.onBuildFirmware} onCancelBuild={props.onCancelBuild} onToggleUsb={props.onToggleUsb} onStartUpdate={props.onStartUpdate} onCancelUpdate={props.onCancelUpdate} onFlashWchLink={props.onFlashWchLink} onCancelWchLink={props.onCancelWchLink} />} />
       <button type="button" className="mcu-explorer-resizer" aria-label="调整工程目录宽度" onPointerDown={(event) => resize('explorer', event)} />
       {hasProjectTour && <button type="button" className="mcu-tour-reopen" onClick={() => { setTourIndex(0); setTourOpen(true) }}><GraduationCap size={14} /> 工程导览</button>}
       {hasProjectTour && tourOpen && <ProjectTour index={tourIndex} onFocus={focusFile} onNext={() => { if (tourIndex < PROJECT_TOUR.length - 1) setTourIndex((value) => value + 1); else { localStorage.setItem('robotdog.mcu-project-tour-seen', '1'); setTourOpen(false) } }} onClose={() => { localStorage.setItem('robotdog.mcu-project-tour-seen', '1'); setTourOpen(false) }} />}
@@ -137,11 +142,29 @@ function readWorkspacePreference(workspaceId: string): { explorerWidth: number; 
 }
 function clampWidth(value: unknown, fallback: number, min: number, max: number): number { return typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback }
 
+export function flashNotice(workspaceId: string, artifactCurrent: boolean, wchLink: WchLinkFlashSnapshot, update: FirmwareUpdateSnapshot): { title: string; text: string; tone: 'info' | 'success' | 'error' } | undefined {
+  if (wchLink.artifact?.workspaceId === workspaceId) {
+    if (wchLink.state === 'failed') {
+      const text = wchLink.error ?? wchLink.message
+      return { title: /没有识别|未识别|没有检测|未检测|连接/.test(text) ? '未检测到开发板' : '烧录失败', text, tone: 'error' }
+    }
+    if (wchLink.state === 'completed') return { title: '烧录成功', text: wchLink.message, tone: 'success' }
+    if (['probing', 'flashing', 'verifying', 'resetting'].includes(wchLink.state)) return { title: '正在烧录', text: wchLink.message, tone: 'info' }
+  }
+  if (!artifactCurrent || ['idle', 'cancelled'].includes(update.state)) return undefined
+  if (update.state === 'failed') {
+    const text = update.error ?? update.message
+    return { title: /没有识别|未识别|没有检测|未检测|连接/.test(text) ? '未检测到开发板' : '烧录失败', text, tone: 'error' }
+  }
+  if (update.state === 'completed') return { title: '烧录成功', text: update.message, tone: 'success' }
+  return { title: '正在烧录', text: update.message, tone: 'info' }
+}
+
 const PROJECT_TOUR = [
   { path: 'Startup/startup_ch32v20x_D6.S', title: '启动代码', copy: '芯片复位后最先执行，准备运行环境并进入主程序。它属于固件基线，只读。' },
   { path: 'User/main.c', title: '主程序入口', copy: '初始化时钟和外设，并持续推动机器马的控制循环。' },
   { path: 'Core/Src/student_control.c', title: '课程安全适配层', copy: '把主固件的输入输出转换为课程接口，保护底层实现不被误改。' },
-  { path: 'App/Src/experiment.c', title: '你的实验代码', copy: '课程主要在 App 目录练习；允许编辑的文件会自动保存到当前工程。' },
+  { path: 'App/Src/experiment.c', title: '你的实验代码', copy: '课程主要在 App 目录练习；修改后点击“保存”，长时间停顿时系统也会做一次兜底保存。' },
   { path: 'CMakeLists.txt', title: '构建入口', copy: '描述哪些源文件参与编译，以及它们如何组成完整固件。' },
   { path: 'Ld/Link.ld', title: '链接脚本', copy: '规定程序和数据在 Flash、RAM 中的位置，通常只读。' },
   { path: 'Peripheral/inc/ch32v20x_gpio.h', title: '厂商外设库', copy: '提供 GPIO、串口、定时器等芯片外设接口，课程可阅读但不直接修改。' }

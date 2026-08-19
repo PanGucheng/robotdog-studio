@@ -1,7 +1,7 @@
 import Editor, { type BeforeMount } from '@monaco-editor/react'
 import type { Monaco } from '@monaco-editor/react'
 import type { editor as MonacoEditor } from 'monaco-editor'
-import { BookOpen, CheckCircle2, ChevronDown, ChevronRight, CircleAlert, Code2, File, FileCode2, FileJson2, FileSliders, Folder, FolderOpen, LockKeyhole, Play, RotateCcw, Save, ShieldCheck, Sparkles } from 'lucide-react'
+import { BookOpen, CheckCircle2, ChevronDown, ChevronRight, CircleAlert, Code2, File, FileCode2, FileJson2, FileSliders, Folder, FolderOpen, LockKeyhole, Play, RotateCcw, Save, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CandidateDiagnostic, CandidateSnapshot, ProjectExplorerNode, ProjectExplorerSnapshot, StudentCodeExplanationRequest, StudentCodeFile, StudentDiagnosticHelp, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
@@ -24,9 +24,18 @@ interface StudentCodeEditorProps {
   editorOverlay?: ReactNode
   overlayVisible?: boolean
   bottomPanel?: ReactNode
-  workspaceAction?: { summary: string; primaryLabel: string; onPrimary(): void; secondaryLabel: string; onSecondary(): void; disabled?: boolean }
+  workspaceAction?: {
+    onCompile(): void
+    compileDisabled?: boolean
+    onFlash(): void
+    flashDisabled?: boolean
+    flashTitle?: string
+  }
+  workspaceNotice?: { title: string; text: string; tone: 'info' | 'success' | 'error' }
   workspaceDiagnostics?: CandidateDiagnostic[]
 }
+
+export const MCU_AUTO_SAVE_DELAY_MS = 8_000
 
 const configureMonaco: BeforeMount = (monaco) => {
   monaco.editor.defineTheme('robotdog-track', {
@@ -47,7 +56,7 @@ const configureMonaco: BeforeMount = (monaco) => {
   })
 }
 
-export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp: _diagnosticHelp, onRepairStudentCode: _onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange, editorOverlay, overlayVisible = false, bottomPanel, workspaceAction, workspaceDiagnostics = [] }: StudentCodeEditorProps): React.JSX.Element {
+export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp: _diagnosticHelp, onRepairStudentCode: _onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange, editorOverlay, overlayVisible = false, bottomPanel, workspaceAction, workspaceNotice, workspaceDiagnostics = [] }: StudentCodeEditorProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const manualCandidate = candidate?.origin === 'manual' ? candidate : undefined
   const [files, setFiles] = useState<StudentCodeFile[]>([])
@@ -158,7 +167,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   useEffect(() => {
     if (!dirty || !editorWritable) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => { void saveCurrent() }, 550)
+    saveTimer.current = setTimeout(() => { void saveCurrent() }, MCU_AUTO_SAVE_DELAY_MS)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
   }, [content, dirty, manualCandidate?.id, selectedPath, editorWritable, workspace?.id])
 
@@ -335,7 +344,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           <div><span className="eyebrow">{selected?.group ?? '学生代码'}</span><h2>{selected?.label ?? '选择一个文件'}</h2><p>{selected?.path}{selectedNode ? ` · ${selectedNode.origin === 'lesson-overlay' ? `课程工程 ${workspace.headCommit.slice(0, 7)}` : `主固件 ${workspace.baselineCommit.slice(0, 7)}`}` : ''}</p></div>
           <div className="student-editor-actions">
             <button type="button" onClick={explainSelection} disabled={busy || !selected}><Sparkles size={14} /> 解释选中代码</button>
-            {mcu ? <><span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`} role="status" aria-live="polite">{saving || dirty ? '正在保存…' : <><CheckCircle2 size={13} /> 已保存</>}</span>{workspaceAction && <><button type="button" onClick={workspaceAction.onSecondary}>{workspaceAction.secondaryLabel}</button><button type="button" className="button-primary" onClick={workspaceAction.onPrimary} disabled={workspaceAction.disabled || saving || dirty}><Play size={14} />{workspaceAction.primaryLabel}</button></>}</> : !manualCandidate ? workspaceAction ? <><span className="draft-save-state"><CheckCircle2 size={13} />{workspaceAction.summary}</span><button type="button" onClick={workspaceAction.onSecondary}>{workspaceAction.secondaryLabel}</button><button type="button" className="button-primary" onClick={workspaceAction.onPrimary} disabled={workspaceAction.disabled}><Play size={14} />{workspaceAction.primaryLabel}</button></> : <button type="button" className="button-primary" onClick={startDraft} disabled={busy}><Play size={14} /> 开始编写</button> : <>
+            {mcu ? <><span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`} role="status" aria-live="polite">{saving ? '正在保存…' : dirty ? '有未保存修改' : <><CheckCircle2 size={13} /> 已保存</>}</span>{workspaceAction && <><button type="button" onClick={() => { void saveCurrent() }} disabled={!dirty || saving || !editorWritable}><Save size={14} />保存</button><button type="button" onClick={workspaceAction.onCompile} disabled={workspaceAction.compileDisabled || saving || dirty}><Play size={14} />编译</button><button type="button" className="button-primary" onClick={workspaceAction.onFlash} disabled={workspaceAction.flashDisabled || saving || dirty} title={workspaceAction.flashTitle}><Zap size={14} />烧录</button></>}</> : !manualCandidate ? <button type="button" className="button-primary" onClick={startDraft} disabled={busy}><Play size={14} /> 开始编写</button> : <>
               <span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`}>{saving ? '正在保存草稿…' : dirty ? '等待自动保存…' : <><CheckCircle2 size={13} /> 草稿已保存</>}</span>
               <button type="button" onClick={discard} disabled={busy}><RotateCcw size={14} /> 放弃草稿</button>
               <button type="button" className="button-primary" onClick={checkCode} disabled={busy || saving}><Save size={14} /> 检查代码</button>
@@ -371,8 +380,9 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
         </div>
         {editorOverlay}
         </div>
-        {diagnostic ? <div className="editor-feedback"><strong>代码检查发现问题</strong><p>{diagnostic}</p>{manualCandidate && <button type="button" onClick={() => requestDiagnosticHelp(manualCandidate.id, buildDiagnostics, diagnostic)}>让 AI 解释</button>}</div>
-          : message && <div className="editor-feedback"><strong>当前进度</strong><p>{message}</p></div>}
+        {diagnostic ? <div className="editor-feedback has-error"><strong>代码检查发现问题</strong><p>{diagnostic}</p>{manualCandidate && <button type="button" onClick={() => requestDiagnosticHelp(manualCandidate.id, buildDiagnostics, diagnostic)}>让 AI 解释</button>}</div>
+          : workspaceNotice ? <div className={`editor-feedback ${workspaceNotice.tone === 'error' ? 'has-error' : ''}`}><strong>{workspaceNotice.title}</strong><p>{workspaceNotice.text}</p></div>
+            : message && <div className="editor-feedback"><strong>当前进度</strong><p>{message}</p></div>}
         {bottomPanel}
       </div>
     </div>
