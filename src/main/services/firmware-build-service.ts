@@ -185,14 +185,18 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const mapPath = join(outputRoot, manifest.artifacts.map)
       this.activeSnapshot.stage = 'linking'
       this.activeSnapshot.currentFile = `链接 ${manifest.artifacts.elf}`
+      this.addLog(`Linking ${manifest.artifacts.elf}`)
       await this.runProcess(toolchain.gcc.path, [
         `-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`,
         ...manifest.build.linkFlags, `-Wl,-Map=${mapPath}`, '-T', join(stagingRoot, ...manifest.target.linkerScript.split('/')),
         '-o', elfPath, ...objectFiles
       ], stagingRoot)
       this.activeSnapshot.stage = 'packaging'
+      this.addLog(`Generating ${manifest.artifacts.hex}`)
       await this.runProcess(toolchain.objcopy.path, ['-O', 'ihex', elfPath, hexPath], stagingRoot)
+      this.addLog(`Generating ${manifest.artifacts.bin}`)
       await this.runProcess(toolchain.objcopy.path, ['-O', 'binary', elfPath, binPath], stagingRoot)
+      this.addLog('Reading Flash / RAM usage')
       const sizeOutput = await this.runProcess(toolchain.size.path, [elfPath], stagingRoot)
       const size = parseSizeOutput(sizeOutput)
       if (!size) throw new Error('无法读取固件 Flash/RAM 占用')
@@ -308,13 +312,17 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     this.activeSnapshot.stage = 'linking'
     this.activeSnapshot.currentFile = `链接 ${manifest.artifacts.elf}`
     const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
+    this.addLog(`Linking ${manifest.artifacts.elf}`)
     await this.runProcess(toolchain.gcc.path, [
       ...targetArgs, ...LIVE_LINK_FLAGS, `-Wl,-Map=${mapPath}`, '-T', join(stagingRoot, ...manifest.target.linkerScript.split('/')),
       '-o', elfPath, ...objectFiles
     ], stagingRoot)
     this.activeSnapshot.stage = 'packaging'
+    this.addLog(`Generating ${manifest.artifacts.hex}`)
     await this.runProcess(toolchain.objcopy.path, ['-O', 'ihex', elfPath, hexPath], stagingRoot)
+    this.addLog(`Generating ${manifest.artifacts.bin}`)
     await this.runProcess(toolchain.objcopy.path, ['-O', 'binary', elfPath, binPath], stagingRoot)
+    this.addLog('Reading Flash / RAM usage')
     const sizeOutput = await this.runProcess(toolchain.size.path, [elfPath], stagingRoot)
     await writeFile(join(outputRoot, manifest.artifacts.size), sizeOutput, 'utf8')
     const size = parseSizeOutput(sizeOutput)
@@ -405,18 +413,28 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
   private runProcess(command: string, args: string[], cwd: string): Promise<string> {
     return new Promise((resolveRun, reject) => {
       this.throwIfCancelled()
-      this.addLog(this.redact(`> ${basename(command)} ${args.map(formatCommandArgument).join(' ')}`))
+      const renderedCommand = this.redact(`> ${basename(command)} ${args.map(formatCommandArgument).join(' ')}`)
       const child = spawn(command, args, { cwd, windowsHide: true, shell: false, env: { PATH: process.env.PATH ?? '', SystemRoot: process.env.SystemRoot ?? '' } })
       this.activeProcess = child
       let output = ''
+      let failedToStart = false
       child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString('utf8'); this.addProcessOutput(chunk.toString('utf8')) })
       child.stderr.on('data', (chunk: Buffer) => { output += chunk.toString('utf8'); this.addProcessOutput(chunk.toString('utf8')) })
-      child.on('error', reject)
+      child.on('error', (caught) => {
+        failedToStart = true
+        this.addLog(renderedCommand, 'error')
+        this.addLog(`Build command could not start · ${caught.message}`, 'error')
+        reject(caught)
+      })
       child.on('close', (code) => {
         this.activeProcess = undefined
+        if (failedToStart) return
         if (this.cancelRequested) reject(new Error('构建已取消'))
-        else if (code !== 0) { this.addLog(`进程结束 · exit code ${code ?? 'unknown'}`, 'error'); reject(new Error(`构建命令退出码 ${code ?? 'unknown'}`)) }
-        else { this.addLog('进程结束 · exit code 0', 'success'); resolveRun(output) }
+        else if (code !== 0) {
+          this.addLog(renderedCommand, 'error')
+          this.addLog(`Build command failed · exit code ${code ?? 'unknown'}`, 'error')
+          reject(new Error(`构建命令退出码 ${code ?? 'unknown'}`))
+        } else resolveRun(output)
       })
     })
   }
