@@ -1,4 +1,4 @@
-import { BookOpenCheck, ChevronLeft, Cpu, FolderTree, GraduationCap, PanelLeft, X } from 'lucide-react'
+import { BookOpenCheck, ChevronLeft, Cpu, FolderTree, PanelLeft, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { CourseLesson, FirmwareUpdateSnapshot, StudentCodeExplanationRequest, WchLinkFlashSnapshot } from '../../../shared/types'
 import { CourseCenter } from './CourseCenter'
@@ -34,6 +34,7 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
   const [panelRequest, setPanelRequest] = useState<{ tab: BottomPanelTab; nonce: number }>()
   const [assistantIntent, setAssistantIntent] = useState<FloatingAssistantIntent>()
   const shellRef = useRef<HTMLElement>(null)
+  const projectTourCheckedRef = useRef(false)
   const hasProjectTour = shouldShowProjectTour(workspace, workspaceLesson)
   const openPanel = (tab: BottomPanelTab): void => setPanelRequest({ tab, nonce: Date.now() })
   const openAssistant = (intent: FloatingAssistantIntentInput): void => setAssistantIntent({ ...intent, nonce: Date.now() } as FloatingAssistantIntent)
@@ -68,7 +69,12 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
 
   useEffect(() => {
     if (!hasProjectTour) { setTourOpen(false); setTourIndex(0); return }
-    if (!localStorage.getItem('robotdog.mcu-project-tour-seen')) { setTourIndex(0); setTourOpen(true) }
+    if (projectTourCheckedRef.current) return
+    projectTourCheckedRef.current = true
+    if (localStorage.getItem(PROJECT_TOUR_SEEN_KEY)) { setTourOpen(false); return }
+    localStorage.setItem(PROJECT_TOUR_SEEN_KEY, '1')
+    setTourIndex(0)
+    setTourOpen(true)
   }, [hasProjectTour, workspace?.id])
 
   const view = props.mcuView ?? { kind: 'home' as const, panel: 'landing' as const }
@@ -125,8 +131,7 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
       <button type="button" className="mcu-explorer-toggle" onClick={() => setExplorerOpen((value) => !value)} aria-label={explorerOpen ? '收起工程目录' : '打开工程目录'}><PanelLeft size={17} /></button>
       <StudentCodeEditor key={workspace.id} workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={props.onCandidateChanged} onReadyForReview={() => setShowDiff(true)} onExplainCode={explain} diagnosticHelp={props.diagnosticHelp} onRepairStudentCode={props.onRepairStudentCode} explorerMode focusRequest={focusRequest} onActiveFileChange={setActiveFilePath} editorOverlay={diffLayer} overlayVisible={Boolean(diffLayer)} workspaceAction={workspaceAction} workspaceNotice={workspaceNotice} workspaceDiagnostics={props.build.workspaceId === workspace.id ? props.build.diagnostics : []} bottomPanel={<McuBottomPanel key={workspace.id} workspace={workspace} candidate={candidate} build={props.build} baseline={props.baseline} connection={props.connection} update={props.update} wchLink={props.wchLink} busy={busy} request={panelRequest} onFocusFile={focusFile} onExplain={explain} onBuildFirmware={props.onBuildFirmware} onCancelBuild={props.onCancelBuild} onToggleUsb={props.onToggleUsb} onStartUpdate={props.onStartUpdate} onCancelUpdate={props.onCancelUpdate} onFlashWchLink={props.onFlashWchLink} onCancelWchLink={props.onCancelWchLink} />} />
       <button type="button" className="mcu-explorer-resizer" aria-label="调整工程目录宽度" onPointerDown={(event) => resize('explorer', event)} />
-      {hasProjectTour && <button type="button" className="mcu-tour-reopen" onClick={() => { setTourIndex(0); setTourOpen(true) }}><GraduationCap size={14} /> 工程导览</button>}
-      {hasProjectTour && tourOpen && <ProjectTour index={tourIndex} onFocus={focusFile} onNext={() => { if (tourIndex < PROJECT_TOUR.length - 1) setTourIndex((value) => value + 1); else { localStorage.setItem('robotdog.mcu-project-tour-seen', '1'); setTourOpen(false) } }} onClose={() => { localStorage.setItem('robotdog.mcu-project-tour-seen', '1'); setTourOpen(false) }} />}
+      {hasProjectTour && tourOpen && <ProjectTour index={tourIndex} onFocus={focusFile} onNext={() => { if (tourIndex < PROJECT_TOUR.length - 1) setTourIndex((value) => value + 1); else setTourOpen(false) }} onClose={() => setTourOpen(false)} />}
     </div>
     {hasGuide && <><button type="button" className="mcu-guide-toggle" onClick={() => setGuideDrawerOpen((value) => !value)} aria-label={guideDrawerOpen ? '收起实验指南' : '打开实验指南'}><BookOpenCheck size={17} /></button><button type="button" className="mcu-guide-resizer" aria-label="调整实验指南宽度" onPointerDown={(event) => resize('guide', event)} /><aside className="mcu-guide-pane" aria-label="实验指南"><McuLabGuide key={workspace.id} workspace={workspace} lesson={workspaceLesson} progress={courseProgress} busy={busy} activeFilePath={activeFilePath} lectureFocus={lectureFocus} onLectureFocusChange={setLectureFocus} onUpdate={props.onUpdateCourseProgress} onBrowseCourses={() => workspace.courseBinding ? navigate({ kind: 'lesson', courseId: workspace.courseBinding.courseId, lessonId: workspace.courseBinding.lessonId }) : navigate({ kind: 'course-center' })} onOpenStep={openStep} onFocusFile={focusFile} onAssistantOpen={(intent) => intent === 'lecture' ? openAssistant({ kind: 'lecture-answer' }) : openAssistant({ kind: 'workspace-step', draft: '请帮我理解当前实验步骤，并给我一个可以先亲自检查的小提示。' })} /></aside></>}
     <McuFloatingAssistant key={workspace.id} workspace={workspace} edition={props.edition} events={props.agentEvents ?? []} candidate={candidate} running={Boolean(props.agentRunning && props.agentEvents?.some((event) => event.type === 'turn_started' && event.workspaceId === workspace.id))} intent={assistantIntent} onPrompt={props.onAgentPrompt ?? (() => undefined)} onCancel={props.onAgentCancel ?? (() => undefined)} onReject={props.onRejectCandidate} onPermission={props.onAgentPermission ?? (() => undefined)} onOpenSettings={props.onOpenSettings} />
@@ -159,6 +164,8 @@ export function flashNotice(workspaceId: string, artifactCurrent: boolean, wchLi
   if (update.state === 'completed') return { title: '烧录成功', text: update.message, tone: 'success' }
   return { title: '正在烧录', text: update.message, tone: 'info' }
 }
+
+const PROJECT_TOUR_SEEN_KEY = 'robotdog.mcu-project-tour-seen'
 
 const PROJECT_TOUR = [
   { path: 'Startup/startup_ch32v20x_D6.S', title: '启动代码', copy: '芯片复位后最先执行，准备运行环境并进入主程序。它属于固件基线，只读。' },
