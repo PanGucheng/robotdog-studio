@@ -13,13 +13,16 @@ file(MAKE_DIRECTORY "${RHS_OUTPUT_DIR}")
 add_executable(RHSFirmwareBaseline
     Startup/startup_ch32v20x_D6.S
     Core/core_riscv.c
+    RHS_HAL/Src/rhs_gpio.c
+    Peripheral/src/ch32v20x_gpio.c
+    Peripheral/src/ch32v20x_rcc.c
     User/main.c
     User/system_ch32v20x.c
     User/ch32v20x_it.c
 )
 
 target_include_directories(RHSFirmwareBaseline PRIVATE
-    Core Debug User Peripheral/inc Startup
+    Core Debug User Peripheral/inc RHS_HAL/Inc Startup
 )
 
 target_compile_options(RHSFirmwareBaseline PRIVATE
@@ -28,6 +31,40 @@ target_compile_options(RHSFirmwareBaseline PRIVATE
 )
 
 target_compile_definitions(RHSFirmwareBaseline PRIVATE CH32V20x_D6)
+
+set_source_files_properties(
+    RHS_HAL/Src/rhs_gpio.c
+    Tests/rhs_gpio_link_smoke.c
+    PROPERTIES COMPILE_OPTIONS
+    "-Wall;-Wextra;-Wconversion;-Wno-sign-conversion;-Werror=implicit-function-declaration;-Werror=return-type"
+)
+
+add_executable(RHSFirmwareGPIOLinkSmoke EXCLUDE_FROM_ALL
+    Startup/startup_ch32v20x_D6.S
+    Core/core_riscv.c
+    RHS_HAL/Src/rhs_gpio.c
+    Peripheral/src/ch32v20x_gpio.c
+    Peripheral/src/ch32v20x_rcc.c
+    Tests/rhs_gpio_link_smoke.c
+    User/system_ch32v20x.c
+    User/ch32v20x_it.c
+)
+
+target_include_directories(RHSFirmwareGPIOLinkSmoke PRIVATE
+    Core Debug User Peripheral/inc RHS_HAL/Inc Startup
+)
+
+target_compile_options(RHSFirmwareGPIOLinkSmoke PRIVATE
+    ${RHS_TARGET_FLAGS} -Os -ffunction-sections -fdata-sections
+    -fmessage-length=0 -fsigned-char -fno-common
+)
+
+target_compile_definitions(RHSFirmwareGPIOLinkSmoke PRIVATE CH32V20x_D6)
+
+target_link_options(RHSFirmwareGPIOLinkSmoke PRIVATE
+    ${RHS_TARGET_FLAGS} -nostartfiles --specs=nano.specs --specs=nosys.specs
+    -T "${CMAKE_SOURCE_DIR}/Ld/Link.ld" -Wl,--gc-sections
+)
 
 target_link_options(RHSFirmwareBaseline PRIVATE
     ${RHS_TARGET_FLAGS} -nostartfiles --specs=nano.specs --specs=nosys.specs
