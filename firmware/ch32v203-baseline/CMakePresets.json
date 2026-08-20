@@ -1,0 +1,15 @@
+{
+  "version": 5,
+  "configurePresets": [{
+    "name": "wch-gcc12",
+    "generator": "Ninja",
+    "binaryDir": "${sourceDir}/build/release",
+    "toolchainFile": "${sourceDir}/cmake/wch-riscv-gcc12.cmake",
+    "cacheVariables": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "RHS_TOOLCHAIN_ROOT": "$env{RHS_TOOLCHAIN_ROOT}",
+      "RHS_OUTPUT_DIR": "${sourceDir}/out/release"
+    }
+  }],
+  "buildPresets": [{"name": "release", "configurePreset": "wch-gcc12"}]
+}

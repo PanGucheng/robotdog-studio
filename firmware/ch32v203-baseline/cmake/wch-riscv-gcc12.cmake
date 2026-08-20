@@ -1,0 +1,15 @@
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR riscv)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES RHS_TOOLCHAIN_ROOT)
+list(REMOVE_DUPLICATES CMAKE_TRY_COMPILE_PLATFORM_VARIABLES)
+
+if(NOT DEFINED RHS_TOOLCHAIN_ROOT OR RHS_TOOLCHAIN_ROOT STREQUAL "")
+    message(FATAL_ERROR "RHS_TOOLCHAIN_ROOT must point to the WCH RISC-V Embedded GCC12 toolchain root or bin directory")
+endif()
+
+set(_rhs_candidates "${RHS_TOOLCHAIN_ROOT}" "${RHS_TOOLCHAIN_ROOT}/bin")
+find_program(CMAKE_C_COMPILER NAMES riscv-wch-elf-gcc.exe riscv-wch-elf-gcc riscv-none-embed-gcc.exe riscv-none-embed-gcc PATHS ${_rhs_candidates} NO_DEFAULT_PATH REQUIRED)
+find_program(CMAKE_ASM_COMPILER NAMES riscv-wch-elf-gcc.exe riscv-wch-elf-gcc riscv-none-embed-gcc.exe riscv-none-embed-gcc PATHS ${_rhs_candidates} NO_DEFAULT_PATH REQUIRED)
+find_program(CMAKE_OBJCOPY NAMES riscv-wch-elf-objcopy.exe riscv-wch-elf-objcopy riscv-none-embed-objcopy.exe riscv-none-embed-objcopy PATHS ${_rhs_candidates} NO_DEFAULT_PATH REQUIRED)
+find_program(CMAKE_SIZE NAMES riscv-wch-elf-size.exe riscv-wch-elf-size riscv-none-embed-size.exe riscv-none-embed-size PATHS ${_rhs_candidates} NO_DEFAULT_PATH REQUIRED)
