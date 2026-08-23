@@ -48,7 +48,7 @@ export function CourseTaskPage({ workspace, lesson, progress, busy, onUpdate, on
       </header>
 
       {progress.recoveredFromCorruption && <div className="course-progress-warning"><RotateCcw size={16} /><span><strong>进度记录已重建</strong>损坏文件已保留为备份，学生代码和 Git 存档未受影响。</span></div>}
-      {lesson.verification === 'pending-hardware-check' && <div className="course-progress-warning"><AlertTriangle size={16} /><span><strong>本课尚未通过真机检查</strong>只能阅读结构，不能据此接线、烧录或确认硬件现象。</span></div>}
+      {lesson.verification === 'pending-hardware-check' && <div className="course-progress-warning"><AlertTriangle size={16} /><span><strong>{lesson.status === 'draft' ? '课程作者真机验证模式' : '本课尚未通过真机检查'}</strong>{lesson.status === 'draft' ? '仅用于开发阶段完成真实 Build、Flash 与观察，不能作为已发布结果。' : '只能阅读结构，不能据此接线、烧录或确认硬件现象。'}</span></div>}
 
       <section className="course-next-step">
         <span>下一步</span>

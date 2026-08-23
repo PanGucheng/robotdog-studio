@@ -6,8 +6,8 @@ import { CandidateService } from './candidate-service'
 import { FirmwareBaselineService } from './firmware-baseline-service'
 import { WorkspaceService } from './workspace-service'
 
-const ROOT_DIRECTORIES = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'cmake', 'student-config'])
-const ROOT_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json', 'README.md'])
+const ROOT_DIRECTORIES = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'RHS_HAL', 'Board', 'Teaching', 'cmake'])
+const ROOT_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'README.md'])
 const HIDDEN_NAMES = new Set(['.git', '.github', '.vscode', '.eide', '.mrs', 'node_modules', 'build', 'out', 'release'])
 const MAX_FILE_BYTES = 256 * 1024
 
@@ -32,7 +32,7 @@ export class ProjectExplorerService {
     return {
       workspaceId,
       candidateId,
-      rootLabel: `RobotDog Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`,
+      rootLabel: `RHS Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`,
       baselineId: context.workspace.firmwareBaselineId,
       baselineCommit: context.workspace.baselineCommit,
       baselineAvailable: context.baselineAvailable,
@@ -145,11 +145,11 @@ function roleFor(path: string): ProjectExplorerRole {
   if (root === 'App') return 'student-code'
   if (root === 'User') return 'application'
   if (root === 'Core') return 'core'
-  if (root === 'Peripheral') return 'peripheral'
+  if (root === 'Peripheral' || root === 'RHS_HAL' || root === 'Board' || root === 'Teaching') return 'peripheral'
   if (root === 'Startup') return 'startup'
   if (root === 'Ld') return 'linker'
   if (root === 'student-config') return 'config'
-  if (root === 'cmake' || root === 'Debug' || /^(?:CMakeLists\.txt|CMakePresets\.json|robotdog\.firmware\.json)$/.test(path)) return 'build'
+  if (root === 'cmake' || root === 'Debug' || /^(?:CMakeLists\.txt|CMakePresets\.json|rhs\.firmware\.json)$/.test(path)) return 'build'
   return 'documentation'
 }
 

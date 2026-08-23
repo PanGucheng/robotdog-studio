@@ -100,9 +100,13 @@ describe('FirmwareBaselineService', () => {
       remote: { url: 'https://example.invalid/robotdog.git' }
     }))
 
-    const status = await new FirmwareBaselineService({ manifestPath: activePath, packagedSourceRoot }).getStatus()
+    const service = new FirmwareBaselineService({ manifestPath: activePath, packagedSourceRoot })
+    const status = await service.getStatus()
     expect(status.sourceRoot).toBe(packagedSourceRoot)
     expect(status.readyForTesting).toBe(true)
     expect(status.errors).toEqual([])
+    const before = (await service.requireTestingBaseline()).sourceHash
+    await writeFile(join(packagedSourceRoot, 'Core', 'Src', 'student_control.c'), 'void student_control(void) { /* changed */ }\n')
+    expect((await service.requireTestingBaseline()).sourceHash).not.toBe(before)
   })
 })

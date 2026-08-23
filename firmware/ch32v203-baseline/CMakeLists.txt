@@ -14,9 +14,11 @@ file(MAKE_DIRECTORY "${RHS_OUTPUT_DIR}")
 add_executable(RHSFirmwareBaseline
     Startup/startup_ch32v20x_D6.S
     Core/core_riscv.c
+    Debug/debug.c
     RHS_HAL/Src/rhs_gpio.c
     Board/Src/rhs_board.c
     Board/Src/rhs_board_peripherals.c
+    Teaching/Src/rhs_teaching_platform.c
     Peripheral/src/ch32v20x_gpio.c
     Peripheral/src/ch32v20x_rcc.c
     Peripheral/src/ch32v20x_tim.c
@@ -30,7 +32,7 @@ add_executable(RHSFirmwareBaseline
 )
 
 target_include_directories(RHSFirmwareBaseline PRIVATE
-    Core Debug User Peripheral/inc RHS_HAL/Inc Board/Inc Startup App/Inc
+    Core Debug User Peripheral/inc RHS_HAL/Inc Board/Inc Teaching/Inc Startup App/Inc
 )
 
 target_compile_options(RHSFirmwareBaseline PRIVATE

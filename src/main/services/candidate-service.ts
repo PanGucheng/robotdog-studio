@@ -451,10 +451,6 @@ export class CandidateService {
         })
       }
     }
-    descriptors.push(
-      { path: 'Core/Inc/student_control.h', label: '实验输入与输出', group: '只读接口', language: 'c', editable: false },
-      { path: 'Core/Src/student_control.c', label: '安全运行适配', group: '只读底层', language: 'c', editable: false }
-    )
     return descriptors
   }
 

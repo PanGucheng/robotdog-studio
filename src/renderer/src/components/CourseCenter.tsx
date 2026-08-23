@@ -71,7 +71,7 @@ export function CourseCenter({ courses, course, lesson, loading, error, complete
             </div>
 
             {lesson.verification === 'pending-hardware-check' && (
-              <div className="course-hardware-warning"><LockKeyhole size={17} /><span><strong>本课尚未通过真机检查</strong>当前只展示课程结构，不要据此接线或烧录。</span></div>
+              <div className="course-hardware-warning"><LockKeyhole size={17} /><span><strong>{lesson.status === 'draft' ? '课程作者真机验证模式' : '本课尚未通过真机检查'}</strong>{lesson.status === 'draft' ? '仅开发环境可创建测试练习，用于完成 Build、Flash 与硬件观察；不能作为已发布课程。' : '当前只展示课程结构，不要据此接线或烧录。'}</span></div>
             )}
 
             {lesson.prerequisites.length > 0 && (
@@ -89,13 +89,13 @@ export function CourseCenter({ courses, course, lesson, loading, error, complete
             </div>
 
             <footer className="lesson-detail-actions">
-              <span>{lesson.status === 'draft' ? '课程发布后才可开始学习。' : '先阅读课程讲义，再进入配套实验工程。'}</span>
+              <span>{lesson.status === 'draft' ? '开发模式：创建作者验证练习。' : '先阅读课程讲义，再进入配套实验工程。'}</span>
               <div>
-                <button type="button" className="course-start-button" disabled={lesson.status !== 'published' || lesson.verification === 'pending-hardware-check'} onClick={() => {
+                <button type="button" className="course-start-button" disabled={lesson.status !== 'draft' && lesson.verification === 'pending-hardware-check'} onClick={() => {
                   const incomplete = lesson.prerequisites.filter((lessonId) => !completedLessonIds.includes(lessonId))
                   if (incomplete.length > 0 && !window.confirm('建议先完成前置课。是否仍要开始学习？')) return
                   onOpenLesson(lesson.lessonId)
-                }}>开始学习</button>
+                }}>{lesson.status === 'draft' ? '开始作者验证' : '开始学习'}</button>
               </div>
             </footer>
           </> : <div className="course-center-state"><BookOpenCheck size={22} /><strong>选择一个课次</strong><span>查看目标、实验步骤和硬件要求。</span></div>}

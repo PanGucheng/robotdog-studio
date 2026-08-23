@@ -33,7 +33,8 @@ describe('CourseService', () => {
       templatesRoot: join(process.cwd(), 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'),
       includeDrafts: true
     })
-    await expect(service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-program-on-chip')).rejects.toThrow('COURSE_LESSON_NOT_PUBLISHED')
+    const spec = await service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-program-on-chip')
+    expect(spec).toMatchObject({ templateId: 'first-program-on-chip', templateVersion: 'content-v7' })
   })
 
   it('rejects a catalog path that escapes the configured root', async () => {

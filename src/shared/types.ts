@@ -412,7 +412,7 @@ export interface FirmwareLiveBaselineManifest {
   target: { board: string; chip: string; startup: string; linkerScript: string; memory: { flashBytes: number; ramBytes: number; confirmed: boolean } }
   toolchain: { profile: string; arch: string; abi: string; codeModel: string }
   build: { type: 'cmake'; preset: string; outputDir: string; toolchain: string }
-  studentOverlay: { source: string; header: string; configInput: string; generatedHeader: string }
+  studentOverlay: { source: string; header: string; configInput?: string; generatedHeader?: string }
   artifacts: { elf: string; hex: string; bin: string; map: string; size: string; hashes: string; sourceInput: string }
   integrity: Array<{ path: string; sha256: string }>
   live: { activeCommit: string; shortCommit: string; manifestPath: string; verificationReport?: string; flashFreeBytes?: number; ramUsedBytes?: number }

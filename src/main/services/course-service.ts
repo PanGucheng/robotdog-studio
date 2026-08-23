@@ -182,8 +182,8 @@ export class CourseService {
   async getWorkspaceCreationSpec(courseId: string, lessonId: string): Promise<WorkspaceCreationSpec> {
     if (!this.templatesRoot) throw new Error('COURSE_TEMPLATE_ROOT_UNAVAILABLE')
     const [course, lesson] = await Promise.all([this.getCourse(courseId), this.getLesson(courseId, lessonId)])
-    if (lesson.status !== 'published') throw new Error('COURSE_LESSON_NOT_PUBLISHED')
-    if (lesson.verification === 'pending-hardware-check') throw new Error('COURSE_LESSON_HARDWARE_UNVERIFIED')
+    if (lesson.status !== 'published' && !this.includeDrafts) throw new Error('COURSE_LESSON_NOT_PUBLISHED')
+    if (lesson.verification === 'pending-hardware-check' && !this.includeDrafts) throw new Error('COURSE_LESSON_HARDWARE_UNVERIFIED')
     const templateRoot = resolve(this.templatesRoot, lesson.templateId)
     const fromRoot = relative(this.templatesRoot, templateRoot)
     if (!fromRoot || fromRoot.startsWith(`..${sep}`) || fromRoot === '..' || isAbsolute(fromRoot)) throw new Error('COURSE_TEMPLATE_PATH_INVALID')
@@ -395,7 +395,7 @@ export class CourseService {
 }
 
 const BASELINE_EXPLORER_ROOTS = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'RHS_HAL', 'Board', 'App', 'cmake', 'student-config'])
-const BASELINE_EXPLORER_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json', 'README.md'])
+const BASELINE_EXPLORER_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'README.md'])
 
 function isVisibleCourseFileTarget(path: string, lesson: Pick<LessonManifest, 'deniedGlobs' | 'editableGlobs' | 'readableFiles'>): boolean {
   const normalized = path.replace(/\\/g, '/')

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { readFile, stat } from 'node:fs/promises'
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { readFile, readdir, stat } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { z } from 'zod'
 import type { FirmwareBaselineManifest, FirmwareBaselineStatus } from '../../shared/types'
 
@@ -72,7 +72,8 @@ export class FirmwareBaselineService {
         catch { errors.push(`${source}：文件不存在`) }
       }
     } else {
-      for (const source of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json']) {
+      const firmwareManifest = basename(manifest.live.manifestPath)
+      for (const source of ['CMakeLists.txt', 'CMakePresets.json', firmwareManifest]) {
         try { if (!(await stat(resolveInside(sourceRoot, source))).isFile()) errors.push(`${source}：不是普通文件`) }
         catch { errors.push(`${source}：文件不存在`) }
       }
@@ -90,7 +91,9 @@ export class FirmwareBaselineService {
   async requireTestingBaseline(): Promise<{ manifest: FirmwareBaselineManifest; sourceRoot: string; sourceHash: string }> {
     const [manifest, status] = await Promise.all([this.getManifest(), this.getStatus()])
     if (!status.readyForTesting) throw new Error(`临时固件基线不可用：${status.errors.join('；')}`)
-    const sourceHash = createHash('sha256').update(JSON.stringify({ id: manifest.id, commit: manifest.source.expectedCommit, integrity: manifest.integrity, live: manifest.schemaVersion === 2 ? manifest.live : undefined })).digest('hex')
+    const sourceHash = manifest.schemaVersion === 2
+      ? await calculateSourceContentHash(status.sourceRoot)
+      : createHash('sha256').update(JSON.stringify({ id: manifest.id, commit: manifest.source.expectedCommit, integrity: manifest.integrity })).digest('hex')
     return { manifest, sourceRoot: status.sourceRoot, sourceHash }
   }
 
@@ -137,12 +140,12 @@ export class FirmwareBaselineService {
         memory: { flashBytes: Number(memory.flashBytes ?? 65536), ramBytes: Number(memory.ramBytes ?? 20480), confirmed: Boolean(firmware.hardwareStatus?.mcuConfirmed) }
       },
       toolchain: { profile: 'ch32v203-wch-gcc12', arch: 'rv32imac', abi: 'ilp32', codeModel: 'medlow' },
-      build: { type: 'cmake', preset: String(active.build && typeof active.build === 'object' && 'preset' in active.build ? (active.build as { preset?: unknown }).preset : 'robotdog-wch-gcc12'), outputDir: '.firmware-build/ch32v203-robotdog', toolchain: String(firmware.build?.toolchain ?? 'WCH RISC-V Embedded GCC12') },
+      build: { type: 'cmake', preset: String(active.build && typeof active.build === 'object' && 'preset' in active.build ? (active.build as { preset?: unknown }).preset : 'wch-gcc12'), outputDir: '.firmware-build/ch32v203-rhs', toolchain: String(firmware.build?.toolchain ?? 'WCH RISC-V Embedded GCC12') },
       studentOverlay: {
         source: String(studentOverlay?.source ?? 'App/Src/experiment.c'),
         header: String(studentOverlay?.header ?? 'App/Inc/experiment.h'),
-        configInput: String(studentOverlay?.configInput ?? 'App/Src/experiment.c'),
-        generatedHeader: String(studentOverlay?.generatedHeader ?? 'App/Inc/experiment.generated.h')
+        ...(studentOverlay?.configInput ? { configInput: String(studentOverlay.configInput) } : {}),
+        ...(studentOverlay?.generatedHeader ? { generatedHeader: String(studentOverlay.generatedHeader) } : {})
       },
       artifacts: {
         elf: String(firmware.artifacts?.elf ?? 'RHSFirmwareBaseline.elf'),
@@ -168,6 +171,23 @@ export class FirmwareBaselineService {
 function stringValue(value: unknown, label: string): string {
   if (typeof value !== 'string' || value.length === 0) throw new Error(`ACTIVE_BASELINE_${label}_INVALID`)
   return value
+}
+
+async function calculateSourceContentHash(root: string): Promise<string> {
+  const hash = createHash('sha256')
+  const include = new Set(['Startup', 'Core', 'RHS_HAL', 'Board', 'Teaching', 'User', 'Peripheral', 'Ld', 'CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'robotdog.firmware.json'])
+  const visit = async (directory: string): Promise<void> => {
+    for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+      const path = join(directory, entry.name)
+      const rel = relative(root, path).replaceAll('\\', '/')
+      if (entry.isDirectory()) await visit(path)
+      else if (entry.isFile() && (include.has(rel) || [...include].some((prefix) => rel.startsWith(`${prefix}/`)))) {
+        hash.update(rel); hash.update(await readFile(path))
+      }
+    }
+  }
+  await visit(root)
+  return hash.digest('hex')
 }
 
 function resolveInside(root: string, child: string): string {

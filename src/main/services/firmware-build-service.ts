@@ -29,13 +29,22 @@ type FirmwareBuildServiceEvents = { event: [FirmwareBuildEvent] }
 
 const LIVE_BASELINE_SOURCES = [
   'Startup/startup_ch32v20x_D6.S', 'Core/core_riscv.c', 'RHS_HAL/Src/rhs_gpio.c',
-  'Board/Src/rhs_board.c', 'Board/Src/rhs_board_peripherals.c', 'User/main.c',
+  'Board/Src/rhs_board.c', 'Board/Src/rhs_board_peripherals.c', 'Teaching/Src/rhs_teaching_platform.c', 'Debug/debug.c', 'User/main.c',
   'User/system_ch32v20x.c', 'User/ch32v20x_it.c', 'Peripheral/src/ch32v20x_gpio.c',
   'Peripheral/src/ch32v20x_rcc.c', 'Peripheral/src/ch32v20x_tim.c',
   'Peripheral/src/ch32v20x_i2c.c', 'Peripheral/src/ch32v20x_usart.c', 'Peripheral/src/ch32v20x_adc.c'
 ]
-const LIVE_INCLUDE_DIRECTORIES = ['Core', 'User', 'Peripheral/inc', 'Startup', 'RHS_HAL/Inc', 'Board/Inc']
+const LIVE_INCLUDE_DIRECTORIES = ['Core', 'Debug', 'User', 'Peripheral/inc', 'Startup', 'RHS_HAL/Inc', 'Board/Inc', 'Teaching/Inc']
 const LIVE_C_FLAGS = ['-Os', '-ffunction-sections', '-fdata-sections', '-fmessage-length=0', '-fsigned-char', '-fno-common']
+const LEGACY_LIVE_BASELINE_SOURCES = [
+  'Startup/startup_ch32v20x_D6.S', 'Core/core_riscv.c', 'Debug/debug.c', 'User/main.c', 'User/system_ch32v20x.c', 'User/ch32v20x_it.c',
+  'User/ccd_line_sensor.c', 'User/robotdog_types.c', 'User/robotdog_safety.c', 'User/robotdog_protocol.c', 'User/robotdog_text.c',
+  'User/robotdog_tx_queue.c', 'User/robotdog_telemetry.c', 'User/robotdog_student_bridge.c', 'User/robotdog_runtime.c', 'User/robotdog_motion.c',
+  'Peripheral/src/ch32v20x_adc.c', 'Peripheral/src/ch32v20x_dbgmcu.c', 'Peripheral/src/ch32v20x_gpio.c', 'Peripheral/src/ch32v20x_misc.c',
+  'Peripheral/src/ch32v20x_rcc.c', 'Peripheral/src/ch32v20x_tim.c', 'Peripheral/src/ch32v20x_usart.c'
+]
+const LEGACY_LIVE_INCLUDE_DIRECTORIES = ['Core/Inc', 'Core', 'Debug', 'User', 'Peripheral/inc', 'Startup']
+const LEGACY_LIVE_C_FLAGS = [...LIVE_C_FLAGS, '-DROBOTDOG_ENABLE_LEGACY_TEXT=0']
 const LIVE_STUDENT_C_FLAGS = ['-Wall', '-Wextra', '-Wconversion', '-Werror=implicit-function-declaration', '-Werror=return-type']
 const LIVE_LINK_FLAGS = ['-nostartfiles', '--specs=nano.specs', '--specs=nosys.specs', '-Wl,--gc-sections']
 
@@ -261,8 +270,9 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     await this.copyBaseline(sourceRoot, stagingRoot)
     await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay, workspace.learningPath)
 
-    const teachingSources = workspace.learningPath === 'mcu-foundations' ? await this.collectMcuSources(projectRoot) : []
-    const sources = [...LIVE_BASELINE_SOURCES, ...(workspace.learningPath === 'mcu-foundations' ? teachingSources : [manifest.studentOverlay.source])]
+    const isMcu = workspace.learningPath === 'mcu-foundations'
+    const teachingSources = isMcu ? await this.collectMcuSources(projectRoot) : []
+    const sources = [...(isMcu ? LIVE_BASELINE_SOURCES : LEGACY_LIVE_BASELINE_SOURCES), ...(isMcu ? teachingSources : [manifest.studentOverlay.source])]
     this.activeSnapshot.totalFiles = sources.length + 1
     const objectFiles: string[] = []
     this.activeSnapshot.stage = 'compiling'
@@ -271,14 +281,14 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const sourcePath = join(stagingRoot, ...source.split('/'))
       const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
       await mkdir(dirname(objectPath), { recursive: true })
-      const includeDirectories = workspace.learningPath === 'mcu-foundations' ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc'] : LIVE_INCLUDE_DIRECTORIES
+      const includeDirectories = isMcu ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc'] : LEGACY_LIVE_INCLUDE_DIRECTORIES
       const includeArgs = includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
       const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
       const isAssembly = extname(source).toLowerCase() === '.s'
       const extraFlags = source === manifest.studentOverlay.source ? LIVE_STUDENT_C_FLAGS : []
       const args = isAssembly
         ? ['-c', '-x', 'assembler-with-cpp', ...includeArgs, ...targetArgs, sourcePath, '-o', objectPath]
-        : ['-c', '-x', 'c', ...includeArgs, ...targetArgs, ...LIVE_C_FLAGS, ...extraFlags, sourcePath, '-o', objectPath]
+        : ['-c', '-x', 'c', ...includeArgs, ...targetArgs, ...(isMcu ? LIVE_C_FLAGS : LEGACY_LIVE_C_FLAGS), ...extraFlags, sourcePath, '-o', objectPath]
       this.activeSnapshot.currentFile = source
       this.addLog(`[${index + 1}/${sources.length}] ${source}`)
       await this.runProcess(toolchain.gcc.path, args, stagingRoot)
@@ -344,14 +354,14 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     })
   }
 
-  private async applyStudentOverlay(projectRoot: string, stagingRoot: string, overlay: { source: string; header: string; configInput: string; generatedHeader: string }, learningPath: import('../../shared/edition').EditionId): Promise<void> {
+  private async applyStudentOverlay(projectRoot: string, stagingRoot: string, overlay: { source: string; header: string; configInput?: string; generatedHeader?: string }, learningPath: import('../../shared/edition').EditionId): Promise<void> {
     for (const path of [overlay.source, overlay.header]) {
       const target = join(stagingRoot, ...path.split('/'))
       await mkdir(dirname(target), { recursive: true })
       await copyFile(join(projectRoot, ...path.split('/')), target)
     }
-    const configPath = join(projectRoot, ...overlay.configInput.split('/'))
-    if (await stat(configPath).then(() => true, () => false)) {
+    const configPath = overlay.configInput ? join(projectRoot, ...overlay.configInput.split('/')) : undefined
+    if (learningPath !== 'mcu-foundations' && configPath && overlay.generatedHeader && await stat(configPath).then(() => true, () => false)) {
       const config = parseLineConfigText(await readFile(configPath, 'utf8'))
       const generatedPath = join(stagingRoot, ...overlay.generatedHeader.split('/'))
       await mkdir(dirname(generatedPath), { recursive: true })

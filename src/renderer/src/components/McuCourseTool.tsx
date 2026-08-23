@@ -126,7 +126,7 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
     {mode !== 'reference' ? <div className="mcu-lab-task-scroll" ref={taskScrollRef}>
       {!guide?.compatible ? <div className="mcu-lab-compatibility"><AlertTriangle size={19} /><strong>无法安全读取实验步骤</strong><p>{guide?.compatibilityMessage}</p><button type="button" onClick={onBrowseCourses}>返回本课</button></div> : <>
         {progress.recoveredFromCorruption && <div className="mcu-compact-warning"><RotateCcw size={14} /> 进度记录已重建，代码没有变化。</div>}
-        {lesson.verification === 'pending-hardware-check' && <div className="mcu-compact-warning"><AlertTriangle size={14} /><span><strong>课程待硬件验证</strong>硬件观察、烧录等操作暂不可执行，请等待课程完成真机验证。</span></div>}
+        {lesson.verification === 'pending-hardware-check' && <div className="mcu-compact-warning"><AlertTriangle size={14} /><span><strong>{lesson.status === 'draft' ? '课程作者真机验证模式' : '课程待硬件验证'}</strong>{lesson.status === 'draft' ? '本练习仅用于开发阶段完成真实构建、烧录和观察，结果尚未发布。' : '硬件观察、烧录等操作暂不可执行，请等待课程完成真机验证。'}</span></div>}
         {guide.experimentCompleted && <section className="mcu-completion-closure"><CheckCircle2 size={22} /><div><span>实验完成</span><h3>{lesson.title}</h3><p>{guide.totalSteps} 个实验步骤已经完成，本次实验已经通过验收。</p></div><footer><button type="button" onClick={() => { setSelectedStepId(guide.steps[0]?.step.stepId); stepRefs.current.get(guide.steps[0]?.step.stepId ?? '')?.scrollIntoView({ block: 'start' }) }}>回顾实验</button><button type="button" className="button-primary" onClick={onBrowseCourses}>返回本课</button></footer></section>}
         {guide.awaitingAcceptance && <section className="mcu-acceptance-wait"><AlertTriangle size={16} /><span><strong>任务步骤已经完成</strong>还有实验验收需要处理，暂不标记为“实验完成”。</span></section>}
         {guide.unmappedBlockingChecks.length > 0 && <section className="mcu-unmapped-checks"><strong>待处理的实验验收</strong>{guide.unmappedBlockingChecks.map((check, index) => <p key={`${check.type}-${check.target ?? index}`}><AlertTriangle size={13} />{check.label}</p>)}</section>}
@@ -135,7 +135,7 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
         <div className="mcu-vertical-stepper">{guide.steps.map((item) => {
           const expanded = displayedStep?.step.stepId === item.step.stepId
           const actionable = (item.status === 'current' || item.status === 'needs-attention') && !complete
-          const hardwareBlocked = lesson.verification === 'pending-hardware-check' && ['flash', 'serial-observation', 'hardware-observation'].includes(item.step.type)
+          const hardwareBlocked = lesson.status !== 'draft' && lesson.verification === 'pending-hardware-check' && ['flash', 'serial-observation', 'hardware-observation'].includes(item.step.type)
           return <article key={item.step.stepId} ref={(node) => { if (node) stepRefs.current.set(item.step.stepId, node); else stepRefs.current.delete(item.step.stepId) }} tabIndex={-1} className={`mcu-lab-step is-${item.status} ${expanded ? 'is-expanded' : ''}`}>
             <span className="mcu-lab-step-rail" aria-hidden="true">{stepStatusIcon(item)}</span>
             <button type="button" className="mcu-lab-step-summary" aria-expanded={expanded} onClick={() => setSelectedStepId(expanded && item === guide.currentStep ? undefined : item.step.stepId)}><span><small>{String(item.index + 1).padStart(2, '0')} · {item.statusLabel}</small><strong>{displayStepTitle(item.step)}</strong></span><ArrowRight size={13} /></button>

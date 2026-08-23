@@ -69,7 +69,7 @@ if (typeof reasonixRuntime.binaryRelativePath !== 'string' || !reasonixRuntime.b
 }
 const reasonixToolPath = reasonixRuntime.binaryRelativePath.slice('resources/'.length).replace(/\\/g, '/').replace(/\/reasonix\.exe$/, '')
 if (registry.schemaVersion === 2) {
-  for (const source of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json']) {
+  for (const source of ['CMakeLists.txt', 'CMakePresets.json', editionId === 'mcu-foundations' ? 'rhs.firmware.json' : 'robotdog.firmware.json']) {
     if (!(await stat(join(externalFirmware, source))).isFile()) throw new Error(`待打包 SDK 缺少源文件：${source}`)
   }
   console.log(`Verified live firmware baseline: ${registry.activeCommit} (${externalFirmware})`)
@@ -100,9 +100,9 @@ const extraResources = [
     filter: [
       'CMakeLists.txt',
       'CMakePresets.json',
-      'robotdog.firmware.json',
+      'robotdog.firmware.json', 'rhs.firmware.json',
       'README.md',
-      'Core/**/*', 'RHS_HAL/**/*', 'Board/**/*',
+      'Core/**/*', 'RHS_HAL/**/*', 'Board/**/*', 'Teaching/**/*',
       'Debug/**/*',
       'Peripheral/**/*',
       'Startup/**/*',
@@ -184,7 +184,7 @@ async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
 
 async function verifyPackagedFirmwareSource(sourceRoot) {
   if (editionId === 'mcu-foundations') {
-    for (const item of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json', 'Core/core_riscv.c', 'RHS_HAL/Inc/rhs_hal.h', 'Board/Inc/rhs_board.h', 'Startup/startup_ch32v20x_D6.S', 'Ld/Link.ld']) {
+    for (const item of ['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'Core/core_riscv.c', 'RHS_HAL/Inc/rhs_hal.h', 'Board/Inc/rhs_board.h', 'Teaching/Inc/rhs_teaching_platform.h', 'Startup/startup_ch32v20x_D6.S', 'Ld/Link.ld']) {
       if (!(await stat(join(sourceRoot, ...item.split('/'))).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 RHS 固件源码缺少必要文件：${item}`)
     }
     console.log(`Verified packaged RHS firmware source files (${sourceRoot})`)

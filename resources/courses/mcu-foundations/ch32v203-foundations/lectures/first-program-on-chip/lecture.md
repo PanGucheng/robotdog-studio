@@ -12,7 +12,7 @@ Candidate Build 只检查当前实验源码。Firmware Build 把实验代码和 
 
 ## 第一次运行真实硬件 {#first-hardware}
 
-初始程序让 PB8 LED 以约 500 ms 周期闪烁。把 `blink_period_ms` 改成 100U 或 1000U，重新完成 Check、Diff、Build、Flash 后，观察速度变化。
+模板中的 `blink_period_ms` 初始值是 500U。把它改成 100U 或 1000U，完成 Check、Diff、Build、Flash 后，确认 PB8 LED 按你选择的间隔明显闪烁。
 
 ## 本课小结 {#summary}
 
