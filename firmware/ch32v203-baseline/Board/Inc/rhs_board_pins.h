@@ -11,6 +11,10 @@
 #define RHS_BOARD_BUTTON_PORT      GPIOA
 #define RHS_BOARD_BUTTON_PIN       RHS_GPIO_PIN_1
 
+/* Confirmed basic GPIO resource. LED polarity is intentionally unspecified. */
+#define RHS_BOARD_LED_PORT         GPIOB
+#define RHS_BOARD_LED_PIN          RHS_GPIO_PIN_8
+
 /* Reserved PWM / alternate-function mappings. */
 #define RHS_BOARD_SERVO_CH0_PORT   GPIOA
 #define RHS_BOARD_SERVO_CH0_PIN    RHS_GPIO_PIN_6
@@ -22,12 +26,11 @@
 #define RHS_BOARD_SERVO_CH3_PIN    RHS_GPIO_PIN_1
 #define RHS_BOARD_BUZZER_PORT      GPIOA
 #define RHS_BOARD_BUZZER_PIN       RHS_GPIO_PIN_8
-#define RHS_BOARD_RGB_R_PORT      GPIOB
-#define RHS_BOARD_RGB_R_PIN       RHS_GPIO_PIN_6
-#define RHS_BOARD_RGB_G_PORT      GPIOB
-#define RHS_BOARD_RGB_G_PIN       RHS_GPIO_PIN_7
-#define RHS_BOARD_RGB_B_PORT      GPIOB
-#define RHS_BOARD_RGB_B_PIN       RHS_GPIO_PIN_8
+/* Reserved display bus. */
+#define RHS_BOARD_OLED_SCL_PORT    GPIOB
+#define RHS_BOARD_OLED_SCL_PIN     RHS_GPIO_PIN_6
+#define RHS_BOARD_OLED_SDA_PORT    GPIOB
+#define RHS_BOARD_OLED_SDA_PIN     RHS_GPIO_PIN_7
 
 /* Reserved communications / sensor mappings. */
 #define RHS_BOARD_USART1_TX_PORT   GPIOA

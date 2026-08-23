@@ -4,8 +4,8 @@ Minimal firmware baseline and RHS HAL foundation for the CH32V203C8T6/D6 startup
 The source baseline is copied from `D:\RobotDog\EVT\EXAM\SRC` and the empty
 GPIO example's WCH `User` system/interrupt files.  No board pin, UART, timer,
 CCD, servo, or robot runtime is initialized. The Board layer now records the
-supplied machine-horse pin map and provides an opt-in button API; reserved
-PWM/UART/ADC/CCD resources remain disabled.
+supplied machine-horse pin map and provides opt-in button and LED GPIO APIs;
+reserved PWM/I2C/UART/ADC/CCD resources remain disabled.
 
 Configure with the existing WCH GCC12 toolchain:
 

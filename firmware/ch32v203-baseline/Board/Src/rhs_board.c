@@ -37,3 +37,27 @@ RHS_StatusTypeDef RHS_Board_ReadButton(RHS_GPIO_PinState *state)
                                                : RHS_GPIO_PIN_RESET;
     return RHS_OK;
 }
+
+RHS_StatusTypeDef RHS_Board_InitLed(void)
+{
+    const RHS_GPIO_InitTypeDef init = {
+        .Pin = RHS_BOARD_LED_PIN,
+        .Mode = RHS_GPIO_MODE_OUTPUT_PP,
+        .Pull = RHS_GPIO_NOPULL,
+        .Speed = RHS_GPIO_SPEED_LOW,
+    };
+
+    return RHS_GPIO_Init(RHS_BOARD_LED_PORT, &init);
+}
+
+RHS_StatusTypeDef RHS_Board_WriteLed(RHS_GPIO_PinState electrical_state)
+{
+    return RHS_GPIO_WritePin(RHS_BOARD_LED_PORT,
+                             RHS_BOARD_LED_PIN,
+                             electrical_state);
+}
+
+RHS_StatusTypeDef RHS_Board_ToggleLed(void)
+{
+    return RHS_GPIO_TogglePin(RHS_BOARD_LED_PORT, RHS_BOARD_LED_PIN);
+}
