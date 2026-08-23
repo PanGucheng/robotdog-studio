@@ -14,6 +14,7 @@ add_executable(RHSFirmwareBaseline
     Startup/startup_ch32v20x_D6.S
     Core/core_riscv.c
     RHS_HAL/Src/rhs_gpio.c
+    Board/Src/rhs_board.c
     Peripheral/src/ch32v20x_gpio.c
     Peripheral/src/ch32v20x_rcc.c
     User/main.c
@@ -22,7 +23,7 @@ add_executable(RHSFirmwareBaseline
 )
 
 target_include_directories(RHSFirmwareBaseline PRIVATE
-    Core Debug User Peripheral/inc RHS_HAL/Inc Startup
+    Core Debug User Peripheral/inc RHS_HAL/Inc Board/Inc Startup
 )
 
 target_compile_options(RHSFirmwareBaseline PRIVATE
@@ -34,6 +35,7 @@ target_compile_definitions(RHSFirmwareBaseline PRIVATE CH32V20x_D6)
 
 set_source_files_properties(
     RHS_HAL/Src/rhs_gpio.c
+    Board/Src/rhs_board.c
     Tests/rhs_gpio_link_smoke.c
     PROPERTIES COMPILE_OPTIONS
     "-Wall;-Wextra;-Wconversion;-Wno-sign-conversion;-Werror=implicit-function-declaration;-Werror=return-type"
@@ -43,6 +45,7 @@ add_executable(RHSFirmwareGPIOLinkSmoke EXCLUDE_FROM_ALL
     Startup/startup_ch32v20x_D6.S
     Core/core_riscv.c
     RHS_HAL/Src/rhs_gpio.c
+    Board/Src/rhs_board.c
     Peripheral/src/ch32v20x_gpio.c
     Peripheral/src/ch32v20x_rcc.c
     Tests/rhs_gpio_link_smoke.c
@@ -51,7 +54,7 @@ add_executable(RHSFirmwareGPIOLinkSmoke EXCLUDE_FROM_ALL
 )
 
 target_include_directories(RHSFirmwareGPIOLinkSmoke PRIVATE
-    Core Debug User Peripheral/inc RHS_HAL/Inc Startup
+    Core Debug User Peripheral/inc RHS_HAL/Inc Board/Inc Startup
 )
 
 target_compile_options(RHSFirmwareGPIOLinkSmoke PRIVATE
