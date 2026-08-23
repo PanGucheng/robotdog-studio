@@ -25,3 +25,8 @@ cmake --build --preset release --target RHSFirmwareGPIOLinkSmoke
 See `docs/rhs-hal-design.md` for the API and layer boundaries.
 See `docs/rhs-board-pinmap.md` for the supplied machine-horse mapping and
 which resources are intentionally reserved.
+
+The Board layer also exposes opt-in initialization boundaries for TIM3 servo
+PWM, TIM1 buzzer PWM, OLED I2C1, USART1/USART3, and CCD ADC/GPIO. No such
+function is called by the baseline application, and PWM outputs require an
+explicit start call.
