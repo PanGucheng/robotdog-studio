@@ -72,7 +72,7 @@ export class FirmwareBaselineService {
         catch { errors.push(`${source}：文件不存在`) }
       }
     } else {
-      for (const source of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json', manifest.studentOverlay.source, manifest.studentOverlay.header, manifest.studentOverlay.configInput]) {
+      for (const source of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json']) {
         try { if (!(await stat(resolveInside(sourceRoot, source))).isFile()) errors.push(`${source}：不是普通文件`) }
         catch { errors.push(`${source}：文件不存在`) }
       }
@@ -99,6 +99,8 @@ export class FirmwareBaselineService {
     if (override) return resolve(override)
     if (this.options.packagedSourceRoot) return resolve(this.options.packagedSourceRoot)
     if (manifest.schemaVersion === 2) {
+      const declaredRoot = resolve(manifest.source.developmentDefaultRoot)
+      if (existsSync(declaredRoot)) return declaredRoot
       const appRoot = resolve(dirname(this.options.manifestPath), '..', '..', '..')
       const sourceRoot = join(appRoot, '.firmware-sources', 'ch32v203-robot-dog')
       if (existsSync(sourceRoot)) return sourceRoot
@@ -117,18 +119,18 @@ export class FirmwareBaselineService {
     const memory = firmware.memory ?? {}
     return {
       schemaVersion: 2,
-      id: `ch32v203-robotdog-${shortCommit}`,
-      label: `CH32V203 机器马动态固件基线 ${shortCommit}`,
+      id: String(active.id ?? `ch32v203-rhs-${shortCommit}`),
+      label: String(active.label ?? `CH32V203 RHS 固件基线 ${shortCommit}`),
       status: 'provisional',
       releaseEligible: false,
       replacementPolicy: '开发阶段动态固件基线；通过验证后可切换，学生工作区不自动覆盖。',
       source: {
-        repository: typeof active.remote === 'object' && active.remote && 'url' in active.remote ? String((active.remote as { url?: unknown }).url) : 'ch32v203-robot-dog',
+        repository: typeof active.remote === 'object' && active.remote && 'url' in active.remote ? String((active.remote as { url?: unknown }).url) : 'firmware/ch32v203-baseline',
         expectedCommit: activeCommit,
-        developmentDefaultRoot: 'D:\\RobotDog\\ch32v203-robot-dog'
+        developmentDefaultRoot: String(active.sourceRoot ?? 'D:\\RobotDog\\RobotDog_Studio\\firmware\\ch32v203-baseline')
       },
       target: {
-        board: String(firmware.board ?? 'robotdog-ch32v203c8t6'),
+        board: String(firmware.board ?? 'rhs-ch32v203c8t6'),
         chip: String(firmware.chip ?? 'CH32V203C8T6'),
         startup: String(firmware.build?.startup ?? 'Startup/startup_ch32v20x_D6.S'),
         linkerScript: String(firmware.build?.linkerScript ?? 'Ld/Link.ld'),
@@ -137,19 +139,19 @@ export class FirmwareBaselineService {
       toolchain: { profile: 'ch32v203-wch-gcc12', arch: 'rv32imac', abi: 'ilp32', codeModel: 'medlow' },
       build: { type: 'cmake', preset: String(active.build && typeof active.build === 'object' && 'preset' in active.build ? (active.build as { preset?: unknown }).preset : 'robotdog-wch-gcc12'), outputDir: '.firmware-build/ch32v203-robotdog', toolchain: String(firmware.build?.toolchain ?? 'WCH RISC-V Embedded GCC12') },
       studentOverlay: {
-        source: String(studentOverlay?.source ?? 'Core/Src/student_control.c'),
-        header: String(studentOverlay?.header ?? 'Core/Inc/student_control.h'),
-        configInput: String(studentOverlay?.configInput ?? 'student-config/line-following.yaml'),
-        generatedHeader: String(studentOverlay?.generatedHeader ?? 'Core/Inc/student_config.generated.h')
+        source: String(studentOverlay?.source ?? 'App/Src/experiment.c'),
+        header: String(studentOverlay?.header ?? 'App/Inc/experiment.h'),
+        configInput: String(studentOverlay?.configInput ?? 'App/Src/experiment.c'),
+        generatedHeader: String(studentOverlay?.generatedHeader ?? 'App/Inc/experiment.generated.h')
       },
       artifacts: {
-        elf: String(firmware.artifacts?.elf ?? 'RobotDog.elf'),
-        hex: String(firmware.artifacts?.hex ?? 'RobotDog.hex'),
-        bin: String(firmware.artifacts?.bin ?? 'RobotDog.bin'),
-        map: String(firmware.artifacts?.map ?? 'RobotDog.map'),
-        size: String(firmware.artifacts?.size ?? 'RobotDog.size.txt'),
-        hashes: String(firmware.artifacts?.hashes ?? 'RobotDog.sha256.txt'),
-        sourceInput: String(firmware.artifacts?.sourceInput ?? 'RobotDog.input.json')
+        elf: String(firmware.artifacts?.elf ?? 'RHSFirmwareBaseline.elf'),
+        hex: String(firmware.artifacts?.hex ?? 'RHSFirmwareBaseline.hex'),
+        bin: String(firmware.artifacts?.bin ?? 'RHSFirmwareBaseline.bin'),
+        map: String(firmware.artifacts?.map ?? 'RHSFirmwareBaseline.map'),
+        size: String(firmware.artifacts?.size ?? 'RHSFirmwareBaseline.size.txt'),
+        hashes: String(firmware.artifacts?.hashes ?? 'RHSFirmwareBaseline.sha256.txt'),
+        sourceInput: String(firmware.artifacts?.sourceInput ?? 'RHSFirmwareBaseline.input.json')
       },
       integrity: [],
       live: {

@@ -11,24 +11,20 @@ afterEach(async () => {
 })
 
 describe('CourseService', () => {
-  it('loads the current MCU course and its three development lessons', async () => {
+  it('loads the current MCU course and its Lesson 01', async () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
     const courses = await service.listCourses()
     expect(courses).toHaveLength(1)
-    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 6, lessonCount: 3 })
+    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 7, lessonCount: 1 })
     const course = await service.getCourse('ch32v203-foundations')
-    expect(course.lessons.map((lesson) => lesson.lessonId)).toEqual([
-      'studio-first-build',
-      'c-files-and-functions',
-      'first-hardware-placeholder'
-    ])
+    expect(course.lessons.map((lesson) => lesson.lessonId)).toEqual(['first-program-on-chip'])
   })
 
   it('hides draft lessons outside development mode', async () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations') })
     const course = await service.getCourse('ch32v203-foundations')
-    expect(course.lessons).toHaveLength(2)
-    await expect(service.getLesson('ch32v203-foundations', 'first-hardware-placeholder')).rejects.toThrow('COURSE_LESSON_NOT_FOUND')
+    expect(course.lessons).toHaveLength(0)
+    await expect(service.getLesson('ch32v203-foundations', 'first-program-on-chip')).rejects.toThrow('COURSE_LESSON_NOT_FOUND')
   })
 
   it('resolves a published lesson to its registered workspace template and permissions', async () => {
@@ -37,14 +33,7 @@ describe('CourseService', () => {
       templatesRoot: join(process.cwd(), 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'),
       includeDrafts: true
     })
-    const spec = await service.getWorkspaceCreationSpec('ch32v203-foundations', 'c-files-and-functions')
-    expect(spec).toMatchObject({
-      templateId: 'c-files-and-functions',
-      templateVersion: 'content-v6',
-      courseBinding: { courseId: 'ch32v203-foundations', lessonId: 'c-files-and-functions', contentVersion: 6 }
-    })
-    expect(spec.allowedEditGlobs).toContain('App/Src/number_tools.c')
-    await expect(service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-hardware-placeholder')).rejects.toThrow('COURSE_LESSON_NOT_PUBLISHED')
+    await expect(service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-program-on-chip')).rejects.toThrow('COURSE_LESSON_NOT_PUBLISHED')
   })
 
   it('rejects a catalog path that escapes the configured root', async () => {
@@ -57,13 +46,7 @@ describe('CourseService', () => {
 
   it('builds isolated task-specific AI context and preserves the draft hardware warning', async () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
-    const first = await service.buildAiContext('ch32v203-foundations', 'studio-first-build', 'explain-code')
-    const second = await service.buildAiContext('ch32v203-foundations', 'c-files-and-functions', 'modify')
-    const draft = await service.buildAiContext('ch32v203-foundations', 'first-hardware-placeholder', 'summary')
-    expect(first).toContain('认识 Studio 与第一次编译')
-    expect(first).not.toContain('源文件、头文件与函数')
-    expect(second).toContain('App/Src/number_tools.c')
-    expect(second).toContain('真正权限仍由 Studio 策略决定')
+    const draft = await service.buildAiContext('ch32v203-foundations', 'first-program-on-chip', 'summary')
     expect(draft).toContain('pending-hardware-check')
     expect(draft).toContain('不得声称已观察到现象')
     expect(draft.length).toBeLessThan(8_000)
@@ -71,35 +54,29 @@ describe('CourseService', () => {
 
   it('loads each lecture lazily as a safe model', async () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
-    const first = await service.getLecture('ch32v203-foundations', 'studio-first-build')
-    const second = await service.getLecture('ch32v203-foundations', 'c-files-and-functions')
-    const draft = await service.getLecture('ch32v203-foundations', 'first-hardware-placeholder')
+    const first = await service.getLecture('ch32v203-foundations', 'first-program-on-chip')
     expect(first.status).toBe('ready')
-    expect(second.status).toBe('ready')
     if (first.status === 'ready') {
-      expect(first.document.sections.map((section) => section.sectionId)).toContain('studio-workflow')
-      expect(first.document.codeTargetIndex['App/Src/experiment.c']).toContain('source-code')
+      expect(first.document.sections.map((section) => section.sectionId)).toContain('source-to-chip')
       expect(JSON.stringify(first.document)).not.toContain('lecture.md')
     }
-    if (second.status === 'ready') expect(second.document.taskLinkIndex['implement-helper']).toContain('lesson-project')
-    expect(draft).toEqual({ status: 'missing' })
   })
 
   it('rebuilds lecture selections in Main and shares the 8000 character context budget', async () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
-    const lecture = await service.getLecture('ch32v203-foundations', 'studio-first-build')
+    const lecture = await service.getLecture('ch32v203-foundations', 'first-program-on-chip')
     expect(lecture.status).toBe('ready')
     if (lecture.status !== 'ready') return
-    const section = lecture.document.sections.find((item) => item.sectionId === 'studio-workflow')!
+    const section = lecture.document.sections.find((item) => item.sectionId === 'source-to-chip')!
     const node = section.textNodes.find((item) => item.text.length >= 8)!
-    const context = await service.buildLectureQuestionContext('ch32v203-foundations', 'studio-first-build', {
+    const context = await service.buildLectureQuestionContext('ch32v203-foundations', 'first-program-on-chip', {
       question: '这句话是什么意思？',
       selection: { documentDigest: lecture.document.documentDigest, sectionId: section.sectionId, start: { textNodeId: node.textNodeId, offset: 0 }, end: { textNodeId: node.textNodeId, offset: 8 } }
     })
     expect(context.selectedText).toBe(node.text.slice(0, 8))
     expect(context.trustedContext).toContain('lecture_context_json')
     expect(context.trustedContext.length).toBeLessThanOrEqual(8_000)
-    await expect(service.buildLectureQuestionContext('ch32v203-foundations', 'studio-first-build', {
+    await expect(service.buildLectureQuestionContext('ch32v203-foundations', 'first-program-on-chip', {
       question: '旧选区',
       selection: { documentDigest: '0'.repeat(64), sectionId: section.sectionId, start: { textNodeId: node.textNodeId, offset: 0 }, end: { textNodeId: node.textNodeId, offset: 2 } }
     })).rejects.toThrow('LECTURE_DOCUMENT_STALE')

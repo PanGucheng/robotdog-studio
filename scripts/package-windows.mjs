@@ -43,12 +43,13 @@ await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
   main: './out/main/index.cjs', author: 'RobotDog Studio contributors', license: 'UNLICENSED', type: 'module', dependencies: {}
 }, null, 2)}\n`)
 
-const baselineTarget = 'firmware-baselines/ch32v203-robotdog/current/source'
-const baselineRoot = join(root, 'resources', 'firmware-baselines', 'ch32v203-robotdog')
+const baselineName = editionId === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog'
+const baselineTarget = `firmware-baselines/${baselineName}/current/source`
+const baselineRoot = join(root, 'resources', 'firmware-baselines', baselineName)
 const registry = JSON.parse(await readFile(join(baselineRoot, 'active.json'), 'utf8'))
 const selectedTemplate = editionId === 'fun-line-following'
   ? (registry.studentTemplate ?? 'resources/workspace-templates/ch32v203-robotdog/2026.06')
-  : `${edition.templateBase}/${registry.shortCommit ?? '2026.06'}`
+  : (registry.studentTemplate ?? `${edition.templateBase}/${registry.shortCommit ?? '2026.06'}`)
 const gitRoot = resolve(process.env.ROBOTDOG_PACKAGED_GIT_ROOT ?? 'C:\\Program Files\\Git')
 if (!(await stat(join(gitRoot, 'cmd', 'git.exe')).then((info) => info.isFile(), () => false))) {
   throw new Error(`打包需要 Git for Windows：未找到 ${join(gitRoot, 'cmd', 'git.exe')}`)
@@ -59,7 +60,7 @@ if (!(await stat(join(wchLinkDriverRoot, 'WCHLinkWDM.INF')).then((info) => info.
 }
 const packagedGitRoot = join(appDir, 'toolchains', 'git')
 await preparePackagedGitRuntime(gitRoot, packagedGitRoot)
-const externalFirmware = resolve(process.env.ROBOTDOG_PACKAGED_FIRMWARE_ROOT ?? (registry.schemaVersion === 2 ? join(root, '.firmware-sources', 'ch32v203-robot-dog') : join(root, '..', 'ch32v203-robot-dog')))
+const externalFirmware = resolve(process.env.ROBOTDOG_PACKAGED_FIRMWARE_ROOT ?? (editionId === 'mcu-foundations' ? join(root, 'firmware', 'ch32v203-baseline') : (registry.schemaVersion === 2 ? join(root, '.firmware-sources', 'ch32v203-robot-dog') : join(root, '..', 'ch32v203-robot-dog'))))
 const manifestRef = registry.schemaVersion === 2 ? registry.verifiedFirmwareManifest : registry.manifest
 const manifest = JSON.parse(await readFile(join(baselineRoot, manifestRef), 'utf8'))
 const reasonixRuntime = JSON.parse(await readFile(join(root, 'config', 'reasonix-runtime.json'), 'utf8'))
@@ -68,7 +69,7 @@ if (typeof reasonixRuntime.binaryRelativePath !== 'string' || !reasonixRuntime.b
 }
 const reasonixToolPath = reasonixRuntime.binaryRelativePath.slice('resources/'.length).replace(/\\/g, '/').replace(/\/reasonix\.exe$/, '')
 if (registry.schemaVersion === 2) {
-  for (const source of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json', manifest.studentOverlay.source, manifest.studentOverlay.header, manifest.studentOverlay.configInput]) {
+  for (const source of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json']) {
     if (!(await stat(join(externalFirmware, source))).isFile()) throw new Error(`待打包 SDK 缺少源文件：${source}`)
   }
   console.log(`Verified live firmware baseline: ${registry.activeCommit} (${externalFirmware})`)
@@ -101,7 +102,7 @@ const extraResources = [
       'CMakePresets.json',
       'robotdog.firmware.json',
       'README.md',
-      'Core/**/*',
+      'Core/**/*', 'RHS_HAL/**/*', 'Board/**/*',
       'Debug/**/*',
       'Peripheral/**/*',
       'Startup/**/*',
@@ -182,6 +183,13 @@ async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
 }
 
 async function verifyPackagedFirmwareSource(sourceRoot) {
+  if (editionId === 'mcu-foundations') {
+    for (const item of ['CMakeLists.txt', 'CMakePresets.json', 'robotdog.firmware.json', 'Core/core_riscv.c', 'RHS_HAL/Inc/rhs_hal.h', 'Board/Inc/rhs_board.h', 'Startup/startup_ch32v20x_D6.S', 'Ld/Link.ld']) {
+      if (!(await stat(join(sourceRoot, ...item.split('/'))).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 RHS 固件源码缺少必要文件：${item}`)
+    }
+    console.log(`Verified packaged RHS firmware source files (${sourceRoot})`)
+    return
+  }
   const required = [
     'CMakeLists.txt',
     'CMakePresets.json',
@@ -206,6 +214,13 @@ function resolvePackagedResource(resourcesRoot, resourcePath) {
 }
 
 async function verifyPackagedWorkspaceTemplate(templateRoot, currentEdition) {
+  if (currentEdition === 'mcu-foundations' && (await stat(join(templateRoot, 'Core')).then((info) => !info.isDirectory(), () => true))) {
+    for (const item of ['README.md', 'App/Src/experiment.c', 'App/Inc/experiment.h']) {
+      if (!(await stat(join(templateRoot, ...item.split('/'))).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 RHS 教学模板缺少必要文件：${item}`)
+    }
+    console.log(`Verified packaged RHS lesson template (${templateRoot})`)
+    return
+  }
   const required = currentEdition === 'mcu-foundations' ? [
     'README.md',
     'App/Src/experiment.c',

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "courseId": "ch32v203-foundations",
+  "lessonId": "first-program-on-chip",
+  "title": "第一个程序：从代码到芯片",
+  "summary": "修改一次 LED 闪烁周期，走完 Edit、Check、Diff、Build、Flash、Observe 工作流。",
+  "objectives": ["找到自己的实验代码", "区分 Candidate Build、完整 Firmware Build 与 Flash", "通过 PB8 LED 观察修改已经运行在 CH32V203 上"],
+  "prerequisites": [],
+  "estimatedMinutes": 60,
+  "hardware": "required",
+  "verification": "pending-hardware-check",
+  "expectedObservation": "烧录后 PB8 LED 按初始周期闪烁；将 blink_period_ms 从 500 修改为 100 或 1000 后，重新构建烧录，肉眼可见闪烁速度改变。",
+  "templateId": "first-program-on-chip",
+  "editableGlobs": ["App/Src/experiment.c"],
+  "readableFiles": ["App/Inc/experiment.h", "README.md"],
+  "deniedGlobs": ["RHS_HAL/**", "Board/**", "Core/**", "Startup/**", "Ld/**", "Peripheral/**", "User/**", "CMakeLists.txt", "CMakePresets.json"],
+  "steps": [
+    { "stepId": "read-workflow", "type": "read", "title": "认识从代码到芯片", "instruction": "阅读讲义，建立 Edit → Check → Diff → Build → Flash → Observe 的完整流程。", "lectureSectionId": "source-to-chip" },
+    { "stepId": "find-experiment", "type": "read", "title": "找到实验代码", "instruction": "打开 App/Src/experiment.c，找到 blink_period_ms。", "lectureSectionId": "find-your-code", "fileTarget": { "path": "App/Src/experiment.c", "line": 7 } },
+    { "stepId": "edit-blink-period", "type": "edit", "title": "修改闪烁周期", "instruction": "把 blink_period_ms 从 500U 改为 100U 或 1000U，只修改这一处。", "fileTarget": { "path": "App/Src/experiment.c", "line": 7 } },
+    { "stepId": "candidate-build", "type": "candidate-build", "title": "检查实验代码", "instruction": "运行 Candidate Build，确认 App/Src 中的实验源码可以编译。", "fileTarget": { "path": "App/Src/experiment.c" } },
+    { "stepId": "review-apply", "type": "review-apply", "title": "检查 Diff 并应用", "instruction": "确认 Diff 只包含预期的周期修改，然后应用修改。", "fileTarget": { "path": "App/Src/experiment.c" } },
+    { "stepId": "firmware-build", "type": "firmware-build", "title": "构建 CH32V203 固件", "instruction": "生成完整 RHS CH32V203 固件，并确认 ELF、HEX、BIN、MAP 产物。" },
+    { "stepId": "flash-board", "type": "flash", "title": "烧录开发板", "instruction": "将刚刚生成的固件烧录到开发板。" },
+    { "stepId": "observe-led", "type": "hardware-observation", "title": "观察 PB8 LED", "instruction": "确认 LED 先按 500 ms 周期闪烁，再确认修改后的速度明显变化。", "fileTarget": { "path": "App/Src/experiment.c" } },
+    { "stepId": "reflect-validation-chain", "type": "question", "questionId": "validation-chain", "title": "解释验证链", "instruction": "回答 Candidate、Build、Flash 和 Observation 各自证明了什么。" }
+  ],
+  "completionChecks": [
+    { "type": "student-change-applied", "target": "App/Src/experiment.c" },
+    { "type": "candidate-build-passed" },
+    { "type": "firmware-build-passed" },
+    { "type": "flash-succeeded" },
+    { "type": "manual-observation-confirmed", "target": "observe-led" },
+    { "type": "question-answered", "target": "validation-chain" }
+  ],
+  "reflectionQuestions": [{ "questionId": "validation-chain", "prompt": "Candidate 检查通过、完整固件构建成功、烧录成功、LED 按预期变化，分别证明了什么？" }],
+  "aiContext": { "teachingFocus": "帮助学生建立从源代码到真实硬件现象的验证链，不替学生完成参数修改，不扩展 GPIO、定时器或机器人动作理论。", "hints": ["先定位 App/Src/experiment.c 中的 blink_period_ms", "Candidate Build 只检查实验源码能否编译", "烧录成功和 LED 现象是两条不同证据"] },
+  "status": "draft"
+}

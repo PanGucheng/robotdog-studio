@@ -80,12 +80,9 @@ export class CandidateBuildService implements CandidateBuilder {
   private async buildMcuProject(input: CandidateBuildInput, gccPath: string, compiler: string, outputDir: string): Promise<CandidateBuildProof> {
     await rm(outputDir, { recursive: true, force: true })
     await mkdir(outputDir, { recursive: true })
-    const sourcePaths = [
-      join(input.candidateRoot, 'Core', 'Src', 'student_control.c'),
-      ...await collectCFiles(join(input.candidateRoot, 'App', 'Src'))
-    ]
-    if (sourcePaths.length < 2) throw new CandidateBuildError([{ severity: 'error', message: '单片机教学目录中没有找到实验源文件。' }], 'MCU_SOURCE_MISSING')
-    const includePaths = [join(input.candidateRoot, 'Core', 'Inc'), join(input.candidateRoot, 'App', 'Inc')]
+    const sourcePaths = await collectCFiles(join(input.candidateRoot, 'App', 'Src'))
+    if (sourcePaths.length === 0) throw new CandidateBuildError([{ severity: 'error', message: '单片机教学目录中没有找到实验源文件。' }], 'MCU_SOURCE_MISSING')
+    const includePaths = [join(input.candidateRoot, 'App', 'Inc')]
     const objectHash = createHash('sha256')
     try {
       for (const [index, sourcePath] of sourcePaths.entries()) {
@@ -108,7 +105,7 @@ export class CandidateBuildService implements CandidateBuilder {
       compiler,
       objectSha256: objectHash.digest('hex'),
       completedAt: new Date().toISOString(),
-      checks: [{ id: 'project-sources', label: '单片机实验源码', detail: `${sourcePaths.length} 个 C 源文件通过 WCH GCC 编译` }]
+      checks: [{ id: 'project-sources', label: '单片机实验源码', detail: `${sourcePaths.length} 个 App/Src C 源文件通过 WCH GCC 编译` }]
     }
   }
 }

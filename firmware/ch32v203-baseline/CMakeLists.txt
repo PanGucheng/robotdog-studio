@@ -7,6 +7,7 @@ project(RHSFirmwareBaseline C ASM)
 set(RHS_TOOLCHAIN_ROOT "" CACHE PATH "WCH RISC-V Embedded GCC12 root or bin directory")
 set(RHS_OUTPUT_DIR "${CMAKE_BINARY_DIR}/out" CACHE PATH "Firmware artifact directory")
 set(RHS_TARGET_FLAGS -march=rv32imac -mabi=ilp32 -mcmodel=medlow)
+file(GLOB RHS_TEACHING_SOURCES CONFIGURE_DEPENDS App/Src/*.c)
 
 file(MAKE_DIRECTORY "${RHS_OUTPUT_DIR}")
 
@@ -25,10 +26,11 @@ add_executable(RHSFirmwareBaseline
     User/main.c
     User/system_ch32v20x.c
     User/ch32v20x_it.c
+    ${RHS_TEACHING_SOURCES}
 )
 
 target_include_directories(RHSFirmwareBaseline PRIVATE
-    Core Debug User Peripheral/inc RHS_HAL/Inc Board/Inc Startup
+    Core Debug User Peripheral/inc RHS_HAL/Inc Board/Inc Startup App/Inc
 )
 
 target_compile_options(RHSFirmwareBaseline PRIVATE

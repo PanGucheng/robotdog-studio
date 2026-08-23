@@ -28,32 +28,14 @@ export interface FirmwareBuildServiceOptions {
 type FirmwareBuildServiceEvents = { event: [FirmwareBuildEvent] }
 
 const LIVE_BASELINE_SOURCES = [
-  'Startup/startup_ch32v20x_D6.S',
-  'Core/core_riscv.c',
-  'Debug/debug.c',
-  'User/main.c',
-  'User/system_ch32v20x.c',
-  'User/ch32v20x_it.c',
-  'User/ccd_line_sensor.c',
-  'User/robotdog_types.c',
-  'User/robotdog_safety.c',
-  'User/robotdog_protocol.c',
-  'User/robotdog_text.c',
-  'User/robotdog_tx_queue.c',
-  'User/robotdog_telemetry.c',
-  'User/robotdog_student_bridge.c',
-  'User/robotdog_runtime.c',
-  'User/robotdog_motion.c',
-  'Peripheral/src/ch32v20x_adc.c',
-  'Peripheral/src/ch32v20x_dbgmcu.c',
-  'Peripheral/src/ch32v20x_gpio.c',
-  'Peripheral/src/ch32v20x_misc.c',
-  'Peripheral/src/ch32v20x_rcc.c',
-  'Peripheral/src/ch32v20x_tim.c',
-  'Peripheral/src/ch32v20x_usart.c'
+  'Startup/startup_ch32v20x_D6.S', 'Core/core_riscv.c', 'RHS_HAL/Src/rhs_gpio.c',
+  'Board/Src/rhs_board.c', 'Board/Src/rhs_board_peripherals.c', 'User/main.c',
+  'User/system_ch32v20x.c', 'User/ch32v20x_it.c', 'Peripheral/src/ch32v20x_gpio.c',
+  'Peripheral/src/ch32v20x_rcc.c', 'Peripheral/src/ch32v20x_tim.c',
+  'Peripheral/src/ch32v20x_i2c.c', 'Peripheral/src/ch32v20x_usart.c', 'Peripheral/src/ch32v20x_adc.c'
 ]
-const LIVE_INCLUDE_DIRECTORIES = ['Core/Inc', 'Core', 'Debug', 'User', 'Peripheral/inc', 'Startup']
-const LIVE_C_FLAGS = ['-Os', '-ffunction-sections', '-fdata-sections', '-fmessage-length=0', '-fsigned-char', '-fno-common', '-DROBOTDOG_ENABLE_LEGACY_TEXT=0']
+const LIVE_INCLUDE_DIRECTORIES = ['Core', 'User', 'Peripheral/inc', 'Startup', 'RHS_HAL/Inc', 'Board/Inc']
+const LIVE_C_FLAGS = ['-Os', '-ffunction-sections', '-fdata-sections', '-fmessage-length=0', '-fsigned-char', '-fno-common']
 const LIVE_STUDENT_C_FLAGS = ['-Wall', '-Wextra', '-Wconversion', '-Werror=implicit-function-declaration', '-Werror=return-type']
 const LIVE_LINK_FLAGS = ['-nostartfiles', '--specs=nano.specs', '--specs=nosys.specs', '-Wl,--gc-sections']
 
@@ -156,7 +138,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       await mkdir(join(outputRoot, 'obj'), { recursive: true })
 
       const teachingSources = workspace.learningPath === 'mcu-foundations' ? await this.collectMcuSources(projectRoot) : []
-      const sources = [...manifest.build.sources, manifest.studentOverlay.source, ...teachingSources]
+      const sources = [...manifest.build.sources, ...(workspace.learningPath === 'mcu-foundations' ? teachingSources : [manifest.studentOverlay.source])]
       const objectFiles: string[] = []
       this.activeSnapshot.stage = 'compiling'
       for (const [index, source] of sources.entries()) {
@@ -280,7 +262,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay, workspace.learningPath)
 
     const teachingSources = workspace.learningPath === 'mcu-foundations' ? await this.collectMcuSources(projectRoot) : []
-    const sources = [...LIVE_BASELINE_SOURCES, manifest.studentOverlay.source, ...teachingSources]
+    const sources = [...LIVE_BASELINE_SOURCES, ...(workspace.learningPath === 'mcu-foundations' ? teachingSources : [manifest.studentOverlay.source])]
     this.activeSnapshot.totalFiles = sources.length + 1
     const objectFiles: string[] = []
     this.activeSnapshot.stage = 'compiling'
@@ -368,10 +350,13 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       await mkdir(dirname(target), { recursive: true })
       await copyFile(join(projectRoot, ...path.split('/')), target)
     }
-    const config = parseLineConfigText(await readFile(join(projectRoot, ...overlay.configInput.split('/')), 'utf8'))
-    const generatedPath = join(stagingRoot, ...overlay.generatedHeader.split('/'))
-    await mkdir(dirname(generatedPath), { recursive: true })
-    await writeFile(generatedPath, renderStudentConfigHeader(config), 'utf8')
+    const configPath = join(projectRoot, ...overlay.configInput.split('/'))
+    if (await stat(configPath).then(() => true, () => false)) {
+      const config = parseLineConfigText(await readFile(configPath, 'utf8'))
+      const generatedPath = join(stagingRoot, ...overlay.generatedHeader.split('/'))
+      await mkdir(dirname(generatedPath), { recursive: true })
+      await writeFile(generatedPath, renderStudentConfigHeader(config), 'utf8')
+    }
     if (learningPath === 'mcu-foundations') {
       await cp(join(projectRoot, 'App'), join(stagingRoot, 'App'), { recursive: true, errorOnExist: false, force: true, verbatimSymlinks: true })
     }

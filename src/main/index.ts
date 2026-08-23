@@ -153,11 +153,11 @@ app.whenReady().then(async () => {
   const baselineRegistry = await readBaselineRegistry(staticRoot)
   const templateResource = edition.id === 'fun-line-following'
     ? baselineRegistry.studentTemplate
-    : `resources/workspace-templates/ch32v203-mcu-foundations/${baselineRegistry.templateVersion}`
+    : baselineRegistry.studentTemplate
   const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, templateResource, app.isPackaged)
   const baseline = new FirmwareBaselineService({
     manifestPath: baselineRegistry.manifestPath,
-    packagedSourceRoot: app.isPackaged && baselineRegistry.packagedSource ? join(process.resourcesPath, 'firmware-baselines', 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined
+    packagedSourceRoot: app.isPackaged && baselineRegistry.packagedSource ? join(process.resourcesPath, 'firmware-baselines', edition.id === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined
   })
   const baselineManifest = await baseline.getManifest()
   const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, templateVersion: baselineRegistry.templateVersion, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit, edition })
@@ -278,7 +278,8 @@ async function getAgentRuntimeStatus(runtime: { secrets: DeepSeekSecretStore; pr
 }
 
 async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath: string; packagedSource: string; studentTemplate: string; templateVersion: string }> {
-  const path = join(staticRoot, 'firmware-baselines', 'ch32v203-robotdog', 'active.json')
+  const baselineDir = edition.id === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog'
+  const path = join(staticRoot, 'firmware-baselines', baselineDir, 'active.json')
   const value = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
   if (value.schemaVersion !== 1 && value.schemaVersion !== 2) throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
   const safeRelative = (item: string): boolean => !item.startsWith('/') && !item.startsWith('\\') && !item.split(/[\\/]/).includes('..')
@@ -286,7 +287,7 @@ async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath:
     if (typeof value.manifest !== 'string' || typeof value.packagedSource !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
     if (!safeRelative(value.manifest) || !safeRelative(value.packagedSource)) throw new Error('ACTIVE_BASELINE_REGISTRY_PATH_INVALID')
     return {
-      manifestPath: join(staticRoot, 'firmware-baselines', 'ch32v203-robotdog', value.manifest),
+      manifestPath: join(staticRoot, 'firmware-baselines', baselineDir, value.manifest),
       packagedSource: value.packagedSource,
       studentTemplate: 'resources/workspace-templates/ch32v203-robotdog/2026.06',
       templateVersion: '2026.06'

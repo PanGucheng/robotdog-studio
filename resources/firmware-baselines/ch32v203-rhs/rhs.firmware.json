@@ -1,0 +1,9 @@
+{
+  "board": "rhs-ch32v203c8t6",
+  "chip": "CH32V203C8T6",
+  "memory": { "flashBytes": 65536, "ramBytes": 20480 },
+  "hardwareStatus": { "mcuConfirmed": true },
+  "build": { "startup": "Startup/startup_ch32v20x_D6.S", "linkerScript": "Ld/Link.ld", "toolchain": "WCH RISC-V Embedded GCC12" },
+  "studentOverlay": { "source": "App/Src/experiment.c", "header": "App/Inc/experiment.h", "configInput": "App/Src/experiment.c", "generatedHeader": "App/Inc/experiment.generated.h" },
+  "artifacts": { "elf": "RHSFirmwareBaseline.elf", "hex": "RHSFirmwareBaseline.hex", "bin": "RHSFirmwareBaseline.bin", "map": "RHSFirmwareBaseline.map" }
+}

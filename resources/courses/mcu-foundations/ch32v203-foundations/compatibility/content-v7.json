@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": 7,
+  "courseSemanticSha256": "8651e7d16ab4316a10818523b92dc2cae05f5c9f9097c35368b26de218e92bd3",
+  "lessonSemanticSha256": { "first-program-on-chip": "c73362e60cbc81c4c10bc0d4d8b329e8716a1e327aa627881cebff8ea3902353" },
+  "lectureDocumentDigest": { "first-program-on-chip": "a4150d959a81c530dc63b24547a60d45023ce92a63f1544c313ca13903bb8301" }
+}
