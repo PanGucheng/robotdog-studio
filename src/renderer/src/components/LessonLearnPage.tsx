@@ -18,22 +18,35 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
   const api = useMemo(() => getRobotApi(), [])
   const [lecture, setLecture] = useState<CourseLectureResult>()
   const [progress, setProgress] = useState<LessonLearningProgress>()
-  const [activeUnitId, setActiveUnitId] = useState<string>()
+  const [activeSectionId, setActiveSectionId] = useState<string>()
   const [selection, setSelection] = useState<{ range: CourseLectureSelectionRange; preview: string }>()
   const [question, setQuestion] = useState('')
   const [aiText, setAiText] = useState('')
   const [aiTurnId, setAiTurnId] = useState<string>()
   const [attemptChooser, setAttemptChooser] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [tocOpen, setTocOpen] = useState(false)
   const [includeOlderHistory, setIncludeOlderHistory] = useState(false)
   const [historyEvents, setHistoryEvents] = useState<AgentEvent[]>([])
   const [progressSaving, setProgressSaving] = useState(false)
+  const [progressError, setProgressError] = useState(false)
   const [attemptStarting, setAttemptStarting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const sectionRefs = useRef(new Map<string, HTMLDivElement>())
+  const unitRefs = useRef(new Map<string, HTMLDivElement>())
+  const visibleSinceRef = useRef(new Map<string, number>())
+  const pendingReadRef = useRef(new Set<string>())
+  const progressRef = useRef<LessonLearningProgress | undefined>(undefined)
+  const restorePendingRef = useRef(true)
+  const userInteractedRef = useRef(false)
+  const suppressAutoReadUntilRef = useRef(0)
+  const readingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const document = lecture?.status === 'ready' ? lecture.document : undefined
   const units = useMemo(() => groupLearningUnits(document), [document?.documentDigest])
-  const activeIndex = Math.max(0, units.findIndex((unit) => unit.root.sectionId === activeUnitId))
-  const activeUnit = units[activeIndex]
+  const activeSection = document?.sections.find((section) => section.sectionId === activeSectionId) ?? document?.sections[0]
+  const activeUnit = activeSection && document ? findOwningUnit(document.sections, activeSection.sectionId) : units[0]?.root
+
+  useEffect(() => { progressRef.current = progress }, [progress])
 
   useEffect(() => {
     let disposed = false
@@ -43,9 +56,22 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
       if (nextLecture.status === 'ready') {
         const stored = readLectureView(lesson, nextLecture.document.documentDigest)
         const requested = nextLecture.document.sections.find((section) => section.sectionId === stored.activeSectionId)
-        const root = requested ? findOwningUnit(nextLecture.document.sections, requested.sectionId) : nextLecture.document.sections.find((section) => section.level === 2)
-        setActiveUnitId(root?.sectionId)
-        requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = stored.scrollTopBySection[root?.sectionId ?? ''] ?? 0 })
+        const initial = requested ?? nextLecture.document.sections[0]
+        setActiveSectionId(initial?.sectionId)
+        restorePendingRef.current = true
+        userInteractedRef.current = false
+        suppressAutoReadUntilRef.current = Date.now() + 1_200
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const scroller = scrollRef.current
+          if (!scroller) return
+          if (stored.scrollTop !== undefined) scroller.scrollTop = stored.scrollTop
+          else if (initial) {
+            sectionRefs.current.get(initial.sectionId)?.scrollIntoView({ block: 'start' })
+            const root = findOwningUnit(nextLecture.document.sections, initial.sectionId)
+            scroller.scrollTop += stored.scrollTopBySection[root?.sectionId ?? ''] ?? 0
+          }
+          restorePendingRef.current = false
+        }))
       }
     }).catch(() => setLecture({ status: 'invalid', errorCode: 'LECTURE_LOAD_FAILED' }))
     return () => { disposed = true }
@@ -61,21 +87,69 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
     void api.listCourseLectureHistory(lesson.courseId, lesson.lessonId, includeOlderHistory).then(setHistoryEvents)
   }, [api, historyOpen, includeOlderHistory, lesson.courseId, lesson.lessonId, document?.documentDigest])
 
-  const selectUnit = (sectionId: string): void => {
-    const root = document ? findOwningUnit(document.sections, sectionId) : undefined
-    if (!root) return
-    setActiveUnitId(root.sectionId)
-    if (scrollRef.current) scrollRef.current.scrollTop = 0
-    writeLectureView(lesson, document!.documentDigest, { activeSectionId: root.sectionId, scrollTopBySection: {} })
+  const selectSection = (sectionId: string): void => {
+    if (!document || !document.sections.some((section) => section.sectionId === sectionId)) return
+    setActiveSectionId(sectionId)
+    userInteractedRef.current = false
+    visibleSinceRef.current.clear()
+    suppressAutoReadUntilRef.current = Date.now() + 1_000
+    sectionRefs.current.get(sectionId)?.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' })
+    setTocOpen(false)
+    const state = readLectureView(lesson, document.documentDigest)
+    writeLectureView(lesson, document.documentDigest, { ...state, activeSectionId: sectionId })
   }
-  const toggleComplete = (): void => {
-    if (!activeUnit || !progress || progress.integrityError || progressSaving) return
-    const completed = !progress.completedSectionIds.includes(activeUnit.root.sectionId)
-    setProgressSaving(true)
-    void api.updateLessonLearningProgress(lesson.courseId, lesson.lessonId, { kind: 'section', sectionId: activeUnit.root.sectionId, completed })
-      .then((next) => { setProgress(next); onProgress(next) })
-      .finally(() => setProgressSaving(false))
+
+  const markRead = (sectionId: string): void => {
+    const current = progressRef.current
+    if (!current || current.integrityError || current.completedSectionIds.includes(sectionId) || pendingReadRef.current.has(sectionId)) return
+    pendingReadRef.current.add(sectionId)
+    setProgressSaving(true); setProgressError(false)
+    void api.updateLessonLearningProgress(lesson.courseId, lesson.lessonId, { kind: 'section', sectionId, completed: true })
+      .then((next) => { progressRef.current = next; setProgress(next); onProgress(next) })
+      .catch(() => setProgressError(true))
+      .finally(() => {
+        pendingReadRef.current.delete(sectionId)
+        setProgressSaving(pendingReadRef.current.size > 0)
+      })
   }
+
+  const evaluateReadingPosition = (): string | undefined => {
+    const scroller = scrollRef.current
+    if (!scroller || !document) return undefined
+    const scrollerRect = scroller.getBoundingClientRect()
+    const currentId = findActiveSectionId(document.sections, sectionRefs.current, scrollerRect.top + 96)
+    if (currentId && currentId !== activeSectionId) setActiveSectionId(currentId)
+    const now = Date.now()
+    for (const unit of units) {
+      const element = unitRefs.current.get(unit.root.sectionId)
+      if (!element) continue
+      const rect = element.getBoundingClientRect()
+      const visible = rect.bottom > scrollerRect.top && rect.top < scrollerRect.bottom
+      if (visible && !visibleSinceRef.current.has(unit.root.sectionId)) visibleSinceRef.current.set(unit.root.sectionId, now)
+      if (!visible) { visibleSinceRef.current.delete(unit.root.sectionId); continue }
+      if (shouldAutoCompleteReadingUnit({
+        unitBottom: rect.bottom,
+        viewportTop: scrollerRect.top,
+        viewportHeight: scroller.clientHeight,
+        visibleSince: visibleSinceRef.current.get(unit.root.sectionId) ?? now,
+        now,
+        userInteracted: userInteractedRef.current,
+        suppressed: restorePendingRef.current || now < suppressAutoReadUntilRef.current
+      })) markRead(unit.root.sectionId)
+    }
+    return currentId
+  }
+
+  const handleReadingScroll = (): void => {
+    if (!document || !scrollRef.current) return
+    const currentId = evaluateReadingPosition()
+    const state = readLectureView(lesson, document.documentDigest)
+    writeLectureView(lesson, document.documentDigest, { ...state, activeSectionId: currentId ?? activeSectionId, scrollTop: scrollRef.current.scrollTop })
+    if (readingTimerRef.current) clearTimeout(readingTimerRef.current)
+    readingTimerRef.current = setTimeout(evaluateReadingPosition, 650)
+  }
+
+  useEffect(() => () => { if (readingTimerRef.current) clearTimeout(readingTimerRef.current) }, [])
   const startLab = (): void => {
     if (attemptStarting) return
     const remaining = units.length - (progress?.completedSectionIds.length ?? 0)
@@ -97,21 +171,24 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
 
   if (!document || !activeUnit) return <section className="lesson-learn-state"><button type="button" onClick={onBack}><ArrowLeft size={15} /> 返回课程</button><BookOpen size={24} /><strong>{lecture?.status === 'invalid' ? '讲义暂时无法加载' : '正在准备课程内容'}</strong></section>
   const allComplete = progress?.completedSectionIds.length === units.length
-  const actionAvailability = getLessonActionAvailability({ progressSaving, attemptStarting, integrityError: Boolean(progress?.integrityError) })
+  const actionAvailability = getLessonActionAvailability({ attemptStarting })
+  const readPercent = units.length ? Math.round(((progress?.completedSectionIds.length ?? 0) / units.length) * 100) : 0
 
   return <section className="lesson-learn-page">
-    <header className="lesson-learn-header"><button type="button" onClick={onBack}><ArrowLeft size={15} /> 返回课程</button><div><span>第 {lesson.order + 1} 课</span><strong>{lesson.title}</strong></div><span className="lesson-header-actions"><small>{progress?.completedSectionIds.length ?? 0}/{units.length} 个学习单元</small><button type="button" onClick={() => setHistoryOpen(true)}><History size={14} /> AI 历史</button></span></header>
+    <header className="lesson-learn-header"><button type="button" onClick={onBack}><ArrowLeft size={15} /> 返回课程</button><div><span>第 {lesson.order + 1} 课</span><strong>{lesson.title}</strong></div><span className="lesson-header-actions"><button type="button" className="lesson-toc-toggle" onClick={() => setTocOpen(true)}><BookOpen size={14} /> 目录</button><span className="lesson-reading-progress"><small>{progressSaving ? '正在保存已读进度…' : allComplete ? '本课讲义已读完' : `已读 ${progress?.completedSectionIds.length ?? 0}/${units.length}`}</small><i aria-hidden="true"><b style={{ width: `${readPercent}%` }} /></i></span><button type="button" onClick={() => setHistoryOpen(true)}><History size={14} /> AI 历史</button></span></header>
     <div className="lesson-learn-layout">
-      <aside className="lesson-toc"><span className="eyebrow">课程目录</span>{document.sections.map((section) => <button type="button" key={section.sectionId} className={`${section.level === 3 ? 'is-subsection' : ''} ${findOwningUnit(document.sections, section.sectionId)?.sectionId === activeUnit.root.sectionId ? 'active' : ''}`} onClick={() => selectUnit(section.sectionId)}>{section.level === 2 && <i>{progress?.completedSectionIds.includes(section.sectionId) ? <Check size={11} /> : String(units.findIndex((unit) => unit.root.sectionId === section.sectionId) + 1).padStart(2, '0')}</i>}<span>{section.title}</span></button>)}</aside>
+      <aside className={`lesson-toc ${tocOpen ? 'is-open' : ''}`}><span className="eyebrow">课程目录</span><button type="button" className="lesson-toc-close" onClick={() => setTocOpen(false)} aria-label="关闭课程目录">×</button><div className="lesson-toc-track" aria-hidden="true"><i style={{ height: `${readPercent}%` }} /></div>{document.sections.map((section) => {
+        const read = section.level === 2 && progress?.completedSectionIds.includes(section.sectionId)
+        const active = section.sectionId === activeSection?.sectionId
+        return <button type="button" key={section.sectionId} className={`${section.level === 3 ? 'is-subsection' : ''} ${read ? 'is-read' : ''} ${active ? 'active' : ''}`} aria-current={active ? 'location' : undefined} onClick={() => selectSection(section.sectionId)}>{section.level === 2 && <i>{read ? <Check size={11} /> : <span />}</i>}<span>{section.title}</span></button>
+      })}</aside>{tocOpen && <button type="button" className="lesson-toc-scrim" onClick={() => setTocOpen(false)} aria-label="关闭课程目录" />}
       <main className="lesson-reading-surface">
-        {progress?.integrityError && <div className="lesson-integrity-warning"><AlertTriangle size={17} /><span><strong>课程资源版本一致性异常</strong>正文仍可阅读，但完成记录已暂停写入。请让课程维护者检查 contentVersion。</span></div>}
-        <div className="lesson-reading-scroll" ref={scrollRef} onScroll={(event) => {
-          const state = readLectureView(lesson, document.documentDigest)
-          writeLectureView(lesson, document.documentDigest, { activeSectionId: activeUnit.root.sectionId, scrollTopBySection: { ...state.scrollTopBySection, [activeUnit.root.sectionId]: event.currentTarget.scrollTop } })
-        }}>{activeUnit.sections.map((section) => <CourseLectureRenderer key={section.sectionId} document={document} sectionId={section.sectionId} mode="learn" onOpenSection={selectUnit} onOpenCode={() => undefined} onOpenTask={() => startLab()} onSelection={(range, preview) => setSelection({ range, preview })} />)}
-          {activeIndex === units.length - 1 && <section className="lesson-to-lab"><span><Check size={18} /></span><div><small>{allComplete ? '本课知识学习完成' : '接下来，用实验验证知识'}</small><h2>{lesson.title}</h2><ul>{lesson.objectives.map((objective) => <li key={objective}>{objective}</li>)}</ul><p><strong>实验目标：</strong>{lesson.expectedObservation}</p><button type="button" className="button-primary" onClick={startLab} disabled={actionAvailability.startLabDisabled}><FlaskConical size={16} /> {attemptStarting ? '正在准备实验…' : '开始实验'} <ArrowRight size={14} /></button></div></section>}
+        <div className="lesson-reading-notices">{progress?.integrityError && <div className="lesson-integrity-warning"><AlertTriangle size={17} /><span><strong>课程资源版本一致性异常</strong>正文仍可阅读，但完成记录已暂停写入。请让课程维护者检查 contentVersion。</span></div>}
+        {progressError && <div className="lesson-progress-warning"><AlertTriangle size={15} /><span>阅读位置已保留，但已读进度暂未保存。继续阅读时会再次尝试。</span></div>}</div>
+        <div className="lesson-reading-scroll" ref={scrollRef} tabIndex={0} aria-label="课程讲义连续阅读区" onPointerDown={() => { userInteractedRef.current = true }} onWheel={() => { userInteractedRef.current = true }} onTouchMove={() => { userInteractedRef.current = true }} onKeyDown={() => { userInteractedRef.current = true }} onScroll={handleReadingScroll}>
+          {units.map((unit) => <div className="lesson-reading-unit" data-reading-unit={unit.root.sectionId} key={unit.root.sectionId} ref={(node) => { if (node) unitRefs.current.set(unit.root.sectionId, node); else unitRefs.current.delete(unit.root.sectionId) }}>{unit.sections.map((section) => <div className="lesson-reading-section" id={`lecture-section-${section.sectionId}`} key={section.sectionId} ref={(node) => { if (node) sectionRefs.current.set(section.sectionId, node); else sectionRefs.current.delete(section.sectionId) }}><CourseLectureRenderer document={document} sectionId={section.sectionId} mode="learn" onOpenSection={selectSection} onOpenCode={() => undefined} onOpenTask={() => startLab()} onSelection={(range, preview) => setSelection({ range, preview })} /></div>)}</div>)}
+          <section className="lesson-to-lab"><span><Check size={18} /></span><div><small>{allComplete ? '本课讲义已读完' : `还有 ${units.length - (progress?.completedSectionIds.length ?? 0)} 个标题尚未读到，可以稍后继续`}</small><h2>{lesson.title}</h2><ul>{lesson.objectives.map((objective) => <li key={objective}>{objective}</li>)}</ul><p><strong>实验目标：</strong>{lesson.expectedObservation}</p><button type="button" className="button-primary" onClick={startLab} disabled={actionAvailability.startLabDisabled}><FlaskConical size={16} /> {attemptStarting ? '正在准备实验…' : '开始实验'} <ArrowRight size={14} /></button></div></section>
         </div>
-        <footer className="lesson-reading-footer"><button type="button" onClick={() => selectUnit(units[Math.max(0, activeIndex - 1)].root.sectionId)} disabled={activeIndex === 0}><ArrowLeft size={13} /> 上一节</button><button type="button" className={progress?.completedSectionIds.includes(activeUnit.root.sectionId) ? '' : 'button-primary'} onClick={toggleComplete} disabled={actionAvailability.completeReadingDisabled}>{progressSaving ? '正在保存…' : progress?.completedSectionIds.includes(activeUnit.root.sectionId) ? <><Check size={13} /> 已完成本节</> : '完成本节阅读'}</button><button type="button" onClick={() => selectUnit(units[Math.min(units.length - 1, activeIndex + 1)].root.sectionId)} disabled={activeIndex === units.length - 1}>下一节 <ArrowRight size={13} /></button></footer>
       </main>
     </div>
     {selection && <aside className="lesson-ai-drawer"><header><Sparkles size={16} /><strong>问问课程 AI</strong><button type="button" onClick={() => setSelection(undefined)}>×</button></header><blockquote>{selection.preview}</blockquote><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="针对这段内容提问…" /><button type="button" className="button-primary" onClick={askAi} disabled={!question.trim()}>发送问题</button></aside>}
@@ -121,12 +198,7 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
   </section>
 }
 
-export function getLessonActionAvailability(state: { progressSaving: boolean; attemptStarting: boolean; integrityError: boolean }): { completeReadingDisabled: boolean; startLabDisabled: boolean } {
-  return {
-    completeReadingDisabled: state.progressSaving || state.integrityError,
-    startLabDisabled: state.attemptStarting
-  }
-}
+export function getLessonActionAvailability(state: { attemptStarting: boolean }): { startLabDisabled: boolean } { return { startLabDisabled: state.attemptStarting } }
 
 function groupLearningUnits(document?: import('../../../shared/types').CourseLectureDocument): Array<{ root: import('../../../shared/types').CourseLectureSection; sections: import('../../../shared/types').CourseLectureSection[] }> {
   if (!document) return []
@@ -147,15 +219,32 @@ function findOwningUnit(sections: import('../../../shared/types').CourseLectureS
   return undefined
 }
 
-interface StoredLectureView { activeSectionId?: string; scrollTopBySection: Record<string, number> }
+interface StoredLectureView { activeSectionId?: string; scrollTop?: number; scrollTopBySection: Record<string, number> }
 function lectureViewKey(lesson: CourseLesson, digest: string): string { return `robotdog.lesson-view.${lesson.courseId}.${lesson.lessonId}.v${lesson.contentVersion}.${digest}` }
 function readLectureView(lesson: CourseLesson, digest: string): StoredLectureView {
   try {
     const stored = JSON.parse(localStorage.getItem(lectureViewKey(lesson, digest)) ?? '{}') as Partial<StoredLectureView>
-    return { activeSectionId: stored.activeSectionId, scrollTopBySection: stored.scrollTopBySection ?? {} }
+    return { activeSectionId: stored.activeSectionId, scrollTop: typeof stored.scrollTop === 'number' && stored.scrollTop >= 0 ? stored.scrollTop : undefined, scrollTopBySection: stored.scrollTopBySection ?? {} }
   } catch { return { scrollTopBySection: {} } }
 }
 function writeLectureView(lesson: CourseLesson, digest: string, state: StoredLectureView): void { localStorage.setItem(lectureViewKey(lesson, digest), JSON.stringify(state)) }
+
+export function shouldAutoCompleteReadingUnit(input: { unitBottom: number; viewportTop: number; viewportHeight: number; visibleSince: number; now: number; userInteracted: boolean; suppressed: boolean }): boolean {
+  return input.userInteracted && !input.suppressed && input.now - input.visibleSince >= 600 && input.unitBottom > input.viewportTop && input.unitBottom <= input.viewportTop + input.viewportHeight * 0.72
+}
+
+function findActiveSectionId(sections: import('../../../shared/types').CourseLectureSection[], refs: Map<string, HTMLDivElement>, readingLine: number): string | undefined {
+  let active = sections[0]?.sectionId
+  for (const section of sections) {
+    const element = refs.get(section.sectionId)
+    if (!element) continue
+    if (element.getBoundingClientRect().top > readingLine) break
+    active = section.sectionId
+  }
+  return active
+}
+
+function reducedMotion(): boolean { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false }
 
 function groupLectureHistory(events: AgentEvent[]): Array<{ turnId: string; version: number; digest: string; question: string; answer: string }> {
   const turns = new Map<string, { turnId: string; version: number; digest: string; question: string; answer: string }>()

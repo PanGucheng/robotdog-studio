@@ -1,22 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { getLessonActionAvailability } from './LessonLearnPage'
+import { getLessonActionAvailability, shouldAutoCompleteReadingUnit } from './LessonLearnPage'
 
 describe('LessonLearnPage action availability', () => {
-  it('keeps reading and lab actions independent', () => {
-    expect(getLessonActionAvailability({ progressSaving: true, attemptStarting: false, integrityError: false })).toEqual({
-      completeReadingDisabled: true,
-      startLabDisabled: false
-    })
-    expect(getLessonActionAvailability({ progressSaving: false, attemptStarting: true, integrityError: false })).toEqual({
-      completeReadingDisabled: false,
-      startLabDisabled: true
-    })
+  it('blocks starting another lab only while an attempt is already being created', () => {
+    expect(getLessonActionAvailability({ attemptStarting: false })).toEqual({ startLabDisabled: false })
+    expect(getLessonActionAvailability({ attemptStarting: true })).toEqual({ startLabDisabled: true })
+  })
+})
+
+describe('continuous lesson reading progress', () => {
+  const base = { unitBottom: 650, viewportTop: 100, viewportHeight: 800, visibleSince: 1_000, now: 1_700, userInteracted: true, suppressed: false }
+
+  it('marks a unit read after its end reaches the reading line and the unit has remained visible', () => {
+    expect(shouldAutoCompleteReadingUnit(base)).toBe(true)
   })
 
-  it('blocks only reading progress when course resources fail integrity checks', () => {
-    expect(getLessonActionAvailability({ progressSaving: false, attemptStarting: false, integrityError: true })).toEqual({
-      completeReadingDisabled: true,
-      startLabDisabled: false
-    })
+  it('does not mark restored, programmatically jumped, briefly visible, or unfinished units', () => {
+    expect(shouldAutoCompleteReadingUnit({ ...base, userInteracted: false })).toBe(false)
+    expect(shouldAutoCompleteReadingUnit({ ...base, suppressed: true })).toBe(false)
+    expect(shouldAutoCompleteReadingUnit({ ...base, now: 1_400 })).toBe(false)
+    expect(shouldAutoCompleteReadingUnit({ ...base, unitBottom: 700 })).toBe(false)
+    expect(shouldAutoCompleteReadingUnit({ ...base, unitBottom: 90 })).toBe(false)
   })
 })

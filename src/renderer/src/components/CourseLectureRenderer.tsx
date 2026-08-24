@@ -32,6 +32,9 @@ function captureLectureSelection(document: CourseLectureDocument, sectionId: str
   const startId = startElement?.dataset.lectureTextNode
   const endId = endElement?.dataset.lectureTextNode
   if (!startElement || !endElement || !startId || !endId) return
+  const startSectionId = startElement.closest<HTMLElement>('[data-section-id]')?.dataset.sectionId
+  const endSectionId = endElement.closest<HTMLElement>('[data-section-id]')?.dataset.sectionId
+  if (startSectionId !== sectionId || endSectionId !== sectionId) return
   const preview = selection.toString().trim()
   if (!preview || preview.length > 1_000) return
   onSelection({

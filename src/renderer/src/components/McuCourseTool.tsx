@@ -35,10 +35,11 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
   const [lectureQuestionError, setLectureQuestionError] = useState<string>()
   const [lectureFontSize, setLectureFontSize] = useState(readLectureFontSize)
   const lectureScrollRef = useRef<HTMLDivElement>(null)
+  const lectureSectionRefs = useRef(new Map<string, HTMLDivElement>())
+  const pendingLectureSectionRef = useRef<string | undefined>(undefined)
   const taskScrollRef = useRef<HTMLDivElement>(null)
   const stepRefs = useRef(new Map<string, HTMLElement>())
   const pendingAdvanceRef = useRef(false)
-  const restoringScrollRef = useRef(false)
   const guide = useMemo(() => lesson && progress ? deriveLabGuideModel(lesson, progress) : undefined, [lesson, progress])
   const displayedStep = guide?.steps.find((item) => item.step.stepId === selectedStepId) ?? guide?.currentStep
   const question = displayedStep?.step.questionId ? lesson?.reflectionQuestions.find((item) => item.questionId === displayedStep.step.questionId) : undefined
@@ -69,12 +70,7 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
       if (result.status === 'ready') {
         const stored = readLectureState(workspace.id, result.document.contentVersion)
         const nextId = result.document.sections.some((section) => section.sectionId === stored.sectionId) ? stored.sectionId : result.document.sections[0]?.sectionId
-        restoringScrollRef.current = true
         setActiveSectionId(nextId)
-        requestAnimationFrame(() => {
-          if (lectureScrollRef.current) lectureScrollRef.current.scrollTop = stored.scrollTop
-          restoringScrollRef.current = false
-        })
       }
     }).catch(() => { if (!disposed) setLecture({ status: 'invalid', errorCode: 'LECTURE_LOAD_FAILED' }) })
       .finally(() => { if (!disposed) setLectureLoading(false) })
@@ -82,11 +78,17 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
   }, [api, workspace.id, lesson?.courseId, lesson?.lessonId, lesson?.contentVersion])
 
   useEffect(() => {
-    if (!document || !activeSectionId) return
-    const state = readLectureState(workspace.id, document.contentVersion)
-    writeLectureState(workspace.id, document.contentVersion, { ...state, sectionId: activeSectionId })
-    if (!restoringScrollRef.current && lectureScrollRef.current) lectureScrollRef.current.scrollTop = 0
-  }, [workspace.id, document?.documentDigest, activeSectionId])
+    if (mode !== 'reference' || !document) return
+    const stored = readLectureState(workspace.id, document.contentVersion)
+    const frame = requestAnimationFrame(() => {
+      const pendingSectionId = pendingLectureSectionRef.current
+      if (pendingSectionId) {
+        lectureSectionRefs.current.get(pendingSectionId)?.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' })
+        pendingLectureSectionRef.current = undefined
+      } else if (lectureScrollRef.current) lectureScrollRef.current.scrollTop = stored.scrollTop
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [mode, workspace.id, document?.documentDigest])
 
   useEffect(() => {
     if (mode !== 'tasks' || selectedStepId || !guide?.currentStep) return
@@ -102,8 +104,16 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
   if (!lesson || !progress || workspace.workspacePurpose !== 'mcu-lesson-attempt') return <div className="mcu-tool-empty"><BookOpenCheck size={24} /><strong>自由练习项目</strong><p>这个项目不绑定课程。你仍然可以阅读工程、编写代码、编译或询问 AI。</p><button type="button" onClick={onBrowseCourses}>浏览课程</button></div>
 
   const complete = progress.state === 'completed'
+  const jumpToLectureSection = (sectionId: string): void => {
+    if (!document?.sections.some((section) => section.sectionId === sectionId)) return
+    setActiveSectionId(sectionId)
+    requestAnimationFrame(() => lectureSectionRefs.current.get(sectionId)?.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' }))
+  }
   const openLecture = (sectionId?: string): void => {
-    if (sectionId && document?.sections.some((section) => section.sectionId === sectionId)) setActiveSectionId(sectionId)
+    if (sectionId && document?.sections.some((section) => section.sectionId === sectionId)) {
+      pendingLectureSectionRef.current = sectionId
+      setActiveSectionId(sectionId)
+    }
     setMode('reference')
   }
   const openTask = (stepId: string): void => {
@@ -159,7 +169,7 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
       </>}
     </div> : <section className="mcu-lecture-view">
       <div className="lecture-toolbar">
-        <label><span>章节</span><select value={activeSection?.sectionId ?? ''} onChange={(event) => setActiveSectionId(event.target.value)} disabled={!document}>{document?.sections.map((section) => <option value={section.sectionId} key={section.sectionId}>{String(section.order + 1).padStart(2, '0')} · {section.title}</option>)}</select></label>
+        <label><span>跳转到标题</span><select value={activeSection?.sectionId ?? ''} onChange={(event) => jumpToLectureSection(event.target.value)} disabled={!document}>{document?.sections.map((section) => <option value={section.sectionId} key={section.sectionId}>{section.title}</option>)}</select></label>
         <div className="lecture-font-controls" aria-label="讲义字号">
           <button type="button" onClick={() => setLectureFontSize((value) => Math.max(13, value - 2))} disabled={lectureFontSize <= 13} aria-label="缩小讲义字号">A−</button>
           <output aria-live="polite">{lectureFontSize}px</output>
@@ -168,24 +178,28 @@ export function McuLabGuide({ workspace, lesson, progress, busy, activeFilePath,
         <button type="button" onClick={() => onLectureFocusChange(!lectureFocus)} aria-label={lectureFocus ? '退出专注阅读' : '进入专注阅读'}>{lectureFocus ? <Minimize2 size={14} /> : <Expand size={14} />}{lectureFocus ? '退出专注' : '专注阅读'}</button>
       </div>
 
-      {relatedSectionId && relatedSectionId !== activeSection?.sectionId && <button type="button" className="lecture-related-file" onClick={() => setActiveSectionId(relatedSectionId)}><FileCode2 size={14} /><span>当前文件相关讲义<strong>{activeFilePath}</strong></span><ArrowRight size={13} /></button>}
+      {relatedSectionId && relatedSectionId !== activeSection?.sectionId && <button type="button" className="lecture-related-file" onClick={() => jumpToLectureSection(relatedSectionId)}><FileCode2 size={14} /><span>当前文件相关讲义<strong>{activeFilePath}</strong></span><ArrowRight size={13} /></button>}
 
       <div className="mcu-lecture-scroll" ref={lectureScrollRef} onScroll={(event) => {
         if (!document) return
+        const readingLine = event.currentTarget.getBoundingClientRect().top + 72
+        let currentId = document.sections[0]?.sectionId
+        for (const section of document.sections) {
+          const element = lectureSectionRefs.current.get(section.sectionId)
+          if (!element || element.getBoundingClientRect().top > readingLine) break
+          currentId = section.sectionId
+        }
+        if (currentId && currentId !== activeSectionId) setActiveSectionId(currentId)
         const stored = readLectureState(workspace.id, document.contentVersion)
-        writeLectureState(workspace.id, document.contentVersion, { ...stored, sectionId: activeSection?.sectionId, scrollTop: event.currentTarget.scrollTop })
+        writeLectureState(workspace.id, document.contentVersion, { ...stored, sectionId: currentId ?? activeSection?.sectionId, scrollTop: event.currentTarget.scrollTop })
       }}>
         {lectureLoading ? <div className="lecture-loading"><BookOpen size={20} /><p>正在打开讲义…</p></div>
-          : lecture?.status === 'ready' && activeSection ? <CourseLectureRenderer document={lecture.document} sectionId={activeSection.sectionId} onOpenSection={setActiveSectionId} onOpenCode={onFocusFile} onOpenTask={openTask} onSelection={(range, preview) => { setLectureSelection({ range, preview }); setLectureQuestionError(undefined) }} />
+          : lecture?.status === 'ready' ? <div className="mcu-lecture-continuous">{lecture.document.sections.map((section) => <div className="mcu-lecture-continuous-section" key={section.sectionId} ref={(node) => { if (node) lectureSectionRefs.current.set(section.sectionId, node); else lectureSectionRefs.current.delete(section.sectionId) }}><CourseLectureRenderer document={lecture.document} sectionId={section.sectionId} onOpenSection={jumpToLectureSection} onOpenCode={onFocusFile} onOpenTask={openTask} onSelection={(range, preview) => { setLectureSelection({ range, preview }); setLectureQuestionError(undefined) }} /></div>)}</div>
             : <div className="lecture-empty"><AlertTriangle size={22} /><strong>{lecture?.status === 'missing' ? '本课暂时没有讲义' : '当前讲义暂时无法加载'}</strong><p>课程任务、代码和构建仍可继续使用。{lecture?.status === 'invalid' ? ` 错误：${lecture.errorCode}` : ''}</p></div>}
       </div>
 
       {lectureSelection && document && <aside className="lecture-question-box"><span>已选讲义</span><blockquote>{lectureSelection.preview}</blockquote><textarea value={lectureQuestion} onChange={(event) => setLectureQuestion(event.target.value)} placeholder="针对这段内容问 AI 助教…" maxLength={1000} />{lectureQuestionError && <small>{lectureQuestionError}</small>}<div><button type="button" onClick={() => setLectureSelection(undefined)}>取消</button><button type="button" className="button-primary" disabled={!lectureQuestion.trim() || busy} onClick={() => { setLectureQuestionError(undefined); void api.askCourseLecture({ courseId: lesson.courseId, lessonId: lesson.lessonId, contentVersion: document.contentVersion, documentDigest: document.documentDigest, workspaceId: workspace.id, request: { selection: lectureSelection.range, question: lectureQuestion } }).then(() => { setLectureSelection(undefined); setLectureQuestion(''); onAssistantOpen('lecture') }).catch(() => setLectureQuestionError('这段选文已失效或 AI 暂时不可用，请重新选择后再试。')) }}>询问 AI</button></div></aside>}
 
-      {document && activeSection && <footer className="lecture-footer-actions">
-        <button type="button" onClick={() => setActiveSectionId(document.sections[Math.max(0, activeSection.order - 1)].sectionId)} disabled={activeSection.order === 0}><ArrowLeft size={13} /> 上一节</button>
-        <button type="button" onClick={() => setActiveSectionId(document.sections[Math.min(document.sections.length - 1, activeSection.order + 1)].sectionId)} disabled={activeSection.order === document.sections.length - 1}>下一节 <ArrowRight size={13} /></button>
-      </footer>}
     </section>}
   </div>
 }
@@ -208,6 +222,8 @@ function readLectureState(workspaceId: string, displayedContentVersion: number):
 function writeLectureState(workspaceId: string, displayedContentVersion: number, state: StoredLectureState): void {
   localStorage.setItem(lectureStateKey(workspaceId, displayedContentVersion), JSON.stringify(state))
 }
+
+function reducedMotion(): boolean { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false }
 
 function stepActionLabel(type: string): string {
   if (type === 'candidate-build') return '生成并排查'
