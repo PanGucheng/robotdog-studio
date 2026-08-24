@@ -1147,7 +1147,6 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .lecture-section-body blockquote { margin: 14px 0; padding: 1px 14px; color: #56717e; border-left: 3px solid #9fcdd5; }
 .lecture-section-body code { padding: 1px 4px; color: #8b5900; border-radius: 3px; background: #f1f4f5; font-family: var(--mono); }
 .lecture-code-example { margin: 16px 0; overflow: hidden; border: 1px solid #cfdde2; border-radius: 8px; background: #f6f8f9; }
-.lecture-code-example figcaption { padding: 7px 10px; color: #6c838e; border-bottom: 1px solid #dce5e8; font-family: var(--mono); font-size: max(12px, calc(var(--lecture-font-size, 15px) * .86)); }
 .lecture-code-example pre { margin: 0; padding: 13px; overflow: auto; color: #234858; background: #f6f8f9; font-family: var(--mono); font-size: max(12px, calc(var(--lecture-font-size, 15px) * .84)); line-height: 1.65; }
 .lecture-code-example pre code { padding: 0; color: inherit; background: transparent; }
 .lecture-callout { margin: 15px 0; overflow: hidden; border: 1px solid #c9dfe4; border-left: 4px solid #18a2b3; border-radius: 8px; background: #f2fafb; }

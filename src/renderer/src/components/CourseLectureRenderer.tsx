@@ -69,7 +69,7 @@ function LectureBlockView({ block, document, mode, onOpenSection, onOpenCode, on
     const Tag = block.ordered ? 'ol' : 'ul'
     return <Tag start={block.start}>{block.items.map((item, index) => <li key={index}>{item.map((child, childIndex) => <LectureBlockView key={childIndex} block={child} document={document} mode={mode} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />)}</li>)}</Tag>
   }
-  if (block.type === 'code') return <figure className="lecture-code-example"><figcaption>讲义示例 · 不会写入工程{block.language ? ` · ${block.language}` : ''}</figcaption><pre data-lecture-text-node={block.textNodeId}><code>{block.value}</code></pre></figure>
+  if (block.type === 'code') return <figure className="lecture-code-example"><pre data-lecture-text-node={block.textNodeId}><code>{block.value}</code></pre></figure>
   if (block.type === 'math') return <div className="lecture-math-block" data-lecture-text-node={block.textNodeId}><SafeMath value={block.value} displayMode /></div>
   if (block.type === 'thematic-break') return <hr />
   if (block.type === 'table') return <div className="lecture-table-wrap"><table><tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => rowIndex === 0 ? <th key={cellIndex}>{renderInline(cell, inlineProps)}</th> : <td key={cellIndex}>{renderInline(cell, inlineProps)}</td>)}</tr>)}</tbody></table></div>
