@@ -968,7 +968,7 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .lesson-learn-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 0; }
 .lesson-toc { position: relative; padding: 24px 12px 36px; overflow: auto; border-right: 1px solid #d3e0e4; background: #edf3f4; }
 .lesson-toc > span { display: block; margin: 0 10px 14px; color: #287c87; font-size: 11px; letter-spacing: .09em; }
-.lesson-toc-track { position: absolute; top: 60px; bottom: 38px; left: 31px; width: 2px; overflow: hidden; background: #cfdee2; pointer-events: none; }
+.lesson-toc-track { position: absolute; left: 31px; width: 2px; overflow: hidden; background: #cfdee2; pointer-events: none; }
 .lesson-toc-track i { display: block; width: 100%; min-height: 0; background: #2d9b70; transition: height .2s ease; }
 .lesson-toc button { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; margin: 1px 0; padding: 7px 10px; color: #58717d; border: 1px solid transparent; border-radius: 7px; background: transparent; text-align: left; line-height: 1.35; cursor: pointer; transition: color .15s ease, background .15s ease, border-color .15s ease; }
 .lesson-toc button:hover { color: #285d68; background: rgb(255 255 255 / 55%); }
