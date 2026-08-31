@@ -21,10 +21,12 @@ corepack pnpm dev:mcu
 验证命令：
 
 ```powershell
-corepack pnpm typecheck
-corepack pnpm test
-corepack pnpm build
+corepack pnpm check
 ```
+
+`check` 会依次校验 MCU 课程资源、运行测试，并完成类型检查和生产构建。
+需要定位单项问题时，仍可分别运行 `courses:validate`、`typecheck`、`test`
+和 `build`。
 
 日常界面调整和缺陷修复默认只运行类型检查、自动化测试以及必要的开发模式点击验证；不主动生成 ZIP 或安装包。只有项目所有者明确提出打包、测试分发物或发布验收时，才执行下列 Windows 打包命令。
 
@@ -69,12 +71,12 @@ git submodule update --init --recursive
 
 - `main` 分支保持可构建；
 - 新功能优先使用 `codex/`、`ui/`、`firmware/`、`docs/`、`release/` 前缀分支；
-- PR 合并前至少运行 `npm run reasonix:prepare`、`npm run typecheck`、`npm test` 和 `npm run build`；
+- PR 合并前至少运行 `npm run reasonix:prepare` 和 `npm run check`；
 - 不提交真实 API Key、`.env`、本地工作区或临时构建产物；
 - 下位机整改任务优先参考 [下位机固件必需改动清单](./docs/firmware-required-changes-brief.md)；
 - 历史发布计划和已完成阶段计划已归档到 [docs/archive](./docs/archive/README.md)。
 
-## 内置 WCH 固件工具链
+## MCU 固件与内置 WCH 工具链
 
 RobotDog Studio 按完整版设计交付，用户无需安装 MounRiver Studio 即可编译 CH32V203 固件。
 
@@ -86,25 +88,29 @@ vendor/wch/
 └─ OpenOCD/OpenOCD
 ```
 
-使用内置 GCC12 验证 `D:\RobotDog\ch32v203-robot-dog` 固件工程：
+大学单片机版当前使用仓库内的
+[`firmware/ch32v203-baseline`](./firmware/ch32v203-baseline) 作为 RHS 机器马
+固件基线。它面向 CH32V203C8T6，使用 `RHS_` 新接口，默认启动不驱动舵机、
+蜂鸣器、串口、OLED 或 CCD。构建方式：
 
 ```powershell
-npm run firmware:build:ch32v203
+$env:RHS_TOOLCHAIN_ROOT = (Resolve-Path 'vendor/wch/Toolchain/RISC-V Embedded GCC12').Path
+cmake --preset wch-gcc12 -S firmware/ch32v203-baseline
+cmake --build firmware/ch32v203-baseline/build/release
 ```
 
-默认读取 `D:\RobotDog\ch32v203-robot-dog`，构建产物输出到 `.firmware-build/ch32v203-robot-dog/<timestamp>/`，包括：
+固件目录内会生成以下固定产物：
 
-- `RobotDog.elf`
-- `RobotDog.hex`
-- `RobotDog.bin`
-- `RobotDog.map`
-- `build-proof.json`
+- `RHSFirmwareBaseline.elf`
+- `RHSFirmwareBaseline.hex`
+- `RHSFirmwareBaseline.bin`
+- `RHSFirmwareBaseline.map`
 
-可以通过环境变量覆盖路径：
+趣味巡线版仍使用独立的历史固件基线。维护该发行版时，可用以下命令拉取、
+核验并构建其锁定提交：
 
 ```powershell
-$env:ROBOTDOG_FIRMWARE_ROOT='D:\path\to\firmware'
-$env:ROBOTDOG_FIRMWARE_OUT='D:\path\to\output'
+npm run firmware:source:prepare
 npm run firmware:build:ch32v203
 ```
 
@@ -128,10 +134,15 @@ npm run firmware:build:ch32v203
 - 通过预检的候选可原子应用到正式工作区并创建 Git 检查点；历史可见，撤销使用新的 Revert 提交，不改写历史。
 - 应用中断、候选篡改、构建失败和提交失败均有恢复路径，重启后会对账候选状态。
 
-候选预检当前编译学生可编辑的 C 单元并校验参数文件；完整固件生成、Windows 离线测试包和 WCH-Link 烧录页已进入联调阶段。当前开发入口见 [开发交接文档](./docs/development-handoff-2026-07-14.md)，历史三通道设计与 AI 修改闭环计划已归档到 [docs/archive](./docs/archive/README.md)。
+大学单片机版目前提供第一课连续讲义、受控实验代码、Candidate Build、完整
+RHS 固件构建和 WCH-Link 写入流程；涉及真实 LED 现象的发布状态仍以课次中的
+硬件验证门禁为准。历史三通道设计与已完成阶段计划见
+[docs/archive](./docs/archive/README.md)。
 
 交付下位机开发者的具体改造接口与验收要求见 [下位机固件修改要求](./docs/firmware-developer-modification-requirements.md)。
 
 ## 重要安全说明
 
-当前版本处于模拟阶段，界面中的急停是软件急停。真实硬件必须同时实现下位机动作看门狗，并保留物理断电手段。
+趣味巡线版界面中的急停是软件急停；真实运动硬件必须同时实现下位机动作
+看门狗，并保留物理断电手段。RHS MCU 基线不会在 `main()` 中自动启动舵机或
+蜂鸣器，新增硬件实验也应继续保持显式启用。

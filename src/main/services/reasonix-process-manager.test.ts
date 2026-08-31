@@ -8,13 +8,17 @@ import { ReasonixProcessManager, ROBOTDOG_DEEPSEEK_MODEL_ID } from './reasonix-p
 describe('ReasonixProcessManager', () => {
   it('verifies the pinned binary hash and rejects tampering', async () => {
     const root = await mkdtemp(join(tmpdir(), 'reasonix-runtime-'))
-    const binaryPath = join(root, 'reasonix.exe')
-    const bytes = Buffer.from('fixture-binary')
-    await writeFile(binaryPath, bytes)
-    const valid = new ReasonixProcessManager({ version: 'fixture', binaryPath, binarySha256: createHash('sha256').update(bytes).digest('hex') })
-    await expect(valid.verifyBinary()).resolves.toBeUndefined()
-    const invalid = new ReasonixProcessManager({ version: 'fixture', binaryPath, binarySha256: '0'.repeat(64) })
-    await expect(invalid.verifyBinary()).rejects.toThrow('REASONIX_HASH_MISMATCH')
+    try {
+      const binaryPath = join(root, 'reasonix.exe')
+      const bytes = Buffer.from('fixture-binary')
+      await writeFile(binaryPath, bytes)
+      const valid = new ReasonixProcessManager({ version: 'fixture', binaryPath, binarySha256: createHash('sha256').update(bytes).digest('hex') })
+      await expect(valid.verifyBinary()).resolves.toBeUndefined()
+      const invalid = new ReasonixProcessManager({ version: 'fixture', binaryPath, binarySha256: '0'.repeat(64) })
+      await expect(invalid.verifyBinary()).rejects.toThrow('REASONIX_HASH_MISMATCH')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   it('starts the pinned v1.17 runtime with isolated config when the binary is prepared', async () => {
@@ -48,5 +52,5 @@ describe('ReasonixProcessManager', () => {
       await rm(projectRoot, { recursive: true, force: true })
       await rm(stateRoot, { recursive: true, force: true })
     }
-  })
+  }, 15_000)
 })

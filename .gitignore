@@ -8,6 +8,8 @@ playwright-report/
 test-results/
 .firmware-build/
 .firmware-sources/
+.tmp/
+.codex-remote-attachments/
 
 # Electron and native build caches
 .electron-vite/

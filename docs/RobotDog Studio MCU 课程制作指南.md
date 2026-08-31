@@ -1,9 +1,9 @@
 # RobotDog Studio MCU 课程制作指南
 
-更新日期：2026-08-19
+更新日期：2026-08-31
 
 适用项目：RobotDog Studio MCU Foundations  
-当前参考课程：`ch32v203-foundations`，`contentVersion: 6`
+当前参考课程：`ch32v203-foundations`，`contentVersion: 9`
 
 ## 1. 指南目标
 
@@ -181,7 +181,7 @@ resources/courses/mcu-foundations/<courseId>/course.json
 {
   "schemaVersion": 1,
   "courseId": "ch32v203-foundations",
-  "contentVersion": 6,
+  "contentVersion": 9,
   "title": "CH32V203 单片机入门",
   "summary": "课程对学生的整体价值",
   "audience": "电子类专业大学低年级学生",
@@ -189,7 +189,7 @@ resources/courses/mcu-foundations/<courseId>/course.json
     "完成课程后能够观察或验证的能力"
   ],
   "status": "draft",
-  "boardScope": "CH32V203 RobotDog 教学硬件",
+  "boardScope": "CH32V203 RHS 机器马教学开发板",
   "lessonOrder": [
     "studio-first-build",
     "new-lesson-id"
@@ -197,7 +197,7 @@ resources/courses/mcu-foundations/<courseId>/course.json
   "progressCompatibleFrom": [5],
   "learningCompatibleFrom": [5],
   "sourceAttribution": [
-    "RobotDog Studio 当前固件基线与学生工作区模板"
+    "Robot Horse Studio（RHS）当前固件基线与学生工作区模板"
   ]
 }
 ```
@@ -621,7 +621,7 @@ compatibility/content-v6.json
 
 硬件课程不能用模拟结果代替真机验证。发布前至少完成：
 
-- [ ] 目标芯片、RobotDog 板版本和原理图一致；
+- [ ] 目标芯片、RHS 机器马开发板版本和原理图一致；
 - [ ] 引脚复用、时钟、调试口、CCD、运动控制和通信占用已核对；
 - [ ] 电源、电平、接线方向和运动风险已评估；
 - [ ] 当前 Workspace 的完整 Firmware Build 通过；
@@ -642,7 +642,7 @@ compatibility/content-v6.json
 - 恢复结果；
 - 验证人和日期。
 
-引用 WCH EVT 时还要记录精确相对路径、版权和许可证提示、使用的 API 与初始化顺序、官方参考板与 RobotDog 板差异。不得修改外部 EVT 原目录，也不得将整个 EVT 复制进发行包。
+引用 WCH EVT 时还要记录精确相对路径、版权和许可证提示、使用的 API 与初始化顺序、官方参考板与 RHS 机器马开发板差异。不得修改外部 EVT 原目录，也不得将整个 EVT 复制进发行包。
 
 ## 13. 自动验证
 

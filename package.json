@@ -1,7 +1,7 @@
 {
   "name": "robotdog-studio",
   "version": "0.1.0",
-  "description": "AI-assisted control and learning studio for the CH32V203 robot dog",
+  "description": "AI-assisted control and learning studio for the CH32V203 machine horse",
   "main": "./out/main/index.cjs",
   "author": "RobotDog Studio contributors",
   "license": "UNLICENSED",
@@ -16,6 +16,7 @@
     "smoke:electron:fun": "npm run build && cross-env ROBOTDOG_EDITION=fun-line-following node scripts/smoke-electron.mjs",
     "smoke:electron:mcu": "npm run build && cross-env ROBOTDOG_EDITION=mcu-foundations node scripts/smoke-electron.mjs",
     "verify": "npm test && npm run smoke:electron:fun && npm run smoke:electron:mcu",
+    "check": "npm run courses:validate && npm test && npm run build",
     "courses:validate": "tsx scripts/validate-mcu-courses.ts",
     "baseline:release:check": "node scripts/check-release-baseline.mjs",
     "package:win:test": "npm run package:win:fun:test",

@@ -6,6 +6,7 @@
 
 请勾选或补充已执行的检查：
 
+- [ ] `npm run courses:validate`（课程资源有改动时必选）
 - [ ] `npm run typecheck`
 - [ ] `npm test`
 - [ ] `npm run build`
