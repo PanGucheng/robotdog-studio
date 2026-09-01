@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "ti-mspm0g3507-sdk-2.11.00.07",
   "label": "TI MSPM0G3507 GPIO Golden Project",
-  "status": "provisional",
-  "releaseEligible": false,
-  "replacementPolicy": "开发阶段固定使用 MSPM0 SDK 2.11.00.07；升级必须显式验证。",
+  "status": "release",
+  "releaseEligible": true,
+  "replacementPolicy": "固定使用已完成 SysConfig、Arm GCC、OpenOCD、DAPLink 真机验证的 MSPM0 SDK 2.11.00.07；升级必须显式复验。",
   "source": {
     "repository": "resources/workspace-templates/ti-mspm0g3507-foundations",
     "expectedCommit": "2110000700000000000000000000000000000000",

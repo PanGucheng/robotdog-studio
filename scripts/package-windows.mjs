@@ -8,15 +8,18 @@ import { Arch, build, Platform } from 'electron-builder'
 
 const execFileAsync = promisify(execFile)
 const root = process.cwd()
-const editionAliases = { fun: 'fun-line-following', mcu: 'mcu-foundations', 'fun-line-following': 'fun-line-following', 'mcu-foundations': 'mcu-foundations' }
+const editionAliases = { fun: 'fun-line-following', mcu: 'mcu-foundations', ti: 'ti-mspm0-foundations', 'fun-line-following': 'fun-line-following', 'mcu-foundations': 'mcu-foundations', 'ti-mspm0-foundations': 'ti-mspm0-foundations' }
 const legacyInvocation = process.argv[2] === 'zip' || process.argv[2] === 'nsis'
 const editionId = legacyInvocation ? 'fun-line-following' : editionAliases[process.argv[2]]
-if (!editionId) throw new Error('Usage: node scripts/package-windows.mjs <fun|mcu> <zip|nsis> <provisional|formal>')
+if (!editionId) throw new Error('Usage: node scripts/package-windows.mjs <fun|mcu|ti> <zip|nsis> <provisional|formal>')
 const targetArg = legacyInvocation ? process.argv[2] : process.argv[3]
 const releaseArg = legacyInvocation ? process.argv[3] : process.argv[4]
 const target = targetArg === 'nsis' ? 'nsis' : 'zip'
 const formal = releaseArg === 'formal'
-const edition = editionId === 'mcu-foundations' ? {
+const edition = editionId === 'ti-mspm0-foundations' ? {
+  appId: 'cn.robotdog.studio.ti.mspm0', productName: 'RobotDog Studio TI MSPM0 教学版', executableName: 'RobotDogStudio-TI-MSPM0', artifactSlug: 'RobotDog-Studio-TI-MSPM0',
+  templateBase: 'resources/workspace-templates/ti-mspm0g3507-foundations'
+} : editionId === 'mcu-foundations' ? {
   appId: 'cn.robotdog.studio.mcu', productName: 'RobotDog Studio 单片机入门版', executableName: 'RobotDogStudio-MCU', artifactSlug: 'RobotDog-Studio-MCU',
   templateBase: 'resources/workspace-templates/ch32v203-mcu-foundations'
 } : {
@@ -25,7 +28,7 @@ const edition = editionId === 'mcu-foundations' ? {
 }
 const packageOutputRoot = join(root, 'release', `.stage-${editionId}-${target}`)
 await rm(packageOutputRoot, { recursive: true, force: true })
-const installerInclude = join(root, 'build', 'installer.nsh')
+const installerInclude = join(root, 'build', editionId === 'ti-mspm0-foundations' ? 'installer-ti.nsh' : 'installer.nsh')
 if (target === 'nsis' && !(await stat(installerInclude).then((info) => info.isFile(), () => false))) {
   throw new Error(`NSIS 安装器脚本缺失：${installerInclude}`)
 }
@@ -43,24 +46,26 @@ await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
   main: './out/main/index.cjs', author: 'RobotDog Studio contributors', license: 'UNLICENSED', type: 'module', dependencies: {}
 }, null, 2)}\n`)
 
-const baselineName = editionId === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog'
+const baselineName = editionId === 'ti-mspm0-foundations' ? 'ti-mspm0g3507' : editionId === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog'
 const baselineTarget = `firmware-baselines/${baselineName}/current/source`
 const baselineRoot = join(root, 'resources', 'firmware-baselines', baselineName)
 const registry = JSON.parse(await readFile(join(baselineRoot, 'active.json'), 'utf8'))
-const selectedTemplate = editionId === 'fun-line-following'
+const selectedTemplate = editionId === 'ti-mspm0-foundations'
+  ? edition.templateBase
+  : editionId === 'fun-line-following'
   ? (registry.studentTemplate ?? 'resources/workspace-templates/ch32v203-robotdog/2026.06')
   : (registry.studentTemplate ?? `${edition.templateBase}/${registry.shortCommit ?? '2026.06'}`)
 const gitRoot = resolve(process.env.ROBOTDOG_PACKAGED_GIT_ROOT ?? 'C:\\Program Files\\Git')
 if (!(await stat(join(gitRoot, 'cmd', 'git.exe')).then((info) => info.isFile(), () => false))) {
   throw new Error(`打包需要 Git for Windows：未找到 ${join(gitRoot, 'cmd', 'git.exe')}`)
 }
-const wchLinkDriverRoot = resolve(process.env.ROBOTDOG_WCHLINK_DRIVER_ROOT ?? 'C:\\WCH.CN\\WCHLinkDrv')
-if (!(await stat(join(wchLinkDriverRoot, 'WCHLinkWDM.INF')).then((info) => info.isFile(), () => false))) {
+const wchLinkDriverRoot = editionId === 'ti-mspm0-foundations' ? undefined : resolve(process.env.ROBOTDOG_WCHLINK_DRIVER_ROOT ?? 'C:\\WCH.CN\\WCHLinkDrv')
+if (wchLinkDriverRoot && !(await stat(join(wchLinkDriverRoot, 'WCHLinkWDM.INF')).then((info) => info.isFile(), () => false))) {
   throw new Error(`打包需要 WCH-Link 驱动：未找到 ${join(wchLinkDriverRoot, 'WCHLinkWDM.INF')}`)
 }
 const packagedGitRoot = join(appDir, 'toolchains', 'git')
 await preparePackagedGitRuntime(gitRoot, packagedGitRoot)
-const externalFirmware = resolve(process.env.ROBOTDOG_PACKAGED_FIRMWARE_ROOT ?? (editionId === 'mcu-foundations' ? join(root, 'firmware', 'ch32v203-baseline') : (registry.schemaVersion === 2 ? join(root, '.firmware-sources', 'ch32v203-robot-dog') : join(root, '..', 'ch32v203-robot-dog'))))
+const externalFirmware = resolve(process.env.ROBOTDOG_PACKAGED_FIRMWARE_ROOT ?? (editionId === 'ti-mspm0-foundations' ? join(root, edition.templateBase) : editionId === 'mcu-foundations' ? join(root, 'firmware', 'ch32v203-baseline') : (registry.schemaVersion === 2 ? join(root, '.firmware-sources', 'ch32v203-robot-dog') : join(root, '..', 'ch32v203-robot-dog'))))
 const manifestRef = registry.schemaVersion === 2 ? registry.verifiedFirmwareManifest : registry.manifest
 const manifest = JSON.parse(await readFile(join(baselineRoot, manifestRef), 'utf8'))
 const reasonixRuntime = JSON.parse(await readFile(join(root, 'config', 'reasonix-runtime.json'), 'utf8'))
@@ -84,15 +89,33 @@ if (registry.schemaVersion === 2) {
   }
   console.log(`Verified packaged firmware baseline: ${manifest.id} (${externalFirmware})`)
 }
+const tiSourceBase = resolve(process.env.ROBOTDOG_TI_TOOLCHAIN_SOURCE_ROOT ?? 'D:\\ti')
+const tiSources = editionId === 'ti-mspm0-foundations' ? {
+  sdk: resolve(process.env.ROBOTDOG_TI_MSPM0_SDK_ROOT ?? join(tiSourceBase, 'mspm0_sdk_2_11_00_07')),
+  sysconfig: resolve(process.env.ROBOTDOG_TI_SYSCONFIG_ROOT ?? join(tiSourceBase, 'sysconfig_1.28.1')),
+  gcc: resolve(process.env.ROBOTDOG_TI_GCC_ROOT ?? join(tiSourceBase, 'gcc-arm-none-eabi-9-2019-q4-major-win32')),
+  openocd: resolve(process.env.ROBOTDOG_TI_OPENOCD_ROOT ?? join(tiSourceBase, 'openocd-d9b957f-i686-w64-mingw32'))
+} : undefined
+if (tiSources) await verifyTiToolchain(tiSources)
 const extraResources = [
   { from: resolve(root, selectedTemplate), to: selectedTemplate.replace(/^resources[\\/]/, '').replaceAll('\\', '/') },
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'courses', 'mcu-foundations'), to: 'courses/mcu-foundations' }] : []),
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'), to: 'workspace-templates/ch32v203-mcu-lessons' }] : []),
+  ...(editionId === 'ti-mspm0-foundations' ? [{ from: join(root, 'resources', 'courses', 'ti-mspm0-foundations'), to: 'courses/ti-mspm0-foundations' }] : []),
   { from: join(root, 'resources', 'firmware-baselines'), to: 'firmware-baselines' },
   { from: join(root, 'resources', 'board-profiles'), to: 'board-profiles' },
   { from: join(root, 'resources', reasonixToolPath), to: reasonixToolPath },
-  { from: join(root, 'vendor', 'wch'), to: 'toolchains/wch' },
-  { from: wchLinkDriverRoot, to: 'toolchains/wch/drivers/WCHLinkDrv' },
+  ...(editionId !== 'ti-mspm0-foundations' ? [{ from: join(root, 'vendor', 'wch'), to: 'toolchains/wch' }] : []),
+  ...(wchLinkDriverRoot ? [{ from: wchLinkDriverRoot, to: 'toolchains/wch/drivers/WCHLinkDrv' }] : []),
+  ...(tiSources ? [
+    { from: join(root, 'resources', 'toolchains', 'ti-mspm0', 'manifest.json'), to: 'toolchains/ti-mspm0/manifest.json' },
+    { from: tiSources.sdk, to: 'toolchains/ti-mspm0/sdk' },
+    { from: tiSources.sysconfig, to: 'toolchains/ti-mspm0/sysconfig' },
+    { from: join(root, 'resources', 'toolchains', 'ti-mspm0', 'sysconfig-package.json'), to: 'toolchains/ti-mspm0/sysconfig/package.json' },
+    { from: tiSources.gcc, to: 'toolchains/ti-mspm0/gcc' },
+    { from: tiSources.openocd, to: 'toolchains/ti-mspm0/openocd' },
+    { from: join(root, 'vendor', 'wch', 'OpenOCD', 'OpenOCD', 'distro-info', 'licenses', 'openocd-0.11.0', 'COPYING'), to: 'toolchains/ti-mspm0/licenses/openocd/COPYING' }
+  ] : []),
   { from: packagedGitRoot, to: 'toolchains/git' },
   {
     from: externalFirmware,
@@ -110,7 +133,8 @@ const extraResources = [
       'Ld/**/*',
       'cmake/**/*',
       'student-config/**/*',
-      'tools/**/*'
+      'tools/**/*',
+      'src/**/*', 'gcc/**/*', '*.syscfg', 'robotdog.project.json', 'reasonix.toml', 'AGENTS.md'
     ]
   }
 ]
@@ -156,7 +180,23 @@ const packagedResourcesRoot = join(packageOutputRoot, 'win-unpacked', 'resources
 await verifyPackagedFirmwareSource(join(packagedResourcesRoot, baselineTarget))
 await verifyPackagedWorkspaceTemplate(resolvePackagedResource(packagedResourcesRoot, selectedTemplate), editionId)
 if (editionId === 'mcu-foundations') await verifyPackagedCourseResources(join(packagedResourcesRoot, 'courses', 'mcu-foundations'), join(packagedResourcesRoot, 'workspace-templates', 'ch32v203-mcu-lessons'))
-await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
+if (editionId === 'ti-mspm0-foundations') {
+  await verifyPackagedCourseResources(join(packagedResourcesRoot, 'courses', 'ti-mspm0-foundations'), join(packagedResourcesRoot, 'workspace-templates'))
+  for (const item of ['manifest.json', 'sysconfig/package.json', 'licenses/openocd/COPYING']) {
+    const path = join(packagedResourcesRoot, 'toolchains', 'ti-mspm0', ...item.split('/'))
+    if (!(await stat(path).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 TI 工具链缺少清单、兼容边界或许可证：${item}`)
+  }
+  await verifyTiToolchain({
+    sdk: join(packagedResourcesRoot, 'toolchains', 'ti-mspm0', 'sdk'),
+    sysconfig: join(packagedResourcesRoot, 'toolchains', 'ti-mspm0', 'sysconfig'),
+    gcc: join(packagedResourcesRoot, 'toolchains', 'ti-mspm0', 'gcc'),
+    openocd: join(packagedResourcesRoot, 'toolchains', 'ti-mspm0', 'openocd')
+  })
+  await execFileAsync(process.execPath, [join(root, 'node_modules', 'tsx', 'dist', 'cli.mjs'), join(root, 'scripts', 'smoke-ti-mspm0.ts'), '--resources-root', packagedResourcesRoot], {
+    cwd: root, windowsHide: true, timeout: 180_000, maxBuffer: 4 * 1024 * 1024,
+    env: { ...process.env, ROBOTDOG_TI_MSPM0_SDK_ROOT: 'Z:\\forbidden-development-sdk', ROBOTDOG_TI_SYSCONFIG_ROOT: 'Z:\\forbidden-development-sysconfig', ROBOTDOG_TI_GCC_ROOT: 'Z:\\forbidden-development-gcc', ROBOTDOG_TI_OPENOCD_ROOT: 'Z:\\forbidden-development-openocd' }
+  }).then(({ stdout }) => console.log(stdout.trim()))
+} else await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
   await rm(destinationRoot, { recursive: true, force: true })
@@ -183,6 +223,13 @@ async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
 }
 
 async function verifyPackagedFirmwareSource(sourceRoot) {
+  if (editionId === 'ti-mspm0-foundations') {
+    for (const item of ['README.md', 'gpio_toggle_output.syscfg', 'src/main.c', 'gcc/device_linker.lds']) {
+      if (!(await stat(join(sourceRoot, ...item.split('/'))).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 TI MSPM0 基线缺少必要文件：${item}`)
+    }
+    console.log(`Verified packaged TI MSPM0 baseline (${sourceRoot})`)
+    return
+  }
   if (editionId === 'mcu-foundations') {
     for (const item of ['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'Core/core_riscv.c', 'RHS_HAL/Inc/rhs_hal.h', 'Board/Inc/rhs_board.h', 'Teaching/Inc/rhs_teaching_platform.h', 'Startup/startup_ch32v20x_D6.S', 'Ld/Link.ld']) {
       if (!(await stat(join(sourceRoot, ...item.split('/'))).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 RHS 固件源码缺少必要文件：${item}`)
@@ -214,6 +261,13 @@ function resolvePackagedResource(resourcesRoot, resourcePath) {
 }
 
 async function verifyPackagedWorkspaceTemplate(templateRoot, currentEdition) {
+  if (currentEdition === 'ti-mspm0-foundations') {
+    for (const item of ['README.md', 'gpio_toggle_output.syscfg', 'src/main.c', 'gcc/device_linker.lds']) {
+      if (!(await stat(join(templateRoot, ...item.split('/'))).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 TI 教学模板缺少必要文件：${item}`)
+    }
+    console.log(`Verified packaged TI workspace template (${templateRoot})`)
+    return
+  }
   if (currentEdition === 'mcu-foundations' && (await stat(join(templateRoot, 'Core')).then((info) => !info.isDirectory(), () => true))) {
     for (const item of ['README.md', 'App/Src/experiment.c', 'App/Inc/experiment.h']) {
       if (!(await stat(join(templateRoot, ...item.split('/'))).then((info) => info.isFile(), () => false))) throw new Error(`打包后的 RHS 教学模板缺少必要文件：${item}`)
@@ -269,7 +323,43 @@ async function verifyPackagedCourseResources(courseRoot, lessonTemplatesRoot) {
       lessonCount += 1
     }
   }
-  console.log(`Verified packaged MCU course resources: ${catalog.courses.length} courses, ${lessonCount} lessons, ${lectureCount} lectures, ${lectureAssetCount} assets (${courseRoot})`)
+  console.log(`Verified packaged course resources: ${catalog.courses.length} courses, ${lessonCount} lessons, ${lectureCount} lectures, ${lectureAssetCount} assets (${courseRoot})`)
+}
+
+async function verifyTiToolchain(sources) {
+  const required = [
+    [join(sources.sdk, '.metadata', 'product.json'), 'MSPM0 SDK product'],
+    [join(sources.sdk, 'source', 'ti', 'devices', 'msp', 'm0p', 'startup_system_files', 'gcc', 'startup_mspm0g350x_gcc.c'), 'MSPM0 startup'],
+    [join(sources.sdk, 'source', 'third_party', 'CMSIS', 'Core', 'Include', 'core_cm0plus.h'), 'CMSIS'],
+    [join(sources.sdk, 'source', 'ti', 'driverlib', 'lib', 'gcc', 'm0p', 'mspm0g1x0x_g3x0x', 'driverlib.a'), 'DriverLib'],
+    [join(sources.sdk, 'license_mspm0_sdk_2_11_00_07.txt'), 'MSPM0 SDK license'],
+    [join(sources.sysconfig, 'sysconfig_cli.bat'), 'SysConfig CLI'],
+    [join(sources.sysconfig, 'sysconfig_gui.bat'), 'SysConfig GUI'],
+    [join(sources.sysconfig, 'dist', 'license.txt'), 'SysConfig license'],
+    [join(sources.gcc, 'bin', 'arm-none-eabi-gcc.exe'), 'Arm GCC'],
+    [join(sources.gcc, 'bin', 'arm-none-eabi-objcopy.exe'), 'Arm objcopy'],
+    [join(sources.gcc, 'bin', 'arm-none-eabi-size.exe'), 'Arm size'],
+    [join(sources.gcc, 'share', 'doc', 'gcc-arm-none-eabi', 'license.txt'), 'Arm GCC license'],
+    [join(sources.openocd, 'bin', 'openocd.exe'), 'OpenOCD'],
+    [join(sources.openocd, 'share', 'openocd', 'scripts', 'interface', 'cmsis-dap.cfg'), 'CMSIS-DAP config'],
+    [join(sources.openocd, 'share', 'openocd', 'scripts', 'target', 'ti', 'mspm0.cfg'), 'MSPM0 target config'],
+    [join(sources.openocd, 'share', 'openocd', 'scripts', 'board', 'ti', 'mspm0-launchpad.cfg'), 'MSPM0 board config']
+  ]
+  for (const [path, label] of required) if (!(await stat(path).then((info) => info.isFile(), () => false))) throw new Error(`TI 工具链预检失败：${label} 不存在 (${path})`)
+  const gcc = await commandOutput(join(sources.gcc, 'bin', 'arm-none-eabi-gcc.exe'), ['--version'])
+  const objcopy = await commandOutput(join(sources.gcc, 'bin', 'arm-none-eabi-objcopy.exe'), ['--version'])
+  const size = await commandOutput(join(sources.gcc, 'bin', 'arm-none-eabi-size.exe'), ['--version'])
+  const openocd = await commandOutput(join(sources.openocd, 'bin', 'openocd.exe'), ['--version'])
+  const sysconfig = await commandOutput(process.env.ComSpec ?? 'cmd.exe', ['/d', '/c', 'call', join(sources.sysconfig, 'sysconfig_cli.bat'), '--version'])
+  if (!gcc.includes('9-2019-q4-major') || !objcopy.includes('9-2019-q4-major') || !size.includes('9-2019-q4-major')) throw new Error('TI 工具链预检失败：Arm GCC 工具版本不是 9-2019-q4-major')
+  if (!openocd.includes('d9b957f')) throw new Error('TI 工具链预检失败：OpenOCD 不是冻结提交 d9b957f')
+  if (!sysconfig.includes('1.28.1+4785')) throw new Error('TI 工具链预检失败：SysConfig 不是 1.28.1+4785')
+  console.log(`Verified TI managed toolchain: SDK 2.11.00.07, SysConfig 1.28.1+4785, GCC 9-2019-q4-major, OpenOCD d9b957f`)
+}
+
+async function commandOutput(executable, args) {
+  const { stdout, stderr } = await execFileAsync(executable, args, { windowsHide: true, timeout: 30_000, maxBuffer: 2 * 1024 * 1024, encoding: 'utf8' })
+  return `${stdout}${stderr}`
 }
 
 async function verifyPackagedWchLinkDriver(driverRoot) {

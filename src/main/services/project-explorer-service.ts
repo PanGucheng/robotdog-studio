@@ -171,7 +171,7 @@ function languageFor(name: string): ProjectExplorerLanguage | undefined {
   if (extension === '.c' || extension === '.h') return 'c'
   if (extension === '.cpp' || extension === '.hpp') return 'cpp'
   if (extension === '.s') return 'asm'
-  if (extension === '.ld') return 'linker'
+  if (extension === '.ld' || extension === '.lds') return 'linker'
   if (extension === '.json') return 'json'
   if (extension === '.syscfg') return 'javascript'
   if (extension === '.yaml' || extension === '.yml') return 'yaml'

@@ -2,7 +2,9 @@ import { readFile } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 
 const root = process.cwd()
-const baselineRoot = join(root, 'resources', 'firmware-baselines', 'ch32v203-robotdog')
+const baselineName = process.argv[2] ?? 'ch32v203-robotdog'
+if (!['ch32v203-robotdog', 'ch32v203-rhs', 'ti-mspm0g3507'].includes(baselineName)) throw new Error('未知固件基线')
+const baselineRoot = join(root, 'resources', 'firmware-baselines', baselineName)
 const registry = JSON.parse(await readFile(join(baselineRoot, 'active.json'), 'utf8'))
 const manifestRef = registry.schemaVersion === 2 ? registry.verifiedFirmwareManifest : registry.manifest
 if (typeof manifestRef !== 'string' || isAbsolute(manifestRef) || manifestRef.split(/[\\/]/).includes('..')) throw new Error('固件基线登记路径不安全')

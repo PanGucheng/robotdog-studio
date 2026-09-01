@@ -397,6 +397,7 @@ export class WorkspaceService {
   }
 
   private async writeManagedProjectFiles(projectRoot: string, spec?: WorkspaceCreationSpec): Promise<void> {
+    if (this.edition.platform === 'ti-mspm0') await writeFile(join(projectRoot, '.gitignore'), 'generated/\n', 'utf8')
     const policy = isMcuEdition(this.edition.id) ? {
       schemaVersion: 1,
       policyProfile: this.edition.policyProfile,

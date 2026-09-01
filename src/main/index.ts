@@ -16,7 +16,8 @@ import { TiMspm0ToolchainService } from './services/ti-mspm0-toolchain-service'
 import { TiMspm0BuildService } from './services/ti-mspm0-build-service'
 import { TiMspm0FlashService } from './services/ti-mspm0-flash-service'
 import { WchLinkFlashService } from './services/wch-link-flash-service'
-import { CandidateBuildService } from './services/candidate-build-service'
+import { CandidateBuildService, PlatformCandidateBuildService } from './services/candidate-build-service'
+import { TiMspm0CandidateBuildService } from './services/ti-mspm0-candidate-build-service'
 import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
@@ -62,11 +63,13 @@ function createWindow(): void {
         const [toolchain, baseline, runtime, activeEdition] = await Promise.all([
           window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo(), window.robotDog.getEditionProfile()
         ])
-        const courses = activeEdition.id === 'mcu-foundations' ? await window.robotDog.listCourses() : []
-        const course = courses[0] ? await window.robotDog.getCourse(courses[0].courseId) : undefined
+        const courses = activeEdition.id !== 'fun-line-following' ? await window.robotDog.listCourses() : []
+        const expectedCourseId = activeEdition.id === 'ti-mspm0-foundations' ? 'ti-mspm0-gpio-foundations' : undefined
+        const courseSummary = expectedCourseId ? courses.find((item) => item.courseId === expectedCourseId) : courses[0]
+        const course = courseSummary ? await window.robotDog.getCourse(courseSummary.courseId) : undefined
         const firstLecture = course?.lessons[0] ? await window.robotDog.getCourseLecture(course.courseId, course.lessons[0].lessonId) : undefined
         const lessonAttempt = course?.lessons[0] ? await window.robotDog.createLessonAttempt({ courseId: course.courseId, lessonId: course.lessons[0].lessonId, studentDisplayName: '测试同学' }) : undefined
-        const secondLessonAttempt = course?.lessons[1] ? await window.robotDog.createLessonAttempt({ courseId: course.courseId, lessonId: course.lessons[1].lessonId, studentDisplayName: '测试同学' }) : undefined
+        const secondLessonAttempt = activeEdition.id === 'mcu-foundations' && course?.lessons[1] ? await window.robotDog.createLessonAttempt({ courseId: course.courseId, lessonId: course.lessons[1].lessonId, studentDisplayName: '测试同学' }) : undefined
         const lessonAttempts = course?.lessons[0] ? await window.robotDog.listLessonAttempts(course.courseId, course.lessons[0].lessonId) : []
         const secondLessonFiles = secondLessonAttempt ? await window.robotDog.listStudentCodeFiles(secondLessonAttempt.id) : []
         const completeLesson = async (attempt, lessonSummary) => {
@@ -97,7 +100,7 @@ function createWindow(): void {
           const lesson = await window.robotDog.getCourseLesson(attempt.courseBinding.courseId, attempt.courseBinding.lessonId)
           const requiredChangedFile = lesson.completionChecks.find((check) => check.type === 'student-change-applied')?.target
           const files = await window.robotDog.listStudentCodeFiles(attempt.id)
-          const editable = files.find((file) => file.editable && file.path === requiredChangedFile)
+          const editable = files.find((file) => file.editable && file.path === requiredChangedFile) ?? files.find((file) => file.editable && file.path.endsWith('.c'))
           if (!editable) throw new Error('SMOKE_INVALIDATION_FILE_MISSING')
           await window.robotDog.writeWorkspaceFile(attempt.id, editable.path, editable.content + '\\n/* Source changed after completion */\\n')
           return window.robotDog.getCourseProgress(attempt.id)
@@ -106,19 +109,54 @@ function createWindow(): void {
         const existing = await window.robotDog.listWorkspaces()
         const workspace = secondLessonAttempt ?? lessonAttempt ?? existing.find((item) => item.firmwareBaselineId === baseline.id && item.baselineCommit === baseline.expectedCommit)
           ?? await window.robotDog.createWorkspace({ name: '桌面包自动验证', studentDisplayName: '测试同学' })
-        const explorer = activeEdition.id === 'mcu-foundations' ? await window.robotDog.getProjectExplorer(workspace.id) : undefined
+        const explorer = activeEdition.id !== 'fun-line-following' ? await window.robotDog.getProjectExplorer(workspace.id) : undefined
         const explorerMain = explorer?.nodes.find((node) => node.displayPath === 'User/main.c')
         const explorerMainFile = explorerMain ? await window.robotDog.readProjectExplorerFile(workspace.id, explorerMain.id) : undefined
         const firmware = secondLessonResult?.firmware ?? firstLessonResult?.firmware ?? await window.robotDog.startFirmwareBuild(workspace.id)
+        const postBuildExplorer = activeEdition.id === 'ti-mspm0-foundations' ? await window.robotDog.getProjectExplorer(workspace.id) : explorer
+        const tiFiles = activeEdition.id === 'ti-mspm0-foundations' ? await window.robotDog.listStudentCodeFiles(workspace.id) : []
+        const tiMain = postBuildExplorer?.nodes.find((node) => node.displayPath === 'src/main.c')
+        const tiSyscfg = postBuildExplorer?.nodes.find((node) => node.displayPath === 'gpio_toggle_output.syscfg')
+        const tiGenerated = postBuildExplorer?.nodes.find((node) => node.displayPath.startsWith('generated/') && node.kind === 'file')
+        const tiLinker = postBuildExplorer?.nodes.find((node) => node.displayPath === 'gcc/device_linker.lds')
+        let staleArtifactRejected = false
+        if (activeEdition.id === 'ti-mspm0-foundations' && invalidatedFirstLessonProgress) {
+          try { await window.robotDog.startFirmwareUpdate(workspace.id) }
+          catch (error) { staleArtifactRejected = /变化|重新编译/.test(String(error)) }
+        }
+        const artifactKinds = firmware.artifacts.map((item) => item.kind).sort().join(',')
+        const tiChecks = {
+          course: course?.courseId === 'ti-mspm0-gpio-foundations' && course.lessons.length === 1 && course.lessons[0].lessonId === 'gpio-sysconfig-toggle',
+          lecture: firstLecture?.status === 'ready', attempt: lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt',
+          workspace: workspace.learningPath === 'ti-mspm0-foundations' && workspace.platform === 'ti-mspm0' && workspace.target === 'MSPM0G3507' && workspace.toolchainProfile === 'ti-mspm0-sdk-2.11-gcc9-openocd',
+          files: tiFiles.some((file) => file.path === 'src/main.c' && file.editable) && tiFiles.some((file) => file.path.endsWith('.syscfg') && file.editable),
+          access: tiMain?.access === 'editable' && tiSyscfg?.access === 'editable' && tiGenerated?.access === 'read-only' && tiLinker?.access === 'read-only',
+          tools: Boolean(toolchain.sdk?.ok && toolchain.sysconfig?.ok && toolchain.openocd.ok),
+          build: firmware.state === 'completed' && artifactKinds === 'bin,elf,hex,map' && Boolean(firmware.proof),
+          stale: invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale' && staleArtifactRejected
+        }
+        const tiSmokeOk = activeEdition.id !== 'ti-mspm0-foundations' || Object.values(tiChecks).every(Boolean)
+        const mcuChecks = {
+          course: courses.length > 0 && Boolean(course?.lessons.length),
+          lecture: firstLecture?.status === 'ready' && !JSON.stringify(firstLecture).includes('lecture.md'),
+          attempt: lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1,
+          files: Boolean(explorer?.baselineAvailable && explorer.nodes.some((node) => node.kind === 'file' && node.access === 'editable' && node.displayPath.endsWith('.c'))),
+          protectedSource: explorerMain?.access === 'read-only' && explorerMainFile?.content.includes('main'),
+          build: firmware.state === 'completed' && artifactKinds === 'bin,elf,hex,map',
+          stale: invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'
+        }
+        const mcuSmokeOk = activeEdition.id !== 'mcu-foundations' || Object.values(mcuChecks).every(Boolean)
         return {
-          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && !firmware.logs.some((line) => line === '进程结束 · exit code 0' || /^> .*gcc/i.test(line)) && (activeEdition.id !== 'mcu-foundations' || (courses.length > 0 && course?.lessons.length >= 2 && firstLecture?.status === 'ready' && !JSON.stringify(firstLecture).includes('lecture.md') && lessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && secondLessonAttempt?.workspacePurpose === 'mcu-lesson-attempt' && lessonAttempts.length === 1 && secondLessonFiles.some((file) => file.path === 'App/Src/number_tools.c' && file.editable) && explorer?.baselineAvailable && explorer.nodes.some((node) => node.displayPath === 'App/Src/number_tools.c' && node.access === 'editable') && explorerMain?.access === 'read-only' && explorerMainFile?.content.includes('main') && firstLessonResult?.progress.state === 'completed' && secondLessonResult?.progress.state === 'completed' && invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['candidate-build'].state === 'stale' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'))),
+          ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && !firmware.logs.some((line) => line === '进程结束 · exit code 0' || /^> .*gcc/i.test(line)) && tiSmokeOk && mcuSmokeOk),
           edition: activeEdition.id,
           courseCount: courses.length, lessonCount: course?.lessons.length ?? 0, lessonAttemptCount: lessonAttempts.length, secondLessonFileCount: secondLessonFiles.length,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
           releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
           firstLessonProgress: firstLessonResult?.progress.state, secondLessonProgress: secondLessonResult?.progress.state, explorerNodes: explorer?.nodes.length ?? 0,
           firstLessonAfterSourceChange: invalidatedFirstLessonProgress?.state,
-          firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind), firmwareLogLines: firmware.logs.length
+          firmwareState: firmware.state, firmwareArtifacts: firmware.artifacts.map((item) => item.kind), firmwareLogLines: firmware.logs.length,
+          mcuSmokeOk, mcuFailedChecks: activeEdition.id === 'mcu-foundations' ? Object.entries(mcuChecks).filter(([, passed]) => !passed).map(([name]) => name) : [],
+          tiSmokeOk, tiFailedChecks: activeEdition.id === 'ti-mspm0-foundations' ? Object.entries(tiChecks).filter(([, passed]) => !passed).map(([name]) => name) : [], tiFileCount: tiFiles.length, staleArtifactRejected
         }
         } catch (error) {
           return { ok: false, reason: String(error?.stack ?? error) }
@@ -168,7 +206,15 @@ app.whenReady().then(async () => {
   const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, templateVersion: baselineRegistry.templateVersion, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit, edition })
   await workspaces.initialize()
   const toolchain = edition.platform === 'ti-mspm0' ? new TiMspm0ToolchainService() : new ToolchainService()
-  const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(new ToolchainService(), join(workspaceRoot, 'build-cache')) })
+  const candidateCache = join(workspaceRoot, 'build-cache')
+  const candidates = new CandidateService({
+    rootDir: workspaceRoot,
+    workspaces,
+    builder: new PlatformCandidateBuildService(
+      new CandidateBuildService(new ToolchainService(), candidateCache),
+      new TiMspm0CandidateBuildService(new TiMspm0ToolchainService(), candidateCache)
+    )
+  })
   await candidates.initialize()
   const projectExplorer = isMcuEdition(edition.id) ? new ProjectExplorerService(workspaces, candidates, baseline) : undefined
   const courses = isMcuEdition(edition.id)

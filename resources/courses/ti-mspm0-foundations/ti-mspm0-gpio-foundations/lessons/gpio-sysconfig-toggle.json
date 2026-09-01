@@ -8,7 +8,7 @@
   "prerequisites": [],
   "estimatedMinutes": 75,
   "hardware": "required",
-  "verification": "pending-hardware-check",
+  "verification": "hardware-checked",
   "expectedObservation": "MSPM0G3507 LaunchPad 的 LED 按程序设定持续翻转。",
   "templateId": "ti-mspm0g3507-foundations",
   "editableGlobs": ["src/**/*.c", "src/**/*.h", "*.syscfg"],
@@ -31,5 +31,5 @@
   ],
   "reflectionQuestions": [{ "questionId": "sysconfig-role", "prompt": "为什么 GPIO 引脚配置放在 SysConfig，而 LED 翻转逻辑写在 main.c？" }],
   "aiContext": { "teachingFocus": "帮助学生区分硬件资源配置和应用逻辑，并理解生成文件不可手工维护。", "hints": ["先检查 .syscfg 是否保存", "编译日志的第一阶段应为 SysConfig", "烧录使用 CMSIS-DAP、SWD 和 MSPM0 OpenOCD"] },
-  "status": "draft"
+  "status": "published"
 }

@@ -4,7 +4,7 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { promisify } from 'node:util'
 import type { CandidateBuildProof, CandidateDiagnostic } from '../../shared/types'
-import type { EditionId } from '../../shared/edition'
+import type { EditionId, McuPlatformId } from '../../shared/edition'
 import { ToolchainService } from './toolchain-service'
 
 const execFileAsync = promisify(execFile)
@@ -15,10 +15,21 @@ export interface CandidateBuildInput {
   sourceTreeHash: string
   diffHash: string
   learningPath?: EditionId
+  platform: McuPlatformId
 }
 
 export interface CandidateBuilder {
   build(input: CandidateBuildInput): Promise<CandidateBuildProof>
+}
+
+export class PlatformCandidateBuildService implements CandidateBuilder {
+  constructor(private readonly wch: CandidateBuilder, private readonly ti: CandidateBuilder) {}
+
+  build(input: CandidateBuildInput): Promise<CandidateBuildProof> {
+    if (input.platform === 'ti-mspm0') return this.ti.build(input)
+    if (input.platform === 'wch-ch32v203') return this.wch.build(input)
+    throw new Error(`CANDIDATE_PLATFORM_UNSUPPORTED: ${String(input.platform)}`)
+  }
 }
 
 export class CandidateBuildError extends Error {
@@ -32,6 +43,7 @@ export class CandidateBuildService implements CandidateBuilder {
   constructor(private readonly toolchain: ToolchainService, private readonly cacheRoot: string) {}
 
   async build(input: CandidateBuildInput): Promise<CandidateBuildProof> {
+    if (input.platform !== 'wch-ch32v203') throw new Error('WCH 候选构建拒绝处理非 CH32 工程。')
     const status = await this.toolchain.getStatus()
     if (!status.gcc.ok) throw new Error(`候选编译不可用：${status.gcc.detail}`)
     const outputDir = join(this.cacheRoot, input.candidateId)
@@ -115,7 +127,7 @@ export function parseCompilerDiagnostics(detail: string, maximum = 6): Candidate
   const pattern = /([^\r\n:]*?\.(?:c|h|s)):(\d+)(?::(\d+))?:\s*(fatal error|error|warning):\s*([^\r\n]+)/gi
   for (const match of detail.matchAll(pattern)) {
     const source = match[1].replaceAll('\\', '/').replace(/^\[候选项目\]\/?/i, '')
-    const knownStart = source.search(/(?:Core|App|User|Peripheral|Startup|Debug|student-config)\//i)
+    const knownStart = source.search(/(?:src|generated|Core|App|User|Peripheral|Startup|Debug|student-config)\//i)
     const path = knownStart >= 0 ? source.slice(knownStart) : undefined
     diagnostics.push({
       path,
@@ -130,7 +142,7 @@ export function parseCompilerDiagnostics(detail: string, maximum = 6): Candidate
   const linkerPattern = /([^\r\n:]*?\.(?:c|h))(?::(\d+))?(?::[^\r\n]*)?:\s*((?:undefined reference to|multiple definition of)[^\r\n]+)/gi
   for (const match of detail.matchAll(linkerPattern)) {
     const source = match[1].replaceAll('\\', '/').replace(/^\[(?:候选项目|受保护路径)\]\/?/i, '')
-    const knownStart = source.search(/(?:Core|App|User|Peripheral|Startup|Debug|student-config)\//i)
+    const knownStart = source.search(/(?:src|generated|Core|App|User|Peripheral|Startup|Debug|student-config)\//i)
     diagnostics.push({
       path: knownStart >= 0 ? source.slice(knownStart) : undefined,
       line: match[2] ? Number(match[2]) : undefined,

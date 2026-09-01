@@ -35,21 +35,23 @@ corepack pnpm check
 
 ## Windows 打包
 
-当前可生成两个 CH32 发行版的便携测试包（ZIP，解压即用）：
+当前可生成两个 CH32 发行版和 TI MSPM0 教学版的便携测试包（ZIP，解压即用）：
 
 ```powershell
 npm run package:win:fun:test
 npm run package:win:mcu:test
+npm run package:win:ti:test
 ```
 
-当前可生成两个 CH32 发行版的 NSIS 安装器测试包（安装器提权安装，自动安装 WCH-Link 驱动）：
+NSIS 安装器测试包：
 
 ```powershell
 npm run package:win:fun:nsis:test
 npm run package:win:mcu:nsis:test
+npm run package:win:ti:nsis:test
 ```
 
-旧命令 `package:win:test` 和 `package:win:nsis:test` 保留为趣味巡线版兼容入口。NSIS 安装器为 per-machine 管理员安装，安装过程中自动调用 pnputil 安装 WCH-Link 驱动。应用以普通权限运行，不自行请求管理员权限。TI MSPM0 当前只有开发模式，尚未提供安装包；工具链再分发和驱动安装需要单独验收。更多打包说明见 [Windows 打包与 SDK 切换](./docs/windows-packaging-and-baseline-switch.md)，实际点击与硬件验收见 [双发行版人工验收清单](./docs/dual-edition-manual-acceptance.md)。
+旧命令 `package:win:test` 和 `package:win:nsis:test` 保留为趣味巡线版兼容入口。CH32 NSIS 安装器为 per-machine 管理员安装，并自动调用 pnputil 安装 WCH-Link 驱动；TI 安装器不安装 WCH 驱动，随包携带冻结版本的 MSPM0 SDK、SysConfig、Arm GCC 和 OpenOCD。应用以普通权限运行。TI 组件来源、版本和许可证见 [TI MSPM0 托管工具链](./docs/ti-mspm0-managed-toolchain.md)，净机验收见 [TI MSPM0 净 Windows 验收清单](./docs/ti-mspm0-clean-windows-checklist.md)。
 
 ## GitHub 协作开发
 
@@ -125,7 +127,7 @@ TI MSPM0 教学版以 MSPM0G3507 为目标，使用 SysConfig 生成硬件配置
 corepack pnpm dev:ti
 ```
 
-也可以双击仓库根目录的 `start-ti-mspm0-dev.cmd`。当前固定版本、默认安装路径、界面操作、自动化测试和真机验证结果统一记录在 [TI MSPM0 教学版开发与验证](./docs/ti-mspm0-development-and-validation.md)。TI 工具链目前不内置于 Windows 安装包。
+也可以双击仓库根目录的 `start-ti-mspm0-dev.cmd`。当前固定版本、默认安装路径、界面操作、自动化测试和真机验证结果统一记录在 [TI MSPM0 教学版开发与验证](./docs/ti-mspm0-development-and-validation.md)。发行包默认只使用其 `resources/toolchains/ti-mspm0` 下的托管工具链，不回退到开发机的 `D:\\ti`。
 
 ## 当前能力
 

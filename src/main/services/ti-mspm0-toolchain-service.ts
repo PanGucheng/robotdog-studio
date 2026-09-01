@@ -6,14 +6,40 @@ import type { ToolStatus, ToolchainStatus } from '../../shared/types'
 export const TI_MSPM0_VERSIONS = Object.freeze({
   sdk: '2.11.00.07',
   sysconfig: '1.28.1',
-  gcc: '9-2019-q4-major'
+  gcc: '9-2019-q4-major',
+  openocd: 'd9b957f'
 })
 
+export interface TiMspm0ToolchainOptions {
+  resourcesPath?: string
+  environment?: NodeJS.ProcessEnv
+}
+
 export class TiMspm0ToolchainService {
-  readonly sdkRoot = resolve(process.env.ROBOTDOG_TI_MSPM0_SDK_ROOT ?? 'D:\\ti\\mspm0_sdk_2_11_00_07')
-  readonly sysconfigRoot = resolve(process.env.ROBOTDOG_TI_SYSCONFIG_ROOT ?? 'D:\\ti\\sysconfig_1.28.1')
-  readonly gccRoot = resolve(process.env.ROBOTDOG_TI_GCC_ROOT ?? 'D:\\ti\\gcc-arm-none-eabi-9-2019-q4-major-win32')
-  readonly openocdRoot = resolve(process.env.ROBOTDOG_TI_OPENOCD_ROOT ?? 'D:\\ti\\openocd-d9b957f-i686-w64-mingw32')
+  readonly sdkRoot: string
+  readonly sysconfigRoot: string
+  readonly gccRoot: string
+  readonly openocdRoot: string
+  readonly bundledRoot?: string
+
+  constructor(options: TiMspm0ToolchainOptions = {}) {
+    const environment = options.environment ?? process.env
+    const resourcesPath = options.resourcesPath ?? process.resourcesPath
+    const bundledRoot = resourcesPath ? join(resourcesPath, 'toolchains', 'ti-mspm0') : undefined
+    const bundled = bundledRoot && existsSync(join(bundledRoot, 'manifest.json')) ? bundledRoot : undefined
+    this.bundledRoot = bundled
+    if (bundled) {
+      this.sdkRoot = join(bundled, 'sdk')
+      this.sysconfigRoot = join(bundled, 'sysconfig')
+      this.gccRoot = join(bundled, 'gcc')
+      this.openocdRoot = join(bundled, 'openocd')
+      return
+    }
+    this.sdkRoot = resolve(environment.ROBOTDOG_TI_MSPM0_SDK_ROOT ?? 'D:\\ti\\mspm0_sdk_2_11_00_07')
+    this.sysconfigRoot = resolve(environment.ROBOTDOG_TI_SYSCONFIG_ROOT ?? 'D:\\ti\\sysconfig_1.28.1')
+    this.gccRoot = resolve(environment.ROBOTDOG_TI_GCC_ROOT ?? 'D:\\ti\\gcc-arm-none-eabi-9-2019-q4-major-win32')
+    this.openocdRoot = resolve(environment.ROBOTDOG_TI_OPENOCD_ROOT ?? 'D:\\ti\\openocd-d9b957f-i686-w64-mingw32')
+  }
 
   getGccPath(): string { return join(this.gccRoot, 'bin', 'arm-none-eabi-gcc.exe') }
   getObjcopyPath(): string { return join(this.gccRoot, 'bin', 'arm-none-eabi-objcopy.exe') }
@@ -35,7 +61,7 @@ export class TiMspm0ToolchainService {
     ])
     const sdkOk = existsSync(this.getProductPath())
     const sdk: ToolStatus = { ok: sdkOk, label: 'MSPM0 SDK 2.11.00.07', path: this.sdkRoot, version: sdkOk ? TI_MSPM0_VERSIONS.sdk : undefined, detail: sdkOk ? `MSPM0 SDK ${TI_MSPM0_VERSIONS.sdk}` : '没有找到固定版本 MSPM0 SDK' }
-    return { bundled: false, root: resolve(this.sdkRoot, '..'), gcc, objcopy, size, openocd, sysconfig, sdk }
+    return { bundled: Boolean(this.bundledRoot), root: this.bundledRoot ?? resolve(this.sdkRoot, '..'), gcc, objcopy, size, openocd, sysconfig, sdk }
   }
 }
 

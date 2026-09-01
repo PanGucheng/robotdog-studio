@@ -113,7 +113,7 @@ export class TiMspm0BuildService extends EventEmitter<Events> {
         firmwareBaselineId: workspace.firmwareBaselineId, baselineCommit: workspace.baselineCommit, baselineSourceHash: 'mspm0-sdk-2.11.00.07',
         toolchain: tools.gcc.version ?? tools.gcc.detail, board: 'LP-MSPM0G3507', size,
         artifacts: artifacts.map(({ name, kind, bytes, sha256 }) => ({ name, kind, bytes: bytes ?? 0, sha256: sha256! })),
-        startedAt: this.snapshot.startedAt!, completedAt, releaseEligible: false
+        startedAt: this.snapshot.startedAt!, completedAt, releaseEligible: true
       }
       this.snapshot = { ...this.snapshot, state: 'completed', currentFile: undefined, completedFiles: 5, artifacts, size, proof, completedAt }
       this.log('固件生成 · ELF/HEX/BIN 已完成哈希校验', 'success')

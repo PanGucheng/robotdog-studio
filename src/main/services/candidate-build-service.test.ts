@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { parseCompilerDiagnostics, validateLineConfigText } from './candidate-build-service'
+import { parseCompilerDiagnostics, PlatformCandidateBuildService, validateLineConfigText, type CandidateBuilder, type CandidateBuildInput } from './candidate-build-service'
 
 describe('candidate line configuration preflight', () => {
+  it('routes TI candidates exclusively to the TI builder and CH32 candidates to WCH', async () => {
+    const calls: string[] = []
+    const builder = (name: string): CandidateBuilder => ({
+      async build(input) {
+        calls.push(name)
+        return { candidateId: input.candidateId, sourceTreeHash: input.sourceTreeHash, diffHash: input.diffHash, compiler: name, objectSha256: 'a'.repeat(64), completedAt: new Date(0).toISOString(), checks: [] }
+      }
+    })
+    const router = new PlatformCandidateBuildService(builder('wch'), builder('ti'))
+    const base = { candidateId: 'cand_test', candidateRoot: '.', sourceTreeHash: 'b'.repeat(64), diffHash: 'c'.repeat(64), learningPath: 'ti-mspm0-foundations' } as Omit<CandidateBuildInput, 'platform'>
+    await router.build({ ...base, platform: 'ti-mspm0' })
+    await router.build({ ...base, platform: 'wch-ch32v203' })
+    expect(calls).toEqual(['ti', 'wch'])
+  })
+
   it('accepts comments and competition-safe parameter ranges', () => {
     expect(validateLineConfigText('# 让过弯更平稳\nturn_strength: 16\nline_target: 64\n')).toBe('turn_strength=16，line_target=64')
   })

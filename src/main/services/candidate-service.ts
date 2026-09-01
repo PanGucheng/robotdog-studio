@@ -293,7 +293,8 @@ export class CandidateService {
       const proof = await this.builder.build({
         candidateId, candidateRoot: this.candidateRoot(candidateId),
         sourceTreeHash: snapshot.sourceTreeHash!, diffHash: snapshot.diffHash!,
-        learningPath: (await this.workspaces.get(snapshot.workspaceId)).learningPath
+        learningPath: (await this.workspaces.get(snapshot.workspaceId)).learningPath,
+        platform: (await this.workspaces.get(snapshot.workspaceId)).platform
       })
       const currentTreeHash = await this.fingerprint.calculate(this.candidateRoot(candidateId))
       if (currentTreeHash !== proof.sourceTreeHash || proof.diffHash !== snapshot.diffHash) throw new Error('CANDIDATE_CHANGED_DURING_BUILD')
