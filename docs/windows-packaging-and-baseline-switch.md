@@ -2,6 +2,8 @@
 
 ## 当前可用状态
 
+本文只描述趣味巡线版和 CH32 单片机入门版的 WCH 工具链及 Windows 包。TI MSPM0 教学版目前只支持开发模式，尚未提供可分发安装包；详情见 [TI MSPM0 教学版开发与验证](./ti-mspm0-development-and-validation.md)。
+
 当前活动固件基线来自远端仓库 `PanGucheng/ch32v203-robot-dog` 的提交 `c897e3a`，固件版本为 `0.2.1`，使用 CMake 与内置 WCH GCC12 构建。它已经完成全量编译和打包后 EXE 自检，但活动注册表仍是 `development-live-remote` 模式，因此只能用于临时功能测试，不能作为比赛正式发布固件。
 
 临时离线包命令（便携 ZIP，用户解压即用）：
