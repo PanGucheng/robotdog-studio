@@ -52,6 +52,7 @@ export interface WorkbenchProps {
   onRepairStudentCode(candidateId: string): void
   onBuildFirmware: () => void
   onCancelBuild: () => void
+  onOpenSysconfig: () => void
   onToggleUsb: () => void
   onStartUpdate: () => void
   onCancelUpdate: () => void
@@ -114,11 +115,11 @@ const mcuTabs = [
 
 export function Workbench(props: WorkbenchProps): React.JSX.Element {
   const { frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt, workspaceLesson, courseProgress, onUpdateCourseProgress, completedLessonIds } = props
-  const tabs = edition.id === 'mcu-foundations' ? mcuTabs.filter((tab) => tab.id !== 'course-tasks' || workspace?.workspacePurpose === 'mcu-lesson-attempt') : funTabs
-  const [activeTab, setActiveTab] = useState<WorkbenchRoute>(edition.id === 'mcu-foundations' ? 'course-center' : 'ccd')
-  useEffect(() => { setActiveTab(edition.id === 'mcu-foundations' ? 'course-center' : 'ccd') }, [edition.id])
+  const tabs = edition.id !== 'fun-line-following' ? mcuTabs.filter((tab) => tab.id !== 'course-tasks' || workspace?.workspacePurpose === 'mcu-lesson-attempt') : funTabs
+  const [activeTab, setActiveTab] = useState<WorkbenchRoute>(edition.id !== 'fun-line-following' ? 'course-center' : 'ccd')
+  useEffect(() => { setActiveTab(edition.id !== 'fun-line-following' ? 'course-center' : 'ccd') }, [edition.id])
   useEffect(() => {
-    if (edition.id !== 'mcu-foundations' || !workspace) return
+    if (edition.id === 'fun-line-following' || !workspace) return
     setActiveTab(workspace.workspacePurpose === 'mcu-lesson-attempt' ? 'course-tasks' : 'code')
   }, [edition.id, workspace?.id])
   useEffect(() => { if (candidate?.state === 'build_passed' || (candidate?.state === 'review_ready' && candidate.origin !== 'manual' && !candidate.error)) setActiveTab('review') }, [candidate?.id, candidate?.state, candidate?.error, candidate?.origin])
@@ -133,7 +134,7 @@ export function Workbench(props: WorkbenchProps): React.JSX.Element {
   const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
   const artifactCurrent = build.state === 'completed' && Boolean(workspace && build.proof && build.proof.workspaceId === workspace.id && build.proof.workspaceCommit === workspace.headCommit && build.proof.firmwareBaselineId === workspace.firmwareBaselineId)
   const effectiveBuildState = build.state === 'completed' && !artifactCurrent ? 'idle' : build.state
-  const isMcu = edition.id === 'mcu-foundations'
+  const isMcu = edition.id !== 'fun-line-following'
   if (isMcu) return <McuWorkbench {...props} />
   return (
     <section className="workbench">

@@ -44,6 +44,9 @@ export class ReasonixPermissionPolicy {
     if (this.policyVersion.startsWith('mcu-foundations-v1:')) {
       return /^app\/(?:src|inc)\/(?:[^/]+\/)*[^/]+\.(?:c|h)$/.test(normalized)
     }
+    if (this.policyVersion.startsWith('ti-mspm0-foundations-v1:')) {
+      return /^src\/(?:[^/]+\/)*[^/]+\.(?:c|h)$/.test(normalized) || normalized.endsWith('.syscfg')
+    }
     return /^student-config\/[^/]+\.yaml$/.test(normalized) || normalized === 'core/src/student_control.c' || normalized === 'core/inc/student_control.h'
   }
 

@@ -157,7 +157,7 @@ function sourceLabel(source: WorkspaceProblem['source']): string { return ({ can
 function stageLabel(stage: FirmwareBuildSnapshot['stage']): string { return ({ preparing: '正在准备固件', compiling: '正在编译源文件', linking: '正在链接程序', packaging: '正在打包产物' })[stage ?? 'preparing'] }
 function formatBytes(value: number): string { return value >= 1024 ? `${(value / 1024).toFixed(value >= 10240 ? 0 : 1)} KB` : `${value} B` }
 
-export function buildTerminalLines(buildLogs: string[], belongs: boolean, wchLink: Pick<WchLinkFlashSnapshot, 'state' | 'logs' | 'error' | 'message'>): string[] {
+export function buildTerminalLines(buildLogs: string[], belongs: boolean, wchLink: Pick<WchLinkFlashSnapshot, 'state' | 'logs' | 'error' | 'message' | 'platform'>): string[] {
   const failure = wchLink.state === 'failed' ? `烧录失败：${wchLink.error ?? wchLink.message}` : undefined
-  return [...(belongs ? buildLogs : []), ...(wchLink.logs.length || failure ? ['— WCH-Link —', ...wchLink.logs, ...(failure ? [failure] : [])] : [])]
+  return [...(belongs ? buildLogs : []), ...(wchLink.logs.length || failure ? [wchLink.platform === 'ti-mspm0' ? '— OpenOCD · CMSIS-DAP · SWD —' : '— WCH-Link —', ...wchLink.logs, ...(failure ? [failure] : [])] : [])]
 }

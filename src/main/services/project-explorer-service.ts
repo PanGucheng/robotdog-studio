@@ -8,6 +8,8 @@ import { WorkspaceService } from './workspace-service'
 
 const ROOT_DIRECTORIES = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'RHS_HAL', 'Board', 'Teaching', 'cmake'])
 const ROOT_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'README.md'])
+const TI_ROOT_DIRECTORIES = new Set(['src', 'gcc', 'generated'])
+const TI_ROOT_FILES = new Set(['README.md', 'gpio_toggle_output.syscfg', 'robotdog.project.json'])
 const HIDDEN_NAMES = new Set(['.git', '.github', '.vscode', '.eide', '.mrs', 'node_modules', 'build', 'out', 'release'])
 const MAX_FILE_BYTES = 256 * 1024
 
@@ -32,7 +34,7 @@ export class ProjectExplorerService {
     return {
       workspaceId,
       candidateId,
-      rootLabel: `RHS Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`,
+      rootLabel: context.workspace.platform === 'ti-mspm0' ? 'TI MSPM0G3507 · SysConfig 工程' : `RHS Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`,
       baselineId: context.workspace.firmwareBaselineId,
       baselineCommit: context.workspace.baselineCommit,
       baselineAvailable: context.baselineAvailable,
@@ -66,7 +68,7 @@ export class ProjectExplorerService {
     warning?: string
   }> {
     const workspace = await this.workspaces.get(workspaceId)
-    if (workspace.learningPath !== 'mcu-foundations') throw new Error('PROJECT_EXPLORER_MCU_REQUIRED')
+    if (workspace.learningPath === 'fun-line-following') throw new Error('PROJECT_EXPLORER_MCU_REQUIRED')
     const overlay = await this.candidates.listStudentCodeFiles(workspaceId, candidateId)
     const modifiedPaths = new Set<string>()
     if (candidateId) {
@@ -79,15 +81,21 @@ export class ProjectExplorerService {
     let baselineAvailable = false
     let warning: string | undefined
     try {
-      const status = await this.baseline.getStatus()
-      if (status.id !== workspace.firmwareBaselineId || status.expectedCommit !== workspace.baselineCommit) {
-        warning = '工作区绑定的固件基线与当前基线不一致，只显示课程覆盖文件。'
-      } else if (!status.readyForTesting) {
-        warning = '固件基线当前不可用，只显示课程覆盖文件。'
-      } else {
-        baselineRoot = status.sourceRoot
+      if (workspace.platform === 'ti-mspm0') {
+        baselineRoot = await this.workspaces.getProjectRootForMain(workspaceId)
         baselineAvailable = true
-        await this.scanBaseline(baselineRoot, files)
+        await this.scanRoot(baselineRoot, TI_ROOT_FILES, TI_ROOT_DIRECTORIES, files)
+      } else {
+        const status = await this.baseline.getStatus()
+        if (status.id !== workspace.firmwareBaselineId || status.expectedCommit !== workspace.baselineCommit) {
+          warning = '工作区绑定的固件基线与当前基线不一致，只显示课程覆盖文件。'
+        } else if (!status.readyForTesting) {
+          warning = '固件基线当前不可用，只显示课程覆盖文件。'
+        } else {
+          baselineRoot = status.sourceRoot
+          baselineAvailable = true
+          await this.scanBaseline(baselineRoot, files)
+        }
       }
     } catch {
       warning = '固件基线读取失败，只显示课程覆盖文件。'
@@ -97,7 +105,11 @@ export class ProjectExplorerService {
   }
 
   private async scanBaseline(root: string, files: Map<string, FileDescriptor>): Promise<void> {
-    for (const name of [...ROOT_FILES].sort()) {
+    await this.scanRoot(root, ROOT_FILES, ROOT_DIRECTORIES, files)
+  }
+
+  private async scanRoot(root: string, rootFiles: Set<string>, directories: Set<string>, files: Map<string, FileDescriptor>): Promise<void> {
+    for (const name of [...rootFiles].sort()) {
       const path = resolve(root, name)
       const info = await lstat(path).catch(() => undefined)
       if (info?.isFile() && !info.isSymbolicLink() && info.size <= MAX_FILE_BYTES) {
@@ -105,7 +117,7 @@ export class ProjectExplorerService {
         if (language) files.set(name, descriptorFor(name, language))
       }
     }
-    for (const directory of [...ROOT_DIRECTORIES].sort()) await this.scanDirectory(root, directory, files)
+    for (const directory of [...directories].sort()) await this.scanDirectory(root, directory, files)
   }
 
   private async scanDirectory(root: string, relativeDirectory: string, files: Map<string, FileDescriptor>): Promise<void> {
@@ -161,6 +173,7 @@ function languageFor(name: string): ProjectExplorerLanguage | undefined {
   if (extension === '.s') return 'asm'
   if (extension === '.ld') return 'linker'
   if (extension === '.json') return 'json'
+  if (extension === '.syscfg') return 'javascript'
   if (extension === '.yaml' || extension === '.yml') return 'yaml'
   if (extension === '.md') return 'markdown'
   if (extension === '.txt' || extension === '.cfg') return 'text'

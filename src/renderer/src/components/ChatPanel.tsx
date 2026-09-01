@@ -78,7 +78,7 @@ export function ChatPanel({ workspace, edition, events, candidate, running, onPr
     <section className={`chat-panel ${compact ? 'is-compact' : ''}`}>
       <div className="chat-context">
         <div className="section-heading">
-          <div><span className="eyebrow">AI 助教</span><h2>{edition.id === 'mcu-foundations' ? '和助教讨论代码与实验' : '把想法说给小马听'}</h2></div>
+          <div><span className="eyebrow">AI 助教</span><h2>{edition.id !== 'fun-line-following' ? '和助教讨论代码与实验' : '把想法说给小马听'}</h2></div>
           <button type="button" className={`model-chip ${runtime?.ready ? 'ready' : ''}`} onClick={() => setShowRuntime((value) => !value)} aria-expanded={showRuntime}>
             {runtime?.ready ? <Sparkles size={14} /> : <Settings2 size={14} />} {runtime?.adapter === 'reasonix' ? 'DeepSeek V4 Flash' : '模拟教学'}
           </button>

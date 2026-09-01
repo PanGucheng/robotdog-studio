@@ -12,6 +12,7 @@ function workspace(): WorkspaceSummary {
   const now = new Date().toISOString()
   return {
     id: 'ws_0123456789abcdef01234567', name: '第一课 · 第 1 次', studentDisplayName: '测试同学', learningPath: 'mcu-foundations',
+    platform: 'wch-ch32v203', target: 'CH32V203C8T6', toolchainProfile: 'wch-gcc12-openocd',
     workspacePurpose: 'mcu-lesson-attempt', templateId: 'lesson-one', templateVersion: 'content-v1',
     courseBinding: { courseId: 'course-one', lessonId: 'lesson-one', contentVersion: 1, attemptNumber: 1 },
     firmwareBaselineId: 'baseline', baselineCommit: 'a'.repeat(40), createdAt: now, headCommit: 'b'.repeat(40), state: 'ready', updatedAt: now

@@ -103,9 +103,12 @@ export class FirmwareBaselineService {
     if (this.options.packagedSourceRoot) return resolve(this.options.packagedSourceRoot)
     if (manifest.schemaVersion === 2) {
       const declaredRoot = resolve(manifest.source.developmentDefaultRoot)
-      if (existsSync(declaredRoot)) return declaredRoot
       const appRoot = resolve(dirname(this.options.manifestPath), '..', '..', '..')
       const sourceRoot = join(appRoot, '.firmware-sources', 'ch32v203-robot-dog')
+      // The live registry may point at the checked-in baseline directory while
+      // its manifest/source pair lives in the fetched development checkout.
+      if (basename(manifest.live.manifestPath) === 'robotdog.firmware.json' && existsSync(join(sourceRoot, 'robotdog.firmware.json'))) return sourceRoot
+      if (existsSync(declaredRoot)) return declaredRoot
       if (existsSync(sourceRoot)) return sourceRoot
     }
     return resolve(manifest.source.developmentDefaultRoot)

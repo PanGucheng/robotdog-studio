@@ -100,7 +100,8 @@ export function isFirmwareArtifactCurrent(build: FirmwareBuildSnapshot, workspac
 }
 
 export function shouldShowProjectTour(workspace: WorkspaceSummary | undefined, lesson: CourseLesson | undefined): boolean {
-  return workspace?.workspacePurpose === 'mcu-lesson-attempt'
+  return workspace?.platform === 'wch-ch32v203'
+    && workspace.workspacePurpose === 'mcu-lesson-attempt'
     && lesson?.order === 0
     && workspace.courseBinding?.courseId === lesson.courseId
     && workspace.courseBinding.lessonId === lesson.lessonId

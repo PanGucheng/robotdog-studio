@@ -1,4 +1,4 @@
-import type { AppEditionProfile, EditionId } from './edition'
+import type { AppEditionProfile, EditionId, McuPlatformId } from './edition'
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'ready' | 'error'
 
@@ -130,11 +130,14 @@ export interface WorkspaceCourseBinding {
 }
 
 export interface WorkspaceMetadata {
-  schemaVersion: 3
+  schemaVersion: 4
   id: string
   name: string
   studentDisplayName: string
   learningPath: EditionId
+  platform: McuPlatformId
+  target: 'CH32V203C8T6' | 'MSPM0G3507'
+  toolchainProfile: 'wch-gcc12-openocd' | 'ti-mspm0-sdk-2.11-gcc9-openocd'
   workspacePurpose: WorkspacePurpose
   templateId: string
   templateVersion: string
@@ -146,7 +149,7 @@ export interface WorkspaceMetadata {
   updatedAt: string
   activeBranch: 'main'
   lastCheckpoint: string
-  policyProfile: 'student-v1' | 'mcu-foundations-v1'
+  policyProfile: 'student-v1' | 'mcu-foundations-v1' | 'ti-mspm0-foundations-v1'
   state: WorkspaceState
   activeCandidateId?: string
 }
@@ -156,6 +159,9 @@ export interface WorkspaceSummary {
   name: string
   studentDisplayName: string
   learningPath: EditionId
+  platform: McuPlatformId
+  target: 'CH32V203C8T6' | 'MSPM0G3507'
+  toolchainProfile: 'wch-gcc12-openocd' | 'ti-mspm0-sdk-2.11-gcc9-openocd'
   workspacePurpose: WorkspacePurpose
   templateId: string
   templateVersion: string
@@ -495,12 +501,12 @@ export interface StudentCodeFile {
   path: string
   label: string
   group: string
-  language: 'c' | 'yaml' | 'markdown'
+  language: 'c' | 'yaml' | 'markdown' | 'javascript'
   editable: boolean
   content: string
 }
 
-export type ProjectExplorerLanguage = 'c' | 'cpp' | 'asm' | 'linker' | 'cmake' | 'json' | 'yaml' | 'markdown' | 'text'
+export type ProjectExplorerLanguage = 'c' | 'cpp' | 'asm' | 'linker' | 'cmake' | 'json' | 'yaml' | 'markdown' | 'javascript' | 'text'
 export type ProjectExplorerOrigin = 'lesson-overlay' | 'firmware-baseline'
 export type ProjectExplorerRole = 'student-code' | 'course-adapter' | 'application' | 'core' | 'peripheral' | 'startup' | 'linker' | 'build' | 'config' | 'documentation'
 
@@ -644,6 +650,8 @@ export interface ToolchainStatus {
   objcopy: ToolStatus
   size: ToolStatus
   openocd: ToolStatus
+  sysconfig?: ToolStatus
+  sdk?: ToolStatus
 }
 
 export type FirmwareBuildState = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -816,6 +824,7 @@ export interface WchLinkFlashArtifact {
 }
 
 export interface WchLinkFlashSnapshot {
+  platform?: McuPlatformId
   state: WchLinkFlashState
   progress: number
   message: string
@@ -845,6 +854,7 @@ export interface RobotDogApi {
   getFirmwareBaselineStatus(): Promise<FirmwareBaselineStatus>
   startFirmwareBuild(workspaceId: string): Promise<FirmwareBuildSnapshot>
   cancelFirmwareBuild(): Promise<FirmwareBuildSnapshot>
+  openTiSysconfig(workspaceId: string): Promise<boolean>
   getDeviceConnection(): Promise<DeviceConnectionSnapshot>
   setDemoUsbConnected(connected: boolean): Promise<DeviceConnectionSnapshot>
   getFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>

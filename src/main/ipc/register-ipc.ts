@@ -15,6 +15,8 @@ import { AgentHistoryService } from '../services/agent-history-service'
 import { FirmwareBaselineService } from '../services/firmware-baseline-service'
 import { DiagnosticService } from '../services/diagnostic-service'
 import { WchLinkFlashService } from '../services/wch-link-flash-service'
+import { TiMspm0BuildService } from '../services/ti-mspm0-build-service'
+import { TiMspm0FlashService } from '../services/ti-mspm0-flash-service'
 import { CourseService } from '../services/course-service'
 import { CourseProgressStore } from '../services/course-progress-store'
 import { ProjectExplorerService } from '../services/project-explorer-service'
@@ -25,7 +27,7 @@ import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain = new ToolchainService(), firmware = new FirmwareBuildService(toolchain), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink = new WchLinkFlashService(toolchain, firmware), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain: ToolchainService | import('../services/ti-mspm0-toolchain-service').TiMspm0ToolchainService = new ToolchainService(), firmware: FirmwareBuildService | TiMspm0BuildService = new FirmwareBuildService(toolchain as ToolchainService), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink: WchLinkFlashService | TiMspm0FlashService = new WchLinkFlashService(toolchain as ToolchainService, firmware as FirmwareBuildService), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -143,6 +145,10 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     return result
   })
   ipcMain.handle(IPC_CHANNELS.firmwareBuildCancel, () => firmware.cancel())
+  ipcMain.handle(IPC_CHANNELS.tiSysconfigOpen, (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== 'string' || !(firmware instanceof TiMspm0BuildService)) throw new Error('SysConfig 仅在 TI MSPM0 教学版中可用。')
+    return firmware.openSysconfig(workspaceId)
+  })
   ipcMain.handle(IPC_CHANNELS.deviceConnectionGet, () => connectivity.getConnection())
   ipcMain.handle(IPC_CHANNELS.simulationUsbSet, (_event, connected: unknown) => {
     if (typeof connected !== 'boolean') throw new Error('USB 模拟状态必须是布尔值')
@@ -167,8 +173,8 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
   ipcMain.handle(IPC_CHANNELS.wchLinkProbe, () => wchLink.probe())
   ipcMain.handle(IPC_CHANNELS.wchLinkFlash, async (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string') throw new Error('请先选择学生对话')
-    if (!['idle', 'completed', 'failed', 'cancelled'].includes(connectivity.getUpdate().state)) throw new Error('板载 USB 下载进行中，不能同时使用 WCH-Link 烧录')
-    if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时使用 WCH-Link 烧录')
+    if (!['idle', 'completed', 'failed', 'cancelled'].includes(connectivity.getUpdate().state)) throw new Error('板载 USB 下载进行中，不能同时使用外部下载器烧录')
+    if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时使用外部下载器烧录')
     if (firmware.getSnapshot().state === 'running') throw new Error('完整固件正在生成，请等待完成后再烧录')
     const result = await wchLink.flashCurrent(workspaceId)
     await recordCourseOperation(workspaceId, 'flash', result.state === 'completed', result.error ?? result.message)
@@ -205,7 +211,7 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       return workspace
     })
   }
-  if (edition.id === 'mcu-foundations') {
+  if (edition.id !== 'fun-line-following') {
     ipcMain.handle(IPC_CHANNELS.courseList, () => {
       if (!courses) throw new Error('COURSE_SERVICE_UNAVAILABLE')
       return courses.listCourses()
@@ -230,7 +236,7 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof courseId !== 'string' || typeof lessonId !== 'string' || typeof documentDigest !== 'string' || typeof assetId !== 'string') throw new Error('COURSE_LECTURE_ASSET_INPUT_INVALID')
       return courses.getLectureAsset(courseId, lessonId, documentDigest, assetId)
     })
-    if (agents && edition.id === 'mcu-foundations') ipcMain.handle(IPC_CHANNELS.courseLectureAsk, async (_event, input: unknown) => {
+    if (agents) ipcMain.handle(IPC_CHANNELS.courseLectureAsk, async (_event, input: unknown) => {
       if (!input || typeof input !== 'object') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
       const value = input as import('../../shared/types').CourseLectureQuestionInput
       if (typeof value.courseId !== 'string' || typeof value.lessonId !== 'string' || typeof value.contentVersion !== 'number' || typeof value.documentDigest !== 'string' || !value.request || typeof value.request.question !== 'string') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
@@ -330,7 +336,7 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof workspaceId !== 'string' || (candidateId !== undefined && typeof candidateId !== 'string')) throw new Error('STUDENT_FILES_INPUT_INVALID')
       return candidates.listStudentCodeFiles(workspaceId, candidateId as string | undefined)
     })
-    if (projectExplorer && edition.id === 'mcu-foundations') {
+    if (projectExplorer && edition.id !== 'fun-line-following') {
       ipcMain.handle(IPC_CHANNELS.projectExplorerGet, (_event, workspaceId: unknown, candidateId: unknown) => {
         if (typeof workspaceId !== 'string' || (candidateId !== undefined && typeof candidateId !== 'string')) throw new Error('PROJECT_EXPLORER_INPUT_INVALID')
         return projectExplorer.getSnapshot(workspaceId, candidateId as string | undefined)

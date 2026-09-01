@@ -12,6 +12,10 @@ import { ReasonixProcessManager } from './services/reasonix-process-manager'
 import { DeepSeekSecretStore } from './services/deepseek-secret-store'
 import { AgentHistoryService } from './services/agent-history-service'
 import { ToolchainService } from './services/toolchain-service'
+import { TiMspm0ToolchainService } from './services/ti-mspm0-toolchain-service'
+import { TiMspm0BuildService } from './services/ti-mspm0-build-service'
+import { TiMspm0FlashService } from './services/ti-mspm0-flash-service'
+import { WchLinkFlashService } from './services/wch-link-flash-service'
 import { CandidateBuildService } from './services/candidate-build-service'
 import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
@@ -22,7 +26,7 @@ import { LessonLearningProgressStore } from './services/lesson-learning-progress
 import { McuRecentActivityStore } from './services/mcu-recent-activity-store'
 import { CourseLectureHistoryService } from './services/course-lecture-history-service'
 import { ProjectExplorerService } from './services/project-explorer-service'
-import { DEFAULT_EDITION_ID, getEditionProfile, parseEditionId } from '../shared/edition'
+import { DEFAULT_EDITION_ID, getEditionProfile, isMcuEdition, parseEditionId } from '../shared/edition'
 
 const robot = new MockRobotService()
 const edition = getEditionProfile(readEditionId())
@@ -157,19 +161,20 @@ app.whenReady().then(async () => {
   const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, templateResource, app.isPackaged)
   const baseline = new FirmwareBaselineService({
     manifestPath: baselineRegistry.manifestPath,
-    packagedSourceRoot: app.isPackaged && baselineRegistry.packagedSource ? join(process.resourcesPath, 'firmware-baselines', edition.id === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined
+    packagedSourceRoot: app.isPackaged && baselineRegistry.packagedSource ? join(process.resourcesPath, 'firmware-baselines', edition.platform === 'ti-mspm0' ? 'ti-mspm0g3507' : edition.id === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined,
+    developmentSourceRoot: edition.platform === 'ti-mspm0' ? templateRoot : undefined
   })
   const baselineManifest = await baseline.getManifest()
   const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, templateVersion: baselineRegistry.templateVersion, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit, edition })
   await workspaces.initialize()
-  const toolchain = new ToolchainService()
-  const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(toolchain, join(workspaceRoot, 'build-cache')) })
+  const toolchain = edition.platform === 'ti-mspm0' ? new TiMspm0ToolchainService() : new ToolchainService()
+  const candidates = new CandidateService({ rootDir: workspaceRoot, workspaces, builder: new CandidateBuildService(new ToolchainService(), join(workspaceRoot, 'build-cache')) })
   await candidates.initialize()
-  const projectExplorer = edition.id === 'mcu-foundations' ? new ProjectExplorerService(workspaces, candidates, baseline) : undefined
-  const courses = edition.id === 'mcu-foundations'
+  const projectExplorer = isMcuEdition(edition.id) ? new ProjectExplorerService(workspaces, candidates, baseline) : undefined
+  const courses = isMcuEdition(edition.id)
     ? new CourseService({
-        rootDir: join(staticRoot, 'courses', 'mcu-foundations'),
-        templatesRoot: join(staticRoot, 'workspace-templates', 'ch32v203-mcu-lessons'),
+        rootDir: join(staticRoot, 'courses', edition.platform === 'ti-mspm0' ? 'ti-mspm0-foundations' : 'mcu-foundations'),
+        templatesRoot: join(staticRoot, 'workspace-templates', edition.platform === 'ti-mspm0' ? '' : 'ch32v203-mcu-lessons'),
         includeDrafts: !app.isPackaged
       })
     : undefined
@@ -202,8 +207,13 @@ app.whenReady().then(async () => {
     const progress = await courseProgress.get(workspace, lesson, files)
     return courses.buildAiContext(workspace.courseBinding.courseId, workspace.courseBinding.lessonId, taskKind, progress)
   } : undefined, courses ? { root: lessonAgentRoot, policyVersion: 'mcu-foundations-v1:1' } : undefined)
-  const firmwareBuild = new FirmwareBuildService(toolchain, { baseline, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
+  const firmwareBuild = edition.platform === 'ti-mspm0'
+    ? new TiMspm0BuildService(toolchain as TiMspm0ToolchainService, workspaces, join(workspaceRoot, 'firmware-artifacts'))
+    : new FirmwareBuildService(toolchain as ToolchainService, { baseline, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
   await firmwareBuild.initialize()
+  const programmer = edition.platform === 'ti-mspm0'
+    ? new TiMspm0FlashService(toolchain as TiMspm0ToolchainService, firmwareBuild as TiMspm0BuildService)
+    : new WchLinkFlashService(toolchain as ToolchainService, firmwareBuild as FirmwareBuildService)
   const runtime = { secrets, processes, version: reasonixVersion }
   const diagnostics = new DiagnosticService({
     dataRoot: workspaceRoot,
@@ -217,7 +227,7 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, undefined, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory)
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, programmer, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -278,7 +288,7 @@ async function getAgentRuntimeStatus(runtime: { secrets: DeepSeekSecretStore; pr
 }
 
 async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath: string; packagedSource: string; studentTemplate: string; templateVersion: string }> {
-  const baselineDir = edition.id === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog'
+  const baselineDir = edition.platform === 'ti-mspm0' ? 'ti-mspm0g3507' : edition.id === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog'
   const path = join(staticRoot, 'firmware-baselines', baselineDir, 'active.json')
   const value = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
   if (value.schemaVersion !== 1 && value.schemaVersion !== 2) throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
@@ -289,8 +299,8 @@ async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath:
     return {
       manifestPath: join(staticRoot, 'firmware-baselines', baselineDir, value.manifest),
       packagedSource: value.packagedSource,
-      studentTemplate: 'resources/workspace-templates/ch32v203-robotdog/2026.06',
-      templateVersion: '2026.06'
+      studentTemplate: edition.platform === 'ti-mspm0' ? 'resources/workspace-templates/ti-mspm0g3507-foundations' : 'resources/workspace-templates/ch32v203-robotdog/2026.06',
+      templateVersion: edition.platform === 'ti-mspm0' ? 'sdk-2.11.00.07' : '2026.06'
     }
   }
   if (typeof value.studentTemplate !== 'string' || typeof value.shortCommit !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')

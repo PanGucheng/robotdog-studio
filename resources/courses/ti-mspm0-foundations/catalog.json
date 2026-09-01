@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "courses": [
+    { "courseId": "ti-mspm0-gpio-foundations", "manifest": "ti-mspm0-gpio-foundations/course.json" }
+  ]
+}

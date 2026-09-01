@@ -6,7 +6,7 @@ import { GitWorkspaceService } from './git-workspace-service'
 
 const policySchema = z.object({
   schemaVersion: z.literal(1),
-  policyProfile: z.enum(['student-v1', 'mcu-foundations-v1']),
+  policyProfile: z.enum(['student-v1', 'mcu-foundations-v1', 'ti-mspm0-foundations-v1']),
   allowedEditGlobs: z.array(z.string().min(1)).min(1).max(64),
   deniedGlobs: z.array(z.string().min(1)).max(128),
   maxChangedFiles: z.number().int().min(1).max(100),

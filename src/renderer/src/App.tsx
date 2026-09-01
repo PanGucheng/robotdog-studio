@@ -112,7 +112,7 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let disposed = false
-    if (edition.id !== 'mcu-foundations') {
+    if (edition.id === 'fun-line-following') {
       setCourses([])
       setCourse(undefined)
       setCourseLesson(undefined)
@@ -142,7 +142,7 @@ export function App(): React.JSX.Element {
   }, [api, edition.id])
 
   useEffect(() => {
-    if (edition.id !== 'mcu-foundations') { setLessonLearningProgress([]); setMcuRecentActivity([]); return }
+    if (edition.id === 'fun-line-following') { setLessonLearningProgress([]); setMcuRecentActivity([]); return }
     void Promise.all([api.listLessonLearningProgress(), api.listMcuRecentActivity()]).then(([learning, recent]) => {
       setLessonLearningProgress(learning)
       setMcuRecentActivity(recent)
@@ -260,6 +260,7 @@ export function App(): React.JSX.Element {
     setBuild(await api.startFirmwareBuild(currentWorkspaceId))
     await refreshCourseProgress(currentWorkspaceId)
   }) }
+  const openSysconfig = (): void => { if (currentWorkspaceId) void run(async () => { await api.openTiSysconfig(currentWorkspaceId) }) }
   const cancelBuild = (): void => { void run(async () => { setBuild(await api.cancelFirmwareBuild()) }) }
   const toggleUsb = (): void => { void run(async () => { setConnection(await api.setDemoUsbConnected(connection.updatePort.state === 'disconnected')) }) }
   const startUpdate = (): void => { void run(async () => {
@@ -281,7 +282,7 @@ export function App(): React.JSX.Element {
       const workspace = await api.createWorkspace({ studentDisplayName: activeWorkspace?.studentDisplayName ?? (edition.id === 'fun-line-following' ? '林同学' : '学习者') })
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setActiveWorkspaceId(workspace.id)
-      if (edition.id === 'mcu-foundations') openMcuView({ kind: 'workspace', workspaceId: workspace.id })
+      if (edition.id !== 'fun-line-following') openMcuView({ kind: 'workspace', workspaceId: workspace.id })
     })
   }
   const renameWorkspace = (): void => {
@@ -293,7 +294,7 @@ export function App(): React.JSX.Element {
       setWorkspaces((current) => current.map((workspace) => workspace.id === updated.id ? updated : workspace))
     })
   }
-  const currentWorkspaceId = edition.id === 'mcu-foundations' ? (mcuView.kind === 'workspace' ? mcuView.workspaceId : undefined) : activeWorkspaceId
+  const currentWorkspaceId = edition.id !== 'fun-line-following' ? (mcuView.kind === 'workspace' ? mcuView.workspaceId : undefined) : activeWorkspaceId
   currentWorkspaceIdRef.current = currentWorkspaceId
   workspacesRef.current = workspaces
   const activeWorkspace = workspaces.find((workspace) => workspace.id === currentWorkspaceId)
@@ -510,7 +511,7 @@ export function App(): React.JSX.Element {
   }
 
   return (
-    <main className={`studio-shell ${edition.id === 'mcu-foundations' ? 'is-mcu' : ''}`}>
+    <main className={`studio-shell ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
       <header className="topbar">
         <div className="brand-block">
           <button type="button" className="menu-button" aria-label="打开项目菜单"><Menu size={20} /></button>
@@ -531,26 +532,26 @@ export function App(): React.JSX.Element {
             <CircleUserRound size={17} /> {teacherMode ? '教师模式' : activeWorkspace?.studentDisplayName ?? '学习者'}
           </button>
           {edition.id === 'fun-line-following' && <button type="button" className="learning-button" onClick={() => setLearningOpen(true)}><HelpCircle size={16} /> 操作示范</button>}
-          {edition.id === 'mcu-foundations' && <button ref={settingsButtonRef} type="button" className="mcu-settings-button" onClick={() => setSettingsOpen(true)} aria-label="打开设置"><Settings2 size={17} /> 设置</button>}
+          {edition.id !== 'fun-line-following' && <button ref={settingsButtonRef} type="button" className="mcu-settings-button" onClick={() => setSettingsOpen(true)} aria-label="打开设置"><Settings2 size={17} /> 设置</button>}
           <button type="button" className="emergency-button" onClick={() => action('stop')} disabled={!connected}>
             <ShieldAlert size={18} /> 急停
           </button>
         </div>
       </header>
 
-      <div className={`context-bar ${edition.id === 'mcu-foundations' && mcuView.kind !== 'workspace' ? 'is-learning-context' : ''}`}>
-        {(edition.id !== 'mcu-foundations' || mcuView.kind === 'workspace') && <span className="workspace-picker">
-          {edition.id === 'mcu-foundations' && activeWorkspace && <button type="button" onClick={() => activeWorkspace.courseBinding ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId }) : openMcuView({ kind: 'home', panel: 'free-practice' })}><ChevronLeft size={13} /> {activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</button>}
+      <div className={`context-bar ${edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' ? 'is-learning-context' : ''}`}>
+        {(edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && <span className="workspace-picker">
+          {edition.id !== 'fun-line-following' && activeWorkspace && <button type="button" onClick={() => activeWorkspace.courseBinding ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId }) : openMcuView({ kind: 'home', panel: 'free-practice' })}><ChevronLeft size={13} /> {activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</button>}
           <GraduationCap size={15} />
           {workspaces.length > 0 ? (
-            <select aria-label="当前项目" value={currentWorkspaceId} onChange={(event) => edition.id === 'mcu-foundations' ? openMcuView({ kind: 'workspace', workspaceId: event.target.value }) : setActiveWorkspaceId(event.target.value)}>
+            <select aria-label="当前项目" value={currentWorkspaceId} onChange={(event) => edition.id !== 'fun-line-following' ? openMcuView({ kind: 'workspace', workspaceId: event.target.value }) : setActiveWorkspaceId(event.target.value)}>
               {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}</option>)}
             </select>
           ) : <strong>还没有项目</strong>}
           {activeWorkspace && <button type="button" onClick={renameWorkspace} disabled={busy} title="修改当前项目名称"><Pencil size={13} /> 重命名</button>}
-          {edition.id !== 'mcu-foundations' && <button type="button" onClick={createWorkspace} disabled={busy} title="从当前版本模板创建独立项目"><Plus size={13} /> 新建项目</button>}
+          {edition.id === 'fun-line-following' && <button type="button" onClick={createWorkspace} disabled={busy} title="从当前版本模板创建独立项目"><Plus size={13} /> 新建项目</button>}
         </span>}
-        {edition.id === 'mcu-foundations' && mcuView.kind !== 'workspace' && <span className="mcu-learning-context"><GraduationCap size={15} /> {mcuView.kind === 'home' ? '学习大厅' : mcuView.kind === 'course-center' ? '课程中心' : courseLesson?.title ?? '课程学习'}</span>}
+        {edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' && <span className="mcu-learning-context"><GraduationCap size={15} /> {mcuView.kind === 'home' ? '学习大厅' : mcuView.kind === 'course-center' ? '课程中心' : courseLesson?.title ?? '课程学习'}</span>}
         <span className={`edition-tag edition-${edition.id}`}>{edition.shortName}</span>
         {activeWorkspace && <span className="checkpoint-tag">存档 {activeWorkspace.headCommit.slice(0, 7)}</span>}
         <span>固件：{status.firmware}</span>
@@ -558,7 +559,7 @@ export function App(): React.JSX.Element {
         {error && <span className="inline-error">{error}</span>}
       </div>
 
-      <div className={`studio-grid ${edition.id === 'mcu-foundations' ? 'is-mcu' : ''}`}>
+      <div className={`studio-grid ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
         {edition.id === 'fun-line-following' && <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onPermission={respondAgentPermission} />}
         <Workbench
           frame={frame}
@@ -592,6 +593,7 @@ export function App(): React.JSX.Element {
           onRepairStudentCode={repairStudentCode}
           onBuildFirmware={buildFirmware}
           onCancelBuild={cancelBuild}
+          onOpenSysconfig={openSysconfig}
           onToggleUsb={toggleUsb}
           onStartUpdate={startUpdate}
           onCancelUpdate={cancelUpdate}
@@ -633,7 +635,7 @@ export function App(): React.JSX.Element {
 
       {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
       {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
-      {edition.id === 'mcu-foundations' && settingsOpen && <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置"><div className="mcu-settings-dialog"><button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置"><X size={18} /></button><DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} /></div></div>}
+      {edition.id !== 'fun-line-following' && settingsOpen && <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置"><div className="mcu-settings-dialog"><button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置"><X size={18} /></button><DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} /></div></div>}
     </main>
   )
 }

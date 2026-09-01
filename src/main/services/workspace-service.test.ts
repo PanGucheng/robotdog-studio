@@ -98,12 +98,15 @@ describe('WorkspaceService', () => {
     delete metadata.learningPath
     delete metadata.workspacePurpose
     delete metadata.courseBinding
+    delete metadata.platform
+    delete metadata.target
+    delete metadata.toolchainProfile
     metadata.schemaVersion = 1
     await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`)
 
     const migrated = await service.get(created.id)
     expect(migrated.learningPath).toBe('fun-line-following')
-    expect(JSON.parse(await readFile(metadataPath, 'utf8')).schemaVersion).toBe(3)
+    expect(JSON.parse(await readFile(metadataPath, 'utf8')).schemaVersion).toBe(4)
     expect(JSON.parse(await readFile(`${metadataPath}.v1.bak`, 'utf8')).schemaVersion).toBe(1)
     expect((await service.history(created.id))[0].commit).toBe(created.headCommit)
   })
@@ -126,12 +129,15 @@ describe('WorkspaceService', () => {
     const metadata = JSON.parse(await readFile(metadataPath, 'utf8'))
     delete metadata.workspacePurpose
     delete metadata.courseBinding
+    delete metadata.platform
+    delete metadata.target
+    delete metadata.toolchainProfile
     metadata.schemaVersion = 2
     await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`)
 
     const migrated = await mcu.get(created.id)
     expect(migrated.workspacePurpose).toBe('mcu-sandbox')
-    expect(JSON.parse(await readFile(metadataPath, 'utf8')).schemaVersion).toBe(3)
+    expect(JSON.parse(await readFile(metadataPath, 'utf8')).schemaVersion).toBe(4)
     expect(JSON.parse(await readFile(`${metadataPath}.v2.bak`, 'utf8')).schemaVersion).toBe(2)
     expect((await mcu.history(created.id))[0].commit).toBe(created.headCommit)
   })

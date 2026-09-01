@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "courseId": "ti-mspm0-gpio-foundations",
+  "contentVersion": 1,
+  "title": "TI MSPM0：SysConfig 与第一个 GPIO",
+  "summary": "用 MSPM0G3507、SysConfig、Arm GCC 和 CMSIS-DAP 完成第一个真实 LED 实验。",
+  "audience": "单片机零基础或刚入门的大学生",
+  "objectives": ["理解 SysConfig 与应用 C 代码的分工", "完成 SysConfig 生成、编译和烧录闭环", "通过真实 LED 现象验证程序"],
+  "status": "published",
+  "boardScope": "TI LP-MSPM0G3507",
+  "lessonOrder": ["gpio-sysconfig-toggle"],
+  "progressCompatibleFrom": [],
+  "learningCompatibleFrom": [],
+  "sourceAttribution": ["Texas Instruments MSPM0 SDK 2.11.00.07 gpio_toggle_output example"]
+}

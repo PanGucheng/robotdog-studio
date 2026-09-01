@@ -5,9 +5,8 @@ import firstLessonResource from '../../../../resources/courses/mcu-foundations/c
 import secondLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/c-files-and-functions.json'
 import hardwareLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/first-hardware-placeholder.json'
 
-const browserEditionId = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('edition') === 'mcu-foundations'
-  ? 'mcu-foundations'
-  : 'fun-line-following'
+const requestedEdition = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('edition') : undefined
+const browserEditionId = requestedEdition === 'mcu-foundations' || requestedEdition === 'ti-mspm0-foundations' ? requestedEdition : 'fun-line-following'
 
 const demoLessons: CourseLesson[] = [firstLessonResource, secondLessonResource, hardwareLessonResource]
   .map((lesson, order) => ({ ...lesson, contentVersion: demoCourseResource.contentVersion, progressCompatibleFrom: demoCourseResource.progressCompatibleFrom ?? [], learningCompatibleFrom: demoCourseResource.learningCompatibleFrom ?? [], order }) as unknown as CourseLesson)
@@ -52,9 +51,10 @@ const demoCandidateChangedFiles = new Map<string, string[]>()
 let browserAgentToken = 0
 let browserAgentTurn: AgentTurnSnapshot | undefined
 
-let demoWorkspaces: WorkspaceSummary[] = browserEditionId === 'mcu-foundations' ? [] : [{
+let demoWorkspaces: WorkspaceSummary[] = browserEditionId !== 'fun-line-following' ? [] : [{
   id: 'ws_0123456789abcdef01234567', name: '巡线基础训练', studentDisplayName: '林同学',
   learningPath: 'fun-line-following',
+  platform: 'wch-ch32v203', target: 'CH32V203C8T6', toolchainProfile: 'wch-gcc12-openocd',
   workspacePurpose: 'fun-project',
   templateId: 'ch32v203-robotdog', templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: new Date().toISOString(), headCommit: '86d826a000000000000000000000000000000000',
   state: 'ready', updatedAt: new Date().toISOString()
@@ -364,6 +364,7 @@ export const browserDemoApi: RobotDogApi = {
     const workspace: WorkspaceSummary = {
       id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
       name: `${lesson.title} · 第 ${attemptNumber} 次`, studentDisplayName: input.studentDisplayName.trim(), learningPath: 'mcu-foundations',
+      platform: 'wch-ch32v203', target: 'CH32V203C8T6', toolchainProfile: 'wch-gcc12-openocd',
       workspacePurpose: 'mcu-lesson-attempt', templateId: lesson.templateId, templateVersion: '2026.08',
       courseBinding: { courseId: input.courseId, lessonId: input.lessonId, contentVersion: demoCourse.contentVersion, attemptNumber },
       firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca',
@@ -477,6 +478,7 @@ export const browserDemoApi: RobotDogApi = {
     emitBuild({ type: 'cancelled', snapshot: buildSnapshot })
     return buildSnapshot
   },
+  openTiSysconfig: async () => true,
   getDeviceConnection: async () => structuredClone(deviceConnection),
   setDemoUsbConnected: async (connected) => {
     deviceConnection = { ...deviceConnection, updatePort: connected ? { state: 'connected', port: 'WEB · USB COM12' } : { state: 'disconnected' }, updatedAt: new Date().toISOString() }
@@ -589,6 +591,7 @@ export const browserDemoApi: RobotDogApi = {
     const workspace: WorkspaceSummary = {
       id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
       name, studentDisplayName: input.studentDisplayName.trim(), learningPath: 'fun-line-following', workspacePurpose: 'fun-project', templateId: 'ch32v203-robotdog',
+      platform: 'wch-ch32v203', target: 'CH32V203C8T6', toolchainProfile: 'wch-gcc12-openocd',
       templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: now.toISOString(), headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: now.toISOString()
     }
     demoWorkspaces = [workspace, ...demoWorkspaces]

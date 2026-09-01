@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "courseId": "ti-mspm0-gpio-foundations",
+  "lessonId": "gpio-sysconfig-toggle",
+  "title": "第一课：用 SysConfig 配置 GPIO，让 LED 闪起来",
+  "summary": "在官方 SysConfig 中配置引脚，重新生成代码，再用 Arm GCC 编译并通过 CMSIS-DAP 烧录。",
+  "objectives": ["认识 .syscfg 工程文件", "理解生成代码不应手工修改", "完成 MSPM0G3507 GPIO 的真实构建与烧录"],
+  "prerequisites": [],
+  "estimatedMinutes": 75,
+  "hardware": "required",
+  "verification": "pending-hardware-check",
+  "expectedObservation": "MSPM0G3507 LaunchPad 的 LED 按程序设定持续翻转。",
+  "templateId": "ti-mspm0g3507-foundations",
+  "editableGlobs": ["src/**/*.c", "src/**/*.h", "*.syscfg"],
+  "readableFiles": ["README.md", "gcc/device_linker.lds"],
+  "deniedGlobs": ["generated/**", "gcc/**", "robotdog.project.json", "reasonix.toml", "AGENTS.md"],
+  "steps": [
+    { "stepId": "learn-sysconfig", "type": "read", "title": "认识配置与程序的分工", "instruction": "阅读讲义，理解 .syscfg、自动生成代码、DriverLib 和 main.c 的关系。", "lectureSectionId": "workflow" },
+    { "stepId": "open-sysconfig", "type": "read", "title": "打开芯片配置", "instruction": "在工作台点击“配置芯片”，用官方 SysConfig 打开 gpio_toggle_output.syscfg。", "fileTarget": { "path": "gpio_toggle_output.syscfg", "line": 1 } },
+    { "stepId": "edit-application", "type": "edit", "title": "查看应用代码", "instruction": "打开 src/main.c，确认应用通过生成的 GPIO 名称调用 DriverLib。", "fileTarget": { "path": "src/main.c", "line": 1 } },
+    { "stepId": "firmware-build", "type": "firmware-build", "title": "生成并编译", "instruction": "点击编译；Studio 会先运行 SysConfig CLI，再依次编译、链接并生成 ELF。" },
+    { "stepId": "flash-board", "type": "flash", "title": "通过 CMSIS-DAP 烧录", "instruction": "连接 DAPLink / CMSIS-DAP 与 SWD，烧录、校验并复位 MSPM0。" },
+    { "stepId": "observe-led", "type": "hardware-observation", "title": "观察 LED", "instruction": "确认 LED 持续翻转，并记录实际现象。" },
+    { "stepId": "reflect-workflow", "type": "question", "questionId": "sysconfig-role", "title": "解释工作流", "instruction": "说明 SysConfig 和 main.c 分别负责什么。" }
+  ],
+  "completionChecks": [
+    { "type": "firmware-build-passed" },
+    { "type": "flash-succeeded" },
+    { "type": "manual-observation-confirmed", "target": "observe-led" },
+    { "type": "question-answered", "target": "sysconfig-role" }
+  ],
+  "reflectionQuestions": [{ "questionId": "sysconfig-role", "prompt": "为什么 GPIO 引脚配置放在 SysConfig，而 LED 翻转逻辑写在 main.c？" }],
+  "aiContext": { "teachingFocus": "帮助学生区分硬件资源配置和应用逻辑，并理解生成文件不可手工维护。", "hints": ["先检查 .syscfg 是否保存", "编译日志的第一阶段应为 SysConfig", "烧录使用 CMSIS-DAP、SWD 和 MSPM0 OpenOCD"] },
+  "status": "draft"
+}

@@ -23,6 +23,7 @@ const api: RobotDogApi = {
   getFirmwareBaselineStatus: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareBaselineStatus),
   startFirmwareBuild: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.firmwareBuildStart, workspaceId),
   cancelFirmwareBuild: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareBuildCancel),
+  openTiSysconfig: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.tiSysconfigOpen, workspaceId),
   getDeviceConnection: () => ipcRenderer.invoke(IPC_CHANNELS.deviceConnectionGet),
   setDemoUsbConnected: (connected) => ipcRenderer.invoke(IPC_CHANNELS.simulationUsbSet, connected),
   getFirmwareUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareUpdateGet),

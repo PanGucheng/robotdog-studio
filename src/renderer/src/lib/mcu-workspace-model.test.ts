@@ -37,11 +37,12 @@ describe('MCU workspace model', () => {
 
   it('shows the project tour only in a matching first-lesson workspace', () => {
     const lesson = { courseId: 'course', lessonId: 'lesson-1', order: 0 } as CourseLesson
-    const workspace = { workspacePurpose: 'mcu-lesson-attempt', courseBinding: { courseId: 'course', lessonId: 'lesson-1' } } as WorkspaceSummary
+    const workspace = { platform: 'wch-ch32v203', workspacePurpose: 'mcu-lesson-attempt', courseBinding: { courseId: 'course', lessonId: 'lesson-1' } } as WorkspaceSummary
     expect(shouldShowProjectTour(workspace, lesson)).toBe(true)
     expect(shouldShowProjectTour(workspace, { ...lesson, order: 1 })).toBe(false)
     expect(shouldShowProjectTour({ ...workspace, workspacePurpose: 'mcu-sandbox' }, lesson)).toBe(false)
     expect(shouldShowProjectTour(workspace, { ...lesson, lessonId: 'lesson-2' })).toBe(false)
+    expect(shouldShowProjectTour({ ...workspace, platform: 'ti-mspm0' }, lesson)).toBe(false)
   })
 
   it('distinguishes click from drag and snaps to safe edges', () => {

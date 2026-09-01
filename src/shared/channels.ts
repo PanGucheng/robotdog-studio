@@ -14,6 +14,7 @@ export const IPC_CHANNELS = {
   firmwareBuildStart: 'firmware:build:start',
   firmwareBuildCancel: 'firmware:build:cancel',
   firmwareBuildEvent: 'firmware:build:event',
+  tiSysconfigOpen: 'ti:sysconfig:open',
   deviceConnectionGet: 'device:connection:get',
   deviceConnectionEvent: 'device:connection:event',
   simulationUsbSet: 'simulation:usb:set',

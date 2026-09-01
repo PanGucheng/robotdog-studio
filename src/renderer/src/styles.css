@@ -1364,3 +1364,32 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 @media (prefers-reduced-motion: reduce) {
   .mcu-ai-button, .mcu-ai-window, .mcu-bottom-panel { transition: none; }
 }
+.mcu-sysconfig-button {
+  position: absolute;
+  z-index: 8;
+  top: 13px;
+  left: calc(var(--mcu-explorer-width) - 134px);
+  display: flex;
+  width: 120px;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  color: transparent;
+  border: 1px solid #b9d9de;
+  border-left: 2px solid #16a5b7;
+  border-radius: 5px;
+  background: #edf8f9;
+  box-shadow: none;
+  font-weight: 700;
+  font-size: 0;
+}
+.mcu-sysconfig-button svg { color: #087f91; flex: 0 0 auto; }
+.mcu-sysconfig-button::after { content: 'SysConfig'; color: #087f91; font: 700 12px/1 var(--mono); }
+.mcu-sysconfig-button:hover { border-color: #8fc8cf; background: #e1f3f5; }
+.mcu-sysconfig-button:hover svg, .mcu-sysconfig-button:hover::after { color: #075f70; }
+.mcu-sysconfig-button:focus-visible { outline: 2px solid #f0a44b; outline-offset: 2px; }
+.mcu-sysconfig-button:disabled { opacity: .55; cursor: wait; }
+.mcu-panel-body { overflow: hidden; }
+.mcu-terminal-view { height: 100%; min-height: 0; }
+.mcu-output-view { max-height: none; }

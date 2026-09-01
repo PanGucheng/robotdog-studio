@@ -142,8 +142,8 @@ export class CandidateService {
       if (candidate.workspaceId !== workspace.id) throw new Error('CANDIDATE_WORKSPACE_MISMATCH')
       root = this.candidateRoot(candidate.id)
     }
-    const descriptors = workspace.learningPath === 'mcu-foundations'
-      ? await this.listMcuDescriptors(root)
+    const descriptors = workspace.learningPath !== 'fun-line-following'
+      ? workspace.platform === 'ti-mspm0' ? await this.listTiDescriptors(root) : await this.listMcuDescriptors(root)
       : [
           { path: 'Core/Src/student_control.c', label: '小马怎么走', group: '控制逻辑', language: 'c' as const, editable: true },
           { path: 'student-config/line-following.yaml', label: '巡线参数', group: '参数设置', language: 'yaml' as const, editable: true },
@@ -185,7 +185,7 @@ export class CandidateService {
 
   async writeWorkspaceFile(workspaceId: string, path: StudentCodeFile['path'], content: string): Promise<import('../../shared/types').WorkspaceSummary> {
     const workspace = await this.workspaces.get(workspaceId)
-    if (workspace.learningPath !== 'mcu-foundations') throw new Error('WORKSPACE_DIRECT_EDIT_UNAVAILABLE')
+    if (workspace.learningPath === 'fun-line-following') throw new Error('WORKSPACE_DIRECT_EDIT_UNAVAILABLE')
     if (workspace.state !== 'ready' || workspace.activeCandidateId) throw new Error('请先完成或放弃当前 AI 修改，再继续编辑工程。')
     const root = await this.workspaces.getProjectRootForMain(workspaceId)
     const listedFile = (await this.listStudentCodeFiles(workspaceId)).find((file) => file.path === path)
@@ -450,6 +450,18 @@ export class CandidateService {
           editable: await this.policy.isEditablePath(root, path)
         })
       }
+    }
+    return descriptors
+  }
+
+  private async listTiDescriptors(root: string): Promise<Array<Omit<StudentCodeFile, 'content'>>> {
+    const descriptors: Array<Omit<StudentCodeFile, 'content'>> = []
+    for (const item of [
+      { path: 'src/main.c', label: 'main.c', group: '应用程序', language: 'c' as const },
+      { path: 'gpio_toggle_output.syscfg', label: '芯片配置（SysConfig）', group: '硬件配置', language: 'javascript' as const },
+      { path: 'README.md', label: '工程说明', group: '文档', language: 'markdown' as const }
+    ]) {
+      if (await exists(join(root, ...item.path.split('/')))) descriptors.push({ ...item, editable: await this.policy.isEditablePath(root, item.path) })
     }
     return descriptors
   }

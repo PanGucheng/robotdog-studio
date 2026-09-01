@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "ti-mspm0g3507-sdk-2.11.00.07",
+  "label": "TI MSPM0G3507 GPIO Golden Project",
+  "status": "provisional",
+  "releaseEligible": false,
+  "replacementPolicy": "开发阶段固定使用 MSPM0 SDK 2.11.00.07；升级必须显式验证。",
+  "source": {
+    "repository": "resources/workspace-templates/ti-mspm0g3507-foundations",
+    "expectedCommit": "2110000700000000000000000000000000000000",
+    "developmentDefaultRoot": "D:\\RobotDog\\RobotDog_Studio\\resources\\workspace-templates\\ti-mspm0g3507-foundations"
+  },
+  "target": {
+    "board": "LP-MSPM0G3507",
+    "chip": "MSPM0G3507",
+    "startup": "generated/ti_msp_dl_config.c",
+    "linkerScript": "gcc/device_linker.lds",
+    "memory": { "flashBytes": 131072, "ramBytes": 32768, "confirmed": true }
+  },
+  "toolchain": { "profile": "ti-mspm0-sdk-2.11-gcc9-openocd", "arch": "armv6-m", "abi": "aapcs", "codeModel": "thumb" },
+  "build": {
+    "includeDirectories": ["src"],
+    "sources": ["src/main.c"],
+    "cFlags": [], "assemblerFlags": [], "linkFlags": []
+  },
+  "studentOverlay": {
+    "source": "src/main.c",
+    "header": "src/main.c",
+    "configInput": "gpio_toggle_output.syscfg",
+    "generatedHeader": "gpio_toggle_output.syscfg"
+  },
+  "artifacts": {
+    "elf": "gpio_toggle_output.out", "hex": "gpio_toggle_output.hex", "bin": "gpio_toggle_output.bin", "map": "gpio_toggle_output.map"
+  },
+  "integrity": [
+    { "path": "src/main.c", "sha256": "e070273cd200560933d2218db38bf05f24464506cbc658e120b707b67b21a407" },
+    { "path": "gpio_toggle_output.syscfg", "sha256": "c933e4e3bcb8b11faa8acbbd742511f10074f61317a1a29a6932164d971c3828" }
+  ]
+}

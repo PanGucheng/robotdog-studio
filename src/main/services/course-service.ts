@@ -394,8 +394,8 @@ export class CourseService {
   }
 }
 
-const BASELINE_EXPLORER_ROOTS = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'RHS_HAL', 'Board', 'App', 'cmake', 'student-config'])
-const BASELINE_EXPLORER_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'README.md'])
+const BASELINE_EXPLORER_ROOTS = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'RHS_HAL', 'Board', 'App', 'cmake', 'student-config', 'src', 'gcc', 'generated'])
+const BASELINE_EXPLORER_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'README.md', 'gpio_toggle_output.syscfg'])
 
 function isVisibleCourseFileTarget(path: string, lesson: Pick<LessonManifest, 'deniedGlobs' | 'editableGlobs' | 'readableFiles'>): boolean {
   const normalized = path.replace(/\\/g, '/')

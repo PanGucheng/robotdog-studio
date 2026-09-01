@@ -32,6 +32,7 @@ interface StudentCodeEditorProps {
     flashTitle?: string
   }
   workspaceNotice?: { title: string; text: string; tone: 'info' | 'success' | 'error' }
+  railAction?: ReactNode
   workspaceDiagnostics?: CandidateDiagnostic[]
 }
 
@@ -56,7 +57,7 @@ const configureMonaco: BeforeMount = (monaco) => {
   })
 }
 
-export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp: _diagnosticHelp, onRepairStudentCode: _onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange, editorOverlay, overlayVisible = false, bottomPanel, workspaceAction, workspaceNotice, workspaceDiagnostics = [] }: StudentCodeEditorProps): React.JSX.Element {
+export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onExplainCode, diagnosticHelp: _diagnosticHelp, onRepairStudentCode: _onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange, editorOverlay, overlayVisible = false, bottomPanel, workspaceAction, workspaceNotice, workspaceDiagnostics = [], railAction }: StudentCodeEditorProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const manualCandidate = candidate?.origin === 'manual' ? candidate : undefined
   const [files, setFiles] = useState<StudentCodeFile[]>([])
@@ -87,7 +88,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
     editable: selectedNode.access === 'editable',
     content
   } : undefined)
-  const directEditing = workspace?.learningPath === 'mcu-foundations'
+  const directEditing = workspace?.platform === 'wch-ch32v203' || workspace?.platform === 'ti-mspm0'
   const aiReviewActive = isActiveAiCandidate(candidate)
   const editorWritable = Boolean(selected?.editable && (directEditing ? !aiReviewActive : manualCandidate))
   const buildDiagnostics = directEditing ? workspaceDiagnostics : manualCandidate?.diagnostics ?? []
@@ -210,7 +211,6 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
     if (!selected?.editable || !dirty) return manualCandidate
     if (saveInFlightRef.current) await saveInFlightRef.current
     const savedContent = contentRef.current
-    const savedVersion = editVersionRef.current
     setSaving(true)
     const operation = (async (): Promise<CandidateSnapshot | undefined> => {
       const updated = directEditing && workspace
@@ -219,7 +219,9 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
       if (!updated) return manualCandidate
       setFiles((current) => current.map((file) => file.path === selected.path ? { ...file, content: savedContent } : file))
       if (selectedNode) rememberExplorerContent(explorerContentCache.current, `${directEditing ? 'project' : manualCandidate?.id}:${selectedNode.id}`, savedContent)
-      if (editVersionRef.current === savedVersion) setDirty(false)
+      // Monaco can emit a harmless change while its controlled value catches up after a save.
+      // Compare the latest draft content so a real edit made during the write remains dirty.
+      if (contentRef.current === savedContent) setDirty(false)
       if (!directEditing) onCandidateChanged(updated as CandidateSnapshot)
       return directEditing ? undefined : updated as CandidateSnapshot
     })()
@@ -318,12 +320,12 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   }
 
   if (!workspace) return <div className="code-editor-empty"><Code2 size={28} /><h3>先新建一个项目</h3><p>系统会复制当前版本的教学模板，再让你在安全草稿中试改。</p></div>
-  const mcu = workspace.learningPath === 'mcu-foundations'
+  const mcu = workspace.learningPath === 'mcu-foundations' || workspace.platform === 'ti-mspm0'
 
   return (
     <div className="student-code-studio">
       <aside className={`student-file-rail ${explorerMode ? 'is-project-explorer' : ''}`}>
-        <div className="editor-rail-heading"><span>{mcu ? '工程文件' : '代码赛道'}</span><strong>{mcu ? 'Workspace' : manualCandidate ? '安全草稿' : '项目原稿'}</strong></div>
+        <div className="editor-rail-heading"><span>{mcu ? '工程文件' : '代码赛道'}</span><strong>{mcu ? 'Workspace' : manualCandidate ? '安全草稿' : '项目原稿'}</strong>{railAction}</div>
         {explorerMode && explorer ? <ProjectExplorerTree snapshot={explorer} selectedPath={selectedPath} expanded={expandedNodes} errorPaths={new Set(buildDiagnostics.map((item) => item.path).filter((path): path is string => Boolean(path)))} onToggle={(id) => setExpandedNodes((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next })} onSelect={(path) => switchFile(path)} /> : fileGroups.map((group) => (
           <div className="student-file-group" key={group}>
             <span>{group}</span>
@@ -336,12 +338,12 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           </div>
         ))}
         {explorerMode && explorer?.warning && <div className="explorer-warning"><CircleAlert size={14} /> {explorer.warning}</div>}
-        <div className="editor-safety-note"><ShieldCheck size={16} /><span>{mcu ? '只会保存 App 教学目录，启动、链接和烧录设置保持受保护。' : '只会保存学生代码，硬件和烧录设置不会被改动。'}</span></div>
+        <div className="editor-safety-note"><ShieldCheck size={16} /><span>{workspace.platform === 'ti-mspm0' ? '只会保存 src 教学代码，启动、链接和烧录设置保持受保护。' : mcu ? '只会保存 App 教学目录，启动、链接和烧录设置保持受保护。' : '只会保存学生代码，硬件和烧录设置不会被改动。'}</span></div>
       </aside>
 
       <div className="student-editor-main">
         <header className="student-editor-toolbar">
-          <div><span className="eyebrow">{selected?.group ?? '学生代码'}</span><h2>{selected?.label ?? '选择一个文件'}</h2><p>{selected?.path}{selectedNode ? ` · ${selectedNode.origin === 'lesson-overlay' ? `课程工程 ${workspace.headCommit.slice(0, 7)}` : `主固件 ${workspace.baselineCommit.slice(0, 7)}`}` : ''}</p></div>
+          <div><span className="eyebrow">{selected?.group ?? selectedNode?.role ?? '学生代码'}</span><h2>{selected?.label ?? selectedNode?.name ?? '选择一个文件'}</h2><p>{selected?.path ?? selectedNode?.displayPath}{selectedNode ? ` · ${selectedNode.origin === 'lesson-overlay' ? `课程工程 ${workspace.headCommit.slice(0, 7)}` : `工程文件`}` : ''}</p></div>
           <div className="student-editor-actions">
             <button type="button" onClick={explainSelection} disabled={busy || !selected}><Sparkles size={14} /> 解释选中代码</button>
             {mcu ? <><span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`} role="status" aria-live="polite">{saving ? '正在保存…' : dirty ? '有未保存修改' : <><CheckCircle2 size={13} /> 已保存</>}</span>{workspaceAction && <><button type="button" onClick={() => { void saveCurrent() }} disabled={!dirty || saving || !editorWritable}><Save size={14} />保存</button><button type="button" onClick={workspaceAction.onCompile} disabled={workspaceAction.compileDisabled || saving || dirty}><Play size={14} />编译</button><button type="button" className="button-primary" onClick={workspaceAction.onFlash} disabled={workspaceAction.flashDisabled || saving || dirty} title={workspaceAction.flashTitle}><Zap size={14} />烧录</button></>}</> : !manualCandidate ? <button type="button" className="button-primary" onClick={startDraft} disabled={busy}><Play size={14} /> 开始编写</button> : <>
@@ -426,7 +428,7 @@ function ProjectExplorerTree({ snapshot, selectedPath, expanded, errorPaths, onT
       {open && render(node.id, depth + 1)}
     </div>
   })
-  return <div className="project-explorer-tree" role="tree" aria-label={`${snapshot.rootLabel} 工程目录`}><div className="explorer-root"><FolderOpen size={15} /><strong>{snapshot.rootLabel}</strong><small>{snapshot.baselineAvailable ? '完整构建工程' : '仅课程文件'}</small></div>{render(undefined, 0)}</div>
+  return <div className="project-explorer-tree" role="tree" aria-label={`${snapshot.rootLabel} 工程目录`}><div className="explorer-root"><FolderOpen size={15} /><strong>{snapshot.rootLabel}</strong><small>{snapshot.baselineAvailable ? '完整构建工程' : '仅课程文件'}</small></div>{snapshot.nodes.length > 0 ? render(undefined, 0) : <div className="explorer-empty">工程目录为空，请重新打开工作区。</div>}</div>
 }
 
 function fileIcon(node: ProjectExplorerNode): typeof File {
