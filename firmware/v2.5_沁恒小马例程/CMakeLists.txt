@@ -20,10 +20,18 @@ if(ROBOTDOG_STUDENT_OVERLAY)
     set(ROBOTDOG_STUDENT_SOURCE "${ROBOTDOG_STUDENT_OVERLAY}/Core/Src/student_control.c")
     set(ROBOTDOG_STUDENT_HEADER_DIR "${ROBOTDOG_STUDENT_OVERLAY}/Core/Inc")
     set(ROBOTDOG_STUDENT_CONFIG "${ROBOTDOG_STUDENT_OVERLAY}/student-config/line-following.yaml")
+    if(EXISTS "${ROBOTDOG_STUDENT_OVERLAY}/App/Inc")
+        set(ROBOTDOG_STUDENT_APP_INC "${ROBOTDOG_STUDENT_OVERLAY}/App/Inc")
+    else()
+        set(ROBOTDOG_STUDENT_APP_INC "")
+    endif()
+    file(GLOB ROBOTDOG_STUDENT_APP_SOURCES "${ROBOTDOG_STUDENT_OVERLAY}/App/Src/*.c")
 else()
     set(ROBOTDOG_STUDENT_SOURCE "${CMAKE_SOURCE_DIR}/Core/Src/student_control.c")
     set(ROBOTDOG_STUDENT_HEADER_DIR "${CMAKE_SOURCE_DIR}/Core/Inc")
     set(ROBOTDOG_STUDENT_CONFIG "${CMAKE_SOURCE_DIR}/student-config/line-following.yaml")
+    set(ROBOTDOG_STUDENT_APP_INC "")
+    set(ROBOTDOG_STUDENT_APP_SOURCES "")
 endif()
 
 foreach(required_file IN ITEMS "${ROBOTDOG_STUDENT_SOURCE}" "${ROBOTDOG_STUDENT_CONFIG}")
@@ -89,6 +97,7 @@ add_executable(RobotDogFirmware
     ${ROBOTDOG_USER_SOURCES}
     ${ROBOTDOG_PERIPHERAL_SOURCES}
     "${ROBOTDOG_STUDENT_SOURCE}"
+    ${ROBOTDOG_STUDENT_APP_SOURCES}
 )
 
 add_dependencies(RobotDogFirmware robotdog_student_config)
@@ -96,6 +105,7 @@ add_dependencies(RobotDogFirmware robotdog_student_config)
 target_include_directories(RobotDogFirmware PRIVATE
     "${ROBOTDOG_GENERATED_INC}"
     "${ROBOTDOG_STUDENT_HEADER_DIR}"
+    $<$<BOOL:${ROBOTDOG_STUDENT_APP_INC}>:${ROBOTDOG_STUDENT_APP_INC}>
     Core/Inc
     Core
     Debug
@@ -118,7 +128,7 @@ target_compile_options(RobotDogFirmware PRIVATE
     -fno-common
 )
 
-set_source_files_properties("${ROBOTDOG_STUDENT_SOURCE}" PROPERTIES
+set_source_files_properties("${ROBOTDOG_STUDENT_SOURCE}" ${ROBOTDOG_STUDENT_APP_SOURCES} PROPERTIES
     COMPILE_OPTIONS "-Wall;-Wextra;-Wconversion;-Werror=implicit-function-declaration;-Werror=return-type"
 )
 

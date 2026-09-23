@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { promisify } from 'node:util'
 import type { CandidateBuildProof, CandidateDiagnostic } from '../../shared/types'
@@ -95,6 +95,10 @@ export class CandidateBuildService implements CandidateBuilder {
     const sourcePaths = await collectCFiles(join(input.candidateRoot, 'App', 'Src'))
     if (sourcePaths.length === 0) throw new CandidateBuildError([{ severity: 'error', message: '单片机教学目录中没有找到实验源文件。' }], 'MCU_SOURCE_MISSING')
     const includePaths = [join(input.candidateRoot, 'App', 'Inc')]
+    const coreInc = join(input.candidateRoot, 'Core', 'Inc')
+    if (await stat(coreInc).then((info) => info.isDirectory(), () => false)) {
+      includePaths.push(coreInc)
+    }
     const objectHash = createHash('sha256')
     try {
       for (const [index, sourcePath] of sourcePaths.entries()) {
