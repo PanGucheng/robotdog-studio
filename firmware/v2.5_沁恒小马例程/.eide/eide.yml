@@ -1,0 +1,160 @@
+﻿version: "4.1"
+name: GPIO_Toggle
+type: RISC-V
+deviceName: null
+packDir: null
+srcDirs:
+  - User
+  - Core
+  - Debug
+  - Ld
+  - Peripheral
+  - Startup
+  - tools
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders:
+    - name: Core
+      files:
+        - path: Core/core_riscv.h
+        - path: Core/core_riscv.c
+      folders: []
+    - name: Debug
+      files:
+        - path: Debug/debug.h
+        - path: Debug/debug.c
+      folders: []
+    - name: Ld
+      files: []
+      folders: []
+    - name: Peripheral
+      files: []
+      folders:
+        - name: src
+          files:
+            - path: Peripheral/src/ch32v20x_wwdg.c
+            - path: Peripheral/src/ch32v20x_usart.c
+            - path: Peripheral/src/ch32v20x_tim.c
+            - path: Peripheral/src/ch32v20x_spi.c
+            - path: Peripheral/src/ch32v20x_rtc.c
+            - path: Peripheral/src/ch32v20x_rcc.c
+            - path: Peripheral/src/ch32v20x_pwr.c
+            - path: Peripheral/src/ch32v20x_opa.c
+            - path: Peripheral/src/ch32v20x_misc.c
+            - path: Peripheral/src/ch32v20x_iwdg.c
+            - path: Peripheral/src/ch32v20x_i2c.c
+            - path: Peripheral/src/ch32v20x_gpio.c
+            - path: Peripheral/src/ch32v20x_flash.c
+            - path: Peripheral/src/ch32v20x_exti.c
+            - path: Peripheral/src/ch32v20x_dma.c
+            - path: Peripheral/src/ch32v20x_dbgmcu.c
+            - path: Peripheral/src/ch32v20x_crc.c
+            - path: Peripheral/src/ch32v20x_can.c
+            - path: Peripheral/src/ch32v20x_bkp.c
+            - path: Peripheral/src/ch32v20x_adc.c
+          folders: []
+        - name: inc
+          files:
+            - path: Peripheral/inc/ch32v20x_wwdg.h
+            - path: Peripheral/inc/ch32v20x_usb.h
+            - path: Peripheral/inc/ch32v20x_usart.h
+            - path: Peripheral/inc/ch32v20x_tim.h
+            - path: Peripheral/inc/ch32v20x_spi.h
+            - path: Peripheral/inc/ch32v20x_rtc.h
+            - path: Peripheral/inc/ch32v20x_rcc.h
+            - path: Peripheral/inc/ch32v20x_pwr.h
+            - path: Peripheral/inc/ch32v20x_opa.h
+            - path: Peripheral/inc/ch32v20x_misc.h
+            - path: Peripheral/inc/ch32v20x_iwdg.h
+            - path: Peripheral/inc/ch32v20x_i2c.h
+            - path: Peripheral/inc/ch32v20x_gpio.h
+            - path: Peripheral/inc/ch32v20x_flash.h
+            - path: Peripheral/inc/ch32v20x_exti.h
+            - path: Peripheral/inc/ch32v20x_dma.h
+            - path: Peripheral/inc/ch32v20x_dbgmcu.h
+            - path: Peripheral/inc/ch32v20x_crc.h
+            - path: Peripheral/inc/ch32v20x_can.h
+            - path: Peripheral/inc/ch32v20x_bkp.h
+            - path: Peripheral/inc/ch32v20x_adc.h
+            - path: Peripheral/inc/ch32v20x.h
+          folders: []
+    - name: Startup
+      files:
+        - path: Startup/startup_ch32v20x_D8W.S
+        - path: Startup/startup_ch32v20x_D8.S
+        - path: Startup/startup_ch32v20x_D6.S
+      folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 826d18b4d67d152dc334f8db4245b3da
+targets:
+  obj:
+    cppPreprocessAttrs:
+      defineList: []
+      incList:
+        - Debug
+        - Core
+        - User
+        - Peripheral/inc
+      libList: []
+    excludeList:
+      - <virtual_root>/Startup
+      - <virtual_root>/Peripheral
+      - <virtual_root>/Ld
+      - <virtual_root>/Debug
+      - <virtual_root>/Core
+      - startup_ch32v20x_D8.S
+      - startup_ch32v20x_D8W.S
+    settings: {}
+    toolchain: RISCV_GCC
+    toolchainConfigMap:
+      RISCV_GCC:
+        linkerScriptPath: Ld\Link.ld
+        options:
+          version: 2
+          afterBuildTasks: []
+          asm-compiler:
+            ASM_FLAGS: -Wl,-Bstatic
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            C_FLAGS: -Wl,-Bstatic
+            language-c: gnu99
+            language-cpp: c++11
+            one-elf-section-per-data: true
+            one-elf-section-per-function: true
+            optimization: level-size
+            signed-char: true
+            warnings: all-warnings
+          global:
+            abi: ilp32
+            arch: rv32imac
+            code-model: medlow
+            misc-control: -fmessage-length=0 -Wunused
+            output-debug-info: enable
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            $toolName: auto
+            LD_FLAGS: -nostartfiles --specs=nano.specs --specs=nosys.specs
+            output-format: elf
+            remove-unused-input-sections: true
+    uploadConfigMap:
+      JLink:
+        baseAddr: ""
+        bin: ""
+        cpuInfo:
+          cpuName: "null"
+          vendor: "null"
+        otherCmds: ""
+        proType: 1
+        speed: 8000
+      OpenOCD:
+        baseAddr: "0x08000000"
+        bin: ""
+        interface: ${workspaceFolder}/tools/wch-riscv
+        target: ${workspaceFolder}/tools/wch-riscv
+    uploader: OpenOCD
+
+

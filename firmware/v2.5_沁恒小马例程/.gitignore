@@ -1,0 +1,40 @@
+# dot files
+/.vscode/launch.json
+/.settings
+/.eide/log
+/.eide.usr.ctx.json
+/.eide/env.ini
+/.mrs/*.snapshot
+
+# project out
+/build
+/bin
+/obj
+/out
+__pycache__/
+**/__pycache__/
+
+# binary/build artifacts
+**/OBJ/
+*.o
+*.d
+*.crf
+*.elf
+*.hex
+*.map
+*.lst
+*.axf
+*.siz
+*.dep
+*.lnp
+*.sct
+*.htm
+
+# local reference projects and working notes
+/CCD巡线代码【高配版平衡小车STM32F103RCT6】_2022.06.04/
+/CLAUDE.md
+/state.md
+
+# eide template
+*.ept
+*.eide-template

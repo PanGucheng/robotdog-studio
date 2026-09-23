@@ -1,0 +1,24 @@
+{
+  "version": 5,
+  "configurePresets": [
+    {
+      "name": "robotdog-wch-gcc12",
+      "displayName": "RobotDog WCH GCC12",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/robotdog-wch-gcc12",
+      "toolchainFile": "${sourceDir}/cmake/robotdog-wch-gcc12.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ROBOTDOG_OUTPUT_DIR": "${sourceDir}/out/robotdog-release",
+        "ROBOTDOG_STUDENT_OVERLAY": ""
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "robotdog-release",
+      "configurePreset": "robotdog-wch-gcc12",
+      "configuration": "Release"
+    }
+  ]
+}
