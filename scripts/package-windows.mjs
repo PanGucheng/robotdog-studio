@@ -101,6 +101,7 @@ const extraResources = [
   { from: resolve(root, selectedTemplate), to: selectedTemplate.replace(/^resources[\\/]/, '').replaceAll('\\', '/') },
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'courses', 'mcu-foundations'), to: 'courses/mcu-foundations' }] : []),
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'), to: 'workspace-templates/ch32v203-mcu-lessons' }] : []),
+  ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'workspace-templates', 'ch32v203-pony'), to: 'workspace-templates/ch32v203-pony' }] : []),
   ...(editionId === 'ti-mspm0-foundations' ? [{ from: join(root, 'resources', 'courses', 'ti-mspm0-foundations'), to: 'courses/ti-mspm0-foundations' }] : []),
   { from: join(root, 'resources', 'firmware-baselines'), to: 'firmware-baselines' },
   { from: join(root, 'resources', 'board-profiles'), to: 'board-profiles' },
@@ -136,7 +137,35 @@ const extraResources = [
       'tools/**/*',
       'src/**/*', 'gcc/**/*', '*.syscfg', 'robotdog.project.json', 'reasonix.toml', 'AGENTS.md'
     ]
-  }
+  },
+  ...(editionId === 'mcu-foundations' ? [{
+    from: join(root, 'firmware', 'v2.5_沁恒小马例程'),
+    to: 'firmware-baselines/ch32v203-pony/current/source',
+    filter: [
+      'CMakeLists.txt',
+      'CMakePresets.json',
+      'pony.firmware.json',
+      'robotdog.firmware.json',
+      'LICENSE',
+      'README.md',
+      'THIRD_PARTY_NOTICES.md',
+      'student_function.md',
+      '调试说明.md',
+      'Core/**/*',
+      'Debug/**/*',
+      'Ld/**/*',
+      'Peripheral/**/*',
+      'Startup/**/*',
+      'User/**/*',
+      'cmake/**/*',
+      'docs/**/*',
+      'student-config/**/*',
+      'tests/**/*',
+      'tools/**/*',
+      '!**/__pycache__/**',
+      '!**/*.pyc'
+    ]
+  }] : [])
 ]
 
 const artifacts = await build({
@@ -179,7 +208,13 @@ for (const artifact of artifacts) {
 const packagedResourcesRoot = join(packageOutputRoot, 'win-unpacked', 'resources')
 await verifyPackagedFirmwareSource(join(packagedResourcesRoot, baselineTarget))
 await verifyPackagedWorkspaceTemplate(resolvePackagedResource(packagedResourcesRoot, selectedTemplate), editionId)
-if (editionId === 'mcu-foundations') await verifyPackagedCourseResources(join(packagedResourcesRoot, 'courses', 'mcu-foundations'), join(packagedResourcesRoot, 'workspace-templates', 'ch32v203-mcu-lessons'))
+if (editionId === 'mcu-foundations') {
+  await verifyPackagedCourseResources(join(packagedResourcesRoot, 'courses', 'mcu-foundations'), join(packagedResourcesRoot, 'workspace-templates', 'ch32v203-mcu-lessons'))
+  await verifyPackagedPonyResources(packagedResourcesRoot)
+  await execFileAsync(process.execPath, [join(root, 'node_modules', 'tsx', 'dist', 'cli.mjs'), join(root, 'scripts', 'smoke-mcu-pony-packaged.ts'), '--resources-root', packagedResourcesRoot], {
+    cwd: root, windowsHide: true, timeout: 180_000, maxBuffer: 4 * 1024 * 1024
+  }).then(({ stdout }) => console.log(stdout.trim()))
+}
 if (editionId === 'ti-mspm0-foundations') {
   await verifyPackagedCourseResources(join(packagedResourcesRoot, 'courses', 'ti-mspm0-foundations'), join(packagedResourcesRoot, 'workspace-templates'))
   for (const item of ['manifest.json', 'sysconfig/package.json', 'licenses/openocd/COPYING']) {
@@ -379,3 +414,29 @@ async function verifyPackagedWchLinkDriver(driverRoot) {
   }
   console.log(`Verified packaged WCH-Link driver files: ${required.length} required files (${driverRoot})`)
 }
+
+async function verifyPackagedPonyResources(resourcesRoot) {
+  const ponyBaselineRoot = join(resourcesRoot, 'firmware-baselines', 'ch32v203-pony', 'current', 'source')
+  const ponyTemplateFile = join(resourcesRoot, 'workspace-templates', 'ch32v203-pony', '0.2.5', 'App', 'Src', 'experiment.c')
+  const requiredFiles = [
+    'CMakeLists.txt',
+    'CMakePresets.json',
+    'pony.firmware.json',
+    'User/main.c',
+    'Core/Src/student_control.c',
+    'Core/Inc/student_control.h',
+    'Startup/startup_ch32v20x_D6.S',
+    'Ld/Link.ld'
+  ]
+  for (const item of requiredFiles) {
+    const path = join(ponyBaselineRoot, ...item.split('/'))
+    if (!(await stat(path).then((info) => info.isFile(), () => false))) {
+      throw new Error(`打包后的小马基线缺少必要文件：${item} (${path})`)
+    }
+  }
+  if (!(await stat(ponyTemplateFile).then((info) => info.isFile(), () => false))) {
+    throw new Error(`打包后的小马模板缺少必要文件：experiment.c (${ponyTemplateFile})`)
+  }
+  console.log(`Verified packaged Pony baseline and template resources (${ponyBaselineRoot})`)
+}
+

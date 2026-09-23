@@ -39,6 +39,7 @@
     "firmware:build:ch32v203": "node scripts/build-ch32v203-firmware.mjs",
     "smoke:ti-mspm0": "tsx scripts/smoke-ti-mspm0.ts",
     "smoke:ti-mspm0:flash": "tsx scripts/smoke-ti-mspm0.ts --flash",
+    "smoke:mcu:pony": "tsx scripts/smoke-mcu-pony-packaged.ts",
     "firmware:source:status": "node scripts/firmware-source.mjs status",
     "firmware:source:fetch": "node scripts/firmware-source.mjs fetch",
     "firmware:source:prepare": "node scripts/firmware-source.mjs prepare",
