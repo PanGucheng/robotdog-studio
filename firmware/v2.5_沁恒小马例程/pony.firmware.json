@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "firmwareVersion": "0.2.5",
+  "protocolVersion": 1,
+  "board": "robotdog-ch32v203c8t6",
+  "chip": "CH32V203C8T6",
+  "sourceBaseCommit": "797dd6a0a53277197a7c54db2bb4a37debd0a9b0",
+  "baselineCommit": "797dd6a0a53277197a7c54db2bb4a37debd0a9b0",
+  "reviewedIntegrationCommitShort": "797dd6a",
+  "baselineCommitStatus": "resolved_by_authoritative_git_remote",
+  "memory": {
+    "flashBytes": 65536,
+    "ramBytes": 20480
+  },
+  "hardwareStatus": {
+    "mcuConfirmed": true
+  },
+  "build": {
+    "startup": "Startup/startup_ch32v20x_D6.S",
+    "linkerScript": "Ld/Link.ld",
+    "toolchain": "WCH RISC-V Embedded GCC12"
+  },
+  "studentOverlay": {
+    "source": "App/Src/experiment.c",
+    "header": "App/Inc/experiment.h",
+    "configInput": "student-config/line-following.yaml",
+    "generatedHeader": "Core/Inc/student_config.generated.h"
+  },
+  "artifacts": {
+    "elf": "RobotDog.elf",
+    "hex": "RobotDog.hex",
+    "bin": "RobotDog.bin",
+    "map": "RobotDog.map"
+  }
+}

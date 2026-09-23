@@ -102,12 +102,14 @@ export class FirmwareBaselineService {
     if (override) return resolve(override)
     if (this.options.packagedSourceRoot) return resolve(this.options.packagedSourceRoot)
     if (manifest.schemaVersion === 2) {
-      const declaredRoot = resolve(manifest.source.developmentDefaultRoot)
       const appRoot = resolve(dirname(this.options.manifestPath), '..', '..', '..')
+      const declaredRoot = isAbsolute(manifest.source.developmentDefaultRoot)
+        ? resolve(manifest.source.developmentDefaultRoot)
+        : resolve(appRoot, manifest.source.developmentDefaultRoot)
       const sourceRoot = join(appRoot, '.firmware-sources', 'ch32v203-robot-dog')
       // The live registry may point at the checked-in baseline directory while
       // its manifest/source pair lives in the fetched development checkout.
-      if (basename(manifest.live.manifestPath) === 'robotdog.firmware.json' && existsSync(join(sourceRoot, 'robotdog.firmware.json'))) return sourceRoot
+      if (manifest.id.startsWith('ch32v203-robotdog') && basename(manifest.live.manifestPath) === 'robotdog.firmware.json' && existsSync(join(sourceRoot, 'robotdog.firmware.json'))) return sourceRoot
       if (existsSync(declaredRoot)) return declaredRoot
       if (existsSync(sourceRoot)) return sourceRoot
     }
@@ -131,7 +133,7 @@ export class FirmwareBaselineService {
       releaseEligible: false,
       replacementPolicy: '开发阶段动态固件基线；通过验证后可切换，学生工作区不自动覆盖。',
       source: {
-        repository: typeof active.remote === 'object' && active.remote && 'url' in active.remote ? String((active.remote as { url?: unknown }).url) : 'firmware/ch32v203-baseline',
+        repository: typeof active.remote === 'object' && active.remote && 'url' in active.remote ? String((active.remote as { url?: unknown }).url) : String(active.name ?? 'firmware/ch32v203-baseline'),
         expectedCommit: activeCommit,
         developmentDefaultRoot: String(active.sourceRoot ?? 'D:\\RobotDog\\RobotDog_Studio\\firmware\\ch32v203-baseline')
       },
@@ -143,7 +145,12 @@ export class FirmwareBaselineService {
         memory: { flashBytes: Number(memory.flashBytes ?? 65536), ramBytes: Number(memory.ramBytes ?? 20480), confirmed: Boolean(firmware.hardwareStatus?.mcuConfirmed) }
       },
       toolchain: { profile: 'ch32v203-wch-gcc12', arch: 'rv32imac', abi: 'ilp32', codeModel: 'medlow' },
-      build: { type: 'cmake', preset: String(active.build && typeof active.build === 'object' && 'preset' in active.build ? (active.build as { preset?: unknown }).preset : 'wch-gcc12'), outputDir: '.firmware-build/ch32v203-rhs', toolchain: String(firmware.build?.toolchain ?? 'WCH RISC-V Embedded GCC12') },
+      build: {
+        type: 'cmake',
+        preset: String(active.build && typeof active.build === 'object' && 'preset' in active.build ? (active.build as { preset?: unknown }).preset : 'wch-gcc12'),
+        outputDir: String(active.build && typeof active.build === 'object' && 'outputDir' in active.build ? (active.build as { outputDir?: unknown }).outputDir : '.firmware-build/ch32v203-rhs'),
+        toolchain: String(firmware.build?.toolchain ?? 'WCH RISC-V Embedded GCC12')
+      },
       studentOverlay: {
         source: String(studentOverlay?.source ?? 'App/Src/experiment.c'),
         header: String(studentOverlay?.header ?? 'App/Inc/experiment.h'),

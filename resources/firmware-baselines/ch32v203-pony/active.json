@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "name": "ch32v203-pony",
+  "mode": "development-local",
+  "activeCommit": "797dd6a0a53277197a7c54db2bb4a37debd0a9b0",
+  "shortCommit": "797dd6a",
+  "id": "ch32v203-pony-v25",
+  "label": "CH32V203 小马全功能固件基线 v0.2.5",
+  "sourceRoot": "firmware/v2.5_沁恒小马例程",
+  "verifiedFirmwareManifest": "pony.firmware.json",
+  "studentTemplate": "resources/workspace-templates/ch32v203-pony/0.2.5",
+  "build": {
+    "type": "cmake",
+    "preset": "robotdog-wch-gcc12",
+    "toolchain": "WCH RISC-V Embedded GCC12",
+    "outputDir": ".firmware-build/ch32v203-pony"
+  }
+}
