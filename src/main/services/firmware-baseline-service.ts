@@ -112,6 +112,8 @@ export class FirmwareBaselineService {
       if (manifest.id.startsWith('ch32v203-robotdog') && basename(manifest.live.manifestPath) === 'robotdog.firmware.json' && existsSync(join(sourceRoot, 'robotdog.firmware.json'))) return sourceRoot
       if (existsSync(declaredRoot)) return declaredRoot
       if (existsSync(sourceRoot)) return sourceRoot
+      const fallbackLocal = join(appRoot, 'firmware', basename(manifest.source.developmentDefaultRoot))
+      if (existsSync(fallbackLocal)) return fallbackLocal
     }
     return resolve(manifest.source.developmentDefaultRoot)
   }
