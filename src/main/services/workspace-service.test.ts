@@ -171,4 +171,61 @@ describe('WorkspaceService', () => {
     expect(policy.allowedEditGlobs).toEqual(['App/Src/lesson.c'])
     expect(policy.deniedGlobs).toContain('Core/**')
   })
+
+  it('creates new mcu-sandbox on pony baseline while keeping lesson attempts on rhs baseline', async () => {
+    const ponyTemplate = join(sandbox, 'pony-template')
+    await mkdir(join(ponyTemplate, 'App', 'Src'), { recursive: true })
+    await mkdir(join(ponyTemplate, 'App', 'Inc'), { recursive: true })
+    await mkdir(join(ponyTemplate, 'Core', 'Src'), { recursive: true })
+    await mkdir(join(ponyTemplate, 'Core', 'Inc'), { recursive: true })
+    await writeFile(join(ponyTemplate, 'App', 'Src', 'experiment.c'), 'void experiment(void) {}\n')
+    await writeFile(join(ponyTemplate, 'App', 'Inc', 'experiment.h'), 'void experiment(void);\n')
+    await writeFile(join(ponyTemplate, 'Core', 'Src', 'student_control.c'), 'void bridge(void) {}\n')
+    await writeFile(join(ponyTemplate, 'Core', 'Inc', 'student_control.h'), 'void bridge(void);\n')
+
+    const service = new WorkspaceService({
+      rootDir: dataRoot,
+      templateRoot,
+      edition: EDITION_PROFILES['mcu-foundations'],
+      firmwareBaselineId: 'ch32v203-rhs-baseline',
+      baselineCommit: '539e35a8c307843000d4bc25fb618c3143fb5b2d',
+      sandboxDefaults: {
+        templateRoot: ponyTemplate,
+        templateVersion: '797dd6a',
+        templateId: 'ch32v203-pony',
+        firmwareBaselineId: 'ch32v203-pony-v25',
+        baselineCommit: '797dd6a0a53277197a7c54db2bb4a37debd0a9b0'
+      }
+    })
+
+    const sandboxWs = await service.create({ studentDisplayName: '小明' })
+    expect(sandboxWs.workspacePurpose).toBe('mcu-sandbox')
+    expect(sandboxWs.firmwareBaselineId).toBe('ch32v203-pony-v25')
+    expect(sandboxWs.baselineCommit).toBe('797dd6a0a53277197a7c54db2bb4a37debd0a9b0')
+    expect(sandboxWs.templateId).toBe('ch32v203-pony')
+
+    const lessonTemplate = join(sandbox, 'rhs-lesson-template')
+    await mkdir(join(lessonTemplate, 'App', 'Src'), { recursive: true })
+    await writeFile(join(lessonTemplate, 'App', 'Src', 'lesson.c'), 'void lesson(void) {}\n')
+    const lessonWs = await service.createLessonAttempt(
+      { courseId: 'c1', lessonId: 'l1', studentDisplayName: '小明' },
+      {
+        workspacePurpose: 'mcu-lesson-attempt',
+        templateId: 'rhs-lesson-template',
+        templateVersion: 'content-v1',
+        templateRoot: lessonTemplate,
+        courseBinding: { courseId: 'c1', lessonId: 'l1', contentVersion: 1 },
+        lessonTitle: 'RHS 实验',
+        allowedEditGlobs: ['App/Src/**'],
+        deniedGlobs: ['Core/**']
+      }
+    )
+    expect(lessonWs.workspacePurpose).toBe('mcu-lesson-attempt')
+    expect(lessonWs.firmwareBaselineId).toBe('ch32v203-rhs-baseline')
+    expect(lessonWs.baselineCommit).toBe('539e35a8c307843000d4bc25fb618c3143fb5b2d')
+
+    // Old sandbox read back keeps its own baseline identity
+    const readBack = await service.get(sandboxWs.id)
+    expect(readBack.firmwareBaselineId).toBe('ch32v203-pony-v25')
+  })
 })

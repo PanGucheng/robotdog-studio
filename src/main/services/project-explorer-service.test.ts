@@ -108,4 +108,71 @@ describe('ProjectExplorerService', () => {
     expect(snapshot.nodes.find((node) => node.displayPath === 'App/Src/experiment.c')?.state).toBe('modified')
     expect(snapshot.nodes.find((node) => node.displayPath === 'Ld/Link.ld')?.access).toBe('read-only')
   })
+
+  it('shows Pony workspace root label and keeps experiment.c editable while student_control.h and baseline are read-only', async () => {
+    const ponyBaselineDir = join(sandbox, 'pony-baseline')
+    await mkdir(join(ponyBaselineDir, 'User'), { recursive: true })
+    await mkdir(join(ponyBaselineDir, 'Core', 'Inc'), { recursive: true })
+    await mkdir(join(ponyBaselineDir, 'Core', 'Src'), { recursive: true })
+    const runtimeContent = 'void runtime(void) {}\n'
+    await writeFile(join(ponyBaselineDir, 'User', 'robotdog_runtime.c'), runtimeContent)
+    const runtimeHash = createHash('sha256').update(runtimeContent).digest('hex')
+    await writeFile(join(ponyBaselineDir, 'Core', 'Inc', 'student_control.h'), 'typedef int student_action_t;\n')
+    await writeFile(join(ponyBaselineDir, 'Core', 'Src', 'student_control.c'), 'void StudentControl_Init(void) {}\n')
+    await writeFile(join(ponyBaselineDir, 'pony.firmware.json'), JSON.stringify({ board: 'robotdog-ch32v203c8t6', chip: 'CH32V203C8T6' }))
+
+    const ponyManifestPath = join(sandbox, 'pony-manifest.json')
+    await writeFile(ponyManifestPath, JSON.stringify({
+      schemaVersion: 1, id: 'ch32v203-pony-v25', label: 'Pony Baseline', status: 'provisional', releaseEligible: false,
+      replacementPolicy: 'test',
+      source: { repository: 'test', expectedCommit: 'b'.repeat(40), developmentDefaultRoot: ponyBaselineDir },
+      target: { board: 'pony', chip: 'CH32V203C8T6', startup: 'Startup/start.S', linkerScript: 'Ld/Link.ld', memory: { flashBytes: 65536, ramBytes: 20480, confirmed: true } },
+      toolchain: { profile: 'test', arch: 'rv32', abi: 'ilp32', codeModel: 'medlow' },
+      build: { includeDirectories: ['Core/Inc'], sources: ['User/robotdog_runtime.c'], cFlags: [], assemblerFlags: [], linkFlags: [] },
+      studentOverlay: {
+        source: 'App/Src/experiment.c',
+        header: 'App/Inc/experiment.h',
+        configInput: 'student-config/line-following.yaml',
+        generatedHeader: 'Core/Inc/student_config.generated.h'
+      },
+      artifacts: { elf: 'RobotDog.elf', hex: 'RobotDog.hex', bin: 'RobotDog.bin', map: 'RobotDog.map' },
+      integrity: [{ path: 'User/robotdog_runtime.c', sha256: runtimeHash }]
+    }))
+    const ponyBaseline = new FirmwareBaselineService({ manifestPath: ponyManifestPath })
+
+    const { FirmwareBaselineResolver } = await import('./firmware-baseline-resolver')
+    const resolver = new FirmwareBaselineResolver({ staticRoot: sandbox, isPackaged: false })
+    resolver.register('baseline-test', new FirmwareBaselineService({ manifestPath: join(sandbox, 'baseline.json') }))
+    resolver.register('ch32v203-pony-v25', ponyBaseline)
+
+    const ponyTemplate = join(sandbox, 'pony-template')
+    await mkdir(join(ponyTemplate, 'App', 'Src'), { recursive: true })
+    await mkdir(join(ponyTemplate, 'App', 'Inc'), { recursive: true })
+    await writeFile(join(ponyTemplate, 'App', 'Src', 'experiment.c'), 'void Experiment_Init(void) {}\n')
+    await writeFile(join(ponyTemplate, 'App', 'Inc', 'experiment.h'), 'void Experiment_Init(void);\n')
+
+    const ponyDataRoot = join(sandbox, 'pony-data')
+    const ponyWorkspaces = new WorkspaceService({
+      rootDir: ponyDataRoot,
+      templateRoot: ponyTemplate,
+      edition: EDITION_PROFILES['mcu-foundations'],
+      sandboxDefaults: {
+        templateRoot: ponyTemplate,
+        templateVersion: 'b'.repeat(7),
+        templateId: 'ch32v203-pony',
+        firmwareBaselineId: 'ch32v203-pony-v25',
+        baselineCommit: 'b'.repeat(40)
+      }
+    })
+    const ws = await ponyWorkspaces.create({ studentDisplayName: '小红' })
+    const ponyCandidates = new CandidateService({ rootDir: ponyDataRoot, workspaces: ponyWorkspaces, builder })
+    const explorerService = new ProjectExplorerService(ponyWorkspaces, ponyCandidates, resolver)
+
+    const snapshot = await explorerService.getSnapshot(ws.id)
+    expect(snapshot.rootLabel).toContain('Pony Firmware')
+    expect(snapshot.baselineId).toBe('ch32v203-pony-v25')
+    expect(snapshot.nodes.find((n) => n.displayPath === 'App/Src/experiment.c')).toMatchObject({ origin: 'lesson-overlay', access: 'editable' })
+    expect(snapshot.nodes.find((n) => n.displayPath === 'User/robotdog_runtime.c')).toMatchObject({ origin: 'firmware-baseline', access: 'read-only' })
+    expect(snapshot.nodes.find((n) => n.displayPath === 'Core/Inc/student_control.h')).toMatchObject({ origin: 'firmware-baseline', access: 'read-only' })
+  })
 })
