@@ -64,6 +64,17 @@ export class ToolchainService {
     return join(this.getBundledRoot(), 'OpenOCD', 'OpenOCD', 'bin', 'wch-riscv.cfg')
   }
 
+  getWchToolchainRoot(): string {
+    return join(this.getBundledRoot(), 'Toolchain', 'RISC-V Embedded GCC12')
+  }
+
+  getCmakePath(): string {
+    if (process.env.ROBOTDOG_CMAKE_PATH && existsSync(process.env.ROBOTDOG_CMAKE_PATH)) {
+      return process.env.ROBOTDOG_CMAKE_PATH
+    }
+    return process.platform === 'win32' ? 'cmake.exe' : 'cmake'
+  }
+
   async getStatus(): Promise<ToolchainStatus> {
     const root = this.getBundledRoot()
     const [gcc, objcopy, size, openocd] = await Promise.all([

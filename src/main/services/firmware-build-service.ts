@@ -47,15 +47,6 @@ const LEGACY_LIVE_BASELINE_SOURCES = [
 ]
 const LEGACY_LIVE_INCLUDE_DIRECTORIES = ['Core/Inc', 'Core', 'Debug', 'User', 'Peripheral/inc', 'Startup']
 const LEGACY_LIVE_C_FLAGS = [...LIVE_C_FLAGS, '-DROBOTDOG_ENABLE_LEGACY_TEXT=0']
-const PONY_LIVE_BASELINE_SOURCES = [
-  'Startup/startup_ch32v20x_D6.S', 'Core/core_riscv.c', 'Debug/debug.c', 'User/main.c', 'User/system_ch32v20x.c', 'User/ch32v20x_it.c',
-  'User/ccd_line_sensor.c', 'User/robotdog_types.c', 'User/robotdog_safety.c', 'User/robotdog_protocol.c', 'User/robotdog_text.c',
-  'User/robotdog_tx_queue.c', 'User/robotdog_telemetry.c', 'User/robotdog_student_bridge.c', 'User/robotdog_runtime.c', 'User/robotdog_motion.c',
-  'User/ssd1306_oled.c', 'Peripheral/src/ch32v20x_adc.c', 'Peripheral/src/ch32v20x_dbgmcu.c', 'Peripheral/src/ch32v20x_gpio.c',
-  'Peripheral/src/ch32v20x_i2c.c', 'Peripheral/src/ch32v20x_misc.c', 'Peripheral/src/ch32v20x_rcc.c', 'Peripheral/src/ch32v20x_tim.c',
-  'Peripheral/src/ch32v20x_usart.c'
-]
-const PONY_LIVE_INCLUDE_DIRECTORIES = ['Core/Inc', 'Core', 'Debug', 'User', 'Peripheral/inc', 'Startup']
 const LIVE_STUDENT_C_FLAGS = ['-Wall', '-Wextra', '-Wconversion', '-Werror=implicit-function-declaration', '-Werror=return-type']
 const LIVE_LINK_FLAGS = ['-nostartfiles', '--specs=nano.specs', '--specs=nosys.specs', '-Wl,--gc-sections']
 
@@ -98,18 +89,19 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     recovered.sort((left, right) => (right.completedAt ?? '').localeCompare(left.completedAt ?? ''))
     if (recovered[0]) {
       let sourceRoot = ''
-      try {
-        if (this.baselineResolver) {
-          const status = await this.baselineResolver.resolve('ch32v203-rhs-baseline').getStatus()
-          sourceRoot = status.sourceRoot
-        } else if (this.baseline) {
-          const status = await (this.baseline instanceof FirmwareBaselineResolver
-            ? this.baseline.resolve('ch32v203-rhs-baseline').getStatus()
-            : this.baseline.getStatus())
-          sourceRoot = status.sourceRoot
+      const baselineId = recovered[0].proof?.firmwareBaselineId
+      if (baselineId) {
+        try {
+          if (this.baselineResolver) {
+            sourceRoot = (await this.baselineResolver.resolve(baselineId).getStatus()).sourceRoot
+          } else if (this.baseline) {
+            sourceRoot = (await (this.baseline instanceof FirmwareBaselineResolver
+              ? this.baseline.resolve(baselineId).getStatus()
+              : this.baseline.getStatus())).sourceRoot
+          }
+        } catch {
+          sourceRoot = ''
         }
-      } catch {
-        // ignore
       }
       this.activeSnapshot = { ...recovered[0], firmwareRoot: sourceRoot, logs: ['已恢复上次经过哈希校验的固件产物。'] }
     }
@@ -150,6 +142,9 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       if (workspace.firmwareBaselineId !== manifest.id || workspace.baselineCommit !== manifest.source.expectedCommit) throw new Error('工作区绑定的固件基线与当前基线不一致')
       const projectRoot = await this.workspaces.getProjectRootForMain(workspace.id)
       if (manifest.schemaVersion === 2) {
+        if (manifest.id.startsWith('ch32v203-pony')) {
+          return await this.buildPonyCmakeBaseline({ buildId, temporaryRoot, sourceRoot, sourceHash, manifest, workspace, projectRoot, toolchain })
+        }
         return await this.buildCmakeBaseline({ buildId, temporaryRoot, sourceRoot, sourceHash, manifest, workspace, projectRoot, toolchain })
       }
       const workspaceSourceHash = await this.fingerprint.calculate(projectRoot)
@@ -265,6 +260,106 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     return this.getSnapshot()
   }
 
+  private async buildPonyCmakeBaseline(context: {
+    buildId: string
+    temporaryRoot: string
+    sourceRoot: string
+    sourceHash: string
+    manifest: Extract<Awaited<ReturnType<FirmwareBaselineService['getManifest']>>, { schemaVersion: 2 }>
+    workspace: Awaited<ReturnType<WorkspaceService['get']>>
+    projectRoot: string
+    toolchain: Awaited<ReturnType<ToolchainService['getStatus']>>
+  }): Promise<FirmwareBuildSnapshot> {
+    const { buildId, temporaryRoot, sourceRoot, sourceHash, manifest, workspace, projectRoot, toolchain } = context
+    const workspaceSourceHash = await this.fingerprint.calculate(projectRoot)
+    const inputHash = createHash('sha256').update(JSON.stringify({
+      workspaceCommit: workspace.headCommit, workspaceSourceHash, baselineId: manifest.id,
+      baselineCommit: manifest.source.expectedCommit, baselineSourceHash: sourceHash,
+      toolchain: toolchain.gcc.version ?? toolchain.gcc.detail, build: manifest.build, live: manifest.live
+    })).digest('hex')
+    const publishedRoot = join(this.outputBase, inputHash)
+    this.redactions = [sourceRoot, projectRoot, temporaryRoot, this.outputBase]
+    this.activeSnapshot = {
+      id: buildId, workspaceId: workspace.id, state: 'running', firmwareRoot: sourceRoot, outputDir: publishedRoot,
+      completedFiles: 0, totalFiles: 2, logs: [], artifacts: [], stage: 'preparing', startedAt: new Date().toISOString()
+    }
+    this.emitSnapshot('snapshot')
+    this.addLog(`正在使用 CMake 构建 ${manifest.label}`)
+
+    const cached = await this.readCachedBuild(publishedRoot, inputHash)
+    if (cached) {
+      this.activeSnapshot = { ...cached, id: buildId, firmwareRoot: sourceRoot, logs: ['输入没有变化，已使用经过哈希校验的 CMake 固件产物。'] }
+      this.emitSnapshot('completed')
+      return this.getSnapshot()
+    }
+
+    const stagingRoot = join(temporaryRoot, 'source')
+    const outputRoot = join(temporaryRoot, 'output')
+    await mkdir(outputRoot, { recursive: true })
+    await this.copyBaseline(sourceRoot, stagingRoot)
+
+    const cmakePath = this.toolchain.getCmakePath()
+    const toolchainRoot = this.toolchain.getWchToolchainRoot()
+    const preset = manifest.build.preset || 'robotdog-wch-gcc12'
+
+    this.activeSnapshot.stage = 'compiling'
+    this.addLog(`正在使用 CMake 配置工程（预设: ${preset}）...`)
+    await this.runProcess(cmakePath, [
+      '--preset', preset,
+      `-DROBOTDOG_TOOLCHAIN_ROOT=${toolchainRoot.replaceAll('\\', '/')}`,
+      `-DROBOTDOG_STUDENT_OVERLAY=${projectRoot.replaceAll('\\', '/')}`,
+      `-DROBOTDOG_OUTPUT_DIR=${outputRoot.replaceAll('\\', '/')}`
+    ], stagingRoot)
+    this.activeSnapshot.completedFiles = 1
+    this.emitSnapshot('progress')
+
+    this.addLog('正在使用 CMake 构建小马固件...')
+    await this.runProcess(cmakePath, [
+      '--build', '--preset', 'robotdog-release'
+    ], stagingRoot)
+    this.activeSnapshot.completedFiles = 2
+    this.emitSnapshot('progress')
+
+    this.activeSnapshot.stage = 'packaging'
+    const elfPath = join(outputRoot, manifest.artifacts.elf)
+    const hexPath = join(outputRoot, manifest.artifacts.hex)
+    const binPath = join(outputRoot, manifest.artifacts.bin)
+    const mapPath = join(outputRoot, manifest.artifacts.map)
+
+    this.addLog('读取 Flash / RAM 占用')
+    const sizeOutput = await this.runProcess(toolchain.size.path, [elfPath], stagingRoot)
+    await writeFile(join(outputRoot, manifest.artifacts.size), sizeOutput, 'utf8')
+    const size = parseSizeOutput(sizeOutput)
+    if (!size) throw new Error('无法读取固件 Flash/RAM 占用')
+    if (size.text + size.data > manifest.target.memory.flashBytes) throw new Error('固件超过基线声明的 Flash 容量')
+    if (size.data + size.bss > manifest.target.memory.ramBytes) throw new Error('固件超过基线声明的 RAM 容量')
+
+    const artifacts = await Promise.all([
+      makeArtifact(manifest.artifacts.elf, elfPath, 'elf'),
+      makeArtifact(manifest.artifacts.hex, hexPath, 'hex'),
+      makeArtifact(manifest.artifacts.bin, binPath, 'bin'),
+      makeArtifact(manifest.artifacts.map, mapPath, 'map')
+    ])
+
+    const completedAt = new Date().toISOString()
+    const proof: FirmwareBuildProof = {
+      schemaVersion: 1, inputHash, workspaceId: workspace.id, workspaceCommit: workspace.headCommit, workspaceSourceHash,
+      firmwareBaselineId: manifest.id, baselineCommit: manifest.source.expectedCommit, baselineSourceHash: sourceHash,
+      toolchain: toolchain.gcc.version ?? toolchain.gcc.detail, board: manifest.target.board, size,
+      artifacts: artifacts.map(({ name, kind, bytes, sha256 }) => ({ name, kind, bytes: bytes ?? 0, sha256: sha256! })),
+      startedAt: this.activeSnapshot.startedAt!, completedAt, releaseEligible: manifest.releaseEligible
+    }
+    await writeFile(join(outputRoot, 'build-proof.json'), `${JSON.stringify(proof, null, 2)}\n`, 'utf8')
+    await rm(publishedRoot, { recursive: true, force: true })
+    await rename(outputRoot, publishedRoot)
+    await rm(temporaryRoot, { recursive: true, force: true })
+    const publishedArtifacts = artifacts.map((artifact) => ({ ...artifact, path: join(publishedRoot, artifact.name) }))
+    this.activeSnapshot = { ...this.activeSnapshot, state: 'completed', currentFile: undefined, outputDir: publishedRoot, artifacts: publishedArtifacts, size, proof, completedAt }
+    this.addLog('完整小马固件已通过 CMake 生成并完成哈希校验', 'success')
+    this.emitSnapshot('completed')
+    return this.getSnapshot()
+  }
+
   private async buildCmakeBaseline(context: {
     buildId: string
     temporaryRoot: string
@@ -305,12 +400,9 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     await this.copyBaseline(sourceRoot, stagingRoot)
     await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay, workspace.learningPath)
 
-    const isPony = manifest.id.startsWith('ch32v203-pony')
     const isMcu = workspace.learningPath === 'mcu-foundations'
-    const teachingSources = (isMcu || isPony) ? await this.collectMcuSources(projectRoot) : []
-    const sources = isPony
-      ? [...PONY_LIVE_BASELINE_SOURCES, 'Core/Src/student_control.c', ...teachingSources]
-      : [...(isMcu ? LIVE_BASELINE_SOURCES : LEGACY_LIVE_BASELINE_SOURCES), ...(isMcu ? teachingSources : [manifest.studentOverlay.source])]
+    const teachingSources = isMcu ? await this.collectMcuSources(projectRoot) : []
+    const sources = isMcu ? [...LIVE_BASELINE_SOURCES, ...teachingSources] : [...LEGACY_LIVE_BASELINE_SOURCES, manifest.studentOverlay.source]
     this.activeSnapshot.totalFiles = sources.length + 1
     const objectFiles: string[] = []
     this.activeSnapshot.stage = 'compiling'
@@ -319,17 +411,13 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const sourcePath = join(stagingRoot, ...source.split('/'))
       const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
       await mkdir(dirname(objectPath), { recursive: true })
-      const includeDirectories = isPony
-        ? [...PONY_LIVE_INCLUDE_DIRECTORIES, 'App/Inc']
-        : isMcu ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc'] : LEGACY_LIVE_INCLUDE_DIRECTORIES
+      const includeDirectories = isMcu ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc'] : LEGACY_LIVE_INCLUDE_DIRECTORIES
       const includeArgs = includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
       const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
       const isAssembly = extname(source).toLowerCase() === '.s'
-      const isStudentSource = isPony
-        ? (source === 'Core/Src/student_control.c' || source.startsWith('App/'))
-        : source === manifest.studentOverlay.source
+      const isStudentSource = source === manifest.studentOverlay.source
       const extraFlags = isStudentSource ? LIVE_STUDENT_C_FLAGS : []
-      const cFlags = isPony ? LEGACY_LIVE_C_FLAGS : isMcu ? LIVE_C_FLAGS : LEGACY_LIVE_C_FLAGS
+      const cFlags = isMcu ? LIVE_C_FLAGS : LEGACY_LIVE_C_FLAGS
       const args = isAssembly
         ? ['-c', '-x', 'assembler-with-cpp', ...includeArgs, ...targetArgs, sourcePath, '-o', objectPath]
         : ['-c', '-x', 'c', ...includeArgs, ...targetArgs, ...cFlags, ...extraFlags, sourcePath, '-o', objectPath]
