@@ -185,6 +185,7 @@ export class AgentSessionService extends EventEmitter {
       const candidateId = requireCandidateId(snapshot)
       const candidateSnapshot = await this.candidates.get(candidateId)
       const candidateRoot = await this.candidates.getCandidateRootForMain(candidateId)
+      const workspace = await this.candidates.getWorkspace(candidateSnapshot.workspaceId).catch(() => undefined)
       await this.adapter.runTurn({
         turnId: snapshot.turnId,
         workspaceId: requireWorkspaceId(snapshot),
@@ -193,7 +194,11 @@ export class AgentSessionService extends EventEmitter {
         message: active.agentMessage ?? snapshot.message,
         courseContext: active.courseContext,
         policyVersion: candidateSnapshot.policyVersion,
-        taskKind: active.repair ? 'repair_compile_error' : 'modify_code'
+        taskKind: active.repair ? 'repair_compile_error' : 'modify_code',
+        templateId: workspace?.templateId,
+        templateVersion: workspace?.templateVersion,
+        firmwareBaselineId: workspace?.firmwareBaselineId,
+        workspacePurpose: workspace?.workspacePurpose
       }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
       if (controller.signal.aborted) throw controller.signal.reason
       snapshot.state = 'validating'
@@ -235,10 +240,16 @@ export class AgentSessionService extends EventEmitter {
     try {
       const explanation = active.explanation
       if (!explanation) throw new Error('STUDENT_EXPLANATION_CONTEXT_MISSING')
+      const targetWorkspaceId = snapshot.workspaceId ? requireWorkspaceId(snapshot) : undefined
+      const workspace = targetWorkspaceId ? await this.candidates.getWorkspace(targetWorkspaceId).catch(() => undefined) : undefined
       await this.adapter.runTurn({
         turnId: snapshot.turnId, workspaceId: explanation.sessionKey ?? requireWorkspaceId(snapshot), candidateId: snapshot.candidateId ?? `readonly_${explanation.sessionKey ?? requireWorkspaceId(snapshot)}`,
         candidateRoot: explanation.root, message: snapshot.message, policyVersion: explanation.policyVersion, readOnly: true,
-        taskKind: explanation.kind === 'selection' ? 'explain_code' : explanation.kind === 'lecture' ? 'explain_lecture' : 'explain_diagnostic'
+        taskKind: explanation.kind === 'selection' ? 'explain_code' : explanation.kind === 'lecture' ? 'explain_lecture' : 'explain_diagnostic',
+        templateId: workspace?.templateId,
+        templateVersion: workspace?.templateVersion,
+        firmwareBaselineId: workspace?.firmwareBaselineId,
+        workspacePurpose: workspace?.workspacePurpose
       }, (event) => this.receiveAdapterEvent(active, event), controller.signal)
       if (controller.signal.aborted) throw controller.signal.reason
       snapshot.state = 'no_changes'

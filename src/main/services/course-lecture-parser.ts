@@ -62,8 +62,9 @@ export function parseCourseLecture(source: string, identity: { courseId: string;
   if (!source.trim()) throw new CourseLectureParseError('LECTURE_EMPTY')
   if (/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/.test(source)) throw new CourseLectureParseError('LECTURE_FRONT_MATTER_FORBIDDEN')
 
-  const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(remarkDirective).parse(source) as Root
-  const digest = createHash('sha256').update(source, 'utf8').digest('hex')
+  const normalizedSource = source.replace(/\r\n/g, '\n')
+  const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(remarkDirective).parse(normalizedSource) as Root
+  const digest = createHash('sha256').update(normalizedSource, 'utf8').digest('hex')
   const context = new ConversionContext(identity, digest)
   const sections: CourseLectureSection[] = []
   const sectionIds = new Set<string>()

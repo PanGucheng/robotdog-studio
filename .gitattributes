@@ -1,1 +1,3 @@
 vendor/wch/** -text
+*.md text eol=lf
+resources/courses/** text eol=lf

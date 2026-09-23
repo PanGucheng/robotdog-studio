@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { access, copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
-import type { CandidateBuildProof, CandidateDiff, CandidateSnapshot, CandidateState, PatchValidationReport, StudentCodeFile } from '../../shared/types'
+import type { CandidateBuildProof, CandidateDiff, CandidateSnapshot, CandidateState, PatchValidationReport, StudentCodeFile, WorkspaceSummary } from '../../shared/types'
 import { CandidateBuildError, type CandidateBuilder } from './candidate-build-service'
 import { GitWorkspaceService } from './git-workspace-service'
 import { PatchPolicyService } from './patch-policy-service'
@@ -75,6 +75,10 @@ export class CandidateService {
     this.fingerprint = options.fingerprint ?? new SourceFingerprintService()
     this.lifetimeMs = options.lifetimeMs ?? 2 * 60 * 60 * 1000
     this.builder = options.builder
+  }
+
+  async getWorkspace(workspaceId: string): Promise<WorkspaceSummary> {
+    return this.workspaces.get(workspaceId)
   }
 
   async initialize(): Promise<void> {

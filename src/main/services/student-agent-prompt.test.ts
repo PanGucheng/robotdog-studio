@@ -49,4 +49,22 @@ describe('student agent prompt', () => {
     expect(prompt).toContain('不默认替学生完成整个实验')
     expect(prompt).not.toContain('小学高年级')
   })
+
+  it('injects pony baseline boundaries and context when templateId or firmwareBaselineId matches pony', () => {
+    const prompt = buildStudentAgentPrompt('在小马固件上写一个站立动作', {
+      templateId: 'ch32v203-pony',
+      templateVersion: '0.2.5',
+      firmwareBaselineId: 'ch32v203-pony-v25',
+      workspacePurpose: 'mcu-sandbox',
+      policyVersion: 'mcu-foundations-v1:1'
+    })
+    expect(prompt).toContain('小马全功能固件基线（CH32V203 Pony v2.5）安全边界与开发规范')
+    expect(prompt).toContain('学生可编辑代码区域严格限定在 App/ 目录')
+    expect(prompt).toContain('Core/ 目录中的桥接实现（如 Core/Src/student_control.c、Core/Inc/student_control.h）以及底层驱动、User/、Startup/、Ld/ 属于只读/受控固件基线')
+    expect(prompt).toContain('机器马底层运动学姿态解算、步态状态机、电机安全限制和定时器中断由基线托管')
+    expect(prompt).toContain('引导学生基于 student_control / experiment 桥接 API 进行实验控制与调试')
+    expect(prompt).toContain('"templateId":"ch32v203-pony"')
+    expect(prompt).toContain('"firmwareBaselineId":"ch32v203-pony-v25"')
+    expect(prompt).toContain('"workspacePurpose":"mcu-sandbox"')
+  })
 })
