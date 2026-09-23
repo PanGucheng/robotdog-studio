@@ -84,7 +84,8 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     if (!courseProgress || !courses || !workspaces) return
     const workspace = await workspaces.get(workspaceId).catch(() => undefined)
     if (!workspace?.courseBinding || workspace.workspacePurpose !== 'mcu-lesson-attempt') return
-    const lesson = await courses.getLesson(workspace.courseBinding.courseId, workspace.courseBinding.lessonId)
+    const lesson = await courses.getLesson(workspace.courseBinding.courseId, workspace.courseBinding.lessonId).catch(() => undefined)
+    if (!lesson) return
     const files = candidates ? (await candidates.listStudentCodeFiles(workspaceId)).map((file) => file.path) : []
     await courseProgress.recordOperation(workspace, lesson, kind, passed, detail, files)
   }
@@ -93,7 +94,8 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     if (!courseProgress || !courses || !workspaces) return
     const workspace = await workspaces.get(workspaceId).catch(() => undefined)
     if (!workspace?.courseBinding || workspace.workspacePurpose !== 'mcu-lesson-attempt') return
-    const lesson = await courses.getLesson(workspace.courseBinding.courseId, workspace.courseBinding.lessonId)
+    const lesson = await courses.getLesson(workspace.courseBinding.courseId, workspace.courseBinding.lessonId).catch(() => undefined)
+    if (!lesson) return
     const files = candidates ? (await candidates.listStudentCodeFiles(workspaceId)).map((file) => file.path) : []
     await courseProgress.recordSourceChange(workspace, lesson, kind, changedFiles, files)
   }
@@ -325,7 +327,11 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     ipcMain.handle(IPC_CHANNELS.courseProgressGet, async (_event, workspaceId: unknown) => {
       if (typeof workspaceId !== 'string') throw new Error('WORKSPACE_ID_INVALID')
       if (!courseProgress) throw new Error('COURSE_PROGRESS_SERVICE_UNAVAILABLE')
-      const context = await getCourseProgressContext(workspaceId)
+      const context = await getCourseProgressContext(workspaceId).catch((err) => {
+        if (err instanceof Error && err.message === 'COURSE_LESSON_NOT_FOUND') return undefined
+        throw err
+      })
+      if (!context) return undefined
       return courseProgress.get(context.workspace, context.lesson, context.files)
     })
     ipcMain.handle(IPC_CHANNELS.courseProgressUpdate, async (_event, workspaceId: unknown, update: unknown) => {

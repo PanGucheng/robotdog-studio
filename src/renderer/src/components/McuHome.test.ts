@@ -107,4 +107,33 @@ describe('McuHome free practice filtering and Pony presentation', () => {
     expect(html).toContain('基于 Pony v2.5 全功能小马固件')
     expect(html).toContain('小马自由练习')
   })
+
+  it('keeps creation card enabled when busy is false, and disabled when busy is true', () => {
+    const enabledHtml = renderToString(
+      createElement(McuHome, {
+        panel: 'free-practice',
+        workspaces: [],
+        learning: [],
+        recent: [],
+        busy: false,
+        onNavigate: () => undefined,
+        onCreateWorkspace: () => undefined
+      })
+    )
+    expect(enabledHtml).toContain('class="mcu-create-free"')
+    expect(enabledHtml).not.toContain('disabled=""')
+
+    const disabledHtml = renderToString(
+      createElement(McuHome, {
+        panel: 'free-practice',
+        workspaces: [],
+        learning: [],
+        recent: [],
+        busy: true,
+        onNavigate: () => undefined,
+        onCreateWorkspace: () => undefined
+      })
+    )
+    expect(disabledHtml).toContain('disabled=""')
+  })
 })

@@ -414,7 +414,8 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let disposed = false
-    const attempts = workspaces.filter((workspace) => workspace.workspacePurpose === 'mcu-lesson-attempt' && workspace.courseBinding?.courseId === course?.courseId)
+    const lessonIds = new Set(course?.lessons.map((item) => item.lessonId) ?? [])
+    const attempts = workspaces.filter((workspace) => workspace.workspacePurpose === 'mcu-lesson-attempt' && workspace.courseBinding?.courseId === course?.courseId && Boolean(workspace.courseBinding && lessonIds.has(workspace.courseBinding.lessonId)))
     if (!course || attempts.length === 0) { setCompletedLessonIds([]); return () => { disposed = true } }
     void Promise.all(attempts.map((workspace) => api.getCourseProgress(workspace.id).catch(() => undefined))).then((items) => {
       if (!disposed) setCompletedLessonIds([...new Set(items.filter((item) => item?.state === 'completed').map((item) => item!.lessonId))])
@@ -594,7 +595,7 @@ export function App(): React.JSX.Element {
           wchLink={wchLink}
           teacherMode={teacherMode}
           edition={edition}
-          busy={busy || Boolean(agentTurn?.workspaceId === currentWorkspaceId)}
+          busy={busy || Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
           candidate={candidate?.workspaceId === currentWorkspaceId ? candidate : undefined}
           workspace={activeWorkspace}
           candidateDiff={candidateDiff}
@@ -638,7 +639,7 @@ export function App(): React.JSX.Element {
           onUpdateCourseProgress={updateCourseProgress}
           completedLessonIds={completedLessonIds}
           agentEvents={agentEvents}
-          agentRunning={Boolean(agentTurn?.workspaceId === currentWorkspaceId)}
+          agentRunning={Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
           onAgentPrompt={promptAgent}
           onAgentCancel={cancelAgent}
           onAgentPermission={respondAgentPermission}
