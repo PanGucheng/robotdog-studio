@@ -417,35 +417,76 @@ export const browserDemoApi: RobotDogApi = {
   openDataDirectory: async () => true,
   getStatus: async () => ({ ...status }),
   getToolchainStatus: async () => demoToolchainStatus,
-  getFirmwareBaselineStatus: async () => ({
-    id: 'ch32v203-robotdog-provisional-0858d82', label: 'CH32V203 机器马临时测试基线', sourceRoot: 'D:\\RobotDog\\ch32v203-robot-dog',
-    expectedCommit: '0858d821d56daaea6e45740f5b496714fea20aca', status: 'provisional', readyForTesting: true, releaseEligible: false,
-    verifiedFiles: ['Ld/Link.ld', 'Startup/startup_ch32v20x_D6.S', 'User/main.c'], errors: [], memory: { flashBytes: 65536, ramBytes: 20480, confirmed: true },
-    warnings: ['当前使用未确认的临时固件工程，只可用于功能测试，不能作为发布固件。']
-  }),
+  getFirmwareBaselineStatus: async () => {
+    if (browserEditionId === 'mcu-foundations') {
+      return {
+        id: 'ch32v203-rhs-baseline',
+        label: 'CH32V203 RHS 机器马教学基线',
+        sourceRoot: 'firmware\\ch32v203-baseline',
+        expectedCommit: '539e35a8c307843000d4bc25fb618c3143fb5b2d',
+        status: 'provisional',
+        readyForTesting: true,
+        releaseEligible: false,
+        verifiedFiles: ['Ld/Link.ld', 'Startup/startup_ch32v20x_D6.S', 'User/main.c', 'rhs.firmware.json'],
+        errors: [],
+        memory: { flashBytes: 65536, ramBytes: 20480, confirmed: true },
+        warnings: ['当前使用未确认的临时固件工程，只可用于功能测试，不能作为发布固件。']
+      }
+    }
+    return {
+      id: 'ch32v203-robotdog-provisional-0858d82',
+      label: 'CH32V203 机器马临时测试基线',
+      sourceRoot: 'D:\\RobotDog\\ch32v203-robot-dog',
+      expectedCommit: '0858d821d56daaea6e45740f5b496714fea20aca',
+      status: 'provisional',
+      readyForTesting: true,
+      releaseEligible: false,
+      verifiedFiles: ['Ld/Link.ld', 'Startup/startup_ch32v20x_D6.S', 'User/main.c'],
+      errors: [],
+      memory: { flashBytes: 65536, ramBytes: 20480, confirmed: true },
+      warnings: ['当前使用未确认的临时固件工程，只可用于功能测试，不能作为发布固件。']
+    }
+  },
   startFirmwareBuild: async (workspaceId) => {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    const isPony = workspace.firmwareBaselineId === 'ch32v203-pony-v25' || workspace.templateId === 'ch32v203-pony'
+    const elfName = isPony ? 'RobotDog.elf' : 'GPIO_Toggle.elf'
+    const hexName = isPony ? 'RobotDog.hex' : 'GPIO_Toggle.hex'
+    const binName = isPony ? 'RobotDog.bin' : 'GPIO_Toggle.bin'
+    const mapName = isPony ? 'RobotDog.map' : 'GPIO_Toggle.map'
+    const boardLabel = isPony ? 'CH32V203C8T6 Pony v2.5' : workspace.courseBinding ? 'CH32V203C8T6 RHS Teaching' : 'ch32v203-robotdog-unconfirmed'
+    const binBytes = isPony ? 17704 : 27380
+    const size = isPony
+      ? { text: 17468, data: 236, bss: 4960, dec: 22664, hex: '5888' }
+      : { text: 27380, data: 236, bss: 3476, dec: 31092, hex: '7974' }
     buildSnapshot = {
       state: 'running',
       workspaceId,
-      firmwareRoot: 'D:\\RobotDog\\ch32v203-robot-dog',
+      firmwareRoot: isPony ? 'firmware\\v2.5_沁恒小马例程' : workspace.courseBinding ? 'firmware\\ch32v203-baseline' : 'D:\\RobotDog\\ch32v203-robot-dog',
       outputDir: '.firmware-build\\demo',
       completedFiles: 0,
       totalFiles: 29,
       stage: 'preparing',
-      logs: ['浏览器演示：开始模拟编译'],
+      logs: [isPony ? '浏览器演示：正在配置 Pony v2.5 CMake' : '浏览器演示：开始模拟编译'],
       artifacts: [],
       startedAt: new Date().toISOString()
     }
     emitBuild({ type: 'snapshot', snapshot: buildSnapshot })
     for (let index = 1; index <= 29; index += 1) {
       await new Promise((resolve) => setTimeout(resolve, 28))
+      const logLine = isPony
+        ? index === 1 ? '正在配置 Pony v2.5 CMake'
+        : index === 2 ? '正在合并 student overlay'
+        : index < 28 ? `正在编译小马完整固件 [${index}/29]`
+        : index === 28 ? `正在链接 ${elfName}`
+        : `正在生成 ${hexName} 与 ${binName}`
+        : `[${index}/29] 模拟源文件 ${index}`
       buildSnapshot = {
         ...buildSnapshot,
-        stage: index < 29 ? 'compiling' : 'linking',
+        stage: index < 28 ? 'compiling' : index === 28 ? 'linking' : 'packaging',
         completedFiles: index,
-        currentFile: index < 29 ? `模拟源文件 ${index}.c` : '链接 GPIO_Toggle.elf',
-        logs: [...buildSnapshot.logs.slice(-20), `[${index}/29] 模拟源文件 ${index}`]
+        currentFile: index < 28 ? (isPony ? (index === 1 ? 'App/Src/experiment.c' : `User/module_${index}.c`) : `模拟源文件 ${index}.c`) : `链接 ${elfName}`,
+        logs: [...buildSnapshot.logs.slice(-20), logLine]
       }
       emitBuild({ type: 'progress', snapshot: buildSnapshot })
     }
@@ -456,16 +497,17 @@ export const browserDemoApi: RobotDogApi = {
       state: 'completed',
       currentFile: undefined,
       completedAt: new Date().toISOString(),
-      size: { text: 27380, data: 236, bss: 3476, dec: 31092, hex: '7974' },
+      size,
       artifacts: [
-        { name: 'GPIO_Toggle.elf', path: '.firmware-build\\demo\\GPIO_Toggle.elf', kind: 'elf', bytes: 213592 },
-        { name: 'GPIO_Toggle.hex', path: '.firmware-build\\demo\\GPIO_Toggle.hex', kind: 'hex', bytes: 77709 },
-        { name: 'GPIO_Toggle.bin', path: '.firmware-build\\demo\\GPIO_Toggle.bin', kind: 'bin', bytes: 27380 }
+        { name: elfName, path: `.firmware-build\\demo\\${elfName}`, kind: 'elf', bytes: 213592 },
+        { name: hexName, path: `.firmware-build\\demo\\${hexName}`, kind: 'hex', bytes: 77709 },
+        { name: binName, path: `.firmware-build\\demo\\${binName}`, kind: 'bin', bytes: binBytes },
+        { name: mapName, path: `.firmware-build\\demo\\${mapName}`, kind: 'map', bytes: 104230 }
       ],
       proof: {
         schemaVersion: 1, inputHash: '1'.repeat(64), workspaceId, workspaceCommit: workspace.headCommit, workspaceSourceHash: '2'.repeat(64),
         firmwareBaselineId: workspace.firmwareBaselineId, baselineCommit: workspace.baselineCommit, baselineSourceHash: '3'.repeat(64),
-        toolchain: 'WCH GCC12 browser demo', board: 'ch32v203-robotdog-unconfirmed', size: { text: 27380, data: 236, bss: 3476, dec: 31092, hex: '7974' },
+        toolchain: 'WCH GCC12 browser demo', board: boardLabel, size,
         artifacts: [], startedAt: buildSnapshot.startedAt!, completedAt: new Date().toISOString(), releaseEligible: false
       }
     }
@@ -585,14 +627,82 @@ export const browserDemoApi: RobotDogApi = {
   listWorkspaces: async () => structuredClone(demoWorkspaces),
   createWorkspace: async (input) => {
     const now = new Date()
-    const baseName = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} 巡线练习`
+    const pad = (num: number): string => String(num).padStart(2, '0')
+    const timePrefix = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+    if (browserEditionId === 'mcu-foundations') {
+      const baseName = `${timePrefix} 小马自由练习`
+      let name = input.name?.trim() || baseName
+      for (let index = 2; demoWorkspaces.some((item) => item.name === name); index += 1) name = `${baseName}（${index}）`
+      const workspace: WorkspaceSummary = {
+        id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
+        name,
+        studentDisplayName: input.studentDisplayName.trim(),
+        learningPath: 'mcu-foundations',
+        platform: 'wch-ch32v203',
+        target: 'CH32V203C8T6',
+        toolchainProfile: 'wch-gcc12-openocd',
+        workspacePurpose: 'mcu-sandbox',
+        templateId: 'ch32v203-pony',
+        templateVersion: '0.2.5',
+        firmwareBaselineId: 'ch32v203-pony-v25',
+        baselineCommit: '797dd6a0a53277197a7c54db2bb4a37debd0a9b0',
+        createdAt: now.toISOString(),
+        headCommit: 'demo000000000000000000000000000000000000',
+        state: 'ready',
+        updatedAt: now.toISOString()
+      }
+      demoWorkspaces = [workspace, ...demoWorkspaces]
+      demoHistories.set(workspace.id, [{ commit: workspace.headCommit, shortCommit: workspace.headCommit.slice(0, 7), message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }])
+      workspaceListeners.forEach((listener) => listener(structuredClone(workspace)))
+      return structuredClone(workspace)
+    }
+    if (browserEditionId === 'ti-mspm0-foundations') {
+      const baseName = `${timePrefix} MSPM0 练习`
+      let name = input.name?.trim() || baseName
+      for (let index = 2; demoWorkspaces.some((item) => item.name === name); index += 1) name = `${baseName}（${index}）`
+      const workspace: WorkspaceSummary = {
+        id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
+        name,
+        studentDisplayName: input.studentDisplayName.trim(),
+        learningPath: 'ti-mspm0-foundations',
+        platform: 'ti-mspm0',
+        target: 'MSPM0G3507',
+        toolchainProfile: 'ti-mspm0-sdk-2.11-gcc9-openocd',
+        workspacePurpose: 'mcu-sandbox',
+        templateId: 'ti-mspm0g3507-foundations',
+        templateVersion: '0.1.0',
+        firmwareBaselineId: 'ti-mspm0g3507',
+        baselineCommit: '0000000000000000000000000000000000000000',
+        createdAt: now.toISOString(),
+        headCommit: 'demo000000000000000000000000000000000000',
+        state: 'ready',
+        updatedAt: now.toISOString()
+      }
+      demoWorkspaces = [workspace, ...demoWorkspaces]
+      demoHistories.set(workspace.id, [{ commit: workspace.headCommit, shortCommit: workspace.headCommit.slice(0, 7), message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }])
+      workspaceListeners.forEach((listener) => listener(structuredClone(workspace)))
+      return structuredClone(workspace)
+    }
+    const baseName = `${timePrefix} 巡线练习`
     let name = input.name?.trim() || baseName
     for (let index = 2; demoWorkspaces.some((item) => item.name === name); index += 1) name = `${baseName}（${index}）`
     const workspace: WorkspaceSummary = {
       id: `ws_${Math.random().toString(16).slice(2).padEnd(24, '0').slice(0, 24)}`,
-      name, studentDisplayName: input.studentDisplayName.trim(), learningPath: 'fun-line-following', workspacePurpose: 'fun-project', templateId: 'ch32v203-robotdog',
-      platform: 'wch-ch32v203', target: 'CH32V203C8T6', toolchainProfile: 'wch-gcc12-openocd',
-      templateVersion: '2026.06', firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82', baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca', createdAt: now.toISOString(), headCommit: 'demo000000000000000000000000000000000000', state: 'ready', updatedAt: now.toISOString()
+      name,
+      studentDisplayName: input.studentDisplayName.trim(),
+      learningPath: 'fun-line-following',
+      platform: 'wch-ch32v203',
+      target: 'CH32V203C8T6',
+      toolchainProfile: 'wch-gcc12-openocd',
+      workspacePurpose: 'fun-project',
+      templateId: 'ch32v203-robotdog',
+      templateVersion: '2026.06',
+      firmwareBaselineId: 'ch32v203-robotdog-provisional-0858d82',
+      baselineCommit: '0858d821d56daaea6e45740f5b496714fea20aca',
+      createdAt: now.toISOString(),
+      headCommit: 'demo000000000000000000000000000000000000',
+      state: 'ready',
+      updatedAt: now.toISOString()
     }
     demoWorkspaces = [workspace, ...demoWorkspaces]
     demoHistories.set(workspace.id, [{ commit: workspace.headCommit, shortCommit: workspace.headCommit.slice(0, 7), message: 'chore: initialize student workspace', createdAt: new Date().toISOString() }])
@@ -645,6 +755,52 @@ export const browserDemoApi: RobotDogApi = {
         { path: 'README.md' as const, label: '实验说明', group: '学习资料' as const, language: 'markdown' as const, editable: false, content: `# ${workspace.name}\n` }
       ]
     }
+    if (workspace.workspacePurpose === 'mcu-sandbox' || workspace.templateId === 'ch32v203-pony' || workspace.learningPath === 'mcu-foundations') {
+      return [
+        {
+          path: 'App/Src/experiment.c' as const,
+          label: '自由实验主程序',
+          group: '实验代码' as const,
+          language: 'c' as const,
+          editable: true,
+          content: changed
+            ? '#include "experiment.h"\n\nvoid Experiment_Init(void) {}\nvoid Experiment_Update(void)\n{\n    /* 自由实验控制逻辑 */\n}\n'
+            : '#include "experiment.h"\n\nvoid Experiment_Init(void) {}\nvoid Experiment_Update(void) {}\n'
+        },
+        {
+          path: 'App/Inc/experiment.h' as const,
+          label: '自由实验接口',
+          group: '实验代码' as const,
+          language: 'c' as const,
+          editable: true,
+          content: '#pragma once\n\nvoid Experiment_Init(void);\nvoid Experiment_Update(void);\n'
+        },
+        {
+          path: 'Core/Src/student_control.c' as const,
+          label: '小马运行桥接',
+          group: '只读接口' as const,
+          language: 'c' as const,
+          editable: false,
+          content: '/* 小马运行桥接 */\n'
+        },
+        {
+          path: 'Core/Inc/student_control.h' as const,
+          label: '小马控制 API',
+          group: '参考接口' as const,
+          language: 'c' as const,
+          editable: false,
+          content: '/* 小马控制 API */\n'
+        },
+        {
+          path: 'README.md' as const,
+          label: '工程说明',
+          group: '学习资料' as const,
+          language: 'markdown' as const,
+          editable: false,
+          content: `# ${workspace.name}\n\n基于 Pony v2.5 全功能小马固件的自由练习工程。\n`
+        }
+      ]
+    }
     return [
       { path: 'Core/Src/student_control.c' as const, label: '小马怎么走', group: '控制逻辑' as const, language: 'c' as const, editable: true, content: `#include "student_control.h"\n\nvoid StudentControl_Update(const student_control_input_t *input, student_control_output_t *output)\n{\n    output->action = ${changed ? 'STUDENT_ACTION_TURN_LEFT' : 'STUDENT_ACTION_WALK'};\n}\n` },
       { path: 'student-config/line-following.yaml' as const, label: '巡线参数', group: '参数设置' as const, language: 'yaml' as const, editable: true, content: 'turn_strength: 18\nline_target: 64\n' },
@@ -655,10 +811,36 @@ export const browserDemoApi: RobotDogApi = {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
     if (workspace.learningPath !== 'mcu-foundations') throw new Error('PROJECT_EXPLORER_MCU_REQUIRED')
     const files = await browserDemoApi.listStudentCodeFiles(workspaceId, candidateId)
-    const baselineFiles = [
-      ['User/main.c', 'application'], ['Peripheral/inc/ch32v20x_gpio.h', 'peripheral'], ['Peripheral/src/ch32v20x_gpio.c', 'peripheral'],
-      ['Startup/startup_ch32v20x_D6.S', 'startup'], ['Ld/Link.ld', 'linker'], ['CMakeLists.txt', 'build'], ['robotdog.firmware.json', 'build']
+    const isPony = workspace.firmwareBaselineId === 'ch32v203-pony-v25' || workspace.templateId === 'ch32v203-pony'
+    const ponyBaselineFiles = [
+      ['Core/Src/student_control.c', 'bridge'],
+      ['Core/Inc/student_control.h', 'bridge'],
+      ['User/main.c', 'application'],
+      ['User/robotdog_runtime.c', 'application'],
+      ['User/robotdog_motion.c', 'motion'],
+      ['User/robotdog_safety.c', 'safety'],
+      ['User/robotdog_student_bridge.c', 'bridge'],
+      ['User/ccd_line_sensor.c', 'sensor'],
+      ['User/ssd1306_oled.c', 'display'],
+      ['Peripheral/inc/ch32v20x_gpio.h', 'peripheral'],
+      ['Peripheral/src/ch32v20x_gpio.c', 'peripheral'],
+      ['Startup/startup_ch32v20x_D6.S', 'startup'],
+      ['Ld/Link.ld', 'linker'],
+      ['CMakeLists.txt', 'build'],
+      ['CMakePresets.json', 'build'],
+      ['pony.firmware.json', 'build']
     ] as const
+    const rhsBaselineFiles = [
+      ['User/main.c', 'application'],
+      ['Peripheral/inc/ch32v20x_gpio.h', 'peripheral'],
+      ['Peripheral/src/ch32v20x_gpio.c', 'peripheral'],
+      ['Startup/startup_ch32v20x_D6.S', 'startup'],
+      ['Ld/Link.ld', 'linker'],
+      ['CMakeLists.txt', 'build'],
+      ['CMakePresets.json', 'build'],
+      ['rhs.firmware.json', 'build']
+    ] as const
+    const baselineFiles = isPony ? ponyBaselineFiles : rhsBaselineFiles
     const descriptors = new Map(files.map((file) => [file.path, { path: file.path, access: file.editable ? 'editable' as const : 'read-only' as const, origin: 'lesson-overlay' as const, role: file.path.startsWith('App/') ? 'student-code' as const : 'course-adapter' as const, language: file.language === 'markdown' ? 'markdown' as const : file.language }]))
     for (const [path, role] of baselineFiles) if (!descriptors.has(path)) descriptors.set(path, { path, access: 'read-only', origin: 'firmware-baseline', role, language: path.endsWith('.json') ? 'json' : path.endsWith('.S') ? 'asm' : path.endsWith('.ld') ? 'linker' : path === 'CMakeLists.txt' ? 'cmake' : 'c' } as never)
     const nodes = new Map<string, ProjectExplorerNode>()
@@ -672,7 +854,10 @@ export const browserDemoApi: RobotDogApi = {
       const parent = parts.slice(0, -1).join('/')
       nodes.set(descriptor.path, { id: id('file', descriptor.path), parentId: parent ? id('directory', parent) : undefined, name: parts.at(-1)!, kind: 'file', language: descriptor.language, origin: descriptor.origin, role: descriptor.role, access: descriptor.access, state: 'normal', displayPath: descriptor.path })
     }
-    return { workspaceId, candidateId, rootLabel: `RobotDog Firmware · ${workspace.baselineCommit.slice(0, 7)}`, baselineId: workspace.firmwareBaselineId, baselineCommit: workspace.baselineCommit, baselineAvailable: true, nodes: [...nodes.values()] }
+    const rootLabel = isPony
+      ? `Pony v2.5 Firmware · ${workspace.baselineCommit.slice(0, 7)}`
+      : `RHS Teaching Firmware · ${workspace.baselineCommit.slice(0, 7)}`
+    return { workspaceId, candidateId, rootLabel, baselineId: workspace.firmwareBaselineId, baselineCommit: workspace.baselineCommit, baselineAvailable: true, nodes: [...nodes.values()] }
   },
   readProjectExplorerFile: async (workspaceId, nodeId, candidateId) => {
     const snapshot = await browserDemoApi.getProjectExplorer(workspaceId, candidateId)
@@ -681,9 +866,21 @@ export const browserDemoApi: RobotDogApi = {
     const student = (await browserDemoApi.listStudentCodeFiles(workspaceId, candidateId)).find((file) => file.path === node.displayPath)
     const examples: Record<string, string> = {
       'User/main.c': '#include "student_control.h"\n\nint main(void)\n{\n    StudentControl_Init();\n    while (1) { /* 主循环 */ }\n}\n',
-      'Peripheral/inc/ch32v20x_gpio.h': '/* CH32V20x GPIO 外设声明 */\n', 'Peripheral/src/ch32v20x_gpio.c': '/* CH32V20x GPIO 外设实现 */\n',
-      'Startup/startup_ch32v20x_D6.S': '/* 芯片复位后从这里启动 */\n', 'Ld/Link.ld': '/* Flash 与 RAM 布局 */\n',
-      'CMakeLists.txt': 'project(RobotDog C ASM)\n', 'robotdog.firmware.json': '{ "chip": "CH32V203C8T6" }\n'
+      'User/robotdog_runtime.c': '/* 小马运行状态机 */\n',
+      'User/robotdog_motion.c': '/* 小马运动学控制 */\n',
+      'User/robotdog_safety.c': '/* 小马安全机制 */\n',
+      'User/robotdog_student_bridge.c': '/* 学生代码桥接调用 */\n',
+      'User/ccd_line_sensor.c': '/* CCD 线阵传感器驱动 */\n',
+      'User/ssd1306_oled.c': '/* OLED 显示屏驱动 */\n',
+      'Peripheral/inc/ch32v20x_gpio.h': '/* CH32V20x GPIO 外设声明 */\n',
+      'Peripheral/src/ch32v20x_gpio.c': '/* CH32V20x GPIO 外设实现 */\n',
+      'Startup/startup_ch32v20x_D6.S': '/* 芯片复位后从这里启动 */\n',
+      'Ld/Link.ld': '/* Flash 与 RAM 布局 */\n',
+      'CMakeLists.txt': 'project(RobotDog C ASM)\n',
+      'CMakePresets.json': '{\n  "version": 3\n}\n',
+      'pony.firmware.json': '{ "id": "ch32v203-pony-v25", "chip": "CH32V203C8T6" }\n',
+      'rhs.firmware.json': '{ "id": "ch32v203-rhs-baseline", "chip": "CH32V203C8T6" }\n',
+      'robotdog.firmware.json': '{ "chip": "CH32V203C8T6" }\n'
     }
     return { node, content: student?.content ?? examples[node.displayPath] ?? '/* 只读工程文件 */\n' }
   },
@@ -742,8 +939,14 @@ export const browserDemoApi: RobotDogApi = {
   },
   getCandidateDiff: async (candidateId) => {
     const candidate = await browserDemoApi.getCandidate(candidateId)
-    const manualFile = { path: 'Core/Src/student_control.c', status: 'modified' as const, before: 'output->action = STUDENT_ACTION_WALK;\n', after: 'output->action = STUDENT_ACTION_TURN_LEFT;\n', additions: 1, deletions: 1 }
-    const aiFile = { path: 'student-config/line-following.yaml', status: 'modified' as const, before: 'turn_strength: 18\nline_target: 64\n', after: '# 减少过弯时的左右摆动\nturn_strength: 16\nline_target: 64\n', additions: 2, deletions: 1 }
+    const workspace = await browserDemoApi.getWorkspace(candidate.workspaceId)
+    const isPony = workspace.firmwareBaselineId === 'ch32v203-pony-v25' || workspace.templateId === 'ch32v203-pony'
+    const manualFile = isPony
+      ? { path: 'App/Src/experiment.c', status: 'modified' as const, before: 'void Experiment_Update(void) {}\n', after: 'void Experiment_Update(void)\n{\n    /* 自由实验控制逻辑 */\n}\n', additions: 3, deletions: 1 }
+      : { path: 'Core/Src/student_control.c', status: 'modified' as const, before: 'output->action = STUDENT_ACTION_WALK;\n', after: 'output->action = STUDENT_ACTION_TURN_LEFT;\n', additions: 1, deletions: 1 }
+    const aiFile = isPony
+      ? { path: 'App/Src/experiment.c', status: 'modified' as const, before: 'void Experiment_Update(void) {}\n', after: 'void Experiment_Update(void)\n{\n    /* AI 生成的小马控制逻辑 */\n}\n', additions: 3, deletions: 1 }
+      : { path: 'student-config/line-following.yaml', status: 'modified' as const, before: 'turn_strength: 18\nline_target: 64\n', after: '# 减少过弯时的左右摆动\nturn_strength: 16\nline_target: 64\n', additions: 2, deletions: 1 }
     return { candidateId, diffHash: candidate.diffHash ?? '0'.repeat(64), files: ['review_ready', 'building', 'build_passed', 'awaiting_apply'].includes(candidate.state) ? [candidate.origin === 'manual' ? manualFile : aiFile] : [] }
   },
   validateCandidate: async (candidateId) => {
