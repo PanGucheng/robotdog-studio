@@ -3,11 +3,12 @@ import { lstat, readFile, readdir } from 'node:fs/promises'
 import { extname, isAbsolute, relative, resolve, sep } from 'node:path'
 import type { ProjectExplorerFile, ProjectExplorerLanguage, ProjectExplorerNode, ProjectExplorerOrigin, ProjectExplorerRole, ProjectExplorerSnapshot, StudentCodeFile } from '../../shared/types'
 import { CandidateService } from './candidate-service'
+import { FirmwareBaselineResolver } from './firmware-baseline-resolver'
 import { FirmwareBaselineService } from './firmware-baseline-service'
 import { WorkspaceService } from './workspace-service'
 
 const ROOT_DIRECTORIES = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'RHS_HAL', 'Board', 'Teaching', 'cmake'])
-const ROOT_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'README.md'])
+const ROOT_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'pony.firmware.json', 'README.md'])
 const TI_ROOT_DIRECTORIES = new Set(['src', 'gcc', 'generated'])
 const TI_ROOT_FILES = new Set(['README.md', 'gpio_toggle_output.syscfg', 'robotdog.project.json'])
 const HIDDEN_NAMES = new Set(['.git', '.github', '.vscode', '.eide', '.mrs', 'node_modules', 'build', 'out', 'release'])
@@ -23,18 +24,37 @@ interface FileDescriptor {
 }
 
 export class ProjectExplorerService {
+  private readonly baselineResolver?: FirmwareBaselineResolver
+
   constructor(
     private readonly workspaces: WorkspaceService,
     private readonly candidates: CandidateService,
-    private readonly baseline: FirmwareBaselineService
-  ) {}
+    private readonly baseline: FirmwareBaselineService | FirmwareBaselineResolver
+  ) {
+    if (baseline instanceof FirmwareBaselineResolver) {
+      this.baselineResolver = baseline
+    }
+  }
+
+  private resolveBaseline(workspace: { firmwareBaselineId: string }): FirmwareBaselineService {
+    if (this.baselineResolver) return this.baselineResolver.resolveForWorkspace(workspace)
+    if (this.baseline instanceof FirmwareBaselineResolver) return this.baseline.resolveForWorkspace(workspace)
+    if (this.baseline instanceof FirmwareBaselineService) return this.baseline
+    throw new Error('PROJECT_EXPLORER_BASELINE_UNAVAILABLE')
+  }
 
   async getSnapshot(workspaceId: string, candidateId?: string): Promise<ProjectExplorerSnapshot> {
     const context = await this.buildContext(workspaceId, candidateId)
+    const isPony = context.workspace.firmwareBaselineId.startsWith('ch32v203-pony')
+    const rootLabel = context.workspace.platform === 'ti-mspm0'
+      ? 'TI MSPM0G3507 · SysConfig 工程'
+      : isPony
+        ? `Pony Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`
+        : `RHS Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`
     return {
       workspaceId,
       candidateId,
-      rootLabel: context.workspace.platform === 'ti-mspm0' ? 'TI MSPM0G3507 · SysConfig 工程' : `RHS Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`,
+      rootLabel,
       baselineId: context.workspace.firmwareBaselineId,
       baselineCommit: context.workspace.baselineCommit,
       baselineAvailable: context.baselineAvailable,
@@ -86,7 +106,8 @@ export class ProjectExplorerService {
         baselineAvailable = true
         await this.scanRoot(baselineRoot, TI_ROOT_FILES, TI_ROOT_DIRECTORIES, files)
       } else {
-        const status = await this.baseline.getStatus()
+        const baseline = this.resolveBaseline(workspace)
+        const status = await baseline.getStatus()
         if (status.id !== workspace.firmwareBaselineId || status.expectedCommit !== workspace.baselineCommit) {
           warning = '工作区绑定的固件基线与当前基线不一致，只显示课程覆盖文件。'
         } else if (!status.readyForTesting) {

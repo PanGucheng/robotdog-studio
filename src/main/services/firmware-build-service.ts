@@ -12,6 +12,7 @@ import type {
   FirmwareSizeInfo
 } from '../../shared/types'
 import { parseCompilerDiagnostics, parseLineConfigText, renderStudentConfigHeader } from './candidate-build-service'
+import { FirmwareBaselineResolver } from './firmware-baseline-resolver'
 import { FirmwareBaselineService } from './firmware-baseline-service'
 import { SourceFingerprintService } from './source-fingerprint-service'
 import { ToolchainService } from './toolchain-service'
@@ -20,7 +21,8 @@ import { WorkspaceService } from './workspace-service'
 export interface FirmwareBuildOptions { workspaceId: string }
 
 export interface FirmwareBuildServiceOptions {
-  baseline?: FirmwareBaselineService
+  baseline?: FirmwareBaselineService | FirmwareBaselineResolver
+  baselineResolver?: FirmwareBaselineResolver
   workspaces?: WorkspaceService
   outputBase?: string
 }
@@ -45,11 +47,21 @@ const LEGACY_LIVE_BASELINE_SOURCES = [
 ]
 const LEGACY_LIVE_INCLUDE_DIRECTORIES = ['Core/Inc', 'Core', 'Debug', 'User', 'Peripheral/inc', 'Startup']
 const LEGACY_LIVE_C_FLAGS = [...LIVE_C_FLAGS, '-DROBOTDOG_ENABLE_LEGACY_TEXT=0']
+const PONY_LIVE_BASELINE_SOURCES = [
+  'Startup/startup_ch32v20x_D6.S', 'Core/core_riscv.c', 'Debug/debug.c', 'User/main.c', 'User/system_ch32v20x.c', 'User/ch32v20x_it.c',
+  'User/ccd_line_sensor.c', 'User/robotdog_types.c', 'User/robotdog_safety.c', 'User/robotdog_protocol.c', 'User/robotdog_text.c',
+  'User/robotdog_tx_queue.c', 'User/robotdog_telemetry.c', 'User/robotdog_student_bridge.c', 'User/robotdog_runtime.c', 'User/robotdog_motion.c',
+  'User/ssd1306_oled.c', 'Peripheral/src/ch32v20x_adc.c', 'Peripheral/src/ch32v20x_dbgmcu.c', 'Peripheral/src/ch32v20x_gpio.c',
+  'Peripheral/src/ch32v20x_i2c.c', 'Peripheral/src/ch32v20x_misc.c', 'Peripheral/src/ch32v20x_rcc.c', 'Peripheral/src/ch32v20x_tim.c',
+  'Peripheral/src/ch32v20x_usart.c'
+]
+const PONY_LIVE_INCLUDE_DIRECTORIES = ['Core/Inc', 'Core', 'Debug', 'User', 'Peripheral/inc', 'Startup']
 const LIVE_STUDENT_C_FLAGS = ['-Wall', '-Wextra', '-Wconversion', '-Werror=implicit-function-declaration', '-Werror=return-type']
 const LIVE_LINK_FLAGS = ['-nostartfiles', '--specs=nano.specs', '--specs=nosys.specs', '-Wl,--gc-sections']
 
 export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvents> {
-  private readonly baseline?: FirmwareBaselineService
+  private readonly baseline?: FirmwareBaselineService | FirmwareBaselineResolver
+  private readonly baselineResolver?: FirmwareBaselineResolver
   private readonly workspaces?: WorkspaceService
   private readonly outputBase: string
   private readonly fingerprint = new SourceFingerprintService()
@@ -61,8 +73,16 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
   constructor(private readonly toolchain: ToolchainService, options: FirmwareBuildServiceOptions = {}) {
     super()
     this.baseline = options.baseline
+    this.baselineResolver = options.baselineResolver ?? (options.baseline instanceof FirmwareBaselineResolver ? options.baseline : undefined)
     this.workspaces = options.workspaces
     this.outputBase = resolve(options.outputBase ?? join(process.cwd(), '.firmware-build', 'managed'))
+  }
+
+  private resolveBaseline(workspace: { firmwareBaselineId: string }): FirmwareBaselineService {
+    if (this.baselineResolver) return this.baselineResolver.resolveForWorkspace(workspace)
+    if (this.baseline instanceof FirmwareBaselineResolver) return this.baseline.resolveForWorkspace(workspace)
+    if (this.baseline) return this.baseline
+    throw new Error('完整固件构建服务尚未绑定固件基线')
   }
 
   async initialize(): Promise<void> {
@@ -77,8 +97,21 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     }
     recovered.sort((left, right) => (right.completedAt ?? '').localeCompare(left.completedAt ?? ''))
     if (recovered[0]) {
-      const status = await this.baseline?.getStatus().catch(() => undefined)
-      this.activeSnapshot = { ...recovered[0], firmwareRoot: status?.sourceRoot ?? '', logs: ['已恢复上次经过哈希校验的固件产物。'] }
+      let sourceRoot = ''
+      try {
+        if (this.baselineResolver) {
+          const status = await this.baselineResolver.resolve('ch32v203-rhs-baseline').getStatus()
+          sourceRoot = status.sourceRoot
+        } else if (this.baseline) {
+          const status = await (this.baseline instanceof FirmwareBaselineResolver
+            ? this.baseline.resolve('ch32v203-rhs-baseline').getStatus()
+            : this.baseline.getStatus())
+          sourceRoot = status.sourceRoot
+        }
+      } catch {
+        // ignore
+      }
+      this.activeSnapshot = { ...recovered[0], firmwareRoot: sourceRoot, logs: ['已恢复上次经过哈希校验的固件产物。'] }
     }
   }
 
@@ -100,7 +133,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
 
   async build(options: FirmwareBuildOptions): Promise<FirmwareBuildSnapshot> {
     if (this.activeSnapshot.state === 'running') throw new Error('已有固件构建正在进行')
-    if (!this.baseline || !this.workspaces) throw new Error('完整固件构建服务尚未绑定学生工作区和固件基线')
+    if ((!this.baseline && !this.baselineResolver) || !this.workspaces) throw new Error('完整固件构建服务尚未绑定学生工作区和固件基线')
     if (!/^ws_[a-f0-9]{24}$/.test(options.workspaceId)) throw new Error('WORKSPACE_ID_INVALID')
 
     this.cancelRequested = false
@@ -108,8 +141,10 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     const temporaryRoot = join(this.outputBase, `.building-${buildId}`)
     let publishedRoot: string | undefined
     try {
-      const [{ manifest, sourceRoot, sourceHash }, workspace, toolchain] = await Promise.all([
-        this.baseline.requireTestingBaseline(), this.workspaces.get(options.workspaceId), this.toolchain.getStatus()
+      const workspace = await this.workspaces.get(options.workspaceId)
+      const baseline = this.resolveBaseline(workspace)
+      const [{ manifest, sourceRoot, sourceHash }, toolchain] = await Promise.all([
+        baseline.requireTestingBaseline(), this.toolchain.getStatus()
       ])
       if (!toolchain.gcc.ok || !toolchain.objcopy.ok || !toolchain.size.ok) throw new Error('内置 WCH GCC12 工具链不完整')
       if (workspace.firmwareBaselineId !== manifest.id || workspace.baselineCommit !== manifest.source.expectedCommit) throw new Error('工作区绑定的固件基线与当前基线不一致')
@@ -270,9 +305,12 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     await this.copyBaseline(sourceRoot, stagingRoot)
     await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay, workspace.learningPath)
 
+    const isPony = manifest.id.startsWith('ch32v203-pony')
     const isMcu = workspace.learningPath === 'mcu-foundations'
-    const teachingSources = isMcu ? await this.collectMcuSources(projectRoot) : []
-    const sources = [...(isMcu ? LIVE_BASELINE_SOURCES : LEGACY_LIVE_BASELINE_SOURCES), ...(isMcu ? teachingSources : [manifest.studentOverlay.source])]
+    const teachingSources = (isMcu || isPony) ? await this.collectMcuSources(projectRoot) : []
+    const sources = isPony
+      ? [...PONY_LIVE_BASELINE_SOURCES, 'Core/Src/student_control.c', ...teachingSources]
+      : [...(isMcu ? LIVE_BASELINE_SOURCES : LEGACY_LIVE_BASELINE_SOURCES), ...(isMcu ? teachingSources : [manifest.studentOverlay.source])]
     this.activeSnapshot.totalFiles = sources.length + 1
     const objectFiles: string[] = []
     this.activeSnapshot.stage = 'compiling'
@@ -281,14 +319,20 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const sourcePath = join(stagingRoot, ...source.split('/'))
       const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
       await mkdir(dirname(objectPath), { recursive: true })
-      const includeDirectories = isMcu ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc'] : LEGACY_LIVE_INCLUDE_DIRECTORIES
+      const includeDirectories = isPony
+        ? [...PONY_LIVE_INCLUDE_DIRECTORIES, 'App/Inc']
+        : isMcu ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc'] : LEGACY_LIVE_INCLUDE_DIRECTORIES
       const includeArgs = includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
       const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
       const isAssembly = extname(source).toLowerCase() === '.s'
-      const extraFlags = source === manifest.studentOverlay.source ? LIVE_STUDENT_C_FLAGS : []
+      const isStudentSource = isPony
+        ? (source === 'Core/Src/student_control.c' || source.startsWith('App/'))
+        : source === manifest.studentOverlay.source
+      const extraFlags = isStudentSource ? LIVE_STUDENT_C_FLAGS : []
+      const cFlags = isPony ? LEGACY_LIVE_C_FLAGS : isMcu ? LIVE_C_FLAGS : LEGACY_LIVE_C_FLAGS
       const args = isAssembly
         ? ['-c', '-x', 'assembler-with-cpp', ...includeArgs, ...targetArgs, sourcePath, '-o', objectPath]
-        : ['-c', '-x', 'c', ...includeArgs, ...targetArgs, ...(isMcu ? LIVE_C_FLAGS : LEGACY_LIVE_C_FLAGS), ...extraFlags, sourcePath, '-o', objectPath]
+        : ['-c', '-x', 'c', ...includeArgs, ...targetArgs, ...cFlags, ...extraFlags, sourcePath, '-o', objectPath]
       this.activeSnapshot.currentFile = source
       this.addLog(`[${index + 1}/${sources.length}] ${source}`)
       await this.runProcess(toolchain.gcc.path, args, stagingRoot)
@@ -356,19 +400,25 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
 
   private async applyStudentOverlay(projectRoot: string, stagingRoot: string, overlay: { source: string; header: string; configInput?: string; generatedHeader?: string }, learningPath: import('../../shared/edition').EditionId): Promise<void> {
     for (const path of [overlay.source, overlay.header]) {
-      const target = join(stagingRoot, ...path.split('/'))
-      await mkdir(dirname(target), { recursive: true })
-      await copyFile(join(projectRoot, ...path.split('/')), target)
+      const sourceFile = join(projectRoot, ...path.split('/'))
+      if (await stat(sourceFile).then((info) => info.isFile(), () => false)) {
+        const target = join(stagingRoot, ...path.split('/'))
+        await mkdir(dirname(target), { recursive: true })
+        await copyFile(sourceFile, target)
+      }
     }
     const configPath = overlay.configInput ? join(projectRoot, ...overlay.configInput.split('/')) : undefined
-    if (learningPath !== 'mcu-foundations' && configPath && overlay.generatedHeader && await stat(configPath).then(() => true, () => false)) {
+    if (configPath && overlay.generatedHeader && await stat(configPath).then(() => true, () => false)) {
       const config = parseLineConfigText(await readFile(configPath, 'utf8'))
       const generatedPath = join(stagingRoot, ...overlay.generatedHeader.split('/'))
       await mkdir(dirname(generatedPath), { recursive: true })
       await writeFile(generatedPath, renderStudentConfigHeader(config), 'utf8')
     }
-    if (learningPath === 'mcu-foundations') {
+    if (await stat(join(projectRoot, 'App')).then((info) => info.isDirectory(), () => false)) {
       await cp(join(projectRoot, 'App'), join(stagingRoot, 'App'), { recursive: true, errorOnExist: false, force: true, verbatimSymlinks: true })
+    }
+    if (await stat(join(projectRoot, 'Core')).then((info) => info.isDirectory(), () => false)) {
+      await cp(join(projectRoot, 'Core'), join(stagingRoot, 'Core'), { recursive: true, errorOnExist: false, force: true, verbatimSymlinks: true })
     }
   }
 
