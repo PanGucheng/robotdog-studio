@@ -64,6 +64,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .workspace-picker select { max-width: 240px; padding: 4px 25px 4px 7px; color: #294455; border: 1px solid #c7d5df; border-radius: 6px; background: #f8fbfd; font-size: 12px; font-weight: 700; }
 .workspace-picker button { display: flex; align-items: center; gap: 3px; padding: 4px 7px; color: #087d92; border: 1px solid #afd4dc; border-radius: 6px; background: #f5fcfd; font-size: 12px; font-weight: 800; cursor: pointer; }
 .context-bar .checkpoint-tag { padding: 3px 6px; color: #667887; border: 1px dashed #b8c8d3; border-radius: 5px; background: #f7fafc; font: 12px var(--mono); }
+.context-bar .workspace-kind-tag { padding: 3px 7px; border: 1px solid #bfdbfe; border-radius: 5px; background: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 12px; }
+.context-bar .workspace-kind-tag.is-pony { border-color: #fbcfe8; background: #fdf2f8; color: #be185d; }
+.context-bar .workspace-kind-tag.is-rhs { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
 .context-bar .edition-tag { padding: 3px 7px; border: 1px solid #afd4dc; border-radius: 5px; background: #f5fcfd; color: #087d92; font-weight: 800; letter-spacing: .04em; }
 .context-bar .edition-mcu-foundations { color: #76520c; border-color: #e0c27a; background: #fff8e7; font-family: var(--mono); }
 .context-bar .simulation-flag { margin-left: auto; color: #1d6c7c; font: 12px var(--mono); letter-spacing: 0.08em; }

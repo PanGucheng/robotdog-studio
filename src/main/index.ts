@@ -301,7 +301,7 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, programmer, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory)
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, programmer, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory, baselineResolver)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

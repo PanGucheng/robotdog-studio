@@ -11,6 +11,7 @@ export const IPC_CHANNELS = {
   robotCcdCapture: 'robot:ccd:capture',
   firmwareToolchainStatus: 'firmware:toolchain:status',
   firmwareBaselineStatus: 'firmware:baseline:status',
+  workspaceFirmwareBaselineStatus: 'firmware:workspace-baseline:status',
   firmwareBuildStart: 'firmware:build:start',
   firmwareBuildCancel: 'firmware:build:cancel',
   firmwareBuildEvent: 'firmware:build:event',

@@ -138,8 +138,8 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
         const items = result as StudentCodeFile[]
         setFiles(items)
         setExplorer(undefined)
-        const next = items.find((file) => file.path === selectedPath) ?? items[0]
-        setSelectedPath(next?.path ?? 'Core/Src/student_control.c')
+        const next = items.find((file) => file.path === selectedPath) ?? (workspace.workspacePurpose === 'mcu-sandbox' || workspace.templateId === 'ch32v203-pony' ? items.find((file) => file.path === 'App/Src/experiment.c') : undefined) ?? items[0]
+        setSelectedPath(next?.path ?? (workspace.workspacePurpose === 'mcu-sandbox' ? 'App/Src/experiment.c' : 'Core/Src/student_control.c'))
         setContent(next?.content ?? '')
       }
       setDirty(false)

@@ -14,6 +14,7 @@ import { ReasonixProcessManager } from '../services/reasonix-process-manager'
 import { AgentHistoryService } from '../services/agent-history-service'
 import { FirmwareBaselineService } from '../services/firmware-baseline-service'
 import { DiagnosticService } from '../services/diagnostic-service'
+import { FirmwareBaselineResolver } from '../services/firmware-baseline-resolver'
 import { WchLinkFlashService } from '../services/wch-link-flash-service'
 import { TiMspm0BuildService } from '../services/ti-mspm0-build-service'
 import { TiMspm0FlashService } from '../services/ti-mspm0-flash-service'
@@ -27,7 +28,7 @@ import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain: ToolchainService | import('../services/ti-mspm0-toolchain-service').TiMspm0ToolchainService = new ToolchainService(), firmware: FirmwareBuildService | TiMspm0BuildService = new FirmwareBuildService(toolchain as ToolchainService), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink: WchLinkFlashService | TiMspm0FlashService = new WchLinkFlashService(toolchain as ToolchainService, firmware as FirmwareBuildService), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain: ToolchainService | import('../services/ti-mspm0-toolchain-service').TiMspm0ToolchainService = new ToolchainService(), firmware: FirmwareBuildService | TiMspm0BuildService = new FirmwareBuildService(toolchain as ToolchainService), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink: WchLinkFlashService | TiMspm0FlashService = new WchLinkFlashService(toolchain as ToolchainService, firmware as FirmwareBuildService), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService, baselineResolver?: FirmwareBaselineResolver): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -137,6 +138,18 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
   ipcMain.handle(IPC_CHANNELS.firmwareBaselineStatus, () => {
     if (!baseline) throw new Error('固件基线服务尚未配置')
     return baseline.getStatus()
+  })
+  ipcMain.handle(IPC_CHANNELS.workspaceFirmwareBaselineStatus, async (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== 'string' || !workspaceId.trim()) throw new Error('请先选择学生对话')
+    if (!workspaces) throw new Error('工作区服务尚未配置')
+    const workspace = await workspaces.get(workspaceId)
+    if (baselineResolver) {
+      return baselineResolver.resolveForWorkspace(workspace).getStatus()
+    }
+    if (baseline) {
+      return baseline.getStatus()
+    }
+    throw new Error('固件基线服务尚未配置')
   })
   ipcMain.handle(IPC_CHANNELS.firmwareBuildStart, async (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string') throw new Error('请先创建或选择一个学生对话')

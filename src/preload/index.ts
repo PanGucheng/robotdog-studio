@@ -21,6 +21,7 @@ const api: RobotDogApi = {
   captureCcd: () => ipcRenderer.invoke(IPC_CHANNELS.robotCcdCapture),
   getToolchainStatus: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareToolchainStatus),
   getFirmwareBaselineStatus: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareBaselineStatus),
+  getWorkspaceFirmwareBaselineStatus: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.workspaceFirmwareBaselineStatus, workspaceId),
   startFirmwareBuild: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.firmwareBuildStart, workspaceId),
   cancelFirmwareBuild: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareBuildCancel),
   openTiSysconfig: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.tiSysconfigOpen, workspaceId),

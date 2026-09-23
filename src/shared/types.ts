@@ -852,6 +852,7 @@ export interface RobotDogApi {
   captureCcd(): Promise<CcdFrame>
   getToolchainStatus(): Promise<ToolchainStatus>
   getFirmwareBaselineStatus(): Promise<FirmwareBaselineStatus>
+  getWorkspaceFirmwareBaselineStatus(workspaceId: string): Promise<FirmwareBaselineStatus>
   startFirmwareBuild(workspaceId: string): Promise<FirmwareBuildSnapshot>
   cancelFirmwareBuild(): Promise<FirmwareBuildSnapshot>
   openTiSysconfig(workspaceId: string): Promise<boolean>

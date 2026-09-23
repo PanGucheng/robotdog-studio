@@ -296,6 +296,17 @@ export function App(): React.JSX.Element {
   }
   const currentWorkspaceId = edition.id !== 'fun-line-following' ? (mcuView.kind === 'workspace' ? mcuView.workspaceId : undefined) : activeWorkspaceId
   currentWorkspaceIdRef.current = currentWorkspaceId
+  useEffect(() => {
+    if (currentWorkspaceId) {
+      void api.getWorkspaceFirmwareBaselineStatus(currentWorkspaceId)
+        .then(setBaseline)
+        .catch(() => {
+          void api.getFirmwareBaselineStatus().then(setBaseline).catch((caught) => setError(toStudentErrorMessage(caught)))
+        })
+    } else {
+      void api.getFirmwareBaselineStatus().then(setBaseline).catch((caught) => setError(toStudentErrorMessage(caught)))
+    }
+  }, [api, currentWorkspaceId])
   workspacesRef.current = workspaces
   const activeWorkspace = workspaces.find((workspace) => workspace.id === currentWorkspaceId)
   const openMcuView = (next: McuView): void => {
@@ -553,6 +564,15 @@ export function App(): React.JSX.Element {
         </span>}
         {edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' && <span className="mcu-learning-context"><GraduationCap size={15} /> {mcuView.kind === 'home' ? '学习大厅' : mcuView.kind === 'course-center' ? '课程中心' : courseLesson?.title ?? '课程学习'}</span>}
         <span className={`edition-tag edition-${edition.id}`}>{edition.shortName}</span>
+        {activeWorkspace && (
+          <span className={`workspace-kind-tag ${activeWorkspace.templateId === 'ch32v203-pony' || activeWorkspace.firmwareBaselineId === 'ch32v203-pony-v25' ? 'is-pony' : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt' ? 'is-rhs' : ''}`}>
+            {activeWorkspace.workspacePurpose === 'mcu-sandbox'
+              ? (activeWorkspace.templateId === 'ch32v203-pony' ? '自由练习 · Pony v2.5' : '自由练习')
+              : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt'
+                ? '课程实验 · RHS Teaching'
+                : '巡线练习'}
+          </span>
+        )}
         {activeWorkspace && <span className="checkpoint-tag">存档 {activeWorkspace.headCommit.slice(0, 7)}</span>}
         <span>固件：{status.firmware}</span>
         <span className="simulation-flag">SIMULATION · {teacherMode ? '教师维护' : '学生工作台'}</span>

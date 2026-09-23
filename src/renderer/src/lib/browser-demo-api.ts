@@ -447,6 +447,40 @@ export const browserDemoApi: RobotDogApi = {
       warnings: ['当前使用未确认的临时固件工程，只可用于功能测试，不能作为发布固件。']
     }
   },
+  getWorkspaceFirmwareBaselineStatus: async (workspaceId) => {
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    if (workspace.firmwareBaselineId === 'ch32v203-pony-v25' || workspace.templateId === 'ch32v203-pony') {
+      return {
+        id: 'ch32v203-pony-v25',
+        label: 'CH32V203 小马全功能固件基线 v0.2.5',
+        sourceRoot: 'firmware\\v2.5_沁恒小马例程',
+        expectedCommit: '797dd6a0a53277197a7c54db2bb4a37debd0a9b0',
+        status: 'provisional',
+        readyForTesting: true,
+        releaseEligible: false,
+        verifiedFiles: ['Ld/Link.ld', 'Startup/startup_ch32v20x_D6.S', 'User/main.c', 'pony.firmware.json'],
+        errors: [],
+        memory: { flashBytes: 65536, ramBytes: 20480, confirmed: true },
+        warnings: ['当前使用未确认的临时固件工程，只可用于功能测试，不能作为发布固件。']
+      }
+    }
+    if (workspace.firmwareBaselineId === 'ch32v203-rhs-baseline' || workspace.courseBinding) {
+      return {
+        id: 'ch32v203-rhs-baseline',
+        label: 'CH32V203 RHS 机器马教学基线',
+        sourceRoot: 'firmware\\ch32v203-baseline',
+        expectedCommit: '539e35a8c307843000d4bc25fb618c3143fb5b2d',
+        status: 'provisional',
+        readyForTesting: true,
+        releaseEligible: false,
+        verifiedFiles: ['Ld/Link.ld', 'Startup/startup_ch32v20x_D6.S', 'User/main.c', 'rhs.firmware.json'],
+        errors: [],
+        memory: { flashBytes: 65536, ramBytes: 20480, confirmed: true },
+        warnings: ['当前使用未确认的临时固件工程，只可用于功能测试，不能作为发布固件。']
+      }
+    }
+    return browserDemoApi.getFirmwareBaselineStatus()
+  },
   startFirmwareBuild: async (workspaceId) => {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
     const isPony = workspace.firmwareBaselineId === 'ch32v203-pony-v25' || workspace.templateId === 'ch32v203-pony'
