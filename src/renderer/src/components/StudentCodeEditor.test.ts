@@ -54,6 +54,18 @@ describe('StudentCodeEditor file rail', () => {
     const expanded = withExpandedAncestors(new Set(['another-open-folder']), nodes, nodes[2])
     expect([...expanded]).toEqual(['another-open-folder', 'src', 'app'])
   })
+
+  it('orders Pony sandbox files with editable experiment code first', () => {
+    const files = [
+      file('App/Src/experiment.c', '实验代码', true),
+      file('App/Inc/experiment.h', '实验代码', true),
+      file('Core/Src/student_control.c', '只读接口', false),
+      file('Core/Inc/student_control.h', '参考接口', false)
+    ]
+    expect(getStudentFileGroups(files)).toEqual(['实验代码', '只读接口', '参考接口'])
+    expect(files[0].path).toBe('App/Src/experiment.c')
+    expect(files[0].editable).toBe(true)
+  })
 })
 
 function candidate(patch: Partial<CandidateSnapshot> = {}): CandidateSnapshot {

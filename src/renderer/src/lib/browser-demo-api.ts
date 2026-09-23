@@ -1,12 +1,21 @@
 import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, ProjectExplorerNode, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
-import { EDITION_PROFILES } from '../../../shared/edition'
+import { EDITION_PROFILES, type EditionId } from '../../../shared/edition'
 import demoCourseResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/course.json'
 import firstLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/studio-first-build.json'
 import secondLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/c-files-and-functions.json'
 import hardwareLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/first-hardware-placeholder.json'
 
-const requestedEdition = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('edition') : undefined
-const browserEditionId = requestedEdition === 'mcu-foundations' || requestedEdition === 'ti-mspm0-foundations' ? requestedEdition : 'fun-line-following'
+const requestedEdition = typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search).get('edition')
+  : (typeof globalThis !== 'undefined' ? (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.ROBOTDOG_EDITION : undefined)
+let browserEditionId: EditionId = requestedEdition === 'mcu-foundations' || requestedEdition === 'ti-mspm0-foundations' ? requestedEdition : 'fun-line-following'
+
+export function setDemoEdition(editionId: EditionId): void {
+  browserEditionId = editionId
+  if (editionId !== 'fun-line-following') {
+    demoWorkspaces = []
+  }
+}
 
 const demoLessons: CourseLesson[] = [firstLessonResource, secondLessonResource, hardwareLessonResource]
   .map((lesson, order) => ({ ...lesson, contentVersion: demoCourseResource.contentVersion, progressCompatibleFrom: demoCourseResource.progressCompatibleFrom ?? [], learningCompatibleFrom: demoCourseResource.learningCompatibleFrom ?? [], order }) as unknown as CourseLesson)

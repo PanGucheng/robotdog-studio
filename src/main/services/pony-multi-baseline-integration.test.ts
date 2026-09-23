@@ -110,6 +110,17 @@ describe('Pony & RHS Multi-Baseline Integration', () => {
     expect(rhsSnapshot.baselineId).toBe('ch32v203-rhs-baseline')
     const rhsExperimentNode = rhsSnapshot.nodes.find((n) => n.displayPath === 'App/Src/experiment.c')
     expect(rhsExperimentNode).toMatchObject({ origin: 'lesson-overlay', access: 'editable' })
+
+    // 4. Baseline resolution per workspace
+    const sandboxBaseline = resolver.resolveForWorkspace(sandboxWs)
+    const sandboxStatus = await sandboxBaseline.getStatus()
+    expect(sandboxStatus.id).toBe('ch32v203-pony-v25')
+    expect(sandboxStatus.label).toContain('小马')
+
+    const lessonBaseline = resolver.resolveForWorkspace(lessonWs)
+    const lessonStatus = await lessonBaseline.getStatus()
+    expect(lessonStatus.id).toBe('ch32v203-rhs-baseline')
+    expect(lessonStatus.label).toContain('RHS')
   })
 
   it.runIf(canRun)('completes full Candidate build, apply, and Firmware build on Pony baseline, with stale detection', async () => {
