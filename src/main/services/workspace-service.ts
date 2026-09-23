@@ -123,6 +123,8 @@ export interface WorkspaceCreationSpec {
   lessonTitle: string
   allowedEditGlobs: string[]
   deniedGlobs: string[]
+  firmwareBaselineId?: string
+  baselineCommit?: string
 }
 
 export interface WorkspaceServiceOptions {
@@ -133,6 +135,13 @@ export interface WorkspaceServiceOptions {
   baselineCommit?: string
   git?: GitWorkspaceService
   edition?: AppEditionProfile
+  sandboxDefaults?: {
+    templateRoot: string
+    templateVersion: string
+    templateId: string
+    firmwareBaselineId: string
+    baselineCommit: string
+  }
 }
 
 export class WorkspaceService {
@@ -144,6 +153,13 @@ export class WorkspaceService {
   private readonly baselineCommit: string
   private readonly git: GitWorkspaceService
   private readonly edition: AppEditionProfile
+  private readonly sandboxDefaults?: {
+    templateRoot: string
+    templateVersion: string
+    templateId: string
+    firmwareBaselineId: string
+    baselineCommit: string
+  }
 
   constructor(options: WorkspaceServiceOptions) {
     this.rootDir = resolve(options.rootDir)
@@ -154,6 +170,7 @@ export class WorkspaceService {
     this.baselineCommit = options.baselineCommit ?? PROVISIONAL_BASELINE_COMMIT
     this.git = options.git ?? new GitWorkspaceService()
     this.edition = options.edition ?? EDITION_PROFILES['fun-line-following']
+    this.sandboxDefaults = options.sandboxDefaults
   }
 
   async initialize(): Promise<void> {
@@ -190,8 +207,14 @@ export class WorkspaceService {
     const finalRoot = this.resolveInside(this.workspacesDir, id)
     const projectRoot = join(temporaryRoot, 'project')
     const now = new Date().toISOString()
+    const isSandbox = !spec && isMcuEdition(this.edition.id)
+    const templateRoot = spec?.templateRoot ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.templateRoot : this.templateRoot)
+    const templateId = spec?.templateId ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.templateId : this.edition.templateId)
+    const templateVersion = spec?.templateVersion ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.templateVersion : this.templateVersion)
+    const firmwareBaselineId = spec?.firmwareBaselineId ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.firmwareBaselineId : this.firmwareBaselineId)
+    const baselineCommit = spec?.baselineCommit ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.baselineCommit : this.baselineCommit)
     try {
-      await this.copyTemplate(projectRoot, spec?.templateRoot ?? this.templateRoot)
+      await this.copyTemplate(projectRoot, templateRoot)
       await writeFile(join(projectRoot, '.robotdog-managed'), 'RobotDog Studio workspace v1\n', { encoding: 'utf8', flag: 'wx' })
       await this.writeManagedProjectFiles(projectRoot, spec)
       const lastCheckpoint = await this.git.initialize(projectRoot)
@@ -205,11 +228,11 @@ export class WorkspaceService {
         target: this.edition.platform === 'ti-mspm0' ? 'MSPM0G3507' : 'CH32V203C8T6',
         toolchainProfile: this.edition.platform === 'ti-mspm0' ? 'ti-mspm0-sdk-2.11-gcc9-openocd' : 'wch-gcc12-openocd',
         workspacePurpose: spec?.workspacePurpose ?? (isMcuEdition(this.edition.id) ? 'mcu-sandbox' : 'fun-project'),
-        templateId: spec?.templateId ?? this.edition.templateId,
-        templateVersion: spec?.templateVersion ?? this.templateVersion,
+        templateId,
+        templateVersion,
         courseBinding: spec && attemptNumber ? { ...spec.courseBinding, attemptNumber } : undefined,
-        firmwareBaselineId: this.firmwareBaselineId,
-        baselineCommit: this.baselineCommit,
+        firmwareBaselineId,
+        baselineCommit,
         nameCustomized: input.name !== undefined,
         createdAt: now,
         updatedAt: now,

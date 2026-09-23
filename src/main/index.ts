@@ -18,6 +18,7 @@ import { TiMspm0FlashService } from './services/ti-mspm0-flash-service'
 import { WchLinkFlashService } from './services/wch-link-flash-service'
 import { CandidateBuildService, PlatformCandidateBuildService } from './services/candidate-build-service'
 import { TiMspm0CandidateBuildService } from './services/ti-mspm0-candidate-build-service'
+import { FirmwareBaselineResolver } from './services/firmware-baseline-resolver'
 import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
@@ -192,10 +193,13 @@ app.whenReady().then(async () => {
   const staticRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
   if (app.isPackaged) process.env.ROBOTDOG_GIT_EXE = join(staticRoot, 'toolchains', 'git', 'cmd', 'git.exe')
   const wchLinkDriver = await readWchLinkDriverStatus(staticRoot, app.isPackaged)
+  const baselineResolver = new FirmwareBaselineResolver({
+    staticRoot,
+    isPackaged: app.isPackaged,
+    appPath: app.getAppPath()
+  })
   const baselineRegistry = await readBaselineRegistry(staticRoot)
-  const templateResource = edition.id === 'fun-line-following'
-    ? baselineRegistry.studentTemplate
-    : baselineRegistry.studentTemplate
+  const templateResource = baselineRegistry.studentTemplate
   const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, templateResource, app.isPackaged)
   const baseline = new FirmwareBaselineService({
     manifestPath: baselineRegistry.manifestPath,
@@ -203,7 +207,31 @@ app.whenReady().then(async () => {
     developmentSourceRoot: edition.platform === 'ti-mspm0' ? templateRoot : undefined
   })
   const baselineManifest = await baseline.getManifest()
-  const workspaces = new WorkspaceService({ rootDir: workspaceRoot, templateRoot, templateVersion: baselineRegistry.templateVersion, firmwareBaselineId: baselineManifest.id, baselineCommit: baselineManifest.source.expectedCommit, edition })
+  baselineResolver.register(baselineManifest.id, baseline)
+
+  let sandboxDefaults: { templateRoot: string; templateVersion: string; templateId: string; firmwareBaselineId: string; baselineCommit: string } | undefined
+  if (edition.id === 'mcu-foundations') {
+    const ponyBaseline = baselineResolver.resolve('ch32v203-pony-v25')
+    const ponyManifest = await ponyBaseline.getManifest()
+    const ponyTemplateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, 'resources/workspace-templates/ch32v203-pony/0.2.5', app.isPackaged)
+    sandboxDefaults = {
+      templateRoot: ponyTemplateRoot,
+      templateVersion: ponyManifest.source.expectedCommit.slice(0, 7),
+      templateId: 'ch32v203-pony',
+      firmwareBaselineId: ponyManifest.id,
+      baselineCommit: ponyManifest.source.expectedCommit
+    }
+  }
+
+  const workspaces = new WorkspaceService({
+    rootDir: workspaceRoot,
+    templateRoot,
+    templateVersion: baselineRegistry.templateVersion,
+    firmwareBaselineId: baselineManifest.id,
+    baselineCommit: baselineManifest.source.expectedCommit,
+    edition,
+    sandboxDefaults
+  })
   await workspaces.initialize()
   const toolchain = edition.platform === 'ti-mspm0' ? new TiMspm0ToolchainService() : new ToolchainService()
   const candidateCache = join(workspaceRoot, 'build-cache')
@@ -216,7 +244,7 @@ app.whenReady().then(async () => {
     )
   })
   await candidates.initialize()
-  const projectExplorer = isMcuEdition(edition.id) ? new ProjectExplorerService(workspaces, candidates, baseline) : undefined
+  const projectExplorer = isMcuEdition(edition.id) ? new ProjectExplorerService(workspaces, candidates, baselineResolver) : undefined
   const courses = isMcuEdition(edition.id)
     ? new CourseService({
         rootDir: join(staticRoot, 'courses', edition.platform === 'ti-mspm0' ? 'ti-mspm0-foundations' : 'mcu-foundations'),
@@ -255,7 +283,7 @@ app.whenReady().then(async () => {
   } : undefined, courses ? { root: lessonAgentRoot, policyVersion: 'mcu-foundations-v1:1' } : undefined)
   const firmwareBuild = edition.platform === 'ti-mspm0'
     ? new TiMspm0BuildService(toolchain as TiMspm0ToolchainService, workspaces, join(workspaceRoot, 'firmware-artifacts'))
-    : new FirmwareBuildService(toolchain as ToolchainService, { baseline, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
+    : new FirmwareBuildService(toolchain as ToolchainService, { baseline: baselineResolver, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
   await firmwareBuild.initialize()
   const programmer = edition.platform === 'ti-mspm0'
     ? new TiMspm0FlashService(toolchain as TiMspm0ToolchainService, firmwareBuild as TiMspm0BuildService)
