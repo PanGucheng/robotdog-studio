@@ -39,6 +39,8 @@ interface McuFloatingAssistantProps {
   onPrompt(message: string): void
   onCancel(): void
   onReject(candidateId: string): void
+  onApply?(candidateId: string): void
+  onOpenReview?(): void
   onPermission(requestId: string, optionId: string): void
   onOpenSettings?(): void
 }
@@ -222,7 +224,7 @@ export function McuFloatingAssistant(props: McuFloatingAssistantProps): React.JS
     <button ref={buttonRef} type="button" className="mcu-ai-button" style={{ transform: `translate(${point.x}px, ${point.y}px)` }} aria-label={`${open ? '收起' : '打开'} AI 助教${unread.workspace || unread.lecture ? '，有新回答' : ''}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerCancel}><Bot size={22} />{(unread.workspace || unread.lecture) && <i />}</button>
     {open && windowGeometry && <section className="mcu-ai-window" style={{ left: windowGeometry.x, top: windowGeometry.y, width: windowGeometry.width, height: windowGeometry.height }} role="dialog" aria-label="AI 助教" onKeyDown={(event) => { if (event.key === 'Escape') { setOpen(false); buttonRef.current?.focus() } }}>
       <header tabIndex={0} aria-label="移动 AI 助教窗口，可使用方向键" onKeyDown={(event) => keyboardWindowDelta('move', event)} onPointerDown={(event) => startWindowInteraction('move', event)} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction}><span><Grip size={15} /><strong>AI 助教</strong><small>{domain === 'workspace' ? '实验 AI' : '课程知识问答'}</small></span><div>{domain === 'lecture' && <button type="button" onClick={() => setDomain('workspace')}><ArrowLeft size={14} />返回实验 AI</button>}<button type="button" onClick={() => { setOpen(false); buttonRef.current?.focus() }} aria-label="收起 AI 助教"><X size={16} /></button></div></header>
-      <div className="mcu-ai-domain" hidden={domain !== 'workspace'}><ChatPanel workspace={props.workspace} edition={props.edition} events={props.events} candidate={props.candidate} running={props.running} onPrompt={props.onPrompt} onCancel={props.onCancel} onReject={props.onReject} onPermission={props.onPermission} compact onOpenSettings={props.onOpenSettings} draftRequest={draftRequest} /></div>
+      <div className="mcu-ai-domain" hidden={domain !== 'workspace'}><ChatPanel workspace={props.workspace} edition={props.edition} events={props.events} candidate={props.candidate} running={props.running} onPrompt={props.onPrompt} onCancel={props.onCancel} onReject={props.onReject} onApply={props.onApply} onOpenReview={props.onOpenReview} onPermission={props.onPermission} compact onOpenSettings={props.onOpenSettings} draftRequest={draftRequest} /></div>
       <div className="mcu-ai-domain" hidden={domain !== 'lecture'}><LectureHistory events={lectureEvents} /></div>
       <span className="mcu-ai-resize-zone corner-north-west" aria-hidden="true" onPointerDown={(event) => startWindowInteraction('resize', event, 'north-west')} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction} />
       <span className="mcu-ai-resize-zone corner-north-east" aria-hidden="true" onPointerDown={(event) => startWindowInteraction('resize', event, 'north-east')} onPointerMove={moveWindowInteraction} onPointerUp={endWindowInteraction} onPointerCancel={cancelWindowInteraction} />

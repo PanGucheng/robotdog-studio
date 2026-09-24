@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ArrowUp, Bot, CheckCircle2, FileCheck2, KeyRound, LoaderCircle, Settings2, ShieldCheck, Sparkles, Square } from 'lucide-react'
+import { ArrowUp, Bot, CheckCircle2, FileCheck2, FolderTree, KeyRound, LoaderCircle, Settings2, ShieldCheck, Sparkles, Square, X } from 'lucide-react'
 import type { AgentEvent, AgentRuntimeStatus, CandidateSnapshot, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 import { toStudentErrorMessage, toStudentProblem } from '../lib/student-errors'
@@ -17,6 +17,8 @@ interface ChatPanelProps {
   onPrompt(message: string): void
   onCancel(): void
   onReject(candidateId: string): void
+  onApply?(candidateId: string): void
+  onOpenReview?(): void
   onPermission(requestId: string, optionId: string): void
   compact?: boolean
   onOpenSettings?(): void
@@ -34,7 +36,7 @@ interface ConversationTurn {
   summary?: string
 }
 
-export function ChatPanel({ workspace, edition, events, candidate, running, onPrompt, onCancel, onReject, onPermission, compact = false, onOpenSettings, draftRequest }: ChatPanelProps): React.JSX.Element {
+export function ChatPanel({ workspace, edition, events, candidate, running, onPrompt, onCancel, onReject, onApply, onOpenReview, onPermission, compact = false, onOpenSettings, draftRequest }: ChatPanelProps): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [showReview, setShowReview] = useState(false)
   const [showRuntime, setShowRuntime] = useState(false)
@@ -108,6 +110,8 @@ export function ChatPanel({ workspace, edition, events, candidate, running, onPr
             compact={compact}
             onToggleReview={() => setShowReview((value) => !value)}
             onReject={onReject}
+            onApply={onApply}
+            onOpenReview={onOpenReview}
             onPermission={onPermission}
           />
         ))}
@@ -124,7 +128,7 @@ export function ChatPanel({ workspace, edition, events, candidate, running, onPr
   )
 }
 
-function TurnView({ turn, candidate, running, showReview, compact, onToggleReview, onReject, onPermission }: { turn: ConversationTurn; candidate?: CandidateSnapshot; running: boolean; showReview: boolean; compact: boolean; onToggleReview(): void; onReject(id: string): void; onPermission(requestId: string, optionId: string): void }): React.JSX.Element {
+function TurnView({ turn, candidate, running, showReview, compact, onToggleReview, onReject, onApply, onOpenReview, onPermission }: { turn: ConversationTurn; candidate?: CandidateSnapshot; running: boolean; showReview: boolean; compact: boolean; onToggleReview(): void; onReject(id: string): void; onApply?(id: string): void; onOpenReview?(): void; onPermission(requestId: string, optionId: string): void }): React.JSX.Element {
   const activity = turn.activity
   const terminal = turn.terminal
   return (
@@ -144,8 +148,8 @@ function TurnView({ turn, candidate, running, showReview, compact, onToggleRevie
           {terminal?.type === 'failed' && <ProblemCard problem={toStudentProblem(terminal.message, '这次没有完成')} tone="danger" compact />}
           {terminal?.type === 'cancelled' && <div className="agent-cancelled"><Square size={12} /> {terminal.message}</div>}
           {candidate && ['review_ready', 'build_passed'].includes(candidate.state) && (compact
-            ? <div className="mcu-ai-change-notice"><CheckCircle2 size={15} /><span><strong>{candidate.state === 'build_passed' ? '修改已通过代码检查' : '修改已生成'}</strong><small>请在代码区查看差异并决定是否保存。</small></span></div>
-            : <div className="change-card"><span className="change-status"><CheckCircle2 size={15} /> {candidate.state === 'build_passed' ? '代码检查通过' : '已通过安全核对'}</span><strong>这次修改</strong><small>{turn.summary ?? '修改只保存在安全草稿中。'}</small>{showReview && candidate.validation && <div className="review-summary"><span><FileCheck2 size={13} /> {candidate.validation.changedFiles} 个允许文件</span>{candidate.validation.files.map((file) => <code key={file.path}>{file.path} · +{file.additions} / -{file.deletions}</code>)}</div>}<div className="change-actions"><button type="button" onClick={onToggleReview}>{showReview ? '收起摘要' : '查看安全摘要'}</button><button type="button" onClick={() => onReject(candidate.id)}>放弃修改</button><button type="button" className="button-primary" disabled>{candidate.state === 'build_passed' ? '可在代码区保存到项目' : '请在代码区检查修改'}</button></div></div>)}
+            ? <div className="mcu-ai-change-notice"><div className="mcu-ai-change-notice-lead"><CheckCircle2 size={15} /><span><strong>{candidate.state === 'build_passed' ? '修改已通过代码检查' : '修改已生成'}</strong><small>可直接在下方选择接收保存，或先在代码区查看差异。</small></span></div><div className="mcu-ai-change-notice-actions">{onOpenReview && <button type="button" onClick={onOpenReview}><FolderTree size={12} /> 查看差异</button>}<button type="button" onClick={() => onReject(candidate.id)} disabled={running}><X size={12} /> 放弃</button>{onApply && <button type="button" className="button-primary" onClick={() => onApply(candidate.id)} disabled={running}><CheckCircle2 size={12} /> {candidate.state === 'build_passed' ? '保存到项目' : '接收并保存'}</button>}</div></div>
+            : <div className="change-card"><span className="change-status"><CheckCircle2 size={15} /> {candidate.state === 'build_passed' ? '代码检查通过' : '已通过安全核对'}</span><strong>这次修改</strong><small>{turn.summary ?? '修改只保存在安全草稿中。'}</small>{showReview && candidate.validation && <div className="review-summary"><span><FileCheck2 size={13} /> {candidate.validation.changedFiles} 个允许文件</span>{candidate.validation.files.map((file) => <code key={file.path}>{file.path} · +{file.additions} / -{file.deletions}</code>)}</div>}<div className="change-actions"><button type="button" onClick={onToggleReview}>{showReview ? '收起摘要' : '查看安全摘要'}</button><button type="button" onClick={() => onReject(candidate.id)}>放弃修改</button>{onApply ? <button type="button" className="button-primary" onClick={() => onApply(candidate.id)}><CheckCircle2 size={13} /> {candidate.state === 'build_passed' ? '保存到项目' : '接收并保存'}</button> : <button type="button" className="button-primary" disabled>{candidate.state === 'build_passed' ? '可在代码区保存到项目' : '请在代码区检查修改'}</button>}</div></div>)}
           {terminal?.type === 'completed' && terminal.state === 'no_changes' && <div className="agent-cancelled"><CheckCircle2 size={13} /> {terminal.message}</div>}
         </div>
       </div>}

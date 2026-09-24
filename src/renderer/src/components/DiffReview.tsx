@@ -47,14 +47,14 @@ export function DiffReview({ candidate, diff, loading, error, history, busy, onR
         <div className="diff-verdict"><ShieldCheck size={17} /><span><strong>范围合规</strong><small>{diff.files.length} 个学生文件</small></span></div>
       </header>}
 
-      {!surfaceOnly && <div className="diff-ledger" aria-label="这次修改统计">
+      <div className="diff-ledger" aria-label="这次修改统计">
         <span><FileDiff size={14} /> {diff.files.length} 个文件</span><span className="added">+{additions}</span><span className="removed">−{deletions}</span><code>{diff.diffHash.slice(0, 10)}</code>
-      </div>}
+      </div>
 
-      {!surfaceOnly && <div className="candidate-proof-slot">
+      <div className="candidate-proof-slot">
         {candidate.error && <ProblemCard problem={toStudentProblem(candidate.error, '检查代码没有通过')} tone="danger" compact />}
         {candidate.buildProof && <div className="candidate-build-proof"><CheckCircle2 size={16} /><span><strong>代码检查通过</strong><small>{candidate.buildProof.checks.map((check) => check.detail).join(' · ')}</small></span><code>{candidate.buildProof.objectSha256.slice(0, 10)}</code></div>}
-      </div>}
+      </div>
 
       <div className="diff-station">
         <aside className="diff-files" aria-label="修改文件">
@@ -69,7 +69,18 @@ export function DiffReview({ candidate, diff, loading, error, history, busy, onR
         </section>
       </div>
 
-      {!surfaceOnly && <footer className="diff-review-actions"><span><CheckCircle2 size={14} /> 已通过路径、大小、文本与敏感信息检查</span><button type="button" onClick={() => onReject(candidate.id)} disabled={busy}><X size={14} /> 放弃这次修改</button>{candidate.state === 'build_passed' ? <button type="button" className="button-primary" onClick={() => onApply(candidate.id)} disabled={busy}><GitCommitHorizontal size={14} /> {busy ? '正在保存…' : '保存到项目'}</button> : <button type="button" className="button-primary" onClick={() => onBuild(candidate.id)} disabled={busy || candidate.state !== 'review_ready'}><Hammer size={14} /> {busy ? '正在检查代码…' : '检查代码'}</button>}</footer>}
+      <footer className="diff-review-actions">
+        <span><CheckCircle2 size={14} /> 已通过路径、大小、文本与敏感信息检查</span>
+        <button type="button" onClick={() => onReject(candidate.id)} disabled={busy}><X size={14} /> 放弃这次修改</button>
+        {candidate.state === 'build_passed' ? (
+          <button type="button" className="button-primary" onClick={() => onApply(candidate.id)} disabled={busy}><GitCommitHorizontal size={14} /> {busy ? '正在保存…' : '保存到项目'}</button>
+        ) : (
+          <>
+            <button type="button" onClick={() => onBuild(candidate.id)} disabled={busy || candidate.state !== 'review_ready'}><Hammer size={14} /> {busy ? '正在检查代码…' : '检查代码'}</button>
+            <button type="button" className="button-primary" onClick={() => onApply(candidate.id)} disabled={busy || candidate.state !== 'review_ready'}><GitCommitHorizontal size={14} /> {busy ? '正在检查并保存…' : '接收并保存'}</button>
+          </>
+        )}
+      </footer>
     </div>
   )
 }

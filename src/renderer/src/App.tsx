@@ -501,6 +501,13 @@ export function App(): React.JSX.Element {
   }
   const applyCandidate = (candidateId: string): void => {
     void run(async () => {
+      let snapshot = candidate?.id === candidateId ? candidate : await api.getCandidate(candidateId)
+      if (snapshot.state === 'review_ready') {
+        snapshot = await api.buildCandidate(candidateId)
+        setCandidate(snapshot)
+        await refreshCourseProgress()
+        if (snapshot.state !== 'build_passed') return
+      }
       const applied = await api.applyCandidate(candidateId)
       if (applied.state !== 'applied') { setCandidate(applied); return }
       setCandidate(undefined)
@@ -581,7 +588,7 @@ export function App(): React.JSX.Element {
       </div>
 
       <div className={`studio-grid ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
-        {edition.id === 'fun-line-following' && <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onPermission={respondAgentPermission} />}
+        {edition.id === 'fun-line-following' && <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onApply={applyCandidate} onOpenReview={() => setLearningDestination('修改确认')} onPermission={respondAgentPermission} />}
         <Workbench
           frame={frame}
           status={status}
