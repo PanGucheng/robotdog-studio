@@ -911,8 +911,8 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .mcu-diff-surface { position: absolute; z-index: 8; inset: 0 0 0 var(--mcu-explorer-width); display: grid; grid-template-rows: 40px minmax(0, 1fr); background: #fff; box-shadow: -12px 0 35px rgb(31 66 83 / 16%); }
 .mcu-diff-surface > header { display: flex; align-items: center; justify-content: space-between; padding: 0 11px 0 14px; color: #294f61; border-bottom: 1px solid #cedde3; background: #f8fbfc; }
 .mcu-diff-surface > header span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 750; }
-.mcu-diff-surface > header button { display: grid; place-items: center; width: 28px; height: 28px; color: #6f8793; border: 0; border-radius: 5px; background: transparent; cursor: pointer; }
-.mcu-diff-surface > header button:hover { color: #075f70; background: #e5f3f5; }
+.mcu-diff-surface > header button.mcu-diff-close { display: grid; place-items: center; width: 28px; height: 28px; color: #6f8793; border: 0; border-radius: 5px; background: transparent; cursor: pointer; }
+.mcu-diff-surface > header button.mcu-diff-close:hover { color: #075f70; background: #e5f3f5; }
 .mcu-diff-surface .diff-sheet { background: #fff; }
 .mcu-diff-surface .diff-sheet-title { color: #294f61; border-color: #d5e2e7; background: #f3f8f9; }
 .mcu-diff-surface .diff-line { color: #355565; }
@@ -1267,10 +1267,12 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 .mcu-diff-surface { position: absolute; z-index: 8; inset: 0; display: grid; grid-template-rows: 40px minmax(0, 1fr); background: var(--panel); box-shadow: none; }
 .mcu-diff-surface > header { display: flex; align-items: center; justify-content: space-between; padding: 0 11px 0 14px; color: #294f61; border-bottom: 1px solid #cedde3; background: #f8fbfc; }
 .mcu-diff-surface > header span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 750; }
-.mcu-diff-surface > header button { display: grid; place-items: center; width: 28px; height: 28px; color: #6f8793; border: 0; border-radius: 5px; background: transparent; cursor: pointer; }
-.mcu-diff-surface .diff-review, .mcu-diff-surface .diff-station { min-height: 0; height: 100%; overflow: auto; }
+.mcu-diff-surface > header button.mcu-diff-close { display: grid; place-items: center; width: 28px; height: 28px; color: #6f8793; border: 0; border-radius: 5px; background: transparent; cursor: pointer; }
+.mcu-diff-surface .diff-review { grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; height: 100%; box-sizing: border-box; padding-bottom: 16px; }
+.mcu-diff-surface .diff-station { min-height: 0; height: 100%; overflow: hidden; }
 .mcu-diff-header-actions { display: flex; align-items: center; gap: 8px; }
-.mcu-diff-header-actions button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; color: #355869; border: 1px solid #c9dadd; border-radius: 6px; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.mcu-diff-header-actions button { display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; width: auto; min-width: max-content; height: 28px; padding: 0 11px; color: #355869; border: 1px solid #c9dadd; border-radius: 6px; background: #fff; font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; cursor: pointer; }
+.mcu-diff-header-actions button svg { flex-shrink: 0; }
 .mcu-diff-header-actions button:hover:not(:disabled) { color: #076777; background: #f0f8f9; }
 .mcu-diff-header-actions button.button-primary { color: #fff; border-color: #087f91; background: #087f91; }
 .mcu-diff-header-actions button.button-primary:hover:not(:disabled) { border-color: #066d7c; background: #066d7c; }

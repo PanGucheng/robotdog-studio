@@ -69,7 +69,8 @@ export function DiffReview({ candidate, diff, loading, error, history, busy, onR
         </section>
       </div>
 
-      <footer className="diff-review-actions">
+      {!surfaceOnly && (
+        <footer className="diff-review-actions">
         <span><CheckCircle2 size={14} /> 已通过路径、大小、文本与敏感信息检查</span>
         <button type="button" onClick={() => onReject(candidate.id)} disabled={busy}><X size={14} /> 放弃这次修改</button>
         {candidate.state === 'build_passed' ? (
@@ -81,6 +82,7 @@ export function DiffReview({ candidate, diff, loading, error, history, busy, onR
           </>
         )}
       </footer>
+      )}
     </div>
   )
 }
