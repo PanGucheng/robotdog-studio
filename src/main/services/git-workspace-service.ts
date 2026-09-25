@@ -137,7 +137,7 @@ export class GitWorkspaceService {
   async assertManagedRepository(projectRoot: string): Promise<void> {
     const root = resolve(projectRoot)
     const marker = await readFile(resolve(root, MANAGED_MARKER), 'utf8').catch(() => '')
-    if (marker.trim() !== 'RobotDog Studio workspace v1' && marker.trim() !== 'RoboHorse Studio workspace v1') throw new Error('WORKSPACE_NOT_MANAGED')
+    if (marker.trim() !== 'RobotDog Studio workspace v1') throw new Error('WORKSPACE_NOT_MANAGED')
     const reportedRoot = (await this.run(root, ['rev-parse', '--show-toplevel'])).trim()
     const [actualRoot, actualReportedRoot] = await Promise.all([realpath(root), realpath(reportedRoot)])
     if (actualReportedRoot.toLocaleLowerCase('en-US') !== actualRoot.toLocaleLowerCase('en-US')) {

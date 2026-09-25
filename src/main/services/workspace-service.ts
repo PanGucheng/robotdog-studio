@@ -215,7 +215,7 @@ export class WorkspaceService {
     const baselineCommit = spec?.baselineCommit ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.baselineCommit : this.baselineCommit)
     try {
       await this.copyTemplate(projectRoot, templateRoot)
-      await writeFile(join(projectRoot, '.robotdog-managed'), 'RoboHorse Studio workspace v1\n', { encoding: 'utf8', flag: 'wx' })
+      await writeFile(join(projectRoot, '.robotdog-managed'), 'RobotDog Studio workspace v1\n', { encoding: 'utf8', flag: 'wx' })
       await this.writeManagedProjectFiles(projectRoot, spec)
       const lastCheckpoint = await this.git.initialize(projectRoot)
       const metadata: WorkspaceMetadata = {
