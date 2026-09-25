@@ -1,6 +1,6 @@
 # Bundled WCH toolchain
 
-RobotDog Studio ships as a complete desktop application and does not require users to install MounRiver Studio.
+RoboHorse Studio ships as a complete desktop application and does not require users to install MounRiver Studio.
 
 This directory contains the redistributed WCH command-line components used by the firmware workflow:
 

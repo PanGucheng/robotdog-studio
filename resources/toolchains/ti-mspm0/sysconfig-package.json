@@ -1,5 +1,5 @@
 {
   "private": true,
   "type": "commonjs",
-  "description": "RobotDog Studio package boundary for the bundled SysConfig CommonJS runtime"
+  "description": "RoboHorse Studio package boundary for the bundled SysConfig CommonJS runtime"
 }

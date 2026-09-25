@@ -13,7 +13,7 @@ export class GitWorkspaceService {
     await this.run(root, ['init', '--initial-branch=main'])
     await this.run(root, ['add', '--all'])
     await this.run(root, [
-      '-c', 'user.name=RobotDog Studio',
+      '-c', 'user.name=RoboHorse Studio',
       '-c', 'user.email=studio@robotdog.local',
       'commit', '-m', 'chore: initialize student workspace'
     ])
@@ -111,7 +111,7 @@ export class GitWorkspaceService {
     if (!message.trim() || message.length > 160) throw new Error('WORKSPACE_COMMIT_MESSAGE_INVALID')
     await this.run(projectRoot, ['add', '--all'])
     await this.run(projectRoot, [
-      '-c', 'user.name=RobotDog Studio', '-c', 'user.email=studio@robotdog.local',
+      '-c', 'user.name=RoboHorse Studio', '-c', 'user.email=studio@robotdog.local',
       'commit', '-m', message.trim()
     ])
     return this.getHead(projectRoot)
@@ -128,7 +128,7 @@ export class GitWorkspaceService {
     if (entries.length < 2) throw new Error('WORKSPACE_NOTHING_TO_UNDO')
     if (!entries[0].message.startsWith('feat(student): apply AI candidate ')) throw new Error('WORKSPACE_NOTHING_TO_UNDO')
     await this.run(projectRoot, [
-      '-c', 'user.name=RobotDog Studio', '-c', 'user.email=studio@robotdog.local',
+      '-c', 'user.name=RoboHorse Studio', '-c', 'user.email=studio@robotdog.local',
       'revert', '--no-edit', 'HEAD'
     ])
     return this.getHead(projectRoot)
@@ -137,7 +137,7 @@ export class GitWorkspaceService {
   async assertManagedRepository(projectRoot: string): Promise<void> {
     const root = resolve(projectRoot)
     const marker = await readFile(resolve(root, MANAGED_MARKER), 'utf8').catch(() => '')
-    if (marker.trim() !== 'RobotDog Studio workspace v1') throw new Error('WORKSPACE_NOT_MANAGED')
+    if (marker.trim() !== 'RobotDog Studio workspace v1' && marker.trim() !== 'RoboHorse Studio workspace v1') throw new Error('WORKSPACE_NOT_MANAGED')
     const reportedRoot = (await this.run(root, ['rev-parse', '--show-toplevel'])).trim()
     const [actualRoot, actualReportedRoot] = await Promise.all([realpath(root), realpath(reportedRoot)])
     if (actualReportedRoot.toLocaleLowerCase('en-US') !== actualRoot.toLocaleLowerCase('en-US')) {

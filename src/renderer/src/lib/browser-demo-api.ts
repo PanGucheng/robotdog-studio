@@ -167,7 +167,7 @@ let browserUpdateWorkspaceId: string | undefined
 let browserRecoveryToken = 0
 
 let deviceConnection: DeviceConnectionSnapshot = {
-  device: { id: 'RDS-WEB-001', name: '浏览器训练小马', board: 'CH32V203 RobotDog', hardwareVersion: 'WEB-A' },
+  device: { id: 'RDS-WEB-001', name: '浏览器训练小马', board: 'CH32V203 RoboHorse', hardwareVersion: 'WEB-A' },
   runtime: { state: 'disconnected' },
   updatePort: { state: 'disconnected' },
   updatedAt: new Date().toISOString()
@@ -602,7 +602,7 @@ export const browserDemoApi: RobotDogApi = {
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(firmwareUpdate.state)) throw new Error('学生固件下载进行中，不能同时执行教师恢复')
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(recoverySnapshot.state)) throw new Error('已有教师恢复任务正在进行')
     browserRecoveryToken += 1
-    recoverySnapshot = { state: 'preflight', progress: 4, message: '正在核对完整恢复镜像与目标板型…', imageName: 'RobotDog-Factory-Full.hex', canCancel: true, startedAt: new Date().toISOString() }
+    recoverySnapshot = { state: 'preflight', progress: 4, message: '正在核对完整恢复镜像与目标板型…', imageName: 'RoboHorse-Factory-Full.hex', canCancel: true, startedAt: new Date().toISOString() }
     emitRecovery('snapshot', {})
     void runBrowserRecovery(browserRecoveryToken)
     return { ...recoverySnapshot }

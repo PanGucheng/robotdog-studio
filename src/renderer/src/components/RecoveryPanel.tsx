@@ -27,7 +27,7 @@ export function RecoveryPanel({ recovery, busy, onStart, onCancel }: RecoveryPan
         </div>
         <div className="recovery-meter"><span style={{ width: `${recovery.progress}%` }} /></div>
         <div className="recovery-meta">
-          <span>{recovery.imageName ?? 'RobotDog-Factory-Full.hex'}</span>
+          <span>{recovery.imageName ?? 'RoboHorse-Factory-Full.hex'}</span>
           <strong>{recovery.progress}%</strong>
         </div>
         <div className="recovery-actions">

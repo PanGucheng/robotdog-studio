@@ -43,7 +43,7 @@ const initialBuild: FirmwareBuildSnapshot = {
 }
 
 const initialConnection: DeviceConnectionSnapshot = {
-  device: { id: 'RDS-SIM-001', name: '一号训练小马', board: 'CH32V203 RobotDog', hardwareVersion: 'SIM-A' },
+  device: { id: 'RDS-SIM-001', name: '一号训练小马', board: 'CH32V203 RoboHorse', hardwareVersion: 'SIM-A' },
   runtime: { state: 'disconnected' },
   updatePort: { state: 'disconnected' },
   updatedAt: new Date().toISOString()
@@ -536,7 +536,7 @@ export function App(): React.JSX.Element {
           <button type="button" className="menu-button" aria-label="打开项目菜单"><Menu size={20} /></button>
           <div className="brand-mark" aria-hidden="true"><span /><span /><span /><span /></div>
           <div>
-            <h1>RobotDog <em>Studio</em></h1>
+            <h1>RoboHorse <em>Studio</em></h1>
             <p>{edition.subtitle}</p>
           </div>
         </div>

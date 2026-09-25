@@ -34,7 +34,7 @@ const friendlyProblems: Array<[RegExp, Omit<StudentProblem, 'technicalDetail'>]>
   [/WORKSPACE_GIT_FAILED|spawn git|git\.exe|git .*failed/i, {
     title: '学生工作区没有准备好',
     whatHappened: '系统没有完成新对话的本地代码快照。',
-    why: 'RobotDog Studio 需要一个受控的 Git 工具来保存课堂练习历史。当前包里的 Git 可能缺失、损坏，或被安全软件拦截。',
+    why: 'RoboHorse Studio 需要一个受控的 Git 工具来保存课堂练习历史。当前包里的 Git 可能缺失、损坏，或被安全软件拦截。',
     nextStep: '请换用包含内置 Git 的新版测试包；如果仍失败，请让教师展开技术细节检查打包文件是否完整。'
   }],
   [/BASELINE.*(INVALID|MISMATCH)|固件基线.*(不完整|不一致)|SDK.*(校验|不一致)/i, {

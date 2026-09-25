@@ -95,7 +95,7 @@ export class ReasonixAcpAdapter implements ReasonixAdapter {
     const cancel = (): void => { if (sessionId) process.client.notify('session/cancel', { sessionId }) }
     signal.addEventListener('abort', cancel, { once: true })
     try {
-      await process.client.request('initialize', { protocolVersion: 1, clientInfo: { name: 'robotdog-studio', title: 'RobotDog Studio', version: '0.1.0' } })
+      await process.client.request('initialize', { protocolVersion: 1, clientInfo: { name: 'robotdog-studio', title: 'RoboHorse Studio', version: '0.1.0' } })
       sessionId = await this.openWorkspaceSession(process.client, context.workspaceId, context.candidateRoot)
       await process.client.request('session/set_model', { sessionId, modelId: ROBOTDOG_DEEPSEEK_MODEL_ID })
       if (signal.aborted) throw signal.reason

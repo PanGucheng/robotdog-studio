@@ -1,6 +1,6 @@
-# RobotDog CH32V203 学生工程
+# RoboHorse CH32V203 学生工程
 
-这是 RobotDog Studio 管理的巡线教学模板。AI 修改功能只会在候选副本中修改允许的学生文件。
+这是 RoboHorse Studio 管理的巡线教学模板。AI 修改功能只会在候选副本中修改允许的学生文件。
 
 - `Core/Src/student_control.c`：根据最新的 128 点 CCD 快照选择停止、前进或转弯。
 - `Core/Inc/student_control.h`：学生控制接口；输入只读，输出会由固件安全层再次检查。

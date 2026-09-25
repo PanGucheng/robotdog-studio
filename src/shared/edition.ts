@@ -21,7 +21,7 @@ export const DEFAULT_EDITION_ID: EditionId = 'fun-line-following'
 export const EDITION_PROFILES: Readonly<Record<EditionId, AppEditionProfile>> = Object.freeze({
   'fun-line-following': Object.freeze({
     id: 'fun-line-following',
-    productName: 'RobotDog Studio 趣味巡线版',
+    productName: 'RoboHorse Studio 趣味巡线版',
     shortName: '趣味巡线版',
     subtitle: '巡线教学工作台',
     audience: '中小学生和零基础学习者',
@@ -35,7 +35,7 @@ export const EDITION_PROFILES: Readonly<Record<EditionId, AppEditionProfile>> = 
   }),
   'mcu-foundations': Object.freeze({
     id: 'mcu-foundations',
-    productName: 'RobotDog Studio 单片机入门版',
+    productName: 'RoboHorse Studio 单片机入门版',
     shortName: '单片机入门版',
     subtitle: 'CH32V203 单片机学习工作台',
     audience: '电子类专业大学低年级学生',
@@ -49,7 +49,7 @@ export const EDITION_PROFILES: Readonly<Record<EditionId, AppEditionProfile>> = 
   }),
   'ti-mspm0-foundations': Object.freeze({
     id: 'ti-mspm0-foundations',
-    productName: 'RobotDog Studio TI MSPM0 教学版',
+    productName: 'RoboHorse Studio TI MSPM0 教学版',
     shortName: 'TI MSPM0 教学版',
     subtitle: 'MSPM0G3507 · SysConfig 单片机学习工作台',
     audience: '单片机零基础或刚入门的大学生',

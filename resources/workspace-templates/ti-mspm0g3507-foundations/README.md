@@ -1,6 +1,6 @@
 # TI MSPM0G3507 GPIO 教学工程
 
-这是 RobotDog Studio TI MSPM0 教学版的最小真实工程。
+这是 RoboHorse Studio TI MSPM0 教学版的最小真实工程。
 
 - `gpio_toggle_output.syscfg`：硬件资源配置，请使用工程文件标题右侧的“SysConfig”按钮打开。
 - `src/main.c`：学生应用程序，可以直接编辑。

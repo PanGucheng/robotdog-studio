@@ -1,4 +1,4 @@
-# CH32V203 RobotDog Student Template
+# CH32V203 RoboHorse Student Template
 
 This template was generated from the verified firmware baseline candidate.
 

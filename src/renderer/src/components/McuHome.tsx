@@ -39,7 +39,7 @@ export function McuHome({ panel, course, workspaces, learning, recent, busy, onN
   }).slice(0, 3)
 
   return <section className="mcu-home">
-    <header className="mcu-home-hero"><div><span className="eyebrow">ROBOTDOG MCU STUDIO</span><h1>今天想从哪里开始？</h1><p>先理解原理，再走进实验；也可以直接打开自由工作室。</p></div><div className="mcu-board-mark" aria-hidden="true"><i /><Cpu size={34} /><i /></div></header>
+    <header className="mcu-home-hero"><div><span className="eyebrow">ROBOHORSE MCU STUDIO</span><h1>今天想从哪里开始？</h1><p>先理解原理，再走进实验；也可以直接打开自由工作室。</p></div><div className="mcu-board-mark" aria-hidden="true"><i /><Cpu size={34} /><i /></div></header>
     <div className="mcu-path-choices">
       <button type="button" className="is-course" onClick={() => onNavigate({ kind: 'course-center', courseId: course?.courseId })}><span><BookOpenCheck size={25} /></span><small>LEARNING PATH</small><strong>课程学习</strong><p>跟随课程学习知识，再进入配套工程亲自验证。</p><b>进入课程 <ArrowRight size={15} /></b></button>
       <div className="mcu-pcb-bridge" aria-hidden="true"><i /><i /><i /></div>

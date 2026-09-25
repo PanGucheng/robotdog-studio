@@ -5,7 +5,7 @@ TI MSPM0 工程里有两类工作需要分开理解：
 1. `gpio_toggle_output.syscfg` 描述芯片、封装、引脚和外设资源，由官方 SysConfig 读取。
 2. `src/main.c` 编写应用逻辑，通过 MSPM0 DriverLib 使用这些资源。
 
-保存 `.syscfg` 后，RobotDog Studio 在每次编译前运行 SysConfig CLI，重新生成 `ti_msp_dl_config.c`、`ti_msp_dl_config.h`、`device.opt` 和链接片段。这些文件属于自动生成结果，可以查看，但不应手工长期修改。
+保存 `.syscfg` 后，RoboHorse Studio 在每次编译前运行 SysConfig CLI，重新生成 `ti_msp_dl_config.c`、`ti_msp_dl_config.h`、`device.opt` 和链接片段。这些文件属于自动生成结果，可以查看，但不应手工长期修改。
 
 ```text
 .syscfg → SysConfig CLI → generated/ → Arm GCC → ELF → OpenOCD → CMSIS-DAP → MSPM0

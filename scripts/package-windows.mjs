@@ -17,13 +17,13 @@ const releaseArg = legacyInvocation ? process.argv[3] : process.argv[4]
 const target = targetArg === 'nsis' ? 'nsis' : 'zip'
 const formal = releaseArg === 'formal'
 const edition = editionId === 'ti-mspm0-foundations' ? {
-  appId: 'cn.robotdog.studio.ti.mspm0', productName: 'RobotDog Studio TI MSPM0 教学版', executableName: 'RobotDogStudio-TI-MSPM0', artifactSlug: 'RobotDog-Studio-TI-MSPM0',
+  appId: 'cn.robotdog.studio.ti.mspm0', productName: 'RoboHorse Studio TI MSPM0 教学版', executableName: 'RobotDogStudio-TI-MSPM0', artifactSlug: 'RobotDog-Studio-TI-MSPM0',
   templateBase: 'resources/workspace-templates/ti-mspm0g3507-foundations'
 } : editionId === 'mcu-foundations' ? {
-  appId: 'cn.robotdog.studio.mcu', productName: 'RobotDog Studio 单片机入门版', executableName: 'RobotDogStudio-MCU', artifactSlug: 'RobotDog-Studio-MCU',
+  appId: 'cn.robotdog.studio.mcu', productName: 'RoboHorse Studio 单片机入门版', executableName: 'RobotDogStudio-MCU', artifactSlug: 'RobotDog-Studio-MCU',
   templateBase: 'resources/workspace-templates/ch32v203-mcu-foundations'
 } : {
-  appId: 'cn.robotdog.studio.fun', productName: 'RobotDog Studio 趣味巡线版', executableName: 'RobotDogStudio-Fun', artifactSlug: 'RobotDog-Studio-Fun',
+  appId: 'cn.robotdog.studio.fun', productName: 'RoboHorse Studio 趣味巡线版', executableName: 'RobotDogStudio-Fun', artifactSlug: 'RobotDog-Studio-Fun',
   templateBase: 'resources/workspace-templates/ch32v203-robotdog'
 }
 const packageOutputRoot = join(root, 'release', `.stage-${editionId}-${target}`)
@@ -42,8 +42,8 @@ await cp(join(root, 'config'), join(appDir, 'config'), { recursive: true })
 await writeFile(join(appDir, 'config', 'edition.json'), `${JSON.stringify({ schemaVersion: 1, edition: editionId }, null, 2)}\n`)
 await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
   name: 'robotdog-studio-packaged', version: '0.1.0',
-  description: formal ? 'RobotDog Studio offline package' : 'RobotDog Studio provisional offline test package',
-  main: './out/main/index.cjs', author: 'RobotDog Studio contributors', license: 'UNLICENSED', type: 'module', dependencies: {}
+  description: formal ? 'RoboHorse Studio offline package' : 'RoboHorse Studio provisional offline test package',
+  main: './out/main/index.cjs', author: 'RoboHorse Studio contributors', license: 'UNLICENSED', type: 'module', dependencies: {}
 }, null, 2)}\n`)
 
 const baselineName = editionId === 'ti-mspm0-foundations' ? 'ti-mspm0g3507' : editionId === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog'
@@ -175,7 +175,7 @@ const artifacts = await build({
     appId: edition.appId,
     electronVersion: '42.4.1',
     productName: formal ? edition.productName : `${edition.productName} 临时测试版`,
-    copyright: 'Copyright © 2026 RobotDog Studio contributors',
+    copyright: 'Copyright © 2026 RoboHorse Studio contributors',
     asar: true,
     npmRebuild: false,
     compression: 'normal',
@@ -247,9 +247,9 @@ async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
     const probeRepo = join(probeRoot, 'repo')
     await mkdir(probeRepo)
     await execFileAsync(gitExe, ['init', '--initial-branch=main'], { cwd: probeRepo, windowsHide: true })
-    await writeFile(join(probeRepo, 'probe.txt'), 'RobotDog Studio packaged Git probe\n', 'utf8')
+    await writeFile(join(probeRepo, 'probe.txt'), 'RoboHorse Studio packaged Git probe\n', 'utf8')
     await execFileAsync(gitExe, ['add', '--all'], { cwd: probeRepo, windowsHide: true })
-    await execFileAsync(gitExe, ['-c', 'user.name=RobotDog Studio', '-c', 'user.email=studio@robotdog.local', 'commit', '-m', 'probe packaged git'], { cwd: probeRepo, windowsHide: true })
+    await execFileAsync(gitExe, ['-c', 'user.name=RoboHorse Studio', '-c', 'user.email=studio@robotdog.local', 'commit', '-m', 'probe packaged git'], { cwd: probeRepo, windowsHide: true })
     const { stdout } = await execFileAsync(gitExe, ['rev-parse', '--short', 'HEAD'], { cwd: probeRepo, windowsHide: true, encoding: 'utf8' })
     console.log(`Verified packaged Git runtime: ${stdout.trim()} (${gitExe})`)
   } finally {

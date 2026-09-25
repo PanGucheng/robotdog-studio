@@ -20,7 +20,7 @@ export class MockRecoveryService extends EventEmitter<RecoveryEvents> {
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(this.snapshot.state)) throw new Error('已有教师恢复任务正在进行')
     this.operationToken += 1
     this.snapshot = {
-      state: 'preflight', progress: 4, message: '正在核对完整恢复镜像与目标板型…', imageName: 'RobotDog-Factory-Full.hex',
+      state: 'preflight', progress: 4, message: '正在核对完整恢复镜像与目标板型…', imageName: 'RoboHorse-Factory-Full.hex',
       canCancel: true, startedAt: new Date().toISOString()
     }
     this.emitEvent('snapshot')
