@@ -1,6 +1,10 @@
-# RobotDog Studio
+# RoboHorse Studio
 
-RobotDog Studio 是一套面向机器人与单片机教学的 Electron 桌面上位机。当前由同一仓库维护三个彼此隔离的发行版：面向中小学的趣味巡线版、基于 CH32V203 的大学单片机入门版，以及基于 TI MSPM0G3507 和 SysConfig 的 TI MSPM0 教学版。
+![RoboHorse Studio](resources/brand/robohorse-logo.svg)
+
+品牌资产与使用规范见 [品牌说明](resources/brand/README.md)。
+
+RoboHorse Studio 是一套面向机器人与单片机教学的 Electron 桌面上位机。当前由同一仓库维护三个彼此隔离的发行版：面向中小学的趣味巡线版、基于 CH32V203 的大学单片机入门版，以及基于 TI MSPM0G3507 和 SysConfig 的 TI MSPM0 教学版。
 
 原有两版的产品原则见[双发行版教学改造总纲](./docs/dual-edition-teaching-plan.md)；TI 版本的环境、操作与验证见 [TI MSPM0 教学版开发与验证](./docs/ti-mspm0-development-and-validation.md)。单片机课程框架见[课程框架详细实施计划](./docs/mcu-course-framework-implementation-plan.md)，大学生版界面见[代码优先工作台计划与实施记录](./docs/mcu-code-first-workbench-redesign-plan.md)，课程讲义见[讲义系统实施计划](./docs/mcu-lecture-system-implementation-plan.md)与[讲义格式规范](./docs/robotdog-lecture-markdown-v1.md)。各发行版使用独立身份和数据目录，不能混开项目。
 
@@ -83,7 +87,7 @@ git submodule update --init --recursive
 
 ## CH32 固件与内置 WCH 工具链
 
-RobotDog Studio 按完整版设计交付，用户无需安装 MounRiver Studio 即可编译 CH32V203 固件。
+RoboHorse Studio 按完整版设计交付，用户无需安装 MounRiver Studio 即可编译 CH32V203 固件。
 
 当前内置的 Windows 命令行工具链位于：
 

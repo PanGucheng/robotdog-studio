@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RoboHorse 品牌资产检查</title>
+<style>
+  body { margin: 32px; color: #10243a; background: #f6f8fb; font: 15px "Segoe UI", "Microsoft YaHei UI", sans-serif; }
+  h1 { font-size: 24px; } h2 { margin-top: 28px; font-size: 18px; }
+  .sizes { display: flex; gap: 24px; flex-wrap: wrap; align-items: end; }
+  figure { margin: 0; display: grid; justify-items: center; gap: 10px; }
+  figcaption { color: #6c7c8b; font-size: 13px; }
+  .strip { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; padding: 24px; background: #10243a; color: #fff; border-radius: 8px; margin: 16px 0; }
+  .light { background: #fff; color: #10243a; border: 1px solid #dce4eb; }
+  .lockup { display: inline-flex; align-items: center; gap: 12px; font-family: Bahnschrift,"Segoe UI",sans-serif; white-space: nowrap; }
+  em { font-style: normal; color: #73d6e7; } .light em { color: #087f91; }
+  img { object-fit: contain; } .note { color: #6c7c8b; }
+</style>
+<h1>RoboHorse Studio · 品牌资产检查</h1>
+<p class="note">原尺寸显示。浏览器缩放 100% 时检查下列 16–256px 图标；最终 Windows 显示仍以实际安装为准。</p>
+<h2>应用图标</h2>
+<div class="sizes" id="icons"></div>
+<h2>透明顶部标记与 HTML 文字 · 100% / 125% / 150% / 175%</h2>
+<div class="strip" id="dark"></div><div class="strip light" id="light"></div>
+<h2>完整横向 Logo / 装饰</h2>
+<div class="strip light"><img src="robohorse-logo.svg" width="555" height="96" alt="RoboHorse Studio"><img src="robohorse-motif.svg" width="240" height="120" style="opacity:.4" alt="流线节点装饰"></div>
+<script>
+for (const size of [16,24,32,48,64,128,256]) document.querySelector('#icons').insertAdjacentHTML('beforeend', `<figure><img src="robohorse-${size}.png" width="${size}" height="${size}" alt="${size}px 应用图标"><figcaption>${size}px</figcaption></figure>`);
+for (const id of ['dark','light']) for (const scale of [1,1.25,1.5,1.75]) document.getElementById(id).insertAdjacentHTML('beforeend', `<figure><span class="lockup" style="font-size:${19*scale}px"><img src="robohorse-mark.png" width="${32*scale}" height="${32*scale}" alt=""><span>RoboHorse <em>Studio</em></span></span><figcaption>${scale*100}%</figcaption></figure>`);
+</script>
+</html>

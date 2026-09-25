@@ -1,0 +1,68 @@
+[
+  {
+    "path": "D:\\RobotDog\\RobotDog_Studio\\.tmp\\brand-validation\\windows-zNsFYN\\output\\win-unpacked\\RoboHorse-Brand-Check.exe",
+    "sizes": [
+      {
+        "size": 16,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 24,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 32,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 48,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 64,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 128,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 256,
+        "embeddedPngFound": true
+      }
+    ]
+  },
+  {
+    "path": "D:\\RobotDog\\RobotDog_Studio\\.tmp\\brand-validation\\windows-zNsFYN\\output\\RoboHorse-Brand-Check-Setup.exe",
+    "sizes": [
+      {
+        "size": 16,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 24,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 32,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 48,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 64,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 128,
+        "embeddedPngFound": true
+      },
+      {
+        "size": 256,
+        "embeddedPngFound": true
+      }
+    ]
+  }
+]

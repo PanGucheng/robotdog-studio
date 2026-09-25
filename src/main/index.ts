@@ -45,7 +45,8 @@ function createWindow(): void {
     minWidth: 1080,
     minHeight: 700,
     show: false,
-    backgroundColor: '#f4f7fa',
+    backgroundColor: '#f6f8fb',
+    icon: join(app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources'), 'brand', 'robohorse.ico'),
     title: edition.productName,
     autoHideMenuBar: true,
     webPreferences: {
@@ -186,6 +187,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === 'win32') app.setAppUserModelId(edition.appId)
   await migrateLegacyUserDataIfNeeded()
   const defaultRoot = join(app.getPath('userData'), 'managed-data')
   const rootOverride = process.env.ROBOTDOG_WORKSPACE_ROOT

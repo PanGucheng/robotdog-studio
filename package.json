@@ -8,6 +8,9 @@
   "type": "module",
   "packageManager": "pnpm@11.8.0",
   "scripts": {
+    "brand:generate": "node scripts/generate-brand-assets.cjs",
+    "brand:check": "npm run build && node scripts/verify-brand.cjs && node scripts/verify-brand.cjs --hidpi",
+    "brand:check:windows": "node scripts/verify-windows-brand.mjs",
     "dev": "electron-vite dev",
     "dev:fun": "cross-env ROBOTDOG_EDITION=fun-line-following electron-vite dev",
     "dev:mcu": "cross-env ROBOTDOG_EDITION=mcu-foundations electron-vite dev",

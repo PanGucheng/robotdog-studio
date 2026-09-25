@@ -1,5 +1,6 @@
-import { Bot, Check, ChevronRight, Code2, Cpu, FileCheck2, GraduationCap, Play, RotateCcw, Sparkles, X } from 'lucide-react'
+import { Bot, Check, ChevronRight, Code2, Cpu, FileCheck2, Play, RotateCcw, Sparkles, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import brandMark from '../../../../resources/brand/robohorse-mark.png'
 
 export type LearningDestination = 'chat' | '编写代码' | '修改确认' | '编译 / 烧录'
 
@@ -285,7 +286,7 @@ export function LearningCenter({ open, onClose, onNavigate }: LearningCenterProp
     <div className="learning-overlay" role="dialog" aria-modal="true" aria-labelledby="learning-title">
       <div className="learning-center">
         <header className="learning-header">
-          <span className="learning-mark"><GraduationCap size={22} /></span>
+          <span className="learning-mark"><img src={brandMark} width="40" height="40" alt="" /></span>
           <div><span className="eyebrow">操作示范</span><h2 id="learning-title">陪小马跑完第一次代码训练</h2><p>每个任务拆成真实点击步骤；可以随时退出，以后继续。</p></div>
           <button type="button" className="learning-close" aria-label="关闭操作示范" onClick={onClose}><X size={18} /></button>
         </header>

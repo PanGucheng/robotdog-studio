@@ -13,6 +13,7 @@ import { DisplaySettings } from './components/DisplaySettings'
 import { toStudentErrorMessage } from './lib/student-errors'
 import { EDITION_PROFILES, type AppEditionProfile } from '../../shared/edition'
 import type { McuView } from './components/mcu-navigation'
+import brandMark from '../../../resources/brand/robohorse-mark.png'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -534,7 +535,7 @@ export function App(): React.JSX.Element {
       <header className="topbar">
         <div className="brand-block">
           <button type="button" className="menu-button" aria-label="打开项目菜单"><Menu size={20} /></button>
-          <div className="brand-mark" aria-hidden="true"><span /><span /><span /><span /></div>
+          <img className="brand-mark" src={brandMark} width="42" height="42" alt="" />
           <div>
             <h1>RoboHorse <em>Studio</em></h1>
             <p>{edition.subtitle}</p>

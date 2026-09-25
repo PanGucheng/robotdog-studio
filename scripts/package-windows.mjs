@@ -98,6 +98,7 @@ const tiSources = editionId === 'ti-mspm0-foundations' ? {
 } : undefined
 if (tiSources) await verifyTiToolchain(tiSources)
 const extraResources = [
+  { from: join(root, 'resources', 'brand', 'robohorse.ico'), to: 'brand/robohorse.ico' },
   { from: resolve(root, selectedTemplate), to: selectedTemplate.replace(/^resources[\\/]/, '').replaceAll('\\', '/') },
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'courses', 'mcu-foundations'), to: 'courses/mcu-foundations' }] : []),
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'), to: 'workspace-templates/ch32v203-mcu-lessons' }] : []),
@@ -183,11 +184,15 @@ const artifacts = await build({
     files: ['out/**/*', 'config/**/*', 'package.json'],
     extraResources,
     win: {
+      icon: join(root, 'resources', 'brand', 'robohorse.ico'),
       executableName: formal ? edition.executableName : `${edition.executableName}-Test`,
       requestedExecutionLevel: 'asInvoker'
     },
     ...(target === 'nsis' ? {
       nsis: {
+        installerIcon: join(root, 'resources', 'brand', 'robohorse.ico'),
+        uninstallerIcon: join(root, 'resources', 'brand', 'robohorse.ico'),
+        installerHeaderIcon: join(root, 'resources', 'brand', 'robohorse.ico'),
         perMachine: true,
         oneClick: false,
         allowToChangeInstallationDirectory: true,
