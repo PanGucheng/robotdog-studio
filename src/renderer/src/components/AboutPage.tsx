@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react'
 import type { AppEditionProfile } from '../../../shared/edition'
 import brandMark from '../../../../resources/brand/robohorse-mark.png'
 import brandMotif from '../../../../resources/brand/robohorse-motif.svg'
+import developerAvatar from '../../../../resources/brand/developer-avatar.png'
 import packageJson from '../../../../package.json'
 
 export interface AboutPageProps {
@@ -55,8 +56,17 @@ export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Elemen
             <h2>开发者</h2>
             <div className="about-card-body">
               <div className="about-developer-item">
-                <strong className="about-developer-name">PanGucheng</strong>
-                <span className="about-developer-role">项目设计与开发</span>
+                <img
+                  className="about-developer-avatar"
+                  src={developerAvatar}
+                  width="48"
+                  height="48"
+                  alt="潘顾诚"
+                />
+                <div className="about-developer-info">
+                  <strong className="about-developer-name">潘顾诚</strong>
+                  <span className="about-developer-role">项目设计与开发</span>
+                </div>
               </div>
             </div>
           </section>

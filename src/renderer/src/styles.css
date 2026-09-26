@@ -1604,6 +1604,24 @@ html[data-ui-scale="175"] .studio-shell.is-mcu .topbar { grid-template-columns: 
 
 .about-developer-item {
   display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.about-developer-avatar {
+  display: block;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #d4e2e8;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgb(16 36 58 / 8%);
+}
+
+.about-developer-info {
+  display: flex;
   flex-direction: column;
   gap: 3px;
 }
