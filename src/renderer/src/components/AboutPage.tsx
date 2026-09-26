@@ -6,13 +6,15 @@ import avatarPanGucheng from '../../../../resources/brand/developer-avatar.png'
 import avatarQiaoPengsen from '../../../../resources/brand/developer-qiaopengsen.jpg'
 import avatarChenTingrui from '../../../../resources/brand/developer-chentingrui.jpg'
 import avatarYangJie from '../../../../resources/brand/developer-yangjie.jpg'
+import avatarYangYiyuan from '../../../../resources/brand/developer-yangyiyuan.jpg'
 import packageJson from '../../../../package.json'
 
 const DEVELOPERS = [
   { name: '潘顾诚', role: 'RoboHorse Studio开发', avatar: avatarPanGucheng },
   { name: '乔芃森', role: '下位机软件开发', avatar: avatarQiaoPengsen },
   { name: '陈庭锐', role: 'PCB硬件设计', avatar: avatarChenTingrui },
-  { name: '杨杰', role: '机械设计', avatar: avatarYangJie }
+  { name: '杨杰', role: '机械设计', avatar: avatarYangJie },
+  { name: '杨一元', role: '机械设计', avatar: avatarYangYiyuan }
 ] as const
 
 export interface AboutPageProps {

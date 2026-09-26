@@ -39,6 +39,7 @@ describe('AboutPage static rendering', () => {
     expect(html).toContain('PCB硬件设计')
     expect(html).toContain('杨杰')
     expect(html).toContain('机械设计')
+    expect(html).toContain('杨一元')
     expect(html).toContain('about-developer-avatar')
     expect(html).toContain('about-developers-grid')
 
