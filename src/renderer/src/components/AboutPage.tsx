@@ -2,8 +2,18 @@ import { ArrowLeft } from 'lucide-react'
 import type { AppEditionProfile } from '../../../shared/edition'
 import brandMark from '../../../../resources/brand/robohorse-mark.png'
 import brandMotif from '../../../../resources/brand/robohorse-motif.svg'
-import developerAvatar from '../../../../resources/brand/developer-avatar.png'
+import avatarPanGucheng from '../../../../resources/brand/developer-avatar.png'
+import avatarQiaoPengsen from '../../../../resources/brand/developer-qiaopengsen.jpg'
+import avatarChenTingrui from '../../../../resources/brand/developer-chentingrui.jpg'
+import avatarYangJie from '../../../../resources/brand/developer-yangjie.jpg'
 import packageJson from '../../../../package.json'
+
+const DEVELOPERS = [
+  { name: '潘顾诚', role: 'RoboHorse Studio开发', avatar: avatarPanGucheng },
+  { name: '乔芃森', role: '下位机软件开发', avatar: avatarQiaoPengsen },
+  { name: '陈庭锐', role: 'PCB硬件设计', avatar: avatarChenTingrui },
+  { name: '杨杰', role: '机械设计', avatar: avatarYangJie }
+] as const
 
 export interface AboutPageProps {
   edition: AppEditionProfile
@@ -55,18 +65,22 @@ export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Elemen
           <section className="about-card">
             <h2>开发者</h2>
             <div className="about-card-body">
-              <div className="about-developer-item">
-                <img
-                  className="about-developer-avatar"
-                  src={developerAvatar}
-                  width="48"
-                  height="48"
-                  alt="潘顾诚"
-                />
-                <div className="about-developer-info">
-                  <strong className="about-developer-name">潘顾诚</strong>
-                  <span className="about-developer-role">项目设计与开发</span>
-                </div>
+              <div className="about-developers-grid">
+                {DEVELOPERS.map((dev) => (
+                  <div key={dev.name} className="about-developer-item">
+                    <img
+                      className="about-developer-avatar"
+                      src={dev.avatar}
+                      width="44"
+                      height="44"
+                      alt={dev.name}
+                    />
+                    <div className="about-developer-info">
+                      <strong className="about-developer-name">{dev.name}</strong>
+                      <span className="about-developer-role">{dev.role}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </section>

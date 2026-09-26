@@ -29,11 +29,18 @@ describe('AboutPage static rendering', () => {
     expect(html).toContain('关于项目')
     expect(html).toContain('RoboHorse Studio 是一套面向机器人与单片机教学的桌面实验平台')
 
-    // 潘顾诚 存在
+    // 开发者 存在
     expect(html).toContain('开发者')
     expect(html).toContain('潘顾诚')
-    expect(html).toContain('项目设计与开发')
+    expect(html).toContain('RoboHorse Studio开发')
+    expect(html).toContain('乔芃森')
+    expect(html).toContain('下位机软件开发')
+    expect(html).toContain('陈庭锐')
+    expect(html).toContain('PCB硬件设计')
+    expect(html).toContain('杨杰')
+    expect(html).toContain('机械设计')
     expect(html).toContain('about-developer-avatar')
+    expect(html).toContain('about-developers-grid')
 
     // 当前发行版存在
     expect(html).toContain('当前发行版')
