@@ -14,6 +14,8 @@ import { toStudentErrorMessage } from './lib/student-errors'
 import { EDITION_PROFILES, type AppEditionProfile } from '../../shared/edition'
 import type { McuView } from './components/mcu-navigation'
 import brandMark from '../../../resources/brand/robohorse-mark.png'
+import { AboutPage } from './components/AboutPage'
+import { ProjectMenu } from './components/ProjectMenu'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -100,6 +102,9 @@ export function App(): React.JSX.Element {
   const [mcuRecentActivity, setMcuRecentActivity] = useState<McuRecentActivity[]>([])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const menuAnchorRef = useRef<HTMLDivElement>(null)
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
   const currentWorkspaceIdRef = useRef<string | undefined>(undefined)
@@ -531,10 +536,30 @@ export function App(): React.JSX.Element {
   }
 
   return (
-    <main className={`studio-shell ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
+    <main className={`studio-shell ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''} ${aboutOpen ? 'is-about' : ''}`}>
       <header className="topbar">
         <div className="brand-block">
-          <button type="button" className="menu-button" aria-label="打开项目菜单"><Menu size={20} /></button>
+          <div className="menu-anchor" ref={menuAnchorRef}>
+            <button
+              type="button"
+              className="menu-button"
+              aria-label="打开项目菜单"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((current) => !current)}
+            >
+              <Menu size={20} />
+            </button>
+            {menuOpen && (
+              <ProjectMenu
+                anchorRef={menuAnchorRef}
+                onClose={() => setMenuOpen(false)}
+                onSelectAbout={() => {
+                  setMenuOpen(false)
+                  setAboutOpen(true)
+                }}
+              />
+            )}
+          </div>
           <img className="brand-mark" src={brandMark} width="42" height="42" alt="" />
           <div>
             <h1>RoboHorse <em>Studio</em></h1>
@@ -559,7 +584,11 @@ export function App(): React.JSX.Element {
         </div>
       </header>
 
-      <div className={`context-bar ${edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' ? 'is-learning-context' : ''}`}>
+      {aboutOpen ? (
+        <AboutPage edition={edition} onBack={() => setAboutOpen(false)} />
+      ) : (
+        <>
+          <div className={`context-bar ${edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' ? 'is-learning-context' : ''}`}>
         {(edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && <span className="workspace-picker">
           {edition.id !== 'fun-line-following' && activeWorkspace && <button type="button" onClick={() => activeWorkspace.courseBinding ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId }) : openMcuView({ kind: 'home', panel: 'free-practice' })}><ChevronLeft size={13} /> {activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</button>}
           <GraduationCap size={15} />
@@ -665,6 +694,8 @@ export function App(): React.JSX.Element {
       {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
       {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
       {edition.id !== 'fun-line-following' && settingsOpen && <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置"><div className="mcu-settings-dialog"><button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置"><X size={18} /></button><DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} /></div></div>}
+        </>
+      )}
     </main>
   )
 }
