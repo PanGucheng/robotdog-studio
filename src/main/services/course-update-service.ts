@@ -288,44 +288,70 @@ export class CourseUpdateService {
         throw new Error(`COURSE_EDITION_MISMATCH: catalog does not match edition ${targetEdition}`)
       }
 
-      // 4. Safe swap
+      // 4. Safe atomic swap transaction
       await mkdir(editionDir, { recursive: true })
+
+      // Capture old state.json if present
+      let oldStateContent: string | null = null
+      if (existsSync(stateFile)) {
+        oldStateContent = await readFile(stateFile, 'utf8')
+      }
+
       if (existsSync(backupDir)) {
         await rm(backupDir, { recursive: true, force: true })
       }
-      if (existsSync(currentDir)) {
+      const hadCurrent = existsSync(currentDir)
+      if (hadCurrent) {
         await rename(currentDir, backupDir)
       }
 
+      let transactionCommitted = false
       try {
+        // 4a. Move new content into currentDir
         await rename(contentRoot, currentDir)
-        if (existsSync(backupDir)) {
-          await rm(backupDir, { recursive: true, force: true })
-        }
-      } catch (swapErr) {
-        // Rollback from backup if current was moved but extracted couldn't be placed
-        if (!existsSync(currentDir) && existsSync(backupDir)) {
-          await rename(backupDir, currentDir)
-        }
-        throw swapErr
-      }
 
-      // 5. Record version in state.json
-      const stateContent = JSON.stringify({
-        version: remoteData.version,
-        updatedAt: new Date().toISOString()
-      }, null, 2)
-      await writeFile(stateFile, stateContent, 'utf8')
+        // 4b. Record new state.json
+        const stateContent = JSON.stringify({
+          version: remoteData.version,
+          updatedAt: new Date().toISOString()
+        }, null, 2)
+        await writeFile(stateFile, stateContent, 'utf8')
 
-      // 6. Notify handler
-      if (this.onCourseUpdated) {
-        await this.onCourseUpdated(currentDir, {
-          kind: 'updated',
-          message: '课程更新完成',
-          currentVersion: remoteData.version,
-          remoteVersion: remoteData.version,
-          lastCheckedAt: new Date().toISOString()
-        })
+        // 4c. Notify handler / reload course
+        if (this.onCourseUpdated) {
+          await this.onCourseUpdated(currentDir, {
+            kind: 'updated',
+            message: '课程更新完成',
+            currentVersion: remoteData.version,
+            remoteVersion: remoteData.version,
+            lastCheckedAt: new Date().toISOString()
+          })
+        }
+
+        transactionCommitted = true
+      } catch (transErr) {
+        // Rollback on any failure during steps 4a, 4b, or 4c
+        try {
+          if (existsSync(currentDir)) {
+            await rm(currentDir, { recursive: true, force: true }).catch(() => {})
+          }
+          if (hadCurrent && existsSync(backupDir)) {
+            await rename(backupDir, currentDir).catch(() => {})
+          }
+          if (oldStateContent !== null) {
+            await writeFile(stateFile, oldStateContent, 'utf8').catch(() => {})
+          } else if (existsSync(stateFile)) {
+            await rm(stateFile, { force: true }).catch(() => {})
+          }
+        } catch (rollbackErr) {
+          console.error('Critical: Failed to rollback course update transaction', rollbackErr)
+        }
+        throw transErr
+      } finally {
+        // 4d. Clean up backup only when transaction committed successfully
+        if (transactionCommitted && existsSync(backupDir)) {
+          await rm(backupDir, { recursive: true, force: true }).catch(() => {})
+        }
       }
     } finally {
       // Clean temp directory

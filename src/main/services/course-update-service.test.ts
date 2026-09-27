@@ -1125,6 +1125,172 @@ describe('CourseUpdateService and CourseResolver', () => {
       expect(tiResolver.hasValidDownloadedCourse()).toBe(false)
       expect(tiResolver.resolveCourseRoot()).toBe(tiBundledRoot)
     })
+
+    it('Test 21: onCourseUpdated 发生异常 -> 事务安全回滚：新课程移除，旧课程和旧 state 完整恢复，继续正常使用旧版', async () => {
+      const userDataRoot = await createTempDir('user-data-rollback-1')
+      const coursesUserData = join(userDataRoot, 'courses')
+      const resolver = new CourseResolver({
+        bundledRoot: mcuBundledRoot,
+        userDataCoursesRoot: coursesUserData,
+        editionId: 'mcu-foundations'
+      })
+
+      // 1. Initial successful update to version 2
+      const zipFileV2 = join(await createTempDir('remote-zip-v2'), 'course.zip')
+      await createTestCourseZip(
+        zipFileV2,
+        [{ courseId: 'ch32v203-foundations', manifest: 'ch32v203-foundations/course.json' }],
+        { courseId: 'ch32v203-foundations', title: 'MCU课程-第2版' }
+      )
+      const zipBytesV2 = await readFile(zipFileV2)
+
+      const zipFileV3 = join(await createTempDir('remote-zip-v3'), 'course.zip')
+      await createTestCourseZip(
+        zipFileV3,
+        [{ courseId: 'ch32v203-foundations', manifest: 'ch32v203-foundations/course.json' }],
+        { courseId: 'ch32v203-foundations', title: 'MCU课程-第3版-将失败' }
+      )
+      const zipBytesV3 = await readFile(zipFileV3)
+
+      let currentRemoteVersion = 2
+      const mockFetch: typeof fetch = async (input) => {
+        const url = String(input)
+        if (url.endsWith('update.json')) {
+          return new Response(
+            JSON.stringify({
+              schemaVersion: 2,
+              editions: {
+                'mcu-foundations': {
+                  version: currentRemoteVersion,
+                  minAppVersion: '0.1.0',
+                  url: `https://fake-server/courses/mcu-foundations/course-${currentRemoteVersion}.zip`
+                }
+              }
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+        if (url.includes('course-2.zip')) {
+          return new Response(zipBytesV2, { status: 200 })
+        }
+        if (url.includes('course-3.zip')) {
+          return new Response(zipBytesV3, { status: 200 })
+        }
+        return new Response('Not found', { status: 404 })
+      }
+
+      let shouldFailCallback = false
+      const service = new CourseUpdateService({
+        userDataCoursesRoot: coursesUserData,
+        resolver,
+        appVersion: '0.1.0',
+        editionId: 'mcu-foundations',
+        fetchFn: mockFetch,
+        onCourseUpdated: async () => {
+          if (shouldFailCallback) {
+            throw new Error('SIMULATED_RELOAD_FAILURE')
+          }
+        }
+      })
+
+      // Upgrade to v2 successfully
+      const statusV2 = await service.checkForUpdate()
+      expect(statusV2.kind).toBe('updated')
+      expect(service.getLocalVersion()).toBe(2)
+      const courseService = new CourseService({
+        rootDir: () => resolver.resolveCourseRoot(),
+        includeDrafts: true
+      })
+      let courses = await courseService.listCourses()
+      expect(courses[0].title).toBe('MCU课程-第2版')
+
+      // Verify backup is cleaned up on success
+      const backupDir = join(coursesUserData, 'mcu-foundations', 'backup')
+      expect(existsSync(backupDir)).toBe(false)
+
+      // Now attempt upgrade to v3 with callback failure
+      currentRemoteVersion = 3
+      shouldFailCallback = true
+      const statusV3 = await service.checkForUpdate()
+      expect(statusV3.kind).toBe('error')
+      expect(statusV3.message).toBe('课程更新失败，继续使用当前版本')
+      expect(statusV3.error).toContain('SIMULATED_RELOAD_FAILURE')
+
+      // Version must still be 2, NOT 3
+      expect(service.getLocalVersion()).toBe(2)
+      const stateContent = JSON.parse(await readFile(resolver.getStateFile('mcu-foundations'), 'utf8'))
+      expect(stateContent.version).toBe(2)
+
+      // Course on disk must still be v2, NOT v3
+      courses = await courseService.listCourses()
+      expect(courses[0].title).toBe('MCU课程-第2版')
+
+      // Backup dir must be cleanly restored to current, so backup dir itself does not linger
+      expect(existsSync(backupDir)).toBe(false)
+    })
+
+    it('Test 22: 首次更新无旧版本时回调失败 -> 事务安全回滚：删除失败的 current 和 state，回退至安装包内置课程', async () => {
+      const userDataRoot = await createTempDir('user-data-rollback-2')
+      const coursesUserData = join(userDataRoot, 'courses')
+      const resolver = new CourseResolver({
+        bundledRoot: mcuBundledRoot,
+        userDataCoursesRoot: coursesUserData,
+        editionId: 'mcu-foundations'
+      })
+
+      const zipFile = join(await createTempDir('remote-zip-fail'), 'course.zip')
+      await createTestCourseZip(
+        zipFile,
+        [{ courseId: 'ch32v203-foundations', manifest: 'ch32v203-foundations/course.json' }],
+        { courseId: 'ch32v203-foundations', title: '测试新版课程' }
+      )
+      const zipBytes = await readFile(zipFile)
+
+      const mockFetch: typeof fetch = async (input) => {
+        const url = String(input)
+        if (url.endsWith('update.json')) {
+          return new Response(
+            JSON.stringify({
+              schemaVersion: 2,
+              editions: {
+                'mcu-foundations': {
+                  version: 5,
+                  minAppVersion: '0.1.0',
+                  url: 'https://fake-server/courses/mcu-foundations/course.zip'
+                }
+              }
+            }),
+            { status: 200 }
+          )
+        }
+        if (url.includes('course.zip')) {
+          return new Response(zipBytes, { status: 200 })
+        }
+        return new Response('Not found', { status: 404 })
+      }
+
+      const service = new CourseUpdateService({
+        userDataCoursesRoot: coursesUserData,
+        resolver,
+        appVersion: '0.1.0',
+        editionId: 'mcu-foundations',
+        fetchFn: mockFetch,
+        onCourseUpdated: async () => {
+          throw new Error('FAIL_ON_FIRST_INSTALL')
+        }
+      })
+
+      const status = await service.checkForUpdate()
+      expect(status.kind).toBe('error')
+      expect(status.message).toBe('课程更新失败，继续使用当前版本')
+
+      // Current dir and state.json should be removed, falling back to bundled
+      expect(existsSync(resolver.getCurrentDir('mcu-foundations'))).toBe(false)
+      expect(existsSync(resolver.getStateFile('mcu-foundations'))).toBe(false)
+      expect(resolver.hasValidDownloadedCourse()).toBe(false)
+      expect(resolver.resolveCourseRoot()).toBe(mcuBundledRoot)
+      expect(service.getLocalVersion()).toBe(0)
+    })
   })
 
   describe('App Version Compatibility Helper', () => {
