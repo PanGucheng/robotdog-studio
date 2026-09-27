@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/channels'
-import type { AgentEvent, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WchLinkFlashEvent, WorkspaceSummary } from '../shared/types'
+import type { AgentEvent, CourseUpdateStatus, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WchLinkFlashEvent, WorkspaceSummary } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const wrapped = (_event: Electron.IpcRendererEvent, payload: T): void => listener(payload)
@@ -43,6 +43,8 @@ const api: RobotDogApi = {
   getWorkspace: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.workspaceGet, workspaceId),
   getWorkspaceHistory: (workspaceId, limit) => ipcRenderer.invoke(IPC_CHANNELS.workspaceHistory, workspaceId, limit),
   undoWorkspace: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.workspaceUndo, workspaceId),
+  getCourseUpdateStatus: () => ipcRenderer.invoke(IPC_CHANNELS.courseUpdateStatusGet),
+  checkCourseUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.courseUpdateCheck),
   listCourses: () => ipcRenderer.invoke(IPC_CHANNELS.courseList),
   getCourse: (courseId) => ipcRenderer.invoke(IPC_CHANNELS.courseGet, courseId),
   getCourseLesson: (courseId, lessonId) => ipcRenderer.invoke(IPC_CHANNELS.courseLessonGet, courseId, lessonId),
@@ -92,7 +94,8 @@ const api: RobotDogApi = {
   onWchLinkFlash: (listener) => subscribe<WchLinkFlashEvent>(IPC_CHANNELS.wchLinkEvent, listener),
   onWorkspaceChanged: (listener) => subscribe<WorkspaceSummary>(IPC_CHANNELS.workspaceChangedEvent, listener),
   onCandidateChanged: (listener) => subscribe<CandidateSnapshot>(IPC_CHANNELS.candidateChangedEvent, listener),
-  onAgentEvent: (listener) => subscribe<AgentEvent>(IPC_CHANNELS.agentEvent, listener)
+  onAgentEvent: (listener) => subscribe<AgentEvent>(IPC_CHANNELS.agentEvent, listener),
+  onCourseUpdate: (listener) => subscribe<CourseUpdateStatus>(IPC_CHANNELS.courseUpdateEvent, listener)
 }
 
 contextBridge.exposeInMainWorld('robotDog', api)

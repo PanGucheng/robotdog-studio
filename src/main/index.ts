@@ -23,6 +23,9 @@ import { FirmwareBaselineService } from './services/firmware-baseline-service'
 import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
 import { CourseService } from './services/course-service'
+import { CourseResolver } from './services/course-resolver'
+import { CourseUpdateService } from './services/course-update-service'
+import { IPC_CHANNELS } from '../shared/channels'
 import { CourseProgressStore } from './services/course-progress-store'
 import { LessonLearningProgressStore } from './services/lesson-learning-progress-store'
 import { McuRecentActivityStore } from './services/mcu-recent-activity-store'
@@ -247,11 +250,34 @@ app.whenReady().then(async () => {
   })
   await candidates.initialize()
   const projectExplorer = isMcuEdition(edition.id) ? new ProjectExplorerService(workspaces, candidates, baselineResolver) : undefined
+  const bundledCourseRoot = join(staticRoot, 'courses', edition.platform === 'ti-mspm0' ? 'ti-mspm0-foundations' : 'mcu-foundations')
+  const userDataCoursesRoot = join(app.getPath('userData'), 'courses')
+  const courseResolver = new CourseResolver({
+    bundledRoot: bundledCourseRoot,
+    userDataCoursesRoot
+  })
   const courses = isMcuEdition(edition.id)
     ? new CourseService({
-        rootDir: join(staticRoot, 'courses', edition.platform === 'ti-mspm0' ? 'ti-mspm0-foundations' : 'mcu-foundations'),
+        rootDir: () => courseResolver.resolveCourseRoot(),
         templatesRoot: join(staticRoot, 'workspace-templates', edition.platform === 'ti-mspm0' ? '' : 'ch32v203-mcu-lessons'),
         includeDrafts: !app.isPackaged
+      })
+    : undefined
+  const courseUpdateService = edition.id === 'mcu-foundations'
+    ? new CourseUpdateService({
+        userDataCoursesRoot,
+        resolver: courseResolver,
+        appVersion: app.getVersion() || '0.1.0',
+        onCourseUpdated: async (_newRoot, status) => {
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send(IPC_CHANNELS.courseUpdateEvent, status)
+          }
+        },
+        onStatusChange: (status) => {
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send(IPC_CHANNELS.courseUpdateEvent, status)
+          }
+        }
       })
     : undefined
   const courseProgress = courses ? new CourseProgressStore(join(workspaceRoot, 'course-progress')) : undefined
@@ -303,8 +329,15 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, programmer, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory, baselineResolver)
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, programmer, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory, baselineResolver, courseUpdateService)
   createWindow()
+  if (courseUpdateService) {
+    setTimeout(() => {
+      courseUpdateService.checkForUpdate({ silent: true }).catch((err) => {
+        console.warn('Background course update check failed:', err)
+      })
+    }, 1500)
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

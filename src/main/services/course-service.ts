@@ -73,7 +73,7 @@ type CourseManifest = z.infer<typeof courseManifestSchema>
 type LessonManifest = z.infer<typeof lessonManifestSchema>
 
 export interface CourseServiceOptions {
-  rootDir: string
+  rootDir: string | (() => string)
   templatesRoot?: string
   includeDrafts?: boolean
 }
@@ -81,14 +81,22 @@ export interface CourseServiceOptions {
 export type CourseAiTaskKind = 'modify' | 'explain-code' | 'explain-diagnostic' | 'lecture-question' | 'repair' | 'summary'
 
 export class CourseService {
-  private readonly rootDir: string
+  private rootDirSource: string | (() => string)
   private readonly templatesRoot?: string
   private readonly includeDrafts: boolean
 
   constructor(options: CourseServiceOptions) {
-    this.rootDir = resolve(options.rootDir)
+    this.rootDirSource = typeof options.rootDir === 'function' ? options.rootDir : resolve(options.rootDir)
     this.templatesRoot = options.templatesRoot ? resolve(options.templatesRoot) : undefined
     this.includeDrafts = options.includeDrafts ?? false
+  }
+
+  getRootDir(): string {
+    return typeof this.rootDirSource === 'function' ? resolve(this.rootDirSource()) : this.rootDirSource
+  }
+
+  setRootDir(newRootDir: string | (() => string)): void {
+    this.rootDirSource = typeof newRootDir === 'function' ? newRootDir : resolve(newRootDir)
   }
 
   async listCourses(): Promise<CourseSummary[]> {
@@ -387,8 +395,9 @@ export class CourseService {
 
   private resolveResource(relativePath: string): string {
     if (!resourcePathSchema.safeParse(relativePath).success) throw new Error('COURSE_RESOURCE_PATH_INVALID')
-    const target = resolve(this.rootDir, ...relativePath.replace(/\\/g, '/').split('/'))
-    const fromRoot = relative(this.rootDir, target)
+    const rootDir = this.getRootDir()
+    const target = resolve(rootDir, ...relativePath.replace(/\\/g, '/').split('/'))
+    const fromRoot = relative(rootDir, target)
     if (!fromRoot || fromRoot.startsWith(`..${sep}`) || fromRoot === '..' || isAbsolute(fromRoot)) throw new Error('COURSE_RESOURCE_PATH_INVALID')
     return target
   }

@@ -195,6 +195,25 @@ export interface CourseLessonSummary {
   order: number
 }
 
+export type CourseUpdateStatusKind =
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'downloading'
+  | 'updated'
+  | 'error'
+  | 'incompatible'
+
+export interface CourseUpdateStatus {
+  kind: CourseUpdateStatusKind
+  message: string
+  currentVersion: number
+  remoteVersion?: number
+  minAppVersion?: string
+  lastCheckedAt?: string
+  error?: string
+}
+
 export interface CourseSummary {
   courseId: string
   contentVersion: number
@@ -882,6 +901,9 @@ export interface RobotDogApi {
   getWorkspace(workspaceId: string): Promise<WorkspaceSummary>
   getWorkspaceHistory(workspaceId: string, limit?: number): Promise<WorkspaceHistoryEntry[]>
   undoWorkspace(workspaceId: string): Promise<WorkspaceSummary>
+  getCourseUpdateStatus(): Promise<CourseUpdateStatus>
+  checkCourseUpdate(): Promise<CourseUpdateStatus>
+  onCourseUpdate(listener: (status: CourseUpdateStatus) => void): () => void
   listCourses(): Promise<CourseSummary[]>
   getCourse(courseId: string): Promise<CourseDetail>
   getCourseLesson(courseId: string, lessonId: string): Promise<CourseLesson>

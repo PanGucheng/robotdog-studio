@@ -302,6 +302,9 @@ async function runBrowserFirmwareUpdate(token: number): Promise<void> {
 
 export const browserDemoApi: RobotDogApi = {
   getEditionProfile: async () => structuredClone(EDITION_PROFILES[browserEditionId]),
+  getCourseUpdateStatus: async () => ({ kind: 'idle', message: '课程已是最新版本', currentVersion: 1 }),
+  checkCourseUpdate: async () => ({ kind: 'up-to-date', message: '课程已是最新版本', currentVersion: 1 }),
+  onCourseUpdate: () => () => {},
   listCourses: async () => browserEditionId === 'mcu-foundations' ? [structuredClone(demoCourse)] : [],
   getCourse: async (courseId) => {
     if (browserEditionId !== 'mcu-foundations' || courseId !== demoCourse.courseId) throw new Error('课程不存在')

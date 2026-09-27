@@ -1,5 +1,8 @@
-import { ArrowLeft } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
 import type { AppEditionProfile } from '../../../shared/edition'
+import type { CourseUpdateStatus } from '../../../shared/types'
+import { getRobotApi } from '../lib/browser-demo-api'
 import brandMark from '../../../../resources/brand/robohorse-mark.png'
 import brandMotif from '../../../../resources/brand/robohorse-motif.svg'
 import avatarPanGucheng from '../../../../resources/brand/developer-avatar.png'
@@ -24,6 +27,44 @@ export interface AboutPageProps {
 
 export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Element {
   const appVersion = packageJson.version || '0.1.0'
+  const [updateStatus, setUpdateStatus] = useState<CourseUpdateStatus>()
+  const [checking, setChecking] = useState(false)
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined
+    try {
+      const api = getRobotApi()
+      void api.getCourseUpdateStatus?.().then(setUpdateStatus).catch(() => {})
+      unsubscribe = api.onCourseUpdate?.((status) => {
+        setUpdateStatus(status)
+        if (status.kind !== 'checking' && status.kind !== 'downloading') {
+          setChecking(false)
+        }
+      })
+    } catch {
+      // ignore
+    }
+    return () => {
+      unsubscribe?.()
+    }
+  }, [])
+
+  const handleCheckUpdate = (): void => {
+    setChecking(true)
+    const api = getRobotApi()
+    void api.checkCourseUpdate?.().then((status) => {
+      setUpdateStatus(status)
+    }).catch((caught) => {
+      setUpdateStatus({
+        kind: 'error',
+        message: '课程更新失败，继续使用当前版本',
+        currentVersion: updateStatus?.currentVersion ?? 0,
+        error: caught instanceof Error ? caught.message : String(caught)
+      })
+    }).finally(() => {
+      setChecking(false)
+    })
+  }
 
   return (
     <div className="about-page">
@@ -105,6 +146,32 @@ export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Elemen
                     <strong>{`RoboHorse Studio v${appVersion}`}</strong>
                   </div>
                 </div>
+                <div className="about-version-item">
+                  <span className="about-version-label">课程版本</span>
+                  <div className="about-version-val">
+                    <strong>
+                      {updateStatus && updateStatus.currentVersion > 0
+                        ? `第 ${updateStatus.currentVersion} 版`
+                        : '内置课程'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+              <div className="about-course-update">
+                <button
+                  type="button"
+                  className="about-course-update-btn"
+                  onClick={handleCheckUpdate}
+                  disabled={checking}
+                >
+                  <RefreshCw size={13} className={checking ? 'spin' : ''} />
+                  <span>{checking ? '正在检查课程更新…' : '检查课程更新'}</span>
+                </button>
+                {updateStatus?.message && (
+                  <span className={`about-course-update-status status-${updateStatus.kind}`}>
+                    {updateStatus.message}
+                  </span>
+                )}
               </div>
             </div>
           </section>

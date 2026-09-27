@@ -19,6 +19,7 @@ import { WchLinkFlashService } from '../services/wch-link-flash-service'
 import { TiMspm0BuildService } from '../services/ti-mspm0-build-service'
 import { TiMspm0FlashService } from '../services/ti-mspm0-flash-service'
 import { CourseService } from '../services/course-service'
+import { CourseUpdateService } from '../services/course-update-service'
 import { CourseProgressStore } from '../services/course-progress-store'
 import { ProjectExplorerService } from '../services/project-explorer-service'
 import { LessonLearningProgressStore, topLevelSectionIds } from '../services/lesson-learning-progress-store'
@@ -28,7 +29,7 @@ import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain: ToolchainService | import('../services/ti-mspm0-toolchain-service').TiMspm0ToolchainService = new ToolchainService(), firmware: FirmwareBuildService | TiMspm0BuildService = new FirmwareBuildService(toolchain as ToolchainService), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink: WchLinkFlashService | TiMspm0FlashService = new WchLinkFlashService(toolchain as ToolchainService, firmware as FirmwareBuildService), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService, baselineResolver?: FirmwareBaselineResolver): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain: ToolchainService | import('../services/ti-mspm0-toolchain-service').TiMspm0ToolchainService = new ToolchainService(), firmware: FirmwareBuildService | TiMspm0BuildService = new FirmwareBuildService(toolchain as ToolchainService), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink: WchLinkFlashService | TiMspm0FlashService = new WchLinkFlashService(toolchain as ToolchainService, firmware as FirmwareBuildService), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService, baselineResolver?: FirmwareBaselineResolver, courseUpdate?: CourseUpdateService): () => void {
   const connectivity = new MockConnectivityService(robot)
   const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
@@ -227,6 +228,16 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     })
   }
   if (edition.id !== 'fun-line-following') {
+    ipcMain.handle(IPC_CHANNELS.courseUpdateStatusGet, () => {
+      if (courseUpdate) return courseUpdate.getStatus()
+      return { kind: 'idle', message: '当前版本无需远程更新', currentVersion: 0 }
+    })
+    ipcMain.handle(IPC_CHANNELS.courseUpdateCheck, async () => {
+      if (!courseUpdate) return { kind: 'up-to-date', message: '当前版本无需远程更新', currentVersion: 0 }
+      const status = await courseUpdate.checkForUpdate()
+      sendToAll(IPC_CHANNELS.courseUpdateEvent, status)
+      return status
+    })
     ipcMain.handle(IPC_CHANNELS.courseList, () => {
       if (!courses) throw new Error('COURSE_SERVICE_UNAVAILABLE')
       return courses.listCourses()

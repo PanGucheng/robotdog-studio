@@ -1,6 +1,6 @@
-import { Check, Eye, FileDown, FlaskConical, FolderOpen, KeyRound, MonitorUp, Route, Type } from 'lucide-react'
+import { Check, Eye, FileDown, FlaskConical, FolderOpen, GraduationCap, KeyRound, MonitorUp, RefreshCw, Route, Type } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { AgentRuntimeStatus, AppRuntimeInfo, DiagnosticExportResult, FirmwareBaselineStatus, ToolchainStatus } from '../../../shared/types'
+import type { AgentRuntimeStatus, AppRuntimeInfo, CourseUpdateStatus, DiagnosticExportResult, FirmwareBaselineStatus, ToolchainStatus } from '../../../shared/types'
 import { UI_SCALE_OPTIONS, type UiScale } from '../lib/ui-scale'
 import { getRobotApi } from '../lib/browser-demo-api'
 import { type StudentProblem, toStudentErrorMessage, toStudentProblem } from '../lib/student-errors'
@@ -29,12 +29,43 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
   const [agentRuntime, setAgentRuntime] = useState<AgentRuntimeStatus>()
   const [apiKey, setApiKey] = useState('')
   const [agentError, setAgentError] = useState('')
+  const [courseUpdate, setCourseUpdate] = useState<CourseUpdateStatus>()
+  const [courseChecking, setCourseChecking] = useState(false)
+
   useEffect(() => { void getRobotApi().getRuntimeInfo().then(setRuntime).catch((caught) => setError(toStudentProblem(caught, '设置状态读取失败'))) }, [])
   useEffect(() => { void getRobotApi().getAgentRuntimeStatus().then(setAgentRuntime).catch((caught) => setAgentError(toStudentErrorMessage(caught))) }, [])
+  useEffect(() => {
+    void getRobotApi().getCourseUpdateStatus?.().then(setCourseUpdate).catch(() => {})
+    const unsubscribe = getRobotApi().onCourseUpdate?.((status) => {
+      setCourseUpdate(status)
+      if (status.kind !== 'checking' && status.kind !== 'downloading') {
+        setCourseChecking(false)
+      }
+    })
+    return () => unsubscribe?.()
+  }, [])
+
+  const handleCheckCourseUpdate = (): void => {
+    setCourseChecking(true)
+    void getRobotApi().checkCourseUpdate?.().then((status) => {
+      setCourseUpdate(status)
+    }).catch((caught) => {
+      setCourseUpdate({
+        kind: 'error',
+        message: '课程更新失败，继续使用当前版本',
+        currentVersion: courseUpdate?.currentVersion ?? 0,
+        error: caught instanceof Error ? caught.message : String(caught)
+      })
+    }).finally(() => {
+      setCourseChecking(false)
+    })
+  }
+
   const exportDiagnostics = (): void => {
     setBusy(true); setError(undefined)
     void getRobotApi().exportDiagnostics().then(setDiagnostic).catch((caught) => setError(toStudentProblem(caught, '诊断文件没有导出'))).finally(() => setBusy(false))
   }
+
   return (
     <div className="display-settings">
       <header className="settings-hero">
@@ -81,6 +112,34 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
           <div><strong>{baseline?.releaseEligible ? '正式 SDK' : '临时 SDK 基线'}</strong><p>{baseline?.readyForTesting ? `${baseline.label}：仅用于功能测试。` : 'SDK 校验未通过，生成程序已停用。'}</p></div>
         </article>
       </div>
+
+      <section className="course-setting" aria-labelledby="course-setting-heading">
+        <div className="setting-copy">
+          <GraduationCap size={18} />
+          <span>
+            <strong id="course-setting-heading">课程更新</strong>
+            <small>教师发布 Gitee 课程后，学生无需升级软件即可自动或手动更新课程内容。</small>
+          </span>
+        </div>
+        <dl>
+          <div>
+            <dt>当前课程</dt>
+            <dd>{courseUpdate?.currentVersion ? `第 ${courseUpdate.currentVersion} 版` : '内置课程'}</dd>
+          </div>
+          <div>
+            <dt>更新状态</dt>
+            <dd className={courseUpdate?.kind === 'updated' || courseUpdate?.kind === 'up-to-date' ? 'ready' : ''}>
+              {courseUpdate?.message || '未检查'}
+            </dd>
+          </div>
+        </dl>
+        <div className="diagnostic-actions">
+          <button type="button" onClick={handleCheckCourseUpdate} disabled={courseChecking}>
+            <RefreshCw size={14} className={courseChecking ? 'spin' : ''} />
+            {courseChecking ? '正在检查课程更新…' : '检查课程更新'}
+          </button>
+        </div>
+      </section>
 
       <section className="agent-setting" aria-labelledby="agent-setting-heading">
         <div className="setting-copy"><KeyRound size={18} /><span><strong id="agent-setting-heading">AI 助教</strong><small>所有 AI 功能统一使用 DeepSeek V4 Flash；密钥由 Windows 加密保存，界面不会再次读取。</small></span></div>
