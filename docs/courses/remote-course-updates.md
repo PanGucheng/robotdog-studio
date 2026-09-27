@@ -14,7 +14,7 @@ RoboHorse Studio 提供轻量级远程课程更新机制。教师与课程开发
 - **静默后台检查与手动检查并行**：应用启动后按需后台检查，用户也可在课程中心手动点击检查；
 - **多发行版独立管理**：CH32V203 与 TI MSPM0 具备完全隔离的缓存目录、版本号及课程包；
 - **三层回退保障**：更新失败或无网络时，自动使用本地已有缓存或安装包内置课程，绝不阻塞学生使用；
-- **安全原子替换**：下载 -> 结构校验 -> 发行版匹配 -> 原子目录替换，出现异常立即回滚。
+- **强事务原子替换**：下载 -> 结构校验 -> 发行版匹配 -> 原子目录替换，出现异常立即回滚。
 
 ---
 
@@ -35,29 +35,27 @@ RoboHorse Studio 提供轻量级远程课程更新机制。教师与课程开发
                                  ▼                  ▼
 ┌──────────────────────────────────────────────┐  ┌──────────────────────────────────────────┐
 │             本地用户缓存层                   │  │             安装包内置层                 │
-│  %APPDATA%/robotdog-studio/courses/          │  │  resources/courses/<editionId>/          │
+│  app.getPath('userData')/courses/            │  │  resources/courses/<editionId>/          │
 │    <editionId>/                              │  │  - catalog.json                         │
 │      current/ (优先加载)                     │  │  - <courseId>/                          │
 │      state.json (记录当前缓存版本)           │  │  (安装包自带，离线可用，基线兜底)       │
 └──────────────────────────────────────────────┘  └──────────────────────────────────────────┘
 ```
 
-### 目录结构
+### 目录结构与隔离机制
 
-在用户数据目录中，每个支持远程更新的发行版拥有独立的课程子目录：
+课程缓存不存放在单一全局目录，而是存放在各自发行版的 `userData` 目录下（`app.getPath('userData')/courses/`）。因各 Edition 的 `userDataDirectoryName` 不同，天然实现物理隔离：
+- CH32 单片机入门版：`%APPDATA%\RobotDogStudio-MCU\courses\mcu-foundations`
+- TI MSPM0 教学版：`%APPDATA%\RobotDogStudio-TI-MSPM0\courses\ti-mspm0-foundations`
+
+单个发行版下的内部目录结构：
 
 ```text
-%APPDATA%/robotdog-studio/courses/
-├─ mcu-foundations/
-│  ├─ state.json               # 记录当前已应用的远程版本: { "version": 10, "updatedAt": "..." }
-│  ├─ current/                 # 当前生效的最新课程解压目录（含 catalog.json、courses...）
-│  ├─ backup/                  # 更新升级前的备份（替换失败时自动回滚）
-│  └─ temp/                    # 临时下载目录（下载 course.zip 与提取检验）
-└─ ti-mspm0-foundations/
-   ├─ state.json
-   ├─ current/
-   ├─ backup/
-   └─ temp/
+app.getPath('userData')/courses/<editionId>/
+├─ state.json               # 记录当前已应用的远程版本: { "version": 10, "updatedAt": "..." }
+├─ current/                 # 当前生效的最新课程解压目录（含 catalog.json、courses...）
+├─ backup/                  # 更新升级前的备份（替换或重载失败时自动回滚，成功后清除）
+└─ temp/                    # 临时下载目录（下载 course.zip 与提取检验）
 ```
 
 ---
@@ -142,26 +140,33 @@ export interface CourseUpdateStatus {
 
 ---
 
-## 5. 安全校验与原子回滚
+## 5. 安全校验与强事务原子回滚
 
-下载的课程内容直接被客户端解析和展示，因此 `CourseUpdateService` 实施了严格的安全防御与原子替换机制：
+下载的课程内容直接被客户端解析和展示，因此 `CourseUpdateService` 实施了严格的安全防御与完整的原子更新事务：
 
 1. **有界超时保护**：Manifest 请求限时 10 秒，ZIP 下载限时 60 秒，避免无限期挂起网络连接。
 2. **下载完整性检查**：检查下载 Buffer 非空且大于 0 字节。
-3. **隔离解压**：解压至 `temp/extracted` 临时目录，不直接解压到生效目录。解压调用系统原生 `Expand-Archive`。
+3. **高效安全解压**：解压至 `temp/extracted` 临时目录，不直接触碰生效目录。解压优先调用系统原生 `tar.exe`（`tar.exe -xf <zipPath> -C <destDir>`），若执行失败自动 fallback 回退到 PowerShell `Expand-Archive`。
 4. **合法性深层校验**：
    - 必须包含合法的 `catalog.json`；
    - `catalog.json` 的 `schemaVersion` 必须为 `1`；
    - `courses` 列表必须非空；
    - **发行版匹配校验**：`ti-mspm0-foundations` 的课程必须以 `ti-mspm0` 开头；`mcu-foundations` 的课程必须以 `ch32` 开头，杜绝误配导致的跨平台课程污染。
-5. **原子替换与回滚**：
+5. **完整可逆的事务原子更新机制**：
    ```text
-   current/ -> backup/
-   temp/extracted -> current/
-   写入新的 state.json
-   清理 temp/ 与 backup/
+   ① 记录现有 state.json 内容（若存在）
+   ② 现有 current/ -> backup/
+   ③ temp/extracted/ -> current/
+   ④ 写入并核实新的 state.json
+   ⑤ 触发课程重新载入回调 (onCourseUpdated)
+   ⑥ 全部成功后：彻底清理 backup/ 与 temp/
    ```
-   如果重命名或写入阶段抛出任何异常，系统自动将 `backup/` 恢复为 `current/`，状态标记为 `error`，确保学生工作台始终可用。
+   **失败自动回滚规则**：如果在 ③、④、⑤ 任一步骤抛出任何异常：
+   - 自动移除损坏或不完整的新 `current/`；
+   - 将 `backup/` 自动还原为 `current/`；
+   - 恢复原有的 `state.json` 文件内容（若原本不存在则安全清理）；
+   - 将状态标记为 `error` 并返回；
+   - **结果保证**：绝不留下“文件已替换但 state.json 未写”或“写了新版本号但课程无法加载”的不一致半衰状态。
 
 ---
 
