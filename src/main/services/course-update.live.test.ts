@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { EditionContentResolver } from './edition-content-resolver'
 import { CourseService } from './course-service'
 import { EditionContentUpdateService } from './edition-content-update-service'
+import { FirmwareBaselineResolver } from './firmware-baseline-resolver'
 
 const temporaryDirs: string[] = []
 
@@ -56,9 +57,31 @@ describe('Live Gitee Remote Content Update', () => {
     const templateRoot = resolver.resolveWorkspaceTemplateRoot()
     expect(existsSync(templateRoot)).toBe(true)
 
-    // 3. Verify firmware-baselines exist in downloaded content
+    // 3. Verify firmware-baselines exist in downloaded content and can be loaded
     const baselineRoot = resolver.resolveFirmwareBaselineRoot()
     expect(existsSync(baselineRoot)).toBe(true)
+
+    const baselineResolver = new FirmwareBaselineResolver({
+      staticRoot,
+      firmwareBaselinesRoot: baselineRoot,
+      isPackaged: false
+    })
+
+    // 3a. MCU RHS Baseline
+    const rhsService = baselineResolver.resolve('ch32v203-rhs-baseline')
+    const rhsManifest = await rhsService.getManifest()
+    const rhsStatus = await rhsService.getStatus()
+    expect(rhsManifest.id).toBe('ch32v203-rhs-baseline')
+    expect(rhsStatus.readyForTesting).toBe(true)
+    expect(rhsStatus.errors).toEqual([])
+
+    // 3b. MCU Pony Baseline
+    const ponyService = baselineResolver.resolve('ch32v203-pony-v25')
+    const ponyManifest = await ponyService.getManifest()
+    const ponyStatus = await ponyService.getStatus()
+    expect(ponyManifest.id).toBe('ch32v203-pony-v25')
+    expect(ponyStatus.readyForTesting).toBe(true)
+    expect(ponyStatus.errors).toEqual([])
   }, 60000)
 
   it('Live Gitee verification: can fetch real update.json and download real TI MSPM0 content package from Gitee', async () => {
@@ -95,9 +118,23 @@ describe('Live Gitee Remote Content Update', () => {
     const templateRoot = resolver.resolveWorkspaceTemplateRoot()
     expect(existsSync(templateRoot)).toBe(true)
 
-    // 3. Verify firmware-baselines exist in downloaded content
+    // 3. Verify firmware-baselines exist in downloaded content and can be loaded
     const baselineRoot = resolver.resolveFirmwareBaselineRoot()
     expect(existsSync(baselineRoot)).toBe(true)
+
+    const baselineResolver = new FirmwareBaselineResolver({
+      staticRoot,
+      firmwareBaselinesRoot: baselineRoot,
+      isPackaged: false
+    })
+
+    // TI MSPM0 Baseline
+    const tiBaselineService = baselineResolver.resolve('ti-mspm0g3507')
+    const tiManifest = await tiBaselineService.getManifest()
+    const tiStatus = await tiBaselineService.getStatus()
+    expect(tiManifest.id).toBe('ti-mspm0g3507-sdk-2.11.00.07')
+    expect(tiStatus.readyForTesting).toBe(true)
+    expect(tiStatus.errors).toEqual([])
   }, 60000)
 
   it('Live Gitee verification: both MCU and TI content coexist in isolated directories', async () => {
@@ -146,6 +183,16 @@ describe('Live Gitee Remote Content Update', () => {
     expect(mcuCourses.length).toBeGreaterThan(0)
     expect(mcuCourses[0].courseId).toBe('ch32v203-foundations')
 
+    const mcuBaselineResolver = new FirmwareBaselineResolver({
+      staticRoot,
+      firmwareBaselinesRoot: mcuResolver.resolveFirmwareBaselineRoot(),
+      isPackaged: false
+    })
+    const mcuRhsManifest = await mcuBaselineResolver.resolve('ch32v203-rhs-baseline').getManifest()
+    expect(mcuRhsManifest.id).toBe('ch32v203-rhs-baseline')
+    const mcuPonyManifest = await mcuBaselineResolver.resolve('ch32v203-pony-v25').getManifest()
+    expect(mcuPonyManifest.id).toBe('ch32v203-pony-v25')
+
     // 4. Verify TI intact and isolated
     const tiCourseService = new CourseService({
       rootDir: () => tiResolver.resolveCourseRoot(),
@@ -154,5 +201,13 @@ describe('Live Gitee Remote Content Update', () => {
     const tiCourses = await tiCourseService.listCourses()
     expect(tiCourses.length).toBeGreaterThan(0)
     expect(tiCourses[0].courseId).toBe('ti-mspm0-gpio-foundations')
+
+    const tiBaselineResolver = new FirmwareBaselineResolver({
+      staticRoot,
+      firmwareBaselinesRoot: tiResolver.resolveFirmwareBaselineRoot(),
+      isPackaged: false
+    })
+    const tiManifest = await tiBaselineResolver.resolve('ti-mspm0g3507').getManifest()
+    expect(tiManifest.id).toBe('ti-mspm0g3507-sdk-2.11.00.07')
   }, 80000)
 })

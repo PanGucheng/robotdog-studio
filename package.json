@@ -52,7 +52,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:course-update:live": "cross-env VITEST_INCLUDE_LIVE=1 vitest run src/main/services/course-update.live.test.ts",
-    "test:content-update:live": "cross-env VITEST_INCLUDE_LIVE=1 vitest run src/main/services/course-update.live.test.ts"
+    "test:content-update:live": "cross-env VITEST_INCLUDE_LIVE=1 vitest run src/main/services/course-update.live.test.ts",
+    "smoke:content:live": "tsx scripts/smoke-remote-content.mjs"
   },
   "devDependencies": {
     "@fontsource-variable/noto-sans-sc": "^5.3.0",

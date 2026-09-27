@@ -42,7 +42,11 @@ export class FirmwareBaselineService {
 
   async getManifest(): Promise<FirmwareBaselineManifest> {
     if (!this.manifest) {
-      const raw = JSON.parse(await readFile(this.options.manifestPath, 'utf8')) as Record<string, unknown>
+      let raw = JSON.parse(await readFile(this.options.manifestPath, 'utf8')) as Record<string, unknown>
+      if (raw.schemaVersion === 1 && typeof raw.manifest === 'string') {
+        const targetManifest = resolveInside(dirname(this.options.manifestPath), raw.manifest)
+        raw = JSON.parse(await readFile(targetManifest, 'utf8')) as Record<string, unknown>
+      }
       this.manifest = raw.schemaVersion === 2 ? await this.readLiveManifest(raw) : manifestSchema.parse(raw) as FirmwareBaselineManifest
     }
     return structuredClone(this.manifest)

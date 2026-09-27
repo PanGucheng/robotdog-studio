@@ -530,4 +530,67 @@ describe('EditionContentUpdateService and EditionContentResolver (Unified)', () 
     expect(status.error).toContain('CONTENT_EDITION_MISMATCH')
     expect(tiResolver.hasValidDownloadedContent()).toBe(false)
   })
+
+  it('Schema 3 complete structure enforcement - 缺少 templates 或 baselines 直接拒绝更新且不自动创建目录', async () => {
+    const userDataRoot = await createTempDir('schema3-incomplete')
+    const contentUserData = join(userDataRoot, 'content')
+    const resolver = new EditionContentResolver({ staticRoot, userDataContentRoot: contentUserData, editionId: 'mcu-foundations' })
+
+    // Create incomplete zip (has courses, but missing firmware-baselines and workspace-templates)
+    const stageDir = await createTempDir('incomplete-stage')
+    const coursesDir = join(stageDir, 'courses')
+    await mkdir(coursesDir, { recursive: true })
+    await writeFile(
+      join(coursesDir, 'catalog.json'),
+      JSON.stringify({ schemaVersion: 1, courses: [{ courseId: 'ch32v203-foundations', manifest: 'ch32v203-foundations/course.json' }] }),
+      'utf8'
+    )
+    await mkdir(join(coursesDir, 'ch32v203-foundations'), { recursive: true })
+    await writeFile(
+      join(coursesDir, 'ch32v203-foundations', 'course.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        courseId: 'ch32v203-foundations',
+        contentVersion: 1,
+        title: '测试课程',
+        summary: '摘要',
+        audience: '学生',
+        objectives: [],
+        status: 'published',
+        boardScope: 'CH32V203',
+        lessonOrder: [],
+        sourceAttribution: []
+      }),
+      'utf8'
+    )
+
+    const incompleteZip = join(await createTempDir('incomplete-zip'), 'content.zip')
+    await execFileAsync('tar.exe', ['-a', '-c', '-f', incompleteZip, '-C', stageDir, '.'])
+    const zipBytes = await readFile(incompleteZip)
+
+    const service = new EditionContentUpdateService({
+      userDataContentRoot: contentUserData,
+      resolver,
+      appVersion: '0.1.0',
+      editionId: 'mcu-foundations',
+      fetchFn: async (input) => {
+        if (String(input).endsWith('update.json')) {
+          return new Response(JSON.stringify({
+            schemaVersion: 3,
+            editions: { 'mcu-foundations': { version: 5, url: 'https://fake/incomplete.zip' } }
+          }), { status: 200 })
+        }
+        return new Response(zipBytes, { status: 200 })
+      }
+    })
+
+    const status = await service.checkForUpdate()
+    expect(status.kind).toBe('error')
+    expect(status.error).toContain('INVALID_CONTENT_ARCHIVE')
+    expect(status.error).toContain('schemaVersion 3 requires complete content package')
+    expect(resolver.hasValidDownloadedContent()).toBe(false)
+    // Verify that missing directories were NOT created in current
+    const currentDir = resolver.getCurrentDir('mcu-foundations')
+    expect(existsSync(currentDir)).toBe(false)
+  })
 })

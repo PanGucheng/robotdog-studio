@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { EditionId } from '../../shared/edition'
 
@@ -70,13 +70,25 @@ export class EditionContentResolver {
       }
     }
 
-    // 2. Verify workspace-templates directory exists
+    // 2. Verify workspace-templates directory exists and is not empty
     const templatesDir = join(currentDir, 'workspace-templates')
     if (!existsSync(templatesDir)) return false
+    try {
+      const templateEntries = readdirSync(templatesDir)
+      if (templateEntries.length === 0) return false
+    } catch {
+      return false
+    }
 
-    // 3. Verify firmware-baselines directory exists
+    // 3. Verify firmware-baselines directory exists and is not empty
     const baselinesDir = join(currentDir, 'firmware-baselines')
     if (!existsSync(baselinesDir)) return false
+    try {
+      const baselineEntries = readdirSync(baselinesDir)
+      if (baselineEntries.length === 0) return false
+    } catch {
+      return false
+    }
 
     // Basic structure check passed
     return true

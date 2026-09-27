@@ -26,6 +26,7 @@ export interface RemoteContentManifest {
   version: number
   minAppVersion?: string
   url: string
+  schemaVersion?: number
 }
 
 export function isAppVersionCompatible(currentVersion: string, minAppVersion?: string): boolean {
@@ -145,7 +146,8 @@ export class EditionContentUpdateService {
         remoteData = {
           version: editionConfig.version,
           minAppVersion: typeof editionConfig.minAppVersion === 'string' ? editionConfig.minAppVersion : undefined,
-          url: editionConfig.url
+          url: editionConfig.url,
+          schemaVersion: json.schemaVersion
         }
       } else if (typeof json.version === 'number' && typeof json.url === 'string') {
         // Backwards compatibility with legacy V1 single-course update.json
@@ -153,7 +155,8 @@ export class EditionContentUpdateService {
           remoteData = {
             version: json.version,
             minAppVersion: typeof json.minAppVersion === 'string' ? json.minAppVersion : undefined,
-            url: json.url
+            url: json.url,
+            schemaVersion: 1
           }
         } else {
           throw new Error(`EDITION_CONFIG_NOT_FOUND: ${targetEdition}`)
@@ -302,21 +305,45 @@ export class EditionContentUpdateService {
         throw new Error(`CONTENT_EDITION_MISMATCH: catalog does not match edition ${targetEdition}`)
       }
 
-      // If extracted as legacy course-only archive, organize into standard content layout
-      if (hasRootCatalog && !hasCoursesSub) {
-        const coursesSubdir = join(contentRoot, 'courses')
-        await mkdir(coursesSubdir, { recursive: true })
-        const entries = await readdir(contentRoot, { withFileTypes: true })
-        for (const entry of entries) {
-          if (entry.name !== 'courses' && entry.name !== 'workspace-templates' && entry.name !== 'firmware-baselines') {
-            await rename(join(contentRoot, entry.name), join(coursesSubdir, entry.name))
+      const isSchema3 = (remoteData.schemaVersion ?? 3) >= 3
+
+      if (isSchema3) {
+        // schemaVersion 3: MUST genuinely contain courses/, workspace-templates/, firmware-baselines/
+        // Any missing directory immediately rejects the update. DO NOT auto-create missing directories!
+        const coursesDir = join(contentRoot, 'courses')
+        const templatesDir = join(contentRoot, 'workspace-templates')
+        const baselinesDir = join(contentRoot, 'firmware-baselines')
+
+        const hasCourses = existsSync(coursesDir) && existsSync(join(coursesDir, 'catalog.json'))
+        const hasTemplates = existsSync(templatesDir)
+        const hasBaselines = existsSync(baselinesDir)
+
+        if (!hasCourses || !hasTemplates || !hasBaselines) {
+          const missing = [
+            !hasCourses ? 'courses/' : null,
+            !hasTemplates ? 'workspace-templates/' : null,
+            !hasBaselines ? 'firmware-baselines/' : null
+          ].filter(Boolean).join(', ')
+          throw new Error(`INVALID_CONTENT_ARCHIVE: schemaVersion 3 requires complete content package, missing: ${missing}`)
+        }
+      } else {
+        // Legacy v1 / v2 course-only archive compatibility:
+        // If extracted as legacy course-only archive, organize into standard content layout
+        if (hasRootCatalog && !hasCoursesSub) {
+          const coursesSubdir = join(contentRoot, 'courses')
+          await mkdir(coursesSubdir, { recursive: true })
+          const entries = await readdir(contentRoot, { withFileTypes: true })
+          for (const entry of entries) {
+            if (entry.name !== 'courses' && entry.name !== 'workspace-templates' && entry.name !== 'firmware-baselines') {
+              await rename(join(contentRoot, entry.name), join(coursesSubdir, entry.name))
+            }
           }
         }
-      }
 
-      // Ensure workspace-templates and firmware-baselines directories exist (or create if legacy course zip)
-      await mkdir(join(contentRoot, 'workspace-templates'), { recursive: true })
-      await mkdir(join(contentRoot, 'firmware-baselines'), { recursive: true })
+        // For legacy v1/v2, ensure workspace-templates and firmware-baselines directories exist (or create if legacy course zip)
+        await mkdir(join(contentRoot, 'workspace-templates'), { recursive: true })
+        await mkdir(join(contentRoot, 'firmware-baselines'), { recursive: true })
+      }
 
       // 4. Safe atomic swap transaction
       await mkdir(editionDir, { recursive: true })
