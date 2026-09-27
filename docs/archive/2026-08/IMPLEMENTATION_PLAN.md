@@ -1,6 +1,6 @@
 # RobotDog Studio 执行计划
 
-> **文档状态说明（2026-08-06）**：本文件保留早期核心能力、固件和三通道实施背景。当前双发行版产品决策、阶段划分与迁移边界以 [`docs/dual-edition-teaching-plan.md`](./docs/dual-edition-teaching-plan.md) 为准；两者冲突时以新总纲为准。
+> **文档状态说明（2026-08-06）**：本文件保留早期核心能力、固件和三通道实施背景。当前双发行版产品决策、阶段划分与迁移边界以 [`dual-edition-teaching-plan.md`](./dual-edition-teaching-plan.md) 为准；两者冲突时以新总纲为准。
 
 ## 1. 项目目标与已确认决策
 

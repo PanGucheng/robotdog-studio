@@ -41,4 +41,4 @@ npm run brand:check:windows
 - `robotdog-studio` 包名、`RobotDogStudio-*` EXE 文件名、appId、数据目录、localStorage、IPC、固件名称和归档文件仍保留，避免破坏既有安装及学习数据兼容性。可见产品名统一为 RoboHorse Studio。
 - `release/` 内已有发行包不会被回写。新图标随下一次正常打包生效；Windows 任务栏、标题栏、安装/卸载向导及小尺寸识别性由用户人工验收。
 
-详细结果见 [品牌升级交付记录](../../docs/brand-upgrade.md)。
+详细结果见 [品牌升级交付记录](../../docs/archive/2026-09/brand-upgrade.md)。

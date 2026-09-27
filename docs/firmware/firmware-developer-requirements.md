@@ -224,7 +224,7 @@ void RobotDogMotion_Tick1ms(void);
 
 ## 8. 运行态串口协议
 
-协议以 [serial-protocol-v1.md](./serial-protocol-v1.md) 为上位机草案。本阶段先实现与 UART 无关的解析器、编码器和测试，USART3 只作为开发适配，不代表最终硬件分工。
+协议以 [serial-v1.md](./protocols/serial-v1.md) 为上位机草案。本阶段先实现与 UART 无关的解析器、编码器和测试，USART3 只作为开发适配，不代表最终硬件分工。
 
 首版行协议统一使用 CRLF 结束并以 `@RDS1` 开头：
 

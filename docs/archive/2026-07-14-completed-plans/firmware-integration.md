@@ -1,6 +1,6 @@
 # CH32V203 固件适配要求
 
-可直接交付下位机开发者的完整需求、接口、优先级与验收表见 [RobotDog CH32V203 下位机固件修改要求](./firmware-developer-modification-requirements.md)。本页仅保留上位机侧的摘要。
+可直接交付下位机开发者的完整需求、接口、优先级与验收表见 [RobotDog CH32V203 下位机固件修改要求](../../firmware/firmware-developer-requirements.md)。本页仅保留上位机侧的摘要。
 
 下位机仓库保持独立开发。为了接入 RobotDog Studio，需要下位机开发者提供：
 

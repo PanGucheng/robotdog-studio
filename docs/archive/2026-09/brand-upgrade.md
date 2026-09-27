@@ -57,7 +57,7 @@
 
 ## 用户视觉验收入口与未覆盖项
 
-资产原尺寸预览：[preview.html](../resources/brand/preview.html)。
+资产原尺寸预览：[preview.html](../../../resources/brand/preview.html)。
 
 UI 截图（真实 renderer + 内置演示数据）：
 

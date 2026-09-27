@@ -14,7 +14,7 @@
 6. 需要从课程工具定位代码时，为步骤填写 `fileTarget: { "path": "受控工程相对路径", "line": 1 }`。目标必须是本课登记的教学/参考文件，或工程树允许展示的基线文件；隐藏目录和未展示路径会使课程加载失败。
 7. 使用固定完成检查：文件存在、指定教学文件已应用修改、候选编译、完整构建、问题回答。问题步骤必须填写对应 `questionId`，人工观察检查必须填写对应观察步骤的 `stepId`；不要加入脚本或标准答案逐字比较。
 8. 递增课程唯一的 `contentVersion`，运行 `npm run courses:validate`、相关测试和 MCU 冒烟。
-9. 正式课在固定目录 `lectures/<lessonId>/lecture.md` 维护讲义，并遵守 [RobotDog Lecture Markdown v1](./robotdog-lecture-markdown-v1.md)；图片只放在本课 `assets/`，不得在 Lesson 中配置自由路径。
+9. 正式课在固定目录 `lectures/<lessonId>/lecture.md` 维护讲义，并遵守 [讲义受控 Markdown 规范](./lecture-markdown.md)；图片只放在本课 `assets/`，不得在 Lesson 中配置自由路径。
 
 课程 manifest 中的两个兼容字段必须独立判断：
 
@@ -70,7 +70,7 @@ Lecture v1 只有 H2 是学习完成单元，H3 只是章节内部结构。不�
 - 官方参考板引脚与 RobotDog 板目标引脚的差异；
 - 哪些内容只用于理解，哪些代码经过改写后进入教学模板。
 
-不得修改 `D:\RobotDog\EVT`，不得把整个 EVT 复制进发行包，也不得把官方参考板现象直接写成 RobotDog 实物现象。当前已审查示例与差异见 [EVT 来源审查](./mcu-evt-source-audit.md)。
+不得修改 `D:\RobotDog\EVT`，不得把整个 EVT 复制进发行包，也不得把官方参考板现象直接写成 RobotDog 实物现象。当前已审查示例与差异见 [EVT 来源审查](../archive/2026-08/mcu-evt-source-audit.md)。
 
 ## 4. 硬件课发布门禁
 

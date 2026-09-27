@@ -62,7 +62,7 @@ lectureSectionId?: string
 
 ## 4. RobotDog Lecture Markdown v1
 
-格式细则见 [RobotDog Lecture Markdown v1](./robotdog-lecture-markdown-v1.md)。核心规则为：
+格式细则见 [RobotDog Lecture Markdown v1](../../courses/lecture-markdown.md)。核心规则为：
 
 - CommonMark、必要 GFM、数学公式、显式章节 ID 和七种白名单 Directive；
 - H2 必须使用末尾 `{#stable-id}`；H3 被引用时必须有显式 ID；

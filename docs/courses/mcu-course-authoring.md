@@ -32,10 +32,10 @@
 
 遇到文档与代码逻辑不一致时，按以下优先级判断：
 
-1. [`CourseService`](../src/main/services/course-service.ts) 中的 Zod Schema 和关联安全校验；
-2. [`CourseLectureParser`](../src/main/services/course-lecture-parser.ts) 的 Lecture 白名单解析规则；
-3. [`LessonLearningProgressStore`](../src/main/services/lesson-learning-progress-store.ts) 的阅读进度与版本指纹校验；
-4. 校验脚本：[`validate-mcu-courses.ts`](../scripts/validate-mcu-courses.ts) 与 [`validate-ti-mspm0-course.ts`](../scripts/validate-ti-mspm0-course.ts)；
+1. [`CourseService`](../../src/main/services/course-service.ts) 中的 Zod Schema 和关联安全校验；
+2. [`CourseLectureParser`](../../src/main/services/course-lecture-parser.ts) 的 Lecture 白名单解析规则；
+3. [`LessonLearningProgressStore`](../../src/main/services/lesson-learning-progress-store.ts) 的阅读进度与版本指纹校验；
+4. 校验脚本：[`validate-mcu-courses.ts`](../../scripts/validate-mcu-courses.ts) 与 [`validate-ti-mspm0-course.ts`](../../scripts/validate-ti-mspm0-course.ts)；
 5. 本指南；
 6. 其他历史设计文档。
 
@@ -188,7 +188,7 @@ robohorse-courses/
    ```
    必须输出 `MCU_COURSES_OK` / `TI_MSPM0_COURSE_OK`。
 5. **同步单元测试**：
-   检查并更新测试断言（如 [`src/main/services/course-service.test.ts`](../src/main/services/course-service.test.ts) 中的 `contentVersion` 与 `templateVersion: 'content-v10'`）。
+   检查并更新测试断言（如 [`src/main/services/course-service.test.ts`](../../src/main/services/course-service.test.ts) 中的 `contentVersion` 与 `templateVersion: 'content-v10'`）。
 
 ### 5.4 课程开发调试小窍门（本地草稿重置）
 

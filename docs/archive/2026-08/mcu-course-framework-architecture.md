@@ -177,5 +177,5 @@ resources/courses/mcu-foundations/
 
 - 两个 `hardware: none` 课次已由 Electron 冒烟走完整创建、编辑、候选预检、确认、固件构建和课程完成流程。
 - 第三课保持 `draft + pending-hardware-check`，开发模式只展示结构和警告，不能创建；正式包不展示 draft 课。
-- 真机方向、接线、烧录和物理现象不属于可由软件模拟替代的验证。具备实物后按[课程作者与硬件验证流程](./mcu-lesson-authoring-and-hardware-validation.md)完成发布门禁。
+- 真机方向、接线、烧录和物理现象不属于可由软件模拟替代的验证。具备实物后按[课程作者与硬件验证流程](../../courses/lesson-hardware-validation.md)完成发布门禁。
 - 双发行仍共享实现；趣味版不注册课程 IPC，也不携带 MCU 课程资源。

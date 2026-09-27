@@ -69,4 +69,4 @@ MCU Electron 冒烟对两个无硬件课分别执行创建练习、编辑、候�
 - 填写硬件型号、测试版本、实际现象、问题与日期；
 - 验证后将课次改为 `published + hardware-checked` 并递增 `contentVersion`。
 
-执行要求见 [单片机课次编写与硬件验证流程](./mcu-lesson-authoring-and-hardware-validation.md)。在这些条件满足前，当前软件会继续阻止第三课创建和正式发布。
+执行要求见 [单片机课次编写与硬件验证流程](../../courses/lesson-hardware-validation.md)。在这些条件满足前，当前软件会继续阻止第三课创建和正式发布。

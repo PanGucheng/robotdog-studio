@@ -2,7 +2,8 @@
 
 更新日期：2026-09-01  
 适用发行版：`ti-mspm0-foundations`  
-目标硬件：TI LP-MSPM0G3507、DAPLink / CMSIS-DAP、SWD
+目标硬件：TI LP-MSPM0G3507、DAPLink / CMSIS-DAP、SWD  
+关联文档：[TI MSPM0 托管工具链](./ti-mspm0-managed-toolchain.md) · [TI MSPM0 净机验收清单](./ti-mspm0-clean-windows-checklist.md)
 
 ## 当前状态
 
