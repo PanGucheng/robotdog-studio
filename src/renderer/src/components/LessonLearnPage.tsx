@@ -33,6 +33,7 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
   const [attemptStarting, setAttemptStarting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const tocRef = useRef<HTMLElement>(null)
+  const tocListRef = useRef<HTMLDivElement>(null)
   const tocMarkerRefs = useRef(new Map<string, HTMLElement>())
   const sectionRefs = useRef(new Map<string, HTMLDivElement>())
   const unitRefs = useRef(new Map<string, HTMLDivElement>())
@@ -54,6 +55,7 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
 
   useEffect(() => {
     let disposed = false
+    tocMarkerRefs.current.clear()
     void Promise.all([api.getCourseLecture(lesson.courseId, lesson.lessonId), api.getLessonLearningProgress(lesson.courseId, lesson.lessonId)]).then(([nextLecture, nextProgress]) => {
       if (disposed) return
       setLecture(nextLecture); setProgress(nextProgress); onProgress(nextProgress)
@@ -156,23 +158,23 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
   useEffect(() => () => { if (readingTimerRef.current) clearTimeout(readingTimerRef.current) }, [])
 
   useLayoutEffect(() => {
-    const toc = tocRef.current
-    if (!toc || !document) { setTocTrackGeometry(undefined); return }
+    const list = tocListRef.current
+    if (!list || !document) { setTocTrackGeometry(undefined); return }
 
     const updateTrackGeometry = (): void => {
-      const tocRect = toc.getBoundingClientRect()
+      const listRect = list.getBoundingClientRect()
       const markers = units.flatMap((unit) => {
         const marker = tocMarkerRefs.current.get(unit.root.sectionId)
         if (!marker) return []
         const markerRect = marker.getBoundingClientRect()
-        return [{ sectionId: unit.root.sectionId, center: markerRect.top - tocRect.top + toc.scrollTop + markerRect.height / 2 }]
+        return [{ sectionId: unit.root.sectionId, center: markerRect.top - listRect.top + markerRect.height / 2 }]
       })
       setTocTrackGeometry(calculateTocTrackGeometry(markers, progress?.completedSectionIds ?? []))
     }
 
     updateTrackGeometry()
     const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateTrackGeometry)
-    resizeObserver?.observe(toc)
+    resizeObserver?.observe(list)
     for (const marker of tocMarkerRefs.current.values()) resizeObserver?.observe(marker)
     window.addEventListener('resize', updateTrackGeometry)
     return () => { resizeObserver?.disconnect(); window.removeEventListener('resize', updateTrackGeometry) }
@@ -205,11 +207,11 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
   return <section className="lesson-learn-page">
     <header className="lesson-learn-header"><button type="button" onClick={onBack}><ArrowLeft size={15} /> 返回课程</button><div><span>第 {lesson.order + 1} 课</span><strong>{lesson.title}</strong></div><span className="lesson-header-actions"><button type="button" className="lesson-toc-toggle" onClick={() => setTocOpen(true)}><BookOpen size={14} /> 目录</button><span className="lesson-reading-progress"><small>{progressSaving ? '正在保存已读进度…' : allComplete ? '本课讲义已读完' : `已读 ${progress?.completedSectionIds.length ?? 0}/${units.length}`}</small><i aria-hidden="true"><b style={{ width: `${readPercent}%` }} /></i></span><button type="button" onClick={() => setHistoryOpen(true)}><History size={14} /> AI 历史</button></span></header>
     <div className="lesson-learn-layout">
-      <aside ref={tocRef} className={`lesson-toc ${tocOpen ? 'is-open' : ''}`}><span className="eyebrow">课程目录</span><button type="button" className="lesson-toc-close" onClick={() => setTocOpen(false)} aria-label="关闭课程目录">×</button>{tocTrackGeometry && <div className="lesson-toc-track" aria-hidden="true" style={{ top: tocTrackGeometry.top, height: tocTrackGeometry.height }}><i style={{ height: tocTrackGeometry.fillHeight }} /></div>}{document.sections.map((section) => {
+      <aside ref={tocRef} className={`lesson-toc ${tocOpen ? 'is-open' : ''}`}><span className="eyebrow">课程目录</span><button type="button" className="lesson-toc-close" onClick={() => setTocOpen(false)} aria-label="关闭课程目录">×</button><div ref={tocListRef} className="lesson-toc-list">{tocTrackGeometry && <div className="lesson-toc-track" aria-hidden="true" style={{ top: tocTrackGeometry.top, height: tocTrackGeometry.height }}><i style={{ height: tocTrackGeometry.fillHeight }} /></div>}{document.sections.map((section) => {
         const read = section.level === 2 && progress?.completedSectionIds.includes(section.sectionId)
         const active = section.sectionId === activeSection?.sectionId
         return <button type="button" key={section.sectionId} className={`${section.level === 3 ? 'is-subsection' : ''} ${read ? 'is-read' : ''} ${active ? 'active' : ''}`} aria-current={active ? 'location' : undefined} onClick={() => selectSection(section.sectionId)}>{section.level === 2 && <i ref={(node) => { if (node) tocMarkerRefs.current.set(section.sectionId, node); else tocMarkerRefs.current.delete(section.sectionId) }}>{read ? <Check size={11} /> : <span />}</i>}<span>{section.title}</span></button>
-      })}</aside>{tocOpen && <button type="button" className="lesson-toc-scrim" onClick={() => setTocOpen(false)} aria-label="关闭课程目录" />}
+      })}</div></aside>{tocOpen && <button type="button" className="lesson-toc-scrim" onClick={() => setTocOpen(false)} aria-label="关闭课程目录" />}
       <main className="lesson-reading-surface">
         <div className="lesson-reading-notices">{progress?.integrityError && <div className="lesson-integrity-warning"><AlertTriangle size={17} /><span><strong>课程资源版本一致性异常</strong>正文仍可阅读，但完成记录已暂停写入。请让课程维护者检查 contentVersion。</span></div>}
         {progressError && <div className="lesson-progress-warning"><AlertTriangle size={15} /><span>阅读位置已保留，但已读进度暂未保存。继续阅读时会再次尝试。</span></div>}</div>
