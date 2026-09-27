@@ -1,5 +1,6 @@
 import { Check, Eye, FileDown, FlaskConical, FolderOpen, GraduationCap, KeyRound, MonitorUp, RefreshCw, Route, Type } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import type { AppEditionProfile } from '../../../shared/edition'
 import type { AgentRuntimeStatus, AppRuntimeInfo, CourseUpdateStatus, DiagnosticExportResult, FirmwareBaselineStatus, ToolchainStatus } from '../../../shared/types'
 import { UI_SCALE_OPTIONS, type UiScale } from '../lib/ui-scale'
 import { getRobotApi } from '../lib/browser-demo-api'
@@ -31,8 +32,10 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
   const [agentError, setAgentError] = useState('')
   const [courseUpdate, setCourseUpdate] = useState<CourseUpdateStatus>()
   const [courseChecking, setCourseChecking] = useState(false)
+  const [editionProfile, setEditionProfile] = useState<AppEditionProfile>()
 
   useEffect(() => { void getRobotApi().getRuntimeInfo().then(setRuntime).catch((caught) => setError(toStudentProblem(caught, '设置状态读取失败'))) }, [])
+  useEffect(() => { void getRobotApi().getEditionProfile().then(setEditionProfile).catch(() => {}) }, [])
   useEffect(() => { void getRobotApi().getAgentRuntimeStatus().then(setAgentRuntime).catch((caught) => setAgentError(toStudentErrorMessage(caught))) }, [])
   useEffect(() => {
     void getRobotApi().getCourseUpdateStatus?.().then(setCourseUpdate).catch(() => {})
@@ -124,7 +127,7 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
         <dl>
           <div>
             <dt>当前课程</dt>
-            <dd>{courseUpdate?.currentVersion ? `第 ${courseUpdate.currentVersion} 版` : '内置课程'}</dd>
+            <dd>{(editionProfile?.id === 'ti-mspm0-foundations' ? 'TI MSPM0 基础课程 · ' : 'MCU 基础课程 · ') + (courseUpdate?.currentVersion ? `第 ${courseUpdate.currentVersion} 版` : '内置课程')}</dd>
           </div>
           <div>
             <dt>更新状态</dt>

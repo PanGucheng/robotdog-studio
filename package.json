@@ -50,7 +50,8 @@
     "firmware:promote": "node scripts/firmware-promote.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:course-update:live": "cross-env VITEST_INCLUDE_LIVE=1 vitest run src/main/services/course-update.live.test.ts"
   },
   "devDependencies": {
     "@fontsource-variable/noto-sans-sc": "^5.3.0",

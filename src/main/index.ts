@@ -254,7 +254,8 @@ app.whenReady().then(async () => {
   const userDataCoursesRoot = join(app.getPath('userData'), 'courses')
   const courseResolver = new CourseResolver({
     bundledRoot: bundledCourseRoot,
-    userDataCoursesRoot
+    userDataCoursesRoot,
+    editionId: edition.id
   })
   const courses = isMcuEdition(edition.id)
     ? new CourseService({
@@ -263,11 +264,12 @@ app.whenReady().then(async () => {
         includeDrafts: !app.isPackaged
       })
     : undefined
-  const courseUpdateService = edition.id === 'mcu-foundations'
+  const courseUpdateService = isMcuEdition(edition.id)
     ? new CourseUpdateService({
         userDataCoursesRoot,
         resolver: courseResolver,
         appVersion: app.getVersion() || '0.1.0',
+        editionId: edition.id,
         onCourseUpdated: async (_newRoot, status) => {
           for (const win of BrowserWindow.getAllWindows()) {
             win.webContents.send(IPC_CHANNELS.courseUpdateEvent, status)

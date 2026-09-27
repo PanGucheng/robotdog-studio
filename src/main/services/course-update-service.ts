@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import type { CourseUpdateStatus } from '../../shared/types'
@@ -12,6 +12,7 @@ export interface CourseUpdateServiceOptions {
   userDataCoursesRoot: string
   resolver: CourseResolver
   appVersion: string
+  editionId?: string
   updateUrl?: string
   fetchFn?: typeof fetch
   onCourseUpdated?: (newRoot: string, status: CourseUpdateStatus) => Promise<void> | void
@@ -41,6 +42,7 @@ export class CourseUpdateService {
   private readonly userDataCoursesRoot: string
   private readonly resolver: CourseResolver
   private readonly appVersion: string
+  private readonly editionId: string
   private readonly updateUrl: string
   private readonly fetchFn: typeof fetch
   private readonly onCourseUpdated?: (newRoot: string, status: CourseUpdateStatus) => Promise<void> | void
@@ -53,6 +55,7 @@ export class CourseUpdateService {
     this.userDataCoursesRoot = resolve(options.userDataCoursesRoot)
     this.resolver = options.resolver
     this.appVersion = options.appVersion
+    this.editionId = options.editionId ?? 'mcu-foundations'
     this.updateUrl = options.updateUrl ?? 'https://gitee.com/Cidervinegar/robohorse-courses/raw/master/update.json'
     this.fetchFn = options.fetchFn ?? globalThis.fetch
     this.onCourseUpdated = options.onCourseUpdated
@@ -66,23 +69,38 @@ export class CourseUpdateService {
     }
   }
 
-  getLocalVersion(): number {
-    return this.resolver.getCachedState()?.version ?? 0
+  getEditionId(): string {
+    return this.editionId
   }
 
-  getStatus(): CourseUpdateStatus {
+  getLocalVersion(editionId?: string): number {
+    return this.resolver.getCachedState(editionId ?? this.editionId)?.version ?? 0
+  }
+
+  getStatus(editionId?: string): CourseUpdateStatus {
+    const targetEdition = editionId ?? this.editionId
     return {
       ...this.status,
-      currentVersion: this.getLocalVersion()
+      currentVersion: this.getLocalVersion(targetEdition)
     }
   }
 
-  async checkForUpdate(_options?: { silent?: boolean }): Promise<CourseUpdateStatus> {
+  async checkForUpdate(
+    arg?: string | { silent?: boolean; editionId?: string },
+    _options?: { silent?: boolean }
+  ): Promise<CourseUpdateStatus> {
     if (this.activeCheckPromise) {
       return this.activeCheckPromise
     }
 
-    this.activeCheckPromise = this.performCheck()
+    let targetEdition = this.editionId
+    if (typeof arg === 'string') {
+      targetEdition = arg
+    } else if (arg && typeof arg === 'object' && arg.editionId) {
+      targetEdition = arg.editionId
+    }
+
+    this.activeCheckPromise = this.performCheck(targetEdition)
     try {
       return await this.activeCheckPromise
     } finally {
@@ -95,8 +113,8 @@ export class CourseUpdateService {
     this.onStatusChange?.(this.getStatus())
   }
 
-  private async performCheck(): Promise<CourseUpdateStatus> {
-    const localVersion = this.getLocalVersion()
+  private async performCheck(targetEdition: string): Promise<CourseUpdateStatus> {
+    const localVersion = this.getLocalVersion(targetEdition)
     this.setStatus({
       kind: 'checking',
       message: '正在检查课程更新…',
@@ -112,13 +130,33 @@ export class CourseUpdateService {
         throw new Error(`HTTP_${response.status}`)
       }
       const json = await response.json()
-      if (!json || typeof json.version !== 'number' || typeof json.url !== 'string') {
+      if (!json || typeof json !== 'object') {
         throw new Error('INVALID_UPDATE_MANIFEST')
       }
-      remoteData = {
-        version: json.version,
-        minAppVersion: typeof json.minAppVersion === 'string' ? json.minAppVersion : undefined,
-        url: json.url
+
+      if (json.schemaVersion === 2 && json.editions && typeof json.editions === 'object') {
+        const editionConfig = json.editions[targetEdition]
+        if (!editionConfig || typeof editionConfig.version !== 'number' || typeof editionConfig.url !== 'string') {
+          throw new Error(`EDITION_CONFIG_NOT_FOUND: ${targetEdition}`)
+        }
+        remoteData = {
+          version: editionConfig.version,
+          minAppVersion: typeof editionConfig.minAppVersion === 'string' ? editionConfig.minAppVersion : undefined,
+          url: editionConfig.url
+        }
+      } else if (typeof json.version === 'number' && typeof json.url === 'string') {
+        // Backwards compatibility with legacy V1 single-course update.json
+        if (targetEdition === 'mcu-foundations') {
+          remoteData = {
+            version: json.version,
+            minAppVersion: typeof json.minAppVersion === 'string' ? json.minAppVersion : undefined,
+            url: json.url
+          }
+        } else {
+          throw new Error(`EDITION_CONFIG_NOT_FOUND: ${targetEdition}`)
+        }
+      } else {
+        throw new Error('INVALID_UPDATE_MANIFEST')
       }
     } catch (caught) {
       const err = caught instanceof Error ? caught.message : String(caught)
@@ -170,7 +208,7 @@ export class CourseUpdateService {
     })
 
     try {
-      await this.downloadAndApply(remoteData)
+      await this.downloadAndApply(remoteData, targetEdition)
       const updatedStatus: CourseUpdateStatus = {
         kind: 'updated',
         message: '课程更新完成',
@@ -185,7 +223,7 @@ export class CourseUpdateService {
       const failedStatus: CourseUpdateStatus = {
         kind: 'error',
         message: '课程更新失败，继续使用当前版本',
-        currentVersion: this.getLocalVersion(),
+        currentVersion: this.getLocalVersion(targetEdition),
         lastCheckedAt: new Date().toISOString(),
         error: err
       }
@@ -194,11 +232,12 @@ export class CourseUpdateService {
     }
   }
 
-  private async downloadAndApply(remoteData: RemoteCourseManifest): Promise<void> {
-    const tempDir = join(this.userDataCoursesRoot, 'temp')
-    const currentDir = this.resolver.getCurrentDir()
-    const backupDir = join(this.userDataCoursesRoot, 'backup')
-    const stateFile = this.resolver.getStateFile()
+  private async downloadAndApply(remoteData: RemoteCourseManifest, targetEdition: string): Promise<void> {
+    const editionDir = join(this.userDataCoursesRoot, targetEdition)
+    const tempDir = join(editionDir, 'temp')
+    const currentDir = this.resolver.getCurrentDir(targetEdition)
+    const backupDir = join(editionDir, 'backup')
+    const stateFile = this.resolver.getStateFile(targetEdition)
 
     await mkdir(tempDir, { recursive: true })
     const zipPath = join(tempDir, 'course.zip')
@@ -224,7 +263,6 @@ export class CourseUpdateService {
       // 3. Verify extracted content
       let contentRoot = extractedDir
       if (!existsSync(join(contentRoot, 'catalog.json'))) {
-        // If zip contained an intermediate folder (e.g. source/ or current/), locate it
         const entries = await readdir(extractedDir)
         const sub = entries.find((name) => existsSync(join(extractedDir, name, 'catalog.json')))
         if (sub) {
@@ -236,12 +274,22 @@ export class CourseUpdateService {
 
       const catalogRaw = await readFile(join(contentRoot, 'catalog.json'), 'utf8')
       const parsed = JSON.parse(catalogRaw)
-      if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.courses)) {
+      if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.courses) || parsed.courses.length === 0) {
         throw new Error('INVALID_COURSE_ARCHIVE: catalog.json schema invalid')
       }
 
+      // Verify course catalog matches expected edition
+      const courses = parsed.courses as Array<{ courseId: string }>
+      const matchesEdition = targetEdition === 'ti-mspm0-foundations'
+        ? courses.some((c) => c.courseId.startsWith('ti-mspm0'))
+        : courses.some((c) => c.courseId.startsWith('ch32'))
+
+      if (!matchesEdition) {
+        throw new Error(`COURSE_EDITION_MISMATCH: catalog does not match edition ${targetEdition}`)
+      }
+
       // 4. Safe swap
-      await mkdir(this.userDataCoursesRoot, { recursive: true })
+      await mkdir(editionDir, { recursive: true })
       if (existsSync(backupDir)) {
         await rm(backupDir, { recursive: true, force: true })
       }

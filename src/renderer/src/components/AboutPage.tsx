@@ -150,6 +150,7 @@ export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Elemen
                   <span className="about-version-label">课程版本</span>
                   <div className="about-version-val">
                     <strong>
+                      {edition.id === 'ti-mspm0-foundations' ? 'TI MSPM0 基础课程 · ' : 'MCU 基础课程 · '}
                       {updateStatus && updateStatus.currentVersion > 0
                         ? `第 ${updateStatus.currentVersion} 版`
                         : '内置课程'}
