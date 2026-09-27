@@ -194,11 +194,11 @@ describe('CourseUpdateService and CourseResolver', () => {
       const status = await service.checkForUpdate()
       expect(status.kind).toBe('updated')
       expect(status.currentVersion).toBe(2)
-      expect(status.message).toBe('课程更新完成')
+      expect(status.message).toBe('教学内容更新完成，重启后生效')
       expect(notifiedNewRoot).toBe(resolver.getCurrentDir('mcu-foundations'))
 
       expect(resolver.hasValidDownloadedCourse()).toBe(true)
-      expect(resolver.resolveCourseRoot()).toBe(resolver.getCurrentDir('mcu-foundations'))
+      expect(resolver.resolveCourseRoot()).toBe(join(resolver.getCurrentDir('mcu-foundations'), 'courses'))
       expect(resolver.getCachedState()?.version).toBe(2)
 
       const courseService = new CourseService({
@@ -259,7 +259,7 @@ describe('CourseUpdateService and CourseResolver', () => {
 
       const status = await service.checkForUpdate()
       expect(status.kind).toBe('up-to-date')
-      expect(status.message).toBe('课程已是最新版本')
+      expect(status.message).toBe('教学内容已是最新版本')
       expect(status.currentVersion).toBe(2)
       expect(zipRequested).toBe(false)
     })
@@ -287,7 +287,7 @@ describe('CourseUpdateService and CourseResolver', () => {
 
       const status = await service.checkForUpdate()
       expect(status.kind).toBe('error')
-      expect(status.message).toBe('课程更新失败，继续使用当前版本')
+      expect(status.message).toBe('教学内容更新失败，继续使用当前版本')
       expect(resolver.resolveCourseRoot()).toBe(mcuBundledRoot)
     })
 
@@ -349,7 +349,7 @@ describe('CourseUpdateService and CourseResolver', () => {
 
       const status = await service.checkForUpdate()
       expect(status.kind).toBe('error')
-      expect(status.message).toBe('课程更新失败，继续使用当前版本')
+      expect(status.message).toBe('教学内容更新失败，继续使用当前版本')
 
       expect(resolver.hasValidDownloadedCourse()).toBe(true)
       const catalog = JSON.parse(await readFile(join(currentDir, 'catalog.json'), 'utf8'))
@@ -415,7 +415,7 @@ describe('CourseUpdateService and CourseResolver', () => {
 
       const status = await service.checkForUpdate()
       expect(status.kind).toBe('error')
-      expect(status.message).toBe('课程更新失败，继续使用当前版本')
+      expect(status.message).toBe('教学内容更新失败，继续使用当前版本')
 
       expect(resolver.hasValidDownloadedCourse()).toBe(true)
       const catalog = JSON.parse(await readFile(join(currentDir, 'catalog.json'), 'utf8'))
@@ -497,7 +497,7 @@ describe('CourseUpdateService and CourseResolver', () => {
 
       const status = await service.checkForUpdate()
       expect(status.kind).toBe('incompatible')
-      expect(status.message).toBe('新版课程需要更新软件后使用')
+      expect(status.message).toBe('新版教学内容需要更新软件后使用')
       expect(status.minAppVersion).toBe('2.0.0')
       expect(zipRequested).toBe(false)
     })
@@ -665,7 +665,7 @@ describe('CourseUpdateService and CourseResolver', () => {
       expect(notifiedNewRoot).toBe(resolver.getCurrentDir('ti-mspm0-foundations'))
 
       expect(resolver.hasValidDownloadedCourse()).toBe(true)
-      expect(resolver.resolveCourseRoot()).toBe(resolver.getCurrentDir('ti-mspm0-foundations'))
+      expect(resolver.resolveCourseRoot()).toBe(join(resolver.getCurrentDir('ti-mspm0-foundations'), 'courses'))
 
       const courseService = new CourseService({
         rootDir: () => resolver.resolveCourseRoot(),
@@ -1119,7 +1119,7 @@ describe('CourseUpdateService and CourseResolver', () => {
 
       const status = await tiService.checkForUpdate()
       expect(status.kind).toBe('error')
-      expect(status.message).toBe('课程更新失败，继续使用当前版本')
+      expect(status.message).toBe('教学内容更新失败，继续使用当前版本')
 
       // TI current directory must not exist or be polluted
       expect(tiResolver.hasValidDownloadedCourse()).toBe(false)
@@ -1213,7 +1213,7 @@ describe('CourseUpdateService and CourseResolver', () => {
       shouldFailCallback = true
       const statusV3 = await service.checkForUpdate()
       expect(statusV3.kind).toBe('error')
-      expect(statusV3.message).toBe('课程更新失败，继续使用当前版本')
+      expect(statusV3.message).toBe('教学内容更新失败，继续使用当前版本')
       expect(statusV3.error).toContain('SIMULATED_RELOAD_FAILURE')
 
       // Version must still be 2, NOT 3
@@ -1282,7 +1282,7 @@ describe('CourseUpdateService and CourseResolver', () => {
 
       const status = await service.checkForUpdate()
       expect(status.kind).toBe('error')
-      expect(status.message).toBe('课程更新失败，继续使用当前版本')
+      expect(status.message).toBe('教学内容更新失败，继续使用当前版本')
 
       // Current dir and state.json should be removed, falling back to bundled
       expect(existsSync(resolver.getCurrentDir('mcu-foundations'))).toBe(false)

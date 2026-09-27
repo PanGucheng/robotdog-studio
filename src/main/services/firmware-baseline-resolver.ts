@@ -1,8 +1,10 @@
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { FirmwareBaselineService, type FirmwareBaselineServiceOptions } from './firmware-baseline-service'
 
 export interface FirmwareBaselineResolverOptions {
   staticRoot: string
+  firmwareBaselinesRoot?: string
   isPackaged: boolean
   appPath?: string
   developmentSourceOverrides?: Record<string, string>
@@ -33,45 +35,38 @@ export class FirmwareBaselineResolver {
 
   private getServiceOptions(baselineId: string): FirmwareBaselineServiceOptions {
     const { staticRoot, isPackaged } = this.options
+    const baselinesRoot = this.options.firmwareBaselinesRoot ?? join(staticRoot, 'firmware-baselines')
 
-    if (baselineId === 'ch32v203-pony-v25' || baselineId.startsWith('ch32v203-pony')) {
-      const baselineDir = 'ch32v203-pony'
-      const manifestPath = join(staticRoot, 'firmware-baselines', baselineDir, 'active.json')
+    const createOptions = (baselineDir: string): FirmwareBaselineServiceOptions => {
+      const manifestPath = join(baselinesRoot, baselineDir, 'active.json')
+      const localCurrentSource = join(baselinesRoot, baselineDir, 'current', 'source')
+      const packagedSourceRoot = existsSync(localCurrentSource)
+        ? localCurrentSource
+        : isPackaged
+          ? join(process.resourcesPath, 'firmware-baselines', baselineDir, 'current', 'source')
+          : undefined
+
       return {
         manifestPath,
-        packagedSourceRoot: isPackaged ? join(process.resourcesPath, 'firmware-baselines', baselineDir, 'current', 'source') : undefined,
+        packagedSourceRoot,
         developmentSourceRoot: this.options.developmentSourceOverrides?.[baselineId]
       }
+    }
+
+    if (baselineId === 'ch32v203-pony-v25' || baselineId.startsWith('ch32v203-pony')) {
+      return createOptions('ch32v203-pony')
     }
 
     if (baselineId === 'ch32v203-rhs-baseline' || baselineId.startsWith('ch32v203-rhs')) {
-      const baselineDir = 'ch32v203-rhs'
-      const manifestPath = join(staticRoot, 'firmware-baselines', baselineDir, 'active.json')
-      return {
-        manifestPath,
-        packagedSourceRoot: isPackaged ? join(process.resourcesPath, 'firmware-baselines', baselineDir, 'current', 'source') : undefined,
-        developmentSourceRoot: this.options.developmentSourceOverrides?.[baselineId]
-      }
+      return createOptions('ch32v203-rhs')
     }
 
     if (baselineId === 'ch32v203-robotdog' || baselineId.startsWith('ch32v203-robotdog') || baselineId === 'ch32v203-robotdog-provisional') {
-      const baselineDir = 'ch32v203-robotdog'
-      const manifestPath = join(staticRoot, 'firmware-baselines', baselineDir, 'active.json')
-      return {
-        manifestPath,
-        packagedSourceRoot: isPackaged ? join(process.resourcesPath, 'firmware-baselines', baselineDir, 'current', 'source') : undefined,
-        developmentSourceRoot: this.options.developmentSourceOverrides?.[baselineId]
-      }
+      return createOptions('ch32v203-robotdog')
     }
 
     if (baselineId === 'ti-mspm0g3507' || baselineId.startsWith('ti-mspm0')) {
-      const baselineDir = 'ti-mspm0g3507'
-      const manifestPath = join(staticRoot, 'firmware-baselines', baselineDir, 'active.json')
-      return {
-        manifestPath,
-        packagedSourceRoot: isPackaged ? join(process.resourcesPath, 'firmware-baselines', baselineDir, 'current', 'source') : undefined,
-        developmentSourceRoot: this.options.developmentSourceOverrides?.[baselineId]
-      }
+      return createOptions('ti-mspm0g3507')
     }
 
     throw new Error(`UNKNOWN_FIRMWARE_BASELINE: ${baselineId}`)

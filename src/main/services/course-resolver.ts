@@ -1,55 +1,71 @@
 import { existsSync, mkdirSync, readFileSync, renameSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { EditionContentResolver, type CachedContentState } from './edition-content-resolver'
+import type { EditionId } from '../../shared/edition'
 
 export interface CourseResolverOptions {
-  bundledRoot: string
-  userDataCoursesRoot: string
+  bundledRoot?: string
+  staticRoot?: string
+  userDataCoursesRoot?: string
+  userDataContentRoot?: string
   editionId?: string
 }
 
-export interface CachedCourseState {
-  version: number
-  updatedAt?: string
-}
+export type CachedCourseState = CachedContentState
 
-export class CourseResolver {
-  private readonly bundledRoot: string
-  private readonly userDataCoursesRoot: string
-  private readonly editionId: string
+export class CourseResolver extends EditionContentResolver {
+  private readonly legacyBundledRoot?: string
 
   constructor(options: CourseResolverOptions) {
-    this.bundledRoot = resolve(options.bundledRoot)
-    this.userDataCoursesRoot = resolve(options.userDataCoursesRoot)
-    this.editionId = options.editionId ?? 'mcu-foundations'
-    this.migrateLegacyMcuCacheIfNeeded()
+    const staticRoot = options.staticRoot ?? (options.bundledRoot ? resolve(options.bundledRoot, '..', '..') : '')
+    const contentRoot = options.userDataContentRoot ?? options.userDataCoursesRoot ?? ''
+    const editionId = (options.editionId ?? 'mcu-foundations') as EditionId
+
+    super({
+      staticRoot,
+      userDataContentRoot: contentRoot,
+      editionId
+    })
+
+    if (options.bundledRoot) {
+      this.legacyBundledRoot = resolve(options.bundledRoot)
+    }
+
+    if (options.userDataCoursesRoot) {
+      this.migrateLegacyMcuCacheIfNeeded(options.userDataCoursesRoot)
+    }
   }
 
-  getBundledRoot(): string {
-    return this.bundledRoot
+  override getBundledRoot(): string {
+    return this.legacyBundledRoot ?? super.getBundledRoot()
   }
 
-  getUserDataCoursesRoot(): string {
-    return this.userDataCoursesRoot
+  override resolveCourseRoot(editionId?: EditionId | string): string {
+    const targetEdition = (editionId as EditionId) ?? this.getEditionId()
+    if (this.hasValidDownloadedContent(targetEdition)) {
+      const currentDir = this.getCurrentDir(targetEdition)
+      const coursesSub = join(currentDir, 'courses')
+      if (existsSync(join(coursesSub, 'catalog.json'))) {
+        return coursesSub
+      }
+      if (existsSync(join(currentDir, 'catalog.json'))) {
+        return currentDir
+      }
+    }
+    return this.legacyBundledRoot ?? super.resolveCourseRoot(targetEdition)
   }
 
-  getEditionId(): string {
-    return this.editionId
-  }
-
-  getCurrentDir(editionId?: string): string {
-    const id = editionId ?? this.editionId
-    return join(this.userDataCoursesRoot, id, 'current')
-  }
-
-  getStateFile(editionId?: string): string {
-    const id = editionId ?? this.editionId
-    return join(this.userDataCoursesRoot, id, 'state.json')
-  }
-
-  hasValidDownloadedCourse(editionId?: string): boolean {
-    const targetEdition = editionId ?? this.editionId
+  override hasValidDownloadedContent(editionId?: EditionId | string): boolean {
+    const targetEdition = (editionId as EditionId) ?? this.getEditionId()
     const currentDir = this.getCurrentDir(targetEdition)
-    const catalogPath = join(currentDir, 'catalog.json')
+    if (!existsSync(currentDir)) return false
+
+    // Support both unified content.zip structure (current/courses/catalog.json)
+    // and legacy pure course structure (current/catalog.json)
+    const catalogPath = existsSync(join(currentDir, 'courses', 'catalog.json'))
+      ? join(currentDir, 'courses', 'catalog.json')
+      : join(currentDir, 'catalog.json')
+
     if (!existsSync(catalogPath)) return false
     try {
       const content = readFileSync(catalogPath, 'utf8')
@@ -57,53 +73,22 @@ export class CourseResolver {
       if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.courses) || parsed.courses.length === 0) {
         return false
       }
-      return this.isCatalogMatchingEdition(parsed.courses, targetEdition)
+      if (targetEdition === 'ti-mspm0-foundations') {
+        return parsed.courses.some((c: { courseId: string }) => c.courseId.startsWith('ti-mspm0'))
+      }
+      if (targetEdition === 'mcu-foundations') {
+        return parsed.courses.some((c: { courseId: string }) => c.courseId.startsWith('ch32'))
+      }
+      return true
     } catch {
       return false
     }
   }
 
-  resolveCourseRoot(editionId?: string): string {
-    const targetEdition = editionId ?? this.editionId
-    if (this.hasValidDownloadedCourse(targetEdition)) {
-      return this.getCurrentDir(targetEdition)
-    }
-    return this.bundledRoot
-  }
-
-  getCachedState(editionId?: string): CachedCourseState | undefined {
-    const targetEdition = editionId ?? this.editionId
-    const stateFile = this.getStateFile(targetEdition)
-    if (!existsSync(stateFile)) return undefined
-    try {
-      const content = readFileSync(stateFile, 'utf8')
-      const parsed = JSON.parse(content)
-      if (typeof parsed.version === 'number') {
-        return {
-          version: parsed.version,
-          updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : undefined
-        }
-      }
-    } catch {
-      // ignore corrupt state.json
-    }
-    return undefined
-  }
-
-  private isCatalogMatchingEdition(courses: Array<{ courseId: string }>, editionId: string): boolean {
-    if (editionId === 'ti-mspm0-foundations') {
-      return courses.some((c) => c.courseId.startsWith('ti-mspm0'))
-    }
-    if (editionId === 'mcu-foundations') {
-      return courses.some((c) => c.courseId.startsWith('ch32'))
-    }
-    return true
-  }
-
-  private migrateLegacyMcuCacheIfNeeded(): void {
-    const legacyCurrent = join(this.userDataCoursesRoot, 'current')
-    const legacyState = join(this.userDataCoursesRoot, 'state.json')
-    const mcuDir = join(this.userDataCoursesRoot, 'mcu-foundations')
+  private migrateLegacyMcuCacheIfNeeded(coursesRoot: string): void {
+    const legacyCurrent = join(coursesRoot, 'current')
+    const legacyState = join(coursesRoot, 'state.json')
+    const mcuDir = join(coursesRoot, 'mcu-foundations')
     const mcuCurrent = join(mcuDir, 'current')
 
     if (existsSync(legacyCurrent) && !existsSync(mcuCurrent)) {

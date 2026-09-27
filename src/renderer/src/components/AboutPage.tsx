@@ -57,7 +57,7 @@ export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Elemen
     }).catch((caught) => {
       setUpdateStatus({
         kind: 'error',
-        message: '课程更新失败，继续使用当前版本',
+        message: '教学内容更新失败，继续使用当前版本',
         currentVersion: updateStatus?.currentVersion ?? 0,
         error: caught instanceof Error ? caught.message : String(caught)
       })
@@ -147,13 +147,13 @@ export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Elemen
                   </div>
                 </div>
                 <div className="about-version-item">
-                  <span className="about-version-label">课程版本</span>
+                  <span className="about-version-label">教学内容版本</span>
                   <div className="about-version-val">
                     <strong>
-                      {edition.id === 'ti-mspm0-foundations' ? 'TI MSPM0 基础课程 · ' : 'MCU 基础课程 · '}
+                      {edition.id === 'ti-mspm0-foundations' ? 'TI MSPM0 教学内容 · ' : 'MCU 教学内容 · '}
                       {updateStatus && updateStatus.currentVersion > 0
                         ? `第 ${updateStatus.currentVersion} 版`
-                        : '内置课程'}
+                        : '内置内容'}
                     </strong>
                   </div>
                 </div>
@@ -166,7 +166,7 @@ export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Elemen
                   disabled={checking}
                 >
                   <RefreshCw size={13} className={checking ? 'spin' : ''} />
-                  <span>{checking ? '正在检查课程更新…' : '检查课程更新'}</span>
+                  <span>{checking ? '正在检查教学内容更新…' : '检查教学内容更新'}</span>
                 </button>
                 {updateStatus?.message && (
                   <span className={`about-course-update-status status-${updateStatus.kind}`}>

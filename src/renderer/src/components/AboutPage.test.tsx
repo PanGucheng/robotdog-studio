@@ -179,20 +179,20 @@ describe('AboutPage and AppMenu interactive behavior', () => {
     document.body.removeChild(anchor)
     document.body.removeChild(outside)
   })
-  it("renders course version and handles check update button click", async () => {
+  it("renders content version and handles check update button click", async () => {
     const root = createRoot(container)
     await act(async () => {
       root.render(createElement(AboutPage, { edition: EDITION_PROFILES["mcu-foundations"], onBack: vi.fn() }))
     })
 
-    expect(container.textContent).toContain("课程版本")
+    expect(container.textContent).toContain("教学内容版本")
     const updateBtn = container.querySelector<HTMLButtonElement>(".about-course-update-btn")
     expect(updateBtn).not.toBeNull()
-    expect(updateBtn?.textContent).toContain("检查课程更新")
+    expect(updateBtn?.textContent).toContain("检查教学内容更新")
 
     await act(async () => {
       updateBtn?.click()
     })
-    expect(container.textContent).toContain("课程已是最新版本")
+    expect(container.textContent).toContain("教学内容已是最新版本")
   })
 });

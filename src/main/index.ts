@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { cp, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc/register-ipc'
 import { MockRobotService } from './services/mock-robot-service'
@@ -25,6 +25,8 @@ import { DiagnosticService } from './services/diagnostic-service'
 import { CourseService } from './services/course-service'
 import { CourseResolver } from './services/course-resolver'
 import { CourseUpdateService } from './services/course-update-service'
+import { EditionContentResolver } from './services/edition-content-resolver'
+import { EditionContentUpdateService } from './services/edition-content-update-service'
 import { IPC_CHANNELS } from '../shared/channels'
 import { CourseProgressStore } from './services/course-progress-store'
 import { LessonLearningProgressStore } from './services/lesson-learning-progress-store'
@@ -198,14 +200,24 @@ app.whenReady().then(async () => {
   const staticRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
   if (app.isPackaged) process.env.ROBOTDOG_GIT_EXE = join(staticRoot, 'toolchains', 'git', 'cmd', 'git.exe')
   const wchLinkDriver = await readWchLinkDriverStatus(staticRoot, app.isPackaged)
+  const userDataContentRoot = join(app.getPath('userData'), 'content')
+  const contentResolver = new EditionContentResolver({
+    staticRoot,
+    userDataContentRoot,
+    editionId: edition.id
+  })
+  const resolvedBaselinesRoot = contentResolver.resolveFirmwareBaselineRoot()
+  const resolvedTemplatesRoot = contentResolver.resolveWorkspaceTemplateRoot()
+
   const baselineResolver = new FirmwareBaselineResolver({
     staticRoot,
+    firmwareBaselinesRoot: resolvedBaselinesRoot,
     isPackaged: app.isPackaged,
     appPath: app.getAppPath()
   })
-  const baselineRegistry = await readBaselineRegistry(staticRoot)
+  const baselineRegistry = await readBaselineRegistry(staticRoot, resolvedBaselinesRoot)
   const templateResource = baselineRegistry.studentTemplate
-  const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, templateResource, app.isPackaged)
+  const templateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, templateResource, app.isPackaged, resolvedTemplatesRoot)
   const baseline = new FirmwareBaselineService({
     manifestPath: baselineRegistry.manifestPath,
     packagedSourceRoot: app.isPackaged && baselineRegistry.packagedSource ? join(process.resourcesPath, 'firmware-baselines', edition.platform === 'ti-mspm0' ? 'ti-mspm0g3507' : edition.id === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog', baselineRegistry.packagedSource) : undefined,
@@ -218,7 +230,7 @@ app.whenReady().then(async () => {
   if (edition.id === 'mcu-foundations') {
     const ponyBaseline = baselineResolver.resolve('ch32v203-pony-v25')
     const ponyManifest = await ponyBaseline.getManifest()
-    const ponyTemplateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, 'resources/workspace-templates/ch32v203-pony/0.2.5', app.isPackaged)
+    const ponyTemplateRoot = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, 'resources/workspace-templates/ch32v203-pony/0.2.5', app.isPackaged, resolvedTemplatesRoot)
     sandboxDefaults = {
       templateRoot: ponyTemplateRoot,
       templateVersion: ponyManifest.source.expectedCommit.slice(0, 7),
@@ -250,27 +262,20 @@ app.whenReady().then(async () => {
   })
   await candidates.initialize()
   const projectExplorer = isMcuEdition(edition.id) ? new ProjectExplorerService(workspaces, candidates, baselineResolver) : undefined
-  const bundledCourseRoot = join(staticRoot, 'courses', edition.platform === 'ti-mspm0' ? 'ti-mspm0-foundations' : 'mcu-foundations')
-  const userDataCoursesRoot = join(app.getPath('userData'), 'courses')
-  const courseResolver = new CourseResolver({
-    bundledRoot: bundledCourseRoot,
-    userDataCoursesRoot,
-    editionId: edition.id
-  })
   const courses = isMcuEdition(edition.id)
     ? new CourseService({
-        rootDir: () => courseResolver.resolveCourseRoot(),
-        templatesRoot: join(staticRoot, 'workspace-templates', edition.platform === 'ti-mspm0' ? '' : 'ch32v203-mcu-lessons'),
+        rootDir: () => contentResolver.resolveCourseRoot(),
+        templatesRoot: () => join(contentResolver.resolveWorkspaceTemplateRoot(), edition.platform === 'ti-mspm0' ? '' : 'ch32v203-mcu-lessons'),
         includeDrafts: !app.isPackaged
       })
     : undefined
   const courseUpdateService = isMcuEdition(edition.id)
-    ? new CourseUpdateService({
-        userDataCoursesRoot,
-        resolver: courseResolver,
+    ? new EditionContentUpdateService({
+        userDataContentRoot,
+        resolver: contentResolver,
         appVersion: app.getVersion() || '0.1.0',
         editionId: edition.id,
-        onCourseUpdated: async (_newRoot, status) => {
+        onContentUpdated: async (_newRoot, status) => {
           for (const win of BrowserWindow.getAllWindows()) {
             win.webContents.send(IPC_CHANNELS.courseUpdateEvent, status)
           }
@@ -355,8 +360,19 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => disposeIpc?.())
 
-function resolveStudentTemplateRoot(appRoot: string, staticRoot: string, studentTemplate: string, packaged: boolean): string {
+function resolveStudentTemplateRoot(appRoot: string, staticRoot: string, studentTemplate: string, packaged: boolean, resolvedTemplatesRoot?: string): string {
   const normalized = studentTemplate.replace(/\\/g, '/')
+  if (resolvedTemplatesRoot) {
+    const templateSubPath = normalized.startsWith('resources/workspace-templates/')
+      ? normalized.slice('resources/workspace-templates/'.length)
+      : normalized.startsWith('workspace-templates/')
+        ? normalized.slice('workspace-templates/'.length)
+        : undefined
+    if (templateSubPath) {
+      const candidate = join(resolvedTemplatesRoot, templateSubPath)
+      if (existsSync(candidate)) return candidate
+    }
+  }
   if (packaged && normalized.startsWith('resources/')) return join(staticRoot, normalized.slice('resources/'.length))
   return join(packaged ? staticRoot : appRoot, studentTemplate)
 }
@@ -398,9 +414,10 @@ async function getAgentRuntimeStatus(runtime: { secrets: DeepSeekSecretStore; pr
   }
 }
 
-async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath: string; packagedSource: string; studentTemplate: string; templateVersion: string }> {
+async function readBaselineRegistry(staticRoot: string, baselinesRoot?: string): Promise<{ manifestPath: string; packagedSource: string; studentTemplate: string; templateVersion: string }> {
   const baselineDir = edition.platform === 'ti-mspm0' ? 'ti-mspm0g3507' : edition.id === 'mcu-foundations' ? 'ch32v203-rhs' : 'ch32v203-robotdog'
-  const path = join(staticRoot, 'firmware-baselines', baselineDir, 'active.json')
+  const root = baselinesRoot ?? join(staticRoot, 'firmware-baselines')
+  const path = join(root, baselineDir, 'active.json')
   const value = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
   if (value.schemaVersion !== 1 && value.schemaVersion !== 2) throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
   const safeRelative = (item: string): boolean => !item.startsWith('/') && !item.startsWith('\\') && !item.split(/[\\/]/).includes('..')
@@ -408,7 +425,7 @@ async function readBaselineRegistry(staticRoot: string): Promise<{ manifestPath:
     if (typeof value.manifest !== 'string' || typeof value.packagedSource !== 'string') throw new Error('ACTIVE_BASELINE_REGISTRY_INVALID')
     if (!safeRelative(value.manifest) || !safeRelative(value.packagedSource)) throw new Error('ACTIVE_BASELINE_REGISTRY_PATH_INVALID')
     return {
-      manifestPath: join(staticRoot, 'firmware-baselines', baselineDir, value.manifest),
+      manifestPath: join(root, baselineDir, value.manifest),
       packagedSource: value.packagedSource,
       studentTemplate: edition.platform === 'ti-mspm0' ? 'resources/workspace-templates/ti-mspm0g3507-foundations' : 'resources/workspace-templates/ch32v203-robotdog/2026.06',
       templateVersion: edition.platform === 'ti-mspm0' ? 'sdk-2.11.00.07' : '2026.06'

@@ -55,7 +55,7 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
     }).catch((caught) => {
       setCourseUpdate({
         kind: 'error',
-        message: '课程更新失败，继续使用当前版本',
+        message: '教学内容更新失败，继续使用当前版本',
         currentVersion: courseUpdate?.currentVersion ?? 0,
         error: caught instanceof Error ? caught.message : String(caught)
       })
@@ -126,8 +126,8 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
         </div>
         <dl>
           <div>
-            <dt>当前课程</dt>
-            <dd>{(editionProfile?.id === 'ti-mspm0-foundations' ? 'TI MSPM0 基础课程 · ' : 'MCU 基础课程 · ') + (courseUpdate?.currentVersion ? `第 ${courseUpdate.currentVersion} 版` : '内置课程')}</dd>
+            <dt>教学内容版本</dt>
+            <dd>{(editionProfile?.id === 'ti-mspm0-foundations' ? 'TI MSPM0 基础课程 · ' : 'MCU 基础课程 · ') + (courseUpdate?.currentVersion ? `第 ${courseUpdate.currentVersion} 版` : '内置内容')}</dd>
           </div>
           <div>
             <dt>更新状态</dt>
@@ -139,7 +139,7 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
         <div className="diagnostic-actions">
           <button type="button" onClick={handleCheckCourseUpdate} disabled={courseChecking}>
             <RefreshCw size={14} className={courseChecking ? 'spin' : ''} />
-            {courseChecking ? '正在检查课程更新…' : '检查课程更新'}
+            {courseChecking ? '正在检查教学内容更新…' : '检查教学内容更新'}
           </button>
         </div>
       </section>

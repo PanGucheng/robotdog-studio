@@ -74,7 +74,7 @@ type LessonManifest = z.infer<typeof lessonManifestSchema>
 
 export interface CourseServiceOptions {
   rootDir: string | (() => string)
-  templatesRoot?: string
+  templatesRoot?: string | (() => string)
   includeDrafts?: boolean
 }
 
@@ -82,17 +82,22 @@ export type CourseAiTaskKind = 'modify' | 'explain-code' | 'explain-diagnostic' 
 
 export class CourseService {
   private rootDirSource: string | (() => string)
-  private readonly templatesRoot?: string
+  private readonly templatesRootSource?: string | (() => string)
   private readonly includeDrafts: boolean
 
   constructor(options: CourseServiceOptions) {
     this.rootDirSource = typeof options.rootDir === 'function' ? options.rootDir : resolve(options.rootDir)
-    this.templatesRoot = options.templatesRoot ? resolve(options.templatesRoot) : undefined
+    this.templatesRootSource = typeof options.templatesRoot === 'function' ? options.templatesRoot : options.templatesRoot ? resolve(options.templatesRoot) : undefined
     this.includeDrafts = options.includeDrafts ?? false
   }
 
   getRootDir(): string {
     return typeof this.rootDirSource === 'function' ? resolve(this.rootDirSource()) : this.rootDirSource
+  }
+
+  getTemplatesRoot(): string | undefined {
+    if (!this.templatesRootSource) return undefined
+    return typeof this.templatesRootSource === 'function' ? resolve(this.templatesRootSource()) : resolve(this.templatesRootSource)
   }
 
   setRootDir(newRootDir: string | (() => string)): void {
@@ -188,12 +193,13 @@ export class CourseService {
   }
 
   async getWorkspaceCreationSpec(courseId: string, lessonId: string): Promise<WorkspaceCreationSpec> {
-    if (!this.templatesRoot) throw new Error('COURSE_TEMPLATE_ROOT_UNAVAILABLE')
+    const templatesRoot = this.getTemplatesRoot()
+    if (!templatesRoot) throw new Error('COURSE_TEMPLATE_ROOT_UNAVAILABLE')
     const [course, lesson] = await Promise.all([this.getCourse(courseId), this.getLesson(courseId, lessonId)])
     if (lesson.status !== 'published' && !this.includeDrafts) throw new Error('COURSE_LESSON_NOT_PUBLISHED')
     if (lesson.verification === 'pending-hardware-check' && !this.includeDrafts) throw new Error('COURSE_LESSON_HARDWARE_UNVERIFIED')
-    const templateRoot = resolve(this.templatesRoot, lesson.templateId)
-    const fromRoot = relative(this.templatesRoot, templateRoot)
+    const templateRoot = resolve(templatesRoot, lesson.templateId)
+    const fromRoot = relative(templatesRoot, templateRoot)
     if (!fromRoot || fromRoot.startsWith(`..${sep}`) || fromRoot === '..' || isAbsolute(fromRoot)) throw new Error('COURSE_TEMPLATE_PATH_INVALID')
     return {
       workspacePurpose: 'mcu-lesson-attempt',

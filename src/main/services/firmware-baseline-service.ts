@@ -100,6 +100,10 @@ export class FirmwareBaselineService {
   private resolveSourceRoot(manifest: FirmwareBaselineManifest): string {
     const override = this.options.developmentSourceRoot ?? process.env.ROBOTDOG_FIRMWARE_ROOT
     if (override) return resolve(override)
+    if (this.options.packagedSourceRoot && existsSync(this.options.packagedSourceRoot)) return resolve(this.options.packagedSourceRoot)
+    const activeDir = dirname(this.options.manifestPath)
+    const localCurrentSource = join(activeDir, 'current', 'source')
+    if (existsSync(localCurrentSource)) return localCurrentSource
     if (this.options.packagedSourceRoot) return resolve(this.options.packagedSourceRoot)
     if (manifest.schemaVersion === 2) {
       const appRoot = resolve(dirname(this.options.manifestPath), '..', '..', '..')

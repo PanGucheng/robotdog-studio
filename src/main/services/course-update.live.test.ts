@@ -1,15 +1,16 @@
+import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { CourseResolver } from './course-resolver'
+import { EditionContentResolver } from './edition-content-resolver'
 import { CourseService } from './course-service'
-import { CourseUpdateService } from './course-update-service'
+import { EditionContentUpdateService } from './edition-content-update-service'
 
 const temporaryDirs: string[] = []
 
 async function createTempDir(prefix: string): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), `test-${prefix}-`))
+  const dir = await mkdtemp(join(tmpdir(), `test-live-${prefix}-`))
   temporaryDirs.push(dir)
   return dir
 }
@@ -18,21 +19,20 @@ afterEach(async () => {
   await Promise.all(temporaryDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
 })
 
-describe('Live Gitee Remote Course Update', () => {
-  const mcuBundledRoot = join(process.cwd(), 'resources', 'courses', 'mcu-foundations')
-  const tiBundledRoot = join(process.cwd(), 'resources', 'courses', 'ti-mspm0-foundations')
+describe('Live Gitee Remote Content Update', () => {
+  const staticRoot = join(process.cwd(), 'resources')
 
-  it('Live Gitee verification: can fetch real update.json and download real MCU course from Gitee', async () => {
+  it('Live Gitee verification: can fetch real update.json and download real MCU content package from Gitee', async () => {
     const userDataRoot = await createTempDir('live-mcu')
-    const coursesUserData = join(userDataRoot, 'courses')
-    const resolver = new CourseResolver({
-      bundledRoot: mcuBundledRoot,
-      userDataCoursesRoot: coursesUserData,
+    const contentUserData = join(userDataRoot, 'content')
+    const resolver = new EditionContentResolver({
+      staticRoot,
+      userDataContentRoot: contentUserData,
       editionId: 'mcu-foundations'
     })
 
-    const service = new CourseUpdateService({
-      userDataCoursesRoot: coursesUserData,
+    const service = new EditionContentUpdateService({
+      userDataContentRoot: contentUserData,
       resolver,
       appVersion: '0.1.0',
       editionId: 'mcu-foundations'
@@ -40,9 +40,10 @@ describe('Live Gitee Remote Course Update', () => {
 
     const status = await service.checkForUpdate()
     expect(['updated', 'up-to-date']).toContain(status.kind)
-    expect(resolver.hasValidDownloadedCourse()).toBe(true)
+    expect(resolver.hasValidDownloadedContent()).toBe(true)
     expect(resolver.getCachedState()?.version).toBeGreaterThanOrEqual(1)
 
+    // 1. Verify courses
     const courseService = new CourseService({
       rootDir: () => resolver.resolveCourseRoot(),
       includeDrafts: true
@@ -50,19 +51,27 @@ describe('Live Gitee Remote Course Update', () => {
     const courses = await courseService.listCourses()
     expect(courses.length).toBeGreaterThan(0)
     expect(courses[0].courseId).toBe('ch32v203-foundations')
-  }, 45000)
 
-  it('Live Gitee verification: can fetch real update.json and download real TI MSPM0 course from Gitee', async () => {
+    // 2. Verify workspace-templates exist in downloaded content
+    const templateRoot = resolver.resolveWorkspaceTemplateRoot()
+    expect(existsSync(templateRoot)).toBe(true)
+
+    // 3. Verify firmware-baselines exist in downloaded content
+    const baselineRoot = resolver.resolveFirmwareBaselineRoot()
+    expect(existsSync(baselineRoot)).toBe(true)
+  }, 60000)
+
+  it('Live Gitee verification: can fetch real update.json and download real TI MSPM0 content package from Gitee', async () => {
     const userDataRoot = await createTempDir('live-ti')
-    const coursesUserData = join(userDataRoot, 'courses')
-    const resolver = new CourseResolver({
-      bundledRoot: tiBundledRoot,
-      userDataCoursesRoot: coursesUserData,
+    const contentUserData = join(userDataRoot, 'content')
+    const resolver = new EditionContentResolver({
+      staticRoot,
+      userDataContentRoot: contentUserData,
       editionId: 'ti-mspm0-foundations'
     })
 
-    const service = new CourseUpdateService({
-      userDataCoursesRoot: coursesUserData,
+    const service = new EditionContentUpdateService({
+      userDataContentRoot: contentUserData,
       resolver,
       appVersion: '0.1.0',
       editionId: 'ti-mspm0-foundations'
@@ -70,9 +79,10 @@ describe('Live Gitee Remote Course Update', () => {
 
     const status = await service.checkForUpdate()
     expect(['updated', 'up-to-date']).toContain(status.kind)
-    expect(resolver.hasValidDownloadedCourse()).toBe(true)
+    expect(resolver.hasValidDownloadedContent()).toBe(true)
     expect(resolver.getCachedState()?.version).toBeGreaterThanOrEqual(1)
 
+    // 1. Verify courses
     const courseService = new CourseService({
       rootDir: () => resolver.resolveCourseRoot(),
       includeDrafts: true
@@ -80,46 +90,54 @@ describe('Live Gitee Remote Course Update', () => {
     const courses = await courseService.listCourses()
     expect(courses.length).toBeGreaterThan(0)
     expect(courses[0].courseId).toBe('ti-mspm0-gpio-foundations')
-  }, 45000)
 
-  it('Live Gitee verification: both MCU and TI courses coexist in isolated directories', async () => {
+    // 2. Verify workspace-templates exist in downloaded content
+    const templateRoot = resolver.resolveWorkspaceTemplateRoot()
+    expect(existsSync(templateRoot)).toBe(true)
+
+    // 3. Verify firmware-baselines exist in downloaded content
+    const baselineRoot = resolver.resolveFirmwareBaselineRoot()
+    expect(existsSync(baselineRoot)).toBe(true)
+  }, 60000)
+
+  it('Live Gitee verification: both MCU and TI content coexist in isolated directories', async () => {
     const userDataRoot = await createTempDir('live-coexist')
-    const coursesUserData = join(userDataRoot, 'courses')
+    const contentUserData = join(userDataRoot, 'content')
 
     // 1. Update MCU
-    const mcuResolver = new CourseResolver({
-      bundledRoot: mcuBundledRoot,
-      userDataCoursesRoot: coursesUserData,
+    const mcuResolver = new EditionContentResolver({
+      staticRoot,
+      userDataContentRoot: contentUserData,
       editionId: 'mcu-foundations'
     })
-    const mcuService = new CourseUpdateService({
-      userDataCoursesRoot: coursesUserData,
+    const mcuService = new EditionContentUpdateService({
+      userDataContentRoot: contentUserData,
       resolver: mcuResolver,
       appVersion: '0.1.0',
       editionId: 'mcu-foundations'
     })
     const mcuStatus = await mcuService.checkForUpdate()
     expect(['updated', 'up-to-date']).toContain(mcuStatus.kind)
-    expect(mcuResolver.hasValidDownloadedCourse()).toBe(true)
+    expect(mcuResolver.hasValidDownloadedContent()).toBe(true)
 
     // 2. Update TI
-    const tiResolver = new CourseResolver({
-      bundledRoot: tiBundledRoot,
-      userDataCoursesRoot: coursesUserData,
+    const tiResolver = new EditionContentResolver({
+      staticRoot,
+      userDataContentRoot: contentUserData,
       editionId: 'ti-mspm0-foundations'
     })
-    const tiService = new CourseUpdateService({
-      userDataCoursesRoot: coursesUserData,
+    const tiService = new EditionContentUpdateService({
+      userDataContentRoot: contentUserData,
       resolver: tiResolver,
       appVersion: '0.1.0',
       editionId: 'ti-mspm0-foundations'
     })
     const tiStatus = await tiService.checkForUpdate()
     expect(['updated', 'up-to-date']).toContain(tiStatus.kind)
-    expect(tiResolver.hasValidDownloadedCourse()).toBe(true)
+    expect(tiResolver.hasValidDownloadedContent()).toBe(true)
 
     // 3. Verify MCU still intact and isolated
-    expect(mcuResolver.hasValidDownloadedCourse()).toBe(true)
+    expect(mcuResolver.hasValidDownloadedContent()).toBe(true)
     const mcuCourseService = new CourseService({
       rootDir: () => mcuResolver.resolveCourseRoot(),
       includeDrafts: true
@@ -136,5 +154,5 @@ describe('Live Gitee Remote Course Update', () => {
     const tiCourses = await tiCourseService.listCourses()
     expect(tiCourses.length).toBeGreaterThan(0)
     expect(tiCourses[0].courseId).toBe('ti-mspm0-gpio-foundations')
-  }, 60000)
+  }, 80000)
 })
