@@ -1,9 +1,8 @@
 import { Activity, BookOpenCheck, Cable, CheckSquare2, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { AgentEvent, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RecoverySnapshot, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
+import type { AgentEvent, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
-import { RecoveryPanel } from './RecoveryPanel'
 import { DiffReview } from './DiffReview'
 import { DisplaySettings } from './DisplaySettings'
 import { StudentCodeEditor } from './StudentCodeEditor'
@@ -29,9 +28,7 @@ export interface WorkbenchProps {
   build: FirmwareBuildSnapshot
   connection: DeviceConnectionSnapshot
   update: FirmwareUpdateSnapshot
-  recovery: RecoverySnapshot
   wchLink: WchLinkFlashSnapshot
-  teacherMode: boolean
   edition: AppEditionProfile
   busy: boolean
   candidate?: CandidateSnapshot
@@ -56,8 +53,6 @@ export interface WorkbenchProps {
   onToggleUsb: () => void
   onStartUpdate: () => void
   onCancelUpdate: () => void
-  onStartRecovery: () => void
-  onCancelRecovery: () => void
   onProbeWchLink: () => void
   onFlashWchLink: () => void
   onCancelWchLink: () => void
@@ -114,7 +109,7 @@ const mcuTabs = [
 ] as const
 
 export function Workbench(props: WorkbenchProps): React.JSX.Element {
-  const { frame, status, logs, toolchain, baseline, build, connection, update, recovery, wchLink, teacherMode, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onStartRecovery, onCancelRecovery, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt, workspaceLesson, courseProgress, onUpdateCourseProgress, completedLessonIds } = props
+  const { frame, status, logs, toolchain, baseline, build, connection, update, wchLink, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt, workspaceLesson, courseProgress, onUpdateCourseProgress, completedLessonIds } = props
   const tabs = edition.id !== 'fun-line-following' ? mcuTabs.filter((tab) => tab.id !== 'course-tasks' || workspace?.workspacePurpose === 'mcu-lesson-attempt') : funTabs
   const [activeTab, setActiveTab] = useState<WorkbenchRoute>(edition.id !== 'fun-line-following' ? 'course-center' : 'ccd')
   useEffect(() => { setActiveTab(edition.id !== 'fun-line-following' ? 'course-center' : 'ccd') }, [edition.id])
@@ -177,7 +172,7 @@ export function Workbench(props: WorkbenchProps): React.JSX.Element {
             <div>
               <span className="eyebrow">{isMcu ? '编译、烧录与验证' : '编译与安全下载'}</span>
               <h2>{update.state === 'completed' ? (isMcu ? '新程序已写入开发板' : '新程序已在小马上运行') : build.state === 'running' ? `正在生成：${build.currentFile ?? '准备中'}` : artifactCurrent ? (isMcu ? '实验程序已准备好' : '小马程序已准备好') : build.state === 'completed' ? '代码已变化，需要重新生成程序' : (isMcu ? '先编译，再连接开发板验证' : '无线调试，有线下载')}</h2>
-              <p>{isMcu ? '编译日志用于定位 C 代码问题；烧录仍需学生确认，WCH-Link 用于有线写入与恢复。' : '蓝牙负责地面调试，板载 USB 负责稳定下载；WCH-Link 只在教师恢复时使用。'}</p>
+              <p>{isMcu ? '编译日志用于定位 C 代码问题；烧录仍需学生确认，WCH-Link 用于有线写入与恢复。' : '蓝牙负责地面调试，板载 USB 负责稳定下载；WCH-Link 页面提供底层硬件烧录与恢复。'}</p>
             </div>
             <div className={`recognition-badge ${toolchainReady ? 'is-ready' : ''}`}>
               <span className={toolchainReady ? 'valid-dot' : 'invalid-dot'} />
@@ -194,8 +189,6 @@ export function Workbench(props: WorkbenchProps): React.JSX.Element {
             onStartUpdate={onStartUpdate}
             onCancelUpdate={onCancelUpdate}
           />
-
-          {teacherMode && <RecoveryPanel recovery={recovery} busy={busy} onStart={onStartRecovery} onCancel={onCancelRecovery} />}
 
           <div className="firmware-grid">
             <article className="firmware-card">

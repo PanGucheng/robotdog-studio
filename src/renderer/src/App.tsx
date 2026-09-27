@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, CircleUserRound, GraduationCap, HelpCircle, Menu, Pencil, Plus, Settings2, ShieldAlert, X } from 'lucide-react'
-import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RecoverySnapshot, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
+import { ChevronLeft, GraduationCap, Menu, Pencil, Plus, X } from 'lucide-react'
+import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDock } from './components/ControlDock'
-import { PipelineRail } from './components/PipelineRail'
 import { Workbench } from './components/Workbench'
 import { getRobotApi } from './lib/browser-demo-api'
 import { applyUiScale, readUiScale, type UiScale } from './lib/ui-scale'
@@ -15,7 +14,7 @@ import { EDITION_PROFILES, type AppEditionProfile } from '../../shared/edition'
 import type { McuView } from './components/mcu-navigation'
 import brandMark from '../../../resources/brand/robohorse-mark.png'
 import { AboutPage } from './components/AboutPage'
-import { ProjectMenu } from './components/ProjectMenu'
+import { AppMenu } from './components/AppMenu'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -57,8 +56,6 @@ const initialUpdate: FirmwareUpdateSnapshot = {
   message: '生成程序后，可以通过板载 USB 下载到小马。'
 }
 
-const initialRecovery: RecoverySnapshot = { state: 'idle', progress: 0, message: '教师恢复待命', canCancel: false }
-
 const initialWchLink: WchLinkFlashSnapshot = { state: 'idle', progress: 0, message: '连接 WCH-Link 后，可以先检测烧录器和芯片。', canCancel: false, logs: [] }
 
 export function App(): React.JSX.Element {
@@ -72,9 +69,7 @@ export function App(): React.JSX.Element {
   const [build, setBuild] = useState<FirmwareBuildSnapshot>(initialBuild)
   const [connection, setConnection] = useState<DeviceConnectionSnapshot>(initialConnection)
   const [firmwareUpdate, setFirmwareUpdate] = useState<FirmwareUpdateSnapshot>(initialUpdate)
-  const [recovery, setRecovery] = useState<RecoverySnapshot>(initialRecovery)
   const [wchLink, setWchLink] = useState<WchLinkFlashSnapshot>(initialWchLink)
-  const [teacherMode, setTeacherMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
@@ -101,7 +96,7 @@ export function App(): React.JSX.Element {
   const [lessonLearningProgress, setLessonLearningProgress] = useState<LessonLearningProgress[]>([])
   const [mcuRecentActivity, setMcuRecentActivity] = useState<McuRecentActivity[]>([])
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const menuAnchorRef = useRef<HTMLDivElement>(null)
@@ -113,7 +108,7 @@ export function App(): React.JSX.Element {
   useEffect(() => { applyUiScale(uiScale); document.getElementById('root')?.scrollTo(0, 0) }, [uiScale])
   const closeMcuSettings = (): void => {
     setSettingsOpen(false)
-    requestAnimationFrame(() => { document.getElementById('root')?.scrollTo(0, 0); settingsButtonRef.current?.focus({ preventScroll: true }) })
+    requestAnimationFrame(() => { document.getElementById('root')?.scrollTo(0, 0); menuButtonRef.current?.focus({ preventScroll: true }) })
   }
 
   useEffect(() => {
@@ -164,7 +159,6 @@ export function App(): React.JSX.Element {
     void api.getFirmwareBaselineStatus().then(setBaseline).catch((caught) => setError(toStudentErrorMessage(caught)))
     void api.getDeviceConnection().then(setConnection)
     void api.getFirmwareUpdate().then(setFirmwareUpdate)
-    void api.getRecovery().then(setRecovery)
     void api.getWchLinkFlash().then(setWchLink)
     void api.listWorkspaces().then((items) => {
       setWorkspaces(items)
@@ -196,7 +190,6 @@ export function App(): React.JSX.Element {
     })
     const offConnection = api.onDeviceConnection(setConnection)
     const offUpdate = api.onFirmwareUpdate((event) => setFirmwareUpdate(event.snapshot))
-    const offRecovery = api.onRecovery((event) => setRecovery(event.snapshot))
     const offWchLink = api.onWchLinkFlash((event) => setWchLink(event.snapshot))
     const offWorkspace = api.onWorkspaceChanged((workspace) => {
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
@@ -226,7 +219,6 @@ export function App(): React.JSX.Element {
       offBuild()
       offConnection()
       offUpdate()
-      offRecovery()
       offWchLink()
       offWorkspace()
       offCandidate()
@@ -235,11 +227,6 @@ export function App(): React.JSX.Element {
   }, [api])
 
   const connected = status.connection === 'ready'
-  const statusLabel = useMemo(() => {
-    if (status.connection === 'connecting') return '正在连接'
-    if (connected) return status.port ?? '已连接'
-    return '未连接'
-  }, [connected, status.connection, status.port])
 
   async function run(operation: () => Promise<unknown>): Promise<void> {
     setBusy(true)
@@ -274,8 +261,6 @@ export function App(): React.JSX.Element {
     setFirmwareUpdate(await api.startFirmwareUpdate(currentWorkspaceId))
   }) }
   const cancelUpdate = (): void => { void run(async () => { setFirmwareUpdate(await api.cancelFirmwareUpdate()) }) }
-  const startRecovery = (): void => { void run(async () => { setRecovery(await api.startRecovery()) }) }
-  const cancelRecovery = (): void => { void run(async () => { setRecovery(await api.cancelRecovery()) }) }
   const probeWchLink = (): void => { void run(async () => { setWchLink(await api.probeWchLink()) }) }
   const flashWchLink = (): void => { void run(async () => {
     if (!currentWorkspaceId) throw new Error('请先选择学生对话')
@@ -318,10 +303,9 @@ export function App(): React.JSX.Element {
   const openMcuView = (next: McuView): void => {
     if (mcuView.kind === 'workspace' && (next.kind !== 'workspace' || next.workspaceId !== mcuView.workspaceId)) {
       const updateActive = !['idle', 'completed', 'failed', 'cancelled'].includes(firmwareUpdate.state)
-      const recoveryActive = !['idle', 'completed', 'failed', 'cancelled'].includes(recovery.state)
       const wchWriteActive = ['flashing', 'verifying', 'resetting'].includes(wchLink.state)
-      if (updateActive || recoveryActive || wchWriteActive) {
-        setError(updateActive ? '程序正在写入开发板，请等待完成或取消后再离开工程。' : recoveryActive ? '教师恢复正在进行，请等待完成或取消后再离开工程。' : 'WCH-Link 正在写入或校验，请等待完成或取消后再离开工程。')
+      if (updateActive || wchWriteActive) {
+        setError(updateActive ? '程序正在写入开发板，请等待完成或取消后再离开工程。' : 'WCH-Link 正在写入或校验，请等待完成或取消后再离开工程。')
         return
       }
     }
@@ -541,18 +525,27 @@ export function App(): React.JSX.Element {
         <div className="brand-block">
           <div className="menu-anchor" ref={menuAnchorRef}>
             <button
+              ref={menuButtonRef}
               type="button"
               className="menu-button"
-              aria-label="打开项目菜单"
+              aria-label="打开应用菜单"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((current) => !current)}
             >
               <Menu size={20} />
             </button>
             {menuOpen && (
-              <ProjectMenu
+              <AppMenu
                 anchorRef={menuAnchorRef}
                 onClose={() => setMenuOpen(false)}
+                onOpenSettings={() => {
+                  setMenuOpen(false)
+                  setSettingsOpen(true)
+                }}
+                onOpenLearning={edition.id === 'fun-line-following' ? () => {
+                  setMenuOpen(false)
+                  setLearningOpen(true)
+                } : undefined}
                 onSelectAbout={() => {
                   setMenuOpen(false)
                   setAboutOpen(true)
@@ -565,22 +558,6 @@ export function App(): React.JSX.Element {
             <h1>RoboHorse <em>Studio</em></h1>
             <p>{edition.subtitle}</p>
           </div>
-        </div>
-
-        {edition.id === 'fun-line-following' ? <PipelineRail connected={connected} buildState={build.state} updateState={firmwareUpdate.state} /> : <div className="mcu-top-status"><span className={candidate || agentTurn || build.state === 'running' ? 'is-active' : ''} />{!['idle', 'completed', 'failed', 'cancelled'].includes(firmwareUpdate.state) ? '正在烧录' : ['probing', 'flashing', 'verifying', 'resetting'].includes(wchLink.state) ? '正在烧录' : agentTurn ? 'AI 助教正在回答' : build.state === 'running' ? '正在编译' : candidate ? '修改待处理' : build.state === 'completed' ? '编译完成' : mcuView.kind === 'workspace' ? '代码工作台' : '学习模式'}</div>}
-
-        <div className="topbar-actions">
-          <div className={`connection-pill ${connected ? 'is-connected' : ''}`}>
-            <span /> {statusLabel}
-          </div>
-          <button type="button" className={`student-pill ${teacherMode ? 'is-teacher' : ''}`} onClick={() => setTeacherMode((current) => !current)} title="切换学生/教师演示模式">
-            <CircleUserRound size={17} /> {teacherMode ? '教师模式' : activeWorkspace?.studentDisplayName ?? '学习者'}
-          </button>
-          {edition.id === 'fun-line-following' && <button type="button" className="learning-button" onClick={() => setLearningOpen(true)}><HelpCircle size={16} /> 操作示范</button>}
-          {edition.id !== 'fun-line-following' && <button ref={settingsButtonRef} type="button" className="mcu-settings-button" onClick={() => setSettingsOpen(true)} aria-label="打开设置"><Settings2 size={17} /> 设置</button>}
-          <button type="button" className="emergency-button" onClick={() => action('stop')} disabled={!connected}>
-            <ShieldAlert size={18} /> 急停
-          </button>
         </div>
       </header>
 
@@ -613,7 +590,7 @@ export function App(): React.JSX.Element {
         )}
         {activeWorkspace && <span className="checkpoint-tag">存档 {activeWorkspace.headCommit.slice(0, 7)}</span>}
         <span>固件：{status.firmware}</span>
-        <span className="simulation-flag">SIMULATION · {teacherMode ? '教师维护' : '学生工作台'}</span>
+        <span className="simulation-flag">SIMULATION</span>
         {error && <span className="inline-error">{error}</span>}
       </div>
 
@@ -628,9 +605,7 @@ export function App(): React.JSX.Element {
           build={build}
           connection={connection}
           update={firmwareUpdate}
-          recovery={recovery}
           wchLink={wchLink}
-          teacherMode={teacherMode}
           edition={edition}
           busy={busy || Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
           candidate={candidate?.workspaceId === currentWorkspaceId ? candidate : undefined}
@@ -655,8 +630,6 @@ export function App(): React.JSX.Element {
           onToggleUsb={toggleUsb}
           onStartUpdate={startUpdate}
           onCancelUpdate={cancelUpdate}
-          onStartRecovery={startRecovery}
-          onCancelRecovery={cancelRecovery}
           onProbeWchLink={probeWchLink}
           onFlashWchLink={flashWchLink}
           onCancelWchLink={cancelWchLink}
@@ -693,7 +666,7 @@ export function App(): React.JSX.Element {
 
       {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
       {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
-      {edition.id !== 'fun-line-following' && settingsOpen && <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置"><div className="mcu-settings-dialog"><button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置"><X size={18} /></button><DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} /></div></div>}
+      {settingsOpen && <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置"><div className="mcu-settings-dialog"><button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置"><X size={18} /></button><DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} /></div></div>}
         </>
       )}
     </main>

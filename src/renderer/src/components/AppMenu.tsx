@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react'
-import { Info } from 'lucide-react'
+import { HelpCircle, Info, Settings2 } from 'lucide-react'
 
-export interface ProjectMenuProps {
+export interface AppMenuProps {
   anchorRef: React.RefObject<HTMLElement | null>
   onClose(): void
+  onOpenSettings(): void
   onSelectAbout(): void
+  onOpenLearning?: () => void
 }
 
-export function ProjectMenu({ anchorRef, onClose, onSelectAbout }: ProjectMenuProps): React.JSX.Element {
+export function AppMenu({ anchorRef, onClose, onOpenSettings, onSelectAbout, onOpenLearning }: AppMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -37,10 +39,35 @@ export function ProjectMenu({ anchorRef, onClose, onSelectAbout }: ProjectMenuPr
   }, [anchorRef, onClose])
 
   return (
-    <div ref={menuRef} className="project-menu" role="menu" aria-label="项目菜单">
+    <div ref={menuRef} className="project-menu" role="menu" aria-label="应用菜单">
       <div className="project-menu-header">
         <span className="project-menu-title">RoboHorse Studio</span>
       </div>
+      <div className="project-menu-divider" role="separator" />
+      <button
+        type="button"
+        role="menuitem"
+        className="project-menu-item"
+        onClick={() => {
+          onOpenSettings()
+        }}
+      >
+        <Settings2 size={15} />
+        <span>设置</span>
+      </button>
+      {onOpenLearning && (
+        <button
+          type="button"
+          role="menuitem"
+          className="project-menu-item"
+          onClick={() => {
+            onOpenLearning()
+          }}
+        >
+          <HelpCircle size={15} />
+          <span>操作示范</span>
+        </button>
+      )}
       <div className="project-menu-divider" role="separator" />
       <button
         type="button"

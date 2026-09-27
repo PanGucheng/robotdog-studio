@@ -793,21 +793,6 @@ export interface FirmwarePackageInspection {
   warnings: string[]
 }
 
-export type RecoveryState = 'idle' | 'preflight' | 'erasing' | 'writing_bootloader' | 'writing_app' | 'verifying' | 'resetting' | 'completed' | 'failed' | 'cancelled'
-
-export interface RecoverySnapshot {
-  state: RecoveryState
-  progress: number
-  message: string
-  imageName?: string
-  canCancel: boolean
-  error?: string
-  startedAt?: string
-  completedAt?: string
-}
-
-export type RecoveryEvent = { type: 'snapshot' | 'progress' | 'completed' | 'failed' | 'cancelled'; snapshot: RecoverySnapshot }
-
 export type WchLinkFlashState =
   | 'idle'
   | 'probing'
@@ -880,9 +865,6 @@ export interface RobotDogApi {
   getFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>
   startFirmwareUpdate(workspaceId: string): Promise<FirmwareUpdateSnapshot>
   cancelFirmwareUpdate(): Promise<FirmwareUpdateSnapshot>
-  getRecovery(): Promise<RecoverySnapshot>
-  startRecovery(): Promise<RecoverySnapshot>
-  cancelRecovery(): Promise<RecoverySnapshot>
   getWchLinkFlash(): Promise<WchLinkFlashSnapshot>
   probeWchLink(): Promise<WchLinkFlashSnapshot>
   flashWchLink(workspaceId: string): Promise<WchLinkFlashSnapshot>
@@ -941,7 +923,6 @@ export interface RobotDogApi {
   onFirmwareBuild(listener: (event: FirmwareBuildEvent) => void): () => void
   onDeviceConnection(listener: (snapshot: DeviceConnectionSnapshot) => void): () => void
   onFirmwareUpdate(listener: (event: FirmwareUpdateEvent) => void): () => void
-  onRecovery(listener: (event: RecoveryEvent) => void): () => void
   onWchLinkFlash(listener: (event: WchLinkFlashEvent) => void): () => void
   onWorkspaceChanged(listener: (workspace: WorkspaceSummary) => void): () => void
   onCandidateChanged(listener: (candidate: CandidateSnapshot) => void): () => void

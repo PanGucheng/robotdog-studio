@@ -4,7 +4,6 @@ import type { AgentRuntimeStatus, AppHealth, CandidateSnapshot, CourseOperationK
 import { FirmwareBuildService } from '../services/firmware-build-service'
 import { MockRobotService } from '../services/mock-robot-service'
 import { MockConnectivityService } from '../services/mock-connectivity-service'
-import { MockRecoveryService } from '../services/mock-recovery-service'
 import { ToolchainService } from '../services/toolchain-service'
 import { WorkspaceService } from '../services/workspace-service'
 import { CandidateService } from '../services/candidate-service'
@@ -31,7 +30,6 @@ export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes:
 
 export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain: ToolchainService | import('../services/ti-mspm0-toolchain-service').TiMspm0ToolchainService = new ToolchainService(), firmware: FirmwareBuildService | TiMspm0BuildService = new FirmwareBuildService(toolchain as ToolchainService), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink: WchLinkFlashService | TiMspm0FlashService = new WchLinkFlashService(toolchain as ToolchainService, firmware as FirmwareBuildService), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService, baselineResolver?: FirmwareBaselineResolver, courseUpdate?: CourseUpdateService): () => void {
   const connectivity = new MockConnectivityService(robot)
-  const recovery = new MockRecoveryService(robot)
   const sendToAll = (channel: string, payload: unknown): void => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(channel, payload)
@@ -52,7 +50,6 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       activeUpdateWorkspaceId = undefined
     }
   }
-  const recoveryListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.recoveryEvent, payload)
   const wchLinkListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.wchLinkEvent, payload)
   const agentListener = (payload: unknown): void => {
     const event = payload as import('../../shared/types').AgentEvent
@@ -107,7 +104,6 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
   firmware.on('event', buildListener)
   connectivity.on('connection', connectionListener)
   connectivity.on('update', updateListener)
-  recovery.on('event', recoveryListener)
   wchLink.on('event', wchLinkListener)
   agents?.on('event', agentListener)
 
@@ -173,24 +169,16 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
   ipcMain.handle(IPC_CHANNELS.firmwareUpdateGet, () => connectivity.getUpdate())
   ipcMain.handle(IPC_CHANNELS.firmwareUpdateStart, async (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string') throw new Error('请先选择学生对话')
-    if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时下载学生固件')
     const binary = await firmware.requireCurrentArtifact(workspaceId, 'bin')
     activeUpdateWorkspaceId = workspaceId
     return connectivity.startUpdate(binary)
   })
   ipcMain.handle(IPC_CHANNELS.firmwareUpdateCancel, () => connectivity.cancelUpdate())
-  ipcMain.handle(IPC_CHANNELS.recoveryGet, () => recovery.getSnapshot())
-  ipcMain.handle(IPC_CHANNELS.recoveryStart, () => {
-    if (!['idle', 'completed', 'failed', 'cancelled'].includes(connectivity.getUpdate().state)) throw new Error('学生固件下载进行中，不能同时执行教师恢复')
-    return recovery.start()
-  })
-  ipcMain.handle(IPC_CHANNELS.recoveryCancel, () => recovery.cancel())
   ipcMain.handle(IPC_CHANNELS.wchLinkGet, () => wchLink.getSnapshot())
   ipcMain.handle(IPC_CHANNELS.wchLinkProbe, () => wchLink.probe())
   ipcMain.handle(IPC_CHANNELS.wchLinkFlash, async (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string') throw new Error('请先选择学生对话')
     if (!['idle', 'completed', 'failed', 'cancelled'].includes(connectivity.getUpdate().state)) throw new Error('板载 USB 下载进行中，不能同时使用外部下载器烧录')
-    if (!['idle', 'completed', 'failed', 'cancelled'].includes(recovery.getSnapshot().state)) throw new Error('教师恢复进行中，不能同时使用外部下载器烧录')
     if (firmware.getSnapshot().state === 'running') throw new Error('完整固件正在生成，请等待完成后再烧录')
     const result = await wchLink.flashCurrent(workspaceId)
     await recordCourseOperation(workspaceId, 'flash', result.state === 'completed', result.error ?? result.message)
@@ -468,7 +456,6 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     firmware.off('event', buildListener)
     connectivity.off('connection', connectionListener)
     connectivity.off('update', updateListener)
-    recovery.off('event', recoveryListener)
     wchLink.off('event', wchLinkListener)
     agents?.off('event', agentListener)
     for (const channel of Object.values(IPC_CHANNELS)) {

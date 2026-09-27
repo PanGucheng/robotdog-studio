@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/channels'
-import type { AgentEvent, CourseUpdateStatus, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RecoveryEvent, RobotDogApi, RobotStatus, WchLinkFlashEvent, WorkspaceSummary } from '../shared/types'
+import type { AgentEvent, CourseUpdateStatus, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RobotDogApi, RobotStatus, WchLinkFlashEvent, WorkspaceSummary } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
   const wrapped = (_event: Electron.IpcRendererEvent, payload: T): void => listener(payload)
@@ -30,9 +30,6 @@ const api: RobotDogApi = {
   getFirmwareUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareUpdateGet),
   startFirmwareUpdate: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.firmwareUpdateStart, workspaceId),
   cancelFirmwareUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.firmwareUpdateCancel),
-  getRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryGet),
-  startRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryStart),
-  cancelRecovery: () => ipcRenderer.invoke(IPC_CHANNELS.recoveryCancel),
   getWchLinkFlash: () => ipcRenderer.invoke(IPC_CHANNELS.wchLinkGet),
   probeWchLink: () => ipcRenderer.invoke(IPC_CHANNELS.wchLinkProbe),
   flashWchLink: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.wchLinkFlash, workspaceId),
@@ -90,7 +87,6 @@ const api: RobotDogApi = {
   onFirmwareBuild: (listener) => subscribe<FirmwareBuildEvent>(IPC_CHANNELS.firmwareBuildEvent, listener),
   onDeviceConnection: (listener) => subscribe<DeviceConnectionSnapshot>(IPC_CHANNELS.deviceConnectionEvent, listener),
   onFirmwareUpdate: (listener) => subscribe<FirmwareUpdateEvent>(IPC_CHANNELS.firmwareUpdateEvent, listener),
-  onRecovery: (listener) => subscribe<RecoveryEvent>(IPC_CHANNELS.recoveryEvent, listener),
   onWchLinkFlash: (listener) => subscribe<WchLinkFlashEvent>(IPC_CHANNELS.wchLinkEvent, listener),
   onWorkspaceChanged: (listener) => subscribe<WorkspaceSummary>(IPC_CHANNELS.workspaceChangedEvent, listener),
   onCandidateChanged: (listener) => subscribe<CandidateSnapshot>(IPC_CHANNELS.candidateChangedEvent, listener),

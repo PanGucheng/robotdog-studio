@@ -4,7 +4,7 @@ import { createElement, createRef, act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import { AboutPage } from './AboutPage'
-import { ProjectMenu } from './ProjectMenu'
+import { AppMenu } from './AppMenu'
 import { EDITION_PROFILES } from '../../../shared/edition'
 
 // @ts-expect-error React testing flag
@@ -83,7 +83,7 @@ describe('AboutPage static rendering', () => {
   })
 })
 
-describe('AboutPage and ProjectMenu interactive behavior', () => {
+describe('AboutPage and AppMenu interactive behavior', () => {
   let container: HTMLDivElement
 
   beforeEach(() => {
@@ -110,7 +110,8 @@ describe('AboutPage and ProjectMenu interactive behavior', () => {
     expect(onBack).toHaveBeenCalledTimes(1)
   })
 
-  it('renders ProjectMenu and triggers onSelectAbout when menu item clicked', async () => {
+  it('renders AppMenu and triggers onOpenSettings and onSelectAbout when menu items clicked', async () => {
+    const onOpenSettings = vi.fn()
     const onSelectAbout = vi.fn()
     const onClose = vi.fn()
     const anchor = document.createElement('div')
@@ -119,29 +120,35 @@ describe('AboutPage and ProjectMenu interactive behavior', () => {
 
     const root = createRoot(container)
     await act(async () => {
-      root.render(createElement(ProjectMenu, { anchorRef, onClose, onSelectAbout }))
+      root.render(createElement(AppMenu, { anchorRef, onClose, onOpenSettings, onSelectAbout }))
     })
 
     expect(container.textContent).toContain('RoboHorse Studio')
+    expect(container.textContent).toContain('设置')
     expect(container.textContent).toContain('关于 RoboHorse Studio')
 
-    const item = container.querySelector<HTMLButtonElement>('.project-menu-item')
-    expect(item).not.toBeNull()
+    const items = container.querySelectorAll<HTMLButtonElement>('.project-menu-item')
+    expect(items.length).toBe(2)
     await act(async () => {
-      item?.click()
+      items[0]?.click()
+    })
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      items[1]?.click()
     })
     expect(onSelectAbout).toHaveBeenCalledTimes(1)
 
     document.body.removeChild(anchor)
   })
 
-  it('closes ProjectMenu when Escape key is pressed', async () => {
+  it('closes AppMenu when Escape key is pressed', async () => {
     const onClose = vi.fn()
     const anchorRef = { current: null }
 
     const root = createRoot(container)
     await act(async () => {
-      root.render(createElement(ProjectMenu, { anchorRef, onClose, onSelectAbout: vi.fn() }))
+      root.render(createElement(AppMenu, { anchorRef, onClose, onOpenSettings: vi.fn(), onSelectAbout: vi.fn() }))
     })
 
     await act(async () => {
@@ -150,7 +157,7 @@ describe('AboutPage and ProjectMenu interactive behavior', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('closes ProjectMenu when clicking outside', async () => {
+  it('closes AppMenu when clicking outside', async () => {
     const onClose = vi.fn()
     const anchor = document.createElement('div')
     document.body.appendChild(anchor)
@@ -158,7 +165,7 @@ describe('AboutPage and ProjectMenu interactive behavior', () => {
 
     const root = createRoot(container)
     await act(async () => {
-      root.render(createElement(ProjectMenu, { anchorRef, onClose, onSelectAbout: vi.fn() }))
+      root.render(createElement(AppMenu, { anchorRef, onClose, onOpenSettings: vi.fn(), onSelectAbout: vi.fn() }))
     })
 
     const outside = document.createElement('div')

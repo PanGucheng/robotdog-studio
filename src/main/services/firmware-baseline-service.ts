@@ -127,17 +127,18 @@ export class FirmwareBaselineService {
     const shortCommit = stringValue(active.shortCommit, 'shortCommit')
     const studentOverlay = firmware.studentOverlay
     const memory = firmware.memory ?? {}
+    const baselineName = String(active.name ?? 'ch32v203-rhs')
     return {
       schemaVersion: 2,
-      id: String(active.id ?? `ch32v203-rhs-${shortCommit}`),
-      label: String(active.label ?? `CH32V203 RHS 固件基线 ${shortCommit}`),
+      id: String(active.id ?? `${baselineName}-${shortCommit}`),
+      label: String(active.label ?? `${baselineName === 'ch32v203-robotdog' ? 'CH32V203 机器马' : 'CH32V203 RHS'} 固件基线 ${shortCommit}`),
       status: 'provisional',
       releaseEligible: false,
       replacementPolicy: '开发阶段动态固件基线；通过验证后可切换，学生工作区不自动覆盖。',
       source: {
-        repository: typeof active.remote === 'object' && active.remote && 'url' in active.remote ? String((active.remote as { url?: unknown }).url) : String(active.name ?? 'firmware/ch32v203-baseline'),
+        repository: typeof active.remote === 'object' && active.remote && 'url' in active.remote ? String((active.remote as { url?: unknown }).url) : baselineName === 'ch32v203-robotdog' ? 'https://github.com/PanGucheng/ch32v203-robot-dog' : String(active.name ?? 'firmware/ch32v203-baseline'),
         expectedCommit: activeCommit,
-        developmentDefaultRoot: String(active.sourceRoot ?? 'D:\\RobotDog\\RobotDog_Studio\\firmware\\ch32v203-baseline')
+        developmentDefaultRoot: String(active.sourceRoot ?? (baselineName === 'ch32v203-robotdog' ? '.firmware-sources/ch32v203-robot-dog' : 'D:\\RobotDog\\RobotDog_Studio\\firmware\\ch32v203-baseline'))
       },
       target: {
         board: String(firmware.board ?? 'rhs-ch32v203c8t6'),

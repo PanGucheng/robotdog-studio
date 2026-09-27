@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, ProjectExplorerNode, RecoveryEvent, RecoverySnapshot, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, ProjectExplorerNode, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 import { EDITION_PROFILES, type EditionId } from '../../../shared/edition'
 import demoCourseResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/course.json'
 import firstLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/studio-first-build.json'
@@ -50,7 +50,6 @@ const ccdListeners = new Set<(frame: CcdFrame) => void>()
 const buildListeners = new Set<(event: FirmwareBuildEvent) => void>()
 const connectionListeners = new Set<(snapshot: DeviceConnectionSnapshot) => void>()
 const firmwareUpdateListeners = new Set<(event: FirmwareUpdateEvent) => void>()
-const recoveryListeners = new Set<(event: RecoveryEvent) => void>()
 const wchLinkListeners = new Set<(event: WchLinkFlashEvent) => void>()
 const workspaceListeners = new Set<(workspace: WorkspaceSummary) => void>()
 const candidateListeners = new Set<(candidate: CandidateSnapshot) => void>()
@@ -164,7 +163,6 @@ let status: RobotStatus = {
 let frameIndex = 0
 let browserUpdateToken = 0
 let browserUpdateWorkspaceId: string | undefined
-let browserRecoveryToken = 0
 
 let deviceConnection: DeviceConnectionSnapshot = {
   device: { id: 'RDS-WEB-001', name: '浏览器训练小马', board: 'CH32V203 RoboHorse', hardwareVersion: 'WEB-A' },
@@ -178,7 +176,6 @@ let firmwareUpdate: FirmwareUpdateSnapshot = {
   message: '编译固件后，可以通过板载 USB 下载到小马。'
 }
 
-let recoverySnapshot: RecoverySnapshot = { state: 'idle', progress: 0, message: '教师恢复待命', canCancel: false }
 let wchLinkSnapshot: WchLinkFlashSnapshot = { state: 'idle', progress: 0, message: '浏览器演示可模拟检测烧录器和芯片。', canCancel: false, logs: [] }
 
 let buildSnapshot: FirmwareBuildSnapshot = {
@@ -238,31 +235,9 @@ function emitConnection(): void {
   connectionListeners.forEach((listener) => listener(structuredClone(deviceConnection)))
 }
 
-function emitRecovery(type: RecoveryEvent['type'], patch: Partial<RecoverySnapshot>): void {
-  recoverySnapshot = { ...recoverySnapshot, ...patch }
-  recoveryListeners.forEach((listener) => listener({ type, snapshot: { ...recoverySnapshot } }))
-}
-
 function emitWchLink(type: WchLinkFlashEvent['type'], patch: Partial<WchLinkFlashSnapshot>): void {
   wchLinkSnapshot = { ...wchLinkSnapshot, ...patch }
   wchLinkListeners.forEach((listener) => listener({ type, snapshot: structuredClone(wchLinkSnapshot) }))
-}
-
-async function runBrowserRecovery(token: number): Promise<void> {
-  const steps: Array<[RecoverySnapshot['state'], number, string]> = [
-    ['erasing', 18, '正在清理损坏的固件区域…'],
-    ['writing_bootloader', 38, '正在恢复安全下载程序…'],
-    ['writing_app', 70, '正在写入出厂应用固件…'],
-    ['verifying', 88, '正在校验完整 Flash 镜像…'],
-    ['resetting', 96, '校验通过，正在复位并检查启动…']
-  ]
-  for (const [state, progress, message] of steps) {
-    await new Promise((resolve) => setTimeout(resolve, 220))
-    if (token !== browserRecoveryToken) return
-    emitRecovery('progress', { state, progress, message, canCancel: false })
-  }
-  update({ connection: 'ready', port: 'WEB · BT COM8', firmware: 'RDS1 factory-0.1', action: 'idle' })
-  emitRecovery('completed', { state: 'completed', progress: 100, message: '恢复完成，Bootloader 与出厂固件均已验证', canCancel: false, completedAt: new Date().toISOString() })
 }
 
 async function runBrowserFirmwareUpdate(token: number): Promise<void> {
@@ -576,7 +551,6 @@ export const browserDemoApi: RobotDogApi = {
   },
   getFirmwareUpdate: async () => ({ ...firmwareUpdate }),
   startFirmwareUpdate: async (workspaceId) => {
-    if (!['idle', 'completed', 'failed', 'cancelled'].includes(recoverySnapshot.state)) throw new Error('教师恢复进行中，不能同时下载学生固件')
     if (buildSnapshot.state !== 'completed') throw new Error('请先完成固件编译')
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
     if (buildSnapshot.proof?.workspaceId !== workspace.id || buildSnapshot.proof.workspaceCommit !== workspace.headCommit) throw new Error('学生代码已经变化，请重新生成完整固件')
@@ -599,22 +573,6 @@ export const browserDemoApi: RobotDogApi = {
     browserUpdateToken += 1
     emitFirmwareUpdate('cancelled', { state: 'cancelled', message: '下载已安全取消', canCancel: false, completedAt: new Date().toISOString() })
     return { ...firmwareUpdate }
-  },
-  getRecovery: async () => ({ ...recoverySnapshot }),
-  startRecovery: async () => {
-    if (!['idle', 'completed', 'failed', 'cancelled'].includes(firmwareUpdate.state)) throw new Error('学生固件下载进行中，不能同时执行教师恢复')
-    if (!['idle', 'completed', 'failed', 'cancelled'].includes(recoverySnapshot.state)) throw new Error('已有教师恢复任务正在进行')
-    browserRecoveryToken += 1
-    recoverySnapshot = { state: 'preflight', progress: 4, message: '正在核对完整恢复镜像与目标板型…', imageName: 'RoboHorse-Factory-Full.hex', canCancel: true, startedAt: new Date().toISOString() }
-    emitRecovery('snapshot', {})
-    void runBrowserRecovery(browserRecoveryToken)
-    return { ...recoverySnapshot }
-  },
-  cancelRecovery: async () => {
-    if (!recoverySnapshot.canCancel) throw new Error('完整 Flash 正在写入，请等待恢复完成')
-    browserRecoveryToken += 1
-    emitRecovery('cancelled', { state: 'cancelled', message: '教师恢复已安全取消', canCancel: false, completedAt: new Date().toISOString() })
-    return { ...recoverySnapshot }
   },
   getWchLinkFlash: async () => structuredClone(wchLinkSnapshot),
   probeWchLink: async () => {
@@ -1125,7 +1083,6 @@ export const browserDemoApi: RobotDogApi = {
   onFirmwareBuild: (listener) => { buildListeners.add(listener); return () => buildListeners.delete(listener) },
   onDeviceConnection: (listener) => { connectionListeners.add(listener); return () => connectionListeners.delete(listener) },
   onFirmwareUpdate: (listener) => { firmwareUpdateListeners.add(listener); return () => firmwareUpdateListeners.delete(listener) },
-  onRecovery: (listener) => { recoveryListeners.add(listener); return () => recoveryListeners.delete(listener) },
   onWchLinkFlash: (listener) => { wchLinkListeners.add(listener); return () => wchLinkListeners.delete(listener) },
   onWorkspaceChanged: (listener) => { workspaceListeners.add(listener); return () => workspaceListeners.delete(listener) },
   onCandidateChanged: (listener) => { candidateListeners.add(listener); return () => candidateListeners.delete(listener) },
