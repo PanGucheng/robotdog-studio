@@ -145,12 +145,38 @@ export class CourseProgressStore {
       next.operations['candidate-build'] = { state: passed ? 'passed' : 'failed', checkedAt: now, detail: passed ? '当前 Workspace 已通过完整 Compiler / Linker 构建。' : detail?.slice(0, 240) }
     }
     const stepType = kind === 'candidate-build' ? 'candidate-build' : kind === 'firmware-build' ? 'firmware-build' : 'flash'
-    next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === stepType
-      ? passed ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : { stepId: step.stepId, completed: false }
-      : step)
-    if (kind === 'firmware-build') next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === 'candidate-build'
-      ? passed ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now } : { stepId: step.stepId, completed: false }
-      : step)
+    if (passed) {
+      const targetStep = next.steps.find((step) => {
+        const contract = next.contract.steps.find((item) => item.stepId === step.stepId)
+        return contract?.type === stepType && !step.completed
+      })
+      if (targetStep) {
+        targetStep.completed = true
+        targetStep.completedAt = targetStep.completedAt ?? now
+      }
+    } else {
+      const targetStep = next.steps.find((step) => {
+        const contract = next.contract.steps.find((item) => item.stepId === step.stepId)
+        return contract?.type === stepType && !step.completed
+      }) ?? [...next.steps].reverse().find((step) => {
+        const contract = next.contract.steps.find((item) => item.stepId === step.stepId)
+        return contract?.type === stepType
+      })
+      if (targetStep) {
+        targetStep.completed = false
+        targetStep.completedAt = undefined
+      }
+    }
+    if (kind === 'firmware-build' && passed) {
+      const candidateStep = next.steps.find((step) => {
+        const contract = next.contract.steps.find((item) => item.stepId === step.stepId)
+        return contract?.type === 'candidate-build' && !step.completed
+      })
+      if (candidateStep) {
+        candidateStep.completed = true
+        candidateStep.completedAt = candidateStep.completedAt ?? now
+      }
+    }
     next.updatedAt = now
     const snapshot = this.toSnapshot(next, lesson, existingFiles)
     next.completedAt = snapshot.state === 'completed' ? next.completedAt ?? now : undefined
@@ -166,28 +192,59 @@ export class CourseProgressStore {
       const invalidatedKinds: CourseOperationKind[] = kind === 'candidate-applied'
         ? ['firmware-build', 'flash']
         : ['candidate-build', 'firmware-build', 'flash']
+      const firstIncompleteIndex = next.steps.findIndex((step) => !step.completed)
+      const allCompleted = firstIncompleteIndex === -1
       for (const operationKind of invalidatedKinds) {
         if (next.operations[operationKind].state === 'not-run') continue
         next.operations[operationKind] = { state: 'stale', checkedAt: now, detail: '学生代码已变化，请重新检查。' }
         const stepType = operationKind === 'candidate-build' ? 'candidate-build' : operationKind === 'firmware-build' ? 'firmware-build' : 'flash'
-        next.steps = next.steps.map((step) => next.contract.steps.find((item) => item.stepId === step.stepId)?.type === stepType
-          ? { stepId: step.stepId, completed: false }
-          : step)
+        if (allCompleted) {
+          const lastIndex = [...next.steps].map((s, idx) => ({ s, idx })).reverse().find(({ s }) => next.contract.steps.find((item) => item.stepId === s.stepId)?.type === stepType)?.idx
+          if (lastIndex !== undefined) {
+            next.steps[lastIndex] = { stepId: next.steps[lastIndex].stepId, completed: false }
+          }
+        } else {
+          next.steps = next.steps.map((step, index) => {
+            const contractStep = next.contract.steps.find((item) => item.stepId === step.stepId)
+            if (contractStep?.type === stepType && index >= firstIncompleteIndex) {
+              return { stepId: step.stepId, completed: false }
+            }
+            return step
+          })
+        }
       }
       next.appliedFiles = kind === 'candidate-applied' || kind === 'workspace-edited'
         ? [...new Set([...next.appliedFiles, ...changedFiles])]
         : []
-      next.steps = next.steps.map((step) => {
-        const contractStep = next.contract.steps.find((item) => item.stepId === step.stepId)
-        const lessonStep = lesson.steps.find((item) => item.stepId === step.stepId)
-        if (kind === 'workspace-edited' && contractStep?.type === 'edit' && lessonStep?.fileTarget?.path && changedFiles.includes(lessonStep.fileTarget.path)) {
-          return { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now }
+      if (kind === 'workspace-edited') {
+        const activeEditStep = next.steps.find((step) => {
+          if (step.completed) return false
+          const contractStep = next.contract.steps.find((item) => item.stepId === step.stepId)
+          const lessonStep = lesson.steps.find((item) => item.stepId === step.stepId)
+          return contractStep?.type === 'edit' && lessonStep?.fileTarget?.path && changedFiles.includes(lessonStep.fileTarget.path)
+        })
+        if (activeEditStep) {
+          activeEditStep.completed = true
+          activeEditStep.completedAt = now
         }
-        if (contractStep?.type !== 'review-apply') return step
-        return kind === 'candidate-applied' || kind === 'workspace-edited'
-          ? { stepId: step.stepId, completed: true, completedAt: step.completedAt ?? now }
-          : { stepId: step.stepId, completed: false }
-      })
+      }
+      if (kind === 'candidate-applied' || kind === 'workspace-edited') {
+        const activeReviewStep = next.steps.find((step) => {
+          if (step.completed) return false
+          const contractStep = next.contract.steps.find((item) => item.stepId === step.stepId)
+          return contractStep?.type === 'review-apply'
+        })
+        if (activeReviewStep) {
+          activeReviewStep.completed = true
+          activeReviewStep.completedAt = now
+        }
+      } else if (kind === 'workspace-undone') {
+        next.steps = next.steps.map((step) => {
+          const contractStep = next.contract.steps.find((item) => item.stepId === step.stepId)
+          if (contractStep?.type !== 'review-apply') return step
+          return { stepId: step.stepId, completed: false }
+        })
+      }
       next.updatedAt = now
       next.completedAt = undefined
       await this.write(next)
@@ -251,9 +308,21 @@ export class CourseProgressStore {
     const checks = stored.contract.completionChecks.map((check) => {
       if (check.type === 'file-exists') return { ...check, passed: Boolean(check.target && files.has(check.target)), label: check.target ? `文件存在：${check.target}` : '指定文件存在' }
       if (check.type === 'student-change-applied') return { ...check, passed: check.target ? stored.appliedFiles.includes(check.target) : stored.appliedFiles.length > 0, label: check.target ? `已保存教学文件修改：${check.target}` : '已保存一次代码修改' }
-      if (check.type === 'candidate-build-passed') return { ...check, passed: stored.operations['candidate-build'].state === 'passed', label: 'Workspace 编译与链接通过' }
-      if (check.type === 'firmware-build-passed') return { ...check, passed: stored.operations['firmware-build'].state === 'passed', label: '完整程序生成成功' }
-      if (check.type === 'flash-succeeded') return { ...check, passed: stored.operations.flash.state === 'passed', label: '最近一次烧录成功' }
+      if (check.type === 'candidate-build-passed') {
+        const step = check.target ? stored.steps.find((s) => s.stepId === check.target) : undefined
+        const passed = step ? step.completed : stored.operations['candidate-build'].state === 'passed'
+        return { ...check, passed, label: check.target ? `检查实验代码通过：${check.target}` : 'Workspace 编译与链接通过' }
+      }
+      if (check.type === 'firmware-build-passed') {
+        const step = check.target ? stored.steps.find((s) => s.stepId === check.target) : undefined
+        const passed = step ? step.completed : stored.operations['firmware-build'].state === 'passed'
+        return { ...check, passed, label: check.target ? `完整程序生成成功：${check.target}` : '完整程序生成成功' }
+      }
+      if (check.type === 'flash-succeeded') {
+        const step = check.target ? stored.steps.find((s) => s.stepId === check.target) : undefined
+        const passed = step ? step.completed : stored.operations.flash.state === 'passed'
+        return { ...check, passed, label: check.target ? `写入开发板成功：${check.target}` : '最近一次烧录成功' }
+      }
       if (check.type === 'manual-observation-confirmed') return { ...check, passed: Boolean(check.target && stored.observations[check.target]?.trim()), label: check.target ? `已经记录观察：${check.target}` : '已经记录指定观察' }
       return { ...check, passed: Boolean(check.target && stored.answers[check.target]?.trim()), label: check.target ? `已回答：${check.target}` : '思考题已回答' }
     })

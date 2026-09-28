@@ -63,7 +63,7 @@ export function deriveLabGuideModel(lesson: CourseLesson, progress: CourseProgre
   const attentionByStep = new Map<string, string>()
   for (const [kind, operation] of Object.entries(progress.operations) as Array<[CourseOperationKind, CourseProgressSnapshot['operations'][CourseOperationKind]]>) {
     if (operation.state !== 'failed' && operation.state !== 'stale') continue
-    const step = lesson.steps.find((item) => item.type === operationTypes[kind])
+    const step = lesson.steps.find((item) => item.type === operationTypes[kind] && !progressById.get(item.stepId)?.completed) ?? lesson.steps.find((item) => item.type === operationTypes[kind])
     if (step) attentionByStep.set(step.stepId, operation.detail ?? (operation.state === 'stale' ? '之前的结果已经过期，请重新验证。' : '最近一次验证未通过。'))
   }
   const firstAttentionIndex = lesson.steps.findIndex((step) => attentionByStep.has(step.stepId) && !progressById.get(step.stepId)?.completed)
@@ -96,13 +96,14 @@ export function deriveLabGuideModel(lesson: CourseLesson, progress: CourseProgre
 }
 
 function mapCheckToStep(check: CourseCompletionCheckResult, lesson: CourseLesson): string | undefined {
+  if (check.target && lesson.steps.some((step) => step.stepId === check.target)) return check.target
   if (check.type === 'candidate-build-passed') return uniqueStepOfType(lesson, 'candidate-build')
   if (check.type === 'firmware-build-passed') return uniqueStepOfType(lesson, 'firmware-build')
   if (check.type === 'flash-succeeded') return uniqueStepOfType(lesson, 'flash')
   if (check.type === 'manual-observation-confirmed') return check.target && lesson.steps.some((step) => step.stepId === check.target) ? check.target : undefined
   if (check.type === 'question-answered') return lesson.steps.find((step) => step.type === 'question' && step.questionId === check.target)?.stepId
   if (check.type === 'student-change-applied') {
-    const matches = lesson.steps.filter((step) => step.type === 'review-apply' && (!check.target || step.fileTarget?.path === check.target))
+    const matches = lesson.steps.filter((step) => (step.type === 'review-apply' || step.type === 'edit') && (!check.target || step.fileTarget?.path === check.target))
     return matches.length === 1 ? matches[0].stepId : uniqueStepOfType(lesson, 'review-apply')
   }
   if (check.type === 'file-exists' && check.target) {

@@ -58,6 +58,7 @@ for (const entry of catalog.courses!) {
     const questionIds = new Set((lesson.reflectionQuestions ?? []).map((question) => question.questionId))
     requireValue(lesson.steps.filter((step) => step.type === 'question').every((step) => typeof step.questionId === 'string' && questionIds.has(step.questionId)), `问题步骤映射无效：${lessonId}`)
     requireValue((lesson.completionChecks ?? []).every((check) => check.type !== 'manual-observation-confirmed' || lesson.steps.some((step) => step.stepId === check.target && ['serial-observation', 'hardware-observation'].includes(step.type))), `观察完成条件映射无效：${lessonId}`)
+    requireValue((lesson.completionChecks ?? []).every((check) => !check.target || ['student-change-applied', 'file-exists', 'question-answered', 'manual-observation-confirmed'].includes(check.type) || lesson.steps.some((step) => step.stepId === check.target)), `完成条件目标步骤不存在：${lessonId}`)
     requireId(lesson.templateId, `templateId (${lessonId})`)
     const templateRoot = await resolveTemplateRoot(lesson.templateId)
     requireValue(await directoryExists(templateRoot), `课次模板不存在：${lesson.templateId}`)

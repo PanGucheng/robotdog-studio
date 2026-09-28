@@ -222,4 +222,84 @@ describe('CourseProgressStore', () => {
     expect(stored).toMatchObject({ schemaVersion: 2, contract: { contentVersion: 2 } })
     expect(stored.contract.steps).toHaveLength(latestLesson.steps.length)
   })
+
+  it('supports multiple sequential checkpoints without rolling back historical completed milestones', async () => {
+    const { store } = await fixture()
+    const multi = lesson()
+    multi.steps = [
+      { stepId: 'edit-1', type: 'edit', title: '编写点亮', instruction: '点亮', fileTarget: { path: 'App/Src/experiment.c' } },
+      { stepId: 'build-1', type: 'firmware-build', title: '编译点亮', instruction: '编译点亮' },
+      { stepId: 'flash-1', type: 'flash', title: '烧录点亮', instruction: '烧录点亮' },
+      { stepId: 'obs-1', type: 'hardware-observation', title: '观察点亮', instruction: '观察点亮' },
+      { stepId: 'edit-2', type: 'edit', title: '改写闪烁', instruction: '闪烁', fileTarget: { path: 'App/Src/experiment.c' } },
+      { stepId: 'build-2', type: 'firmware-build', title: '编译闪烁', instruction: '编译闪烁' },
+      { stepId: 'flash-2', type: 'flash', title: '烧录闪烁', instruction: '烧录闪烁' },
+      { stepId: 'obs-2', type: 'hardware-observation', title: '观察闪烁', instruction: '观察闪烁' }
+    ]
+    multi.completionChecks = [
+      { type: 'student-change-applied', target: 'App/Src/experiment.c' },
+      { type: 'firmware-build-passed', target: 'build-1' },
+      { type: 'flash-succeeded', target: 'flash-1' },
+      { type: 'manual-observation-confirmed', target: 'obs-1' },
+      { type: 'firmware-build-passed', target: 'build-2' },
+      { type: 'flash-succeeded', target: 'flash-2' },
+      { type: 'manual-observation-confirmed', target: 'obs-2' }
+    ]
+    const files = ['App/Src/experiment.c']
+
+    // 1. Checkpoint 1: edit-1
+    await store.recordSourceChange(workspace(), multi, 'workspace-edited', ['App/Src/experiment.c'], files)
+    let p = await store.get(workspace(), multi, files)
+    expect(p.steps.find((s) => s.stepId === 'edit-1')?.completed).toBe(true)
+    expect(p.steps.find((s) => s.stepId === 'edit-2')?.completed).toBe(false)
+
+    // 2. Checkpoint 1: build-1
+    await store.recordOperation(workspace(), multi, 'firmware-build', true, '点亮生成成功', files)
+    p = await store.get(workspace(), multi, files)
+    expect(p.steps.find((s) => s.stepId === 'build-1')?.completed).toBe(true)
+    expect(p.steps.find((s) => s.stepId === 'build-2')?.completed).toBe(false)
+
+    // 3. Checkpoint 1: flash-1
+    await store.recordOperation(workspace(), multi, 'flash', true, '点亮烧录成功', files)
+    p = await store.get(workspace(), multi, files)
+    expect(p.steps.find((s) => s.stepId === 'flash-1')?.completed).toBe(true)
+    expect(p.steps.find((s) => s.stepId === 'flash-2')?.completed).toBe(false)
+
+    // 4. Checkpoint 1: obs-1
+    await store.update(workspace(), multi, { kind: 'observation', stepId: 'obs-1', observation: 'LED 已常亮' }, files)
+    p = await store.get(workspace(), multi, files)
+    expect(p.steps.find((s) => s.stepId === 'obs-1')?.completed).toBe(true)
+    // Checkpoint 1 is completely passed:
+    expect(p.steps.slice(0, 4).every((s) => s.completed)).toBe(true)
+
+    // 5. Checkpoint 2: edit-2 (modifying code to make LED blink)
+    await store.recordSourceChange(workspace(), multi, 'workspace-edited', ['App/Src/experiment.c'], files)
+    p = await store.get(workspace(), multi, files)
+    expect(p.steps.find((s) => s.stepId === 'edit-2')?.completed).toBe(true)
+    // CRITICAL: Checkpoint 1 historical milestone steps MUST REMAIN COMPLETED!
+    expect(p.steps.find((s) => s.stepId === 'edit-1')?.completed).toBe(true)
+    expect(p.steps.find((s) => s.stepId === 'build-1')?.completed).toBe(true)
+    expect(p.steps.find((s) => s.stepId === 'flash-1')?.completed).toBe(true)
+    expect(p.steps.find((s) => s.stepId === 'obs-1')?.completed).toBe(true)
+
+    // 6. Checkpoint 2: build-2
+    await store.recordOperation(workspace(), multi, 'firmware-build', true, '闪烁生成成功', files)
+    p = await store.get(workspace(), multi, files)
+    expect(p.steps.find((s) => s.stepId === 'build-2')?.completed).toBe(true)
+
+    // 7. Checkpoint 2: flash-2
+    await store.recordOperation(workspace(), multi, 'flash', true, '闪烁烧录成功', files)
+    p = await store.get(workspace(), multi, files)
+    expect(p.steps.find((s) => s.stepId === 'flash-2')?.completed).toBe(true)
+
+    // 8. Checkpoint 2: obs-2
+    await store.update(workspace(), multi, { kind: 'observation', stepId: 'obs-2', observation: 'LED 开始交替闪烁' }, files)
+    p = await store.get(workspace(), multi, files)
+    expect(p.steps.find((s) => s.stepId === 'obs-2')?.completed).toBe(true)
+
+    // Entire lesson completed!
+    expect(p.steps.every((s) => s.completed)).toBe(true)
+    expect(p.checks.every((c) => c.passed)).toBe(true)
+    expect(p.state).toBe('completed')
+  })
 })

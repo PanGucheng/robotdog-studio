@@ -15,9 +15,9 @@ describe('CourseService', () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
     const courses = await service.listCourses()
     expect(courses).toHaveLength(1)
-    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 11, lessonCount: 1 })
+    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 12, lessonCount: 2 })
     const course = await service.getCourse('ch32v203-foundations')
-    expect(course.lessons.map((lesson) => lesson.lessonId)).toEqual(['first-program-on-chip'])
+    expect(course.lessons.map((lesson) => lesson.lessonId)).toEqual(['first-program-on-chip', 'gpio-output'])
   })
 
   it('hides draft lessons outside development mode', async () => {
@@ -34,7 +34,7 @@ describe('CourseService', () => {
       includeDrafts: true
     })
     const spec = await service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-program-on-chip')
-    expect(spec).toMatchObject({ templateId: 'first-program-on-chip', templateVersion: 'content-v11' })
+    expect(spec).toMatchObject({ templateId: 'first-program-on-chip', templateVersion: 'content-v12' })
   })
 
   it('rejects a catalog path that escapes the configured root', async () => {

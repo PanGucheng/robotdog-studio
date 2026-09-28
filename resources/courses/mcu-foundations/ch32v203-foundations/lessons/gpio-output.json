@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "courseId": "ch32v203-foundations",
+  "lessonId": "gpio-output",
+  "title": "第二课：控制一个引脚——GPIO 输出",
+  "summary": "告别高层教学封装，直接使用沁恒官方标准外设库配置 GPIOB 时钟与 PB8 推挽输出，亲手控制物理引脚电平驱动板载 LED。",
+  "objectives": [
+    "理解 GPIO、Port 与 Pin 的硬件映射关系",
+    "掌握外设时钟开启、结构体配置与 GPIO_Init 标准三步法",
+    "理解推挽输出与低电平有效电路的物理因果",
+    "能够使用官方库 API 独立实现引脚高低电平控制与 LED 闪烁"
+  ],
+  "prerequisites": ["first-program-on-chip"],
+  "estimatedMinutes": 60,
+  "hardware": "required",
+  "verification": "pending-hardware-check",
+  "expectedObservation": "烧录后，开发板 PB8 LED 响应程序控制，依次呈现常亮与规律交替闪烁状态。",
+  "templateId": "gpio-output",
+  "editableGlobs": ["App/Src/experiment.c"],
+  "readableFiles": ["App/Inc/experiment.h", "Peripheral/inc/ch32v20x_gpio.h", "Peripheral/inc/ch32v20x_rcc.h", "Debug/debug.h", "README.md"],
+  "deniedGlobs": ["RHS_HAL/**", "Board/**", "Teaching/**", "Core/**", "Startup/**", "Ld/**", "Peripheral/src/**", "User/**", "CMakeLists.txt", "CMakePresets.json"],
+  "steps": [
+    { "stepId": "find-hardware-target", "type": "read", "title": "认识 PB8 与代码骨架", "instruction": "阅读讲义，明确开发板 LED 所在引脚 PB8，并查看 experiment.c 中的官方头文件包含。", "lectureSectionId": "what-is-gpio", "fileTarget": { "path": "App/Src/experiment.c", "line": 1 } },
+    { "stepId": "enable-gpiob-clock", "type": "edit", "title": "开启 GPIOB 外设时钟", "instruction": "在 RHS_Experiment_Init 中调用 RCC_APB2PeriphClockCmd 开启 GPIOB 时钟。", "lectureSectionId": "clock-and-rcc", "fileTarget": { "path": "App/Src/experiment.c", "line": 11 } },
+    { "stepId": "configure-gpio-struct", "type": "edit", "title": "配置 PB8 推挽输出参数", "instruction": "定义 GPIO_InitTypeDef 结构体，配置 Pin_8、推挽输出模式与 50MHz 速度。", "lectureSectionId": "gpio-init-workflow", "fileTarget": { "path": "App/Src/experiment.c", "line": 14 } },
+    { "stepId": "call-gpio-init", "type": "edit", "title": "调用 GPIO_Init 写入硬件", "instruction": "调用 GPIO_Init(GPIOB, &GPIO_InitStructure) 完成引脚底层配置。", "lectureSectionId": "gpio-init-workflow", "fileTarget": { "path": "App/Src/experiment.c", "line": 20 } },
+    { "stepId": "candidate-build-init", "type": "candidate-build", "title": "检查初始化代码语法", "instruction": "运行代码排查，确保时钟与 GPIO 初始化代码通过编译语法检查。", "fileTarget": { "path": "App/Src/experiment.c" } },
+    { "stepId": "write-led-level", "type": "edit", "title": "编写输出：让 LED 点亮", "instruction": "在 RHS_Experiment_Loop 中调用 GPIO_ResetBits 输出低电平，点亮板载 LED。", "lectureSectionId": "logic-levels-and-circuit", "fileTarget": { "path": "App/Src/experiment.c", "line": 25 } },
+    { "stepId": "firmware-build-on", "type": "firmware-build", "title": "编译点亮程序", "instruction": "编译完整的点亮固件程序。" },
+    { "stepId": "flash-board-on", "type": "flash", "title": "写入开发板（点亮）", "instruction": "使用 WCH-Link 将点亮程序写入 CH32V203 教学开发板。" },
+    { "stepId": "observe-led-polarity", "type": "hardware-observation", "title": "观察 PB8 LED 常亮", "instruction": "亲眼观察开发板上的 PB8 LED，记录实际常亮现象，验证低电平有效电路特性。", "fileTarget": { "path": "App/Src/experiment.c" } },
+    { "stepId": "edit-blink-loop", "type": "edit", "title": "改写 Loop：让 LED 规律闪烁", "instruction": "在 RHS_Experiment_Loop 中加入 Delay_Ms(500) 与 GPIO_SetBits，构建完整的闪烁时序。", "lectureSectionId": "full-blink-practice", "fileTarget": { "path": "App/Src/experiment.c", "line": 25 } },
+    { "stepId": "firmware-build-blink", "type": "firmware-build", "title": "编译闪烁程序", "instruction": "编译完整的闪烁固件程序。" },
+    { "stepId": "flash-board-blink", "type": "flash", "title": "写入开发板（闪烁）", "instruction": "使用 WCH-Link 将闪烁程序写入 CH32V203 教学开发板。" },
+    { "stepId": "observe-led-blink", "type": "hardware-observation", "title": "观察 PB8 LED 闪烁", "instruction": "亲眼观察开发板上的 PB8 LED，记录约 0.5 秒亮、0.5 秒灭的交替闪烁现象。", "fileTarget": { "path": "App/Src/experiment.c" } },
+    { "stepId": "reflect-gpio-concepts", "type": "question", "questionId": "gpio-core-reflection", "title": "核心概念思考与反思", "instruction": "回答关于外设时钟作用与电路电平极性的思考题。" }
+  ],
+  "completionChecks": [
+    { "type": "student-change-applied", "target": "App/Src/experiment.c" },
+    { "type": "candidate-build-passed", "target": "candidate-build-init" },
+    { "type": "firmware-build-passed", "target": "firmware-build-on" },
+    { "type": "flash-succeeded", "target": "flash-board-on" },
+    { "type": "manual-observation-confirmed", "target": "observe-led-polarity" },
+    { "type": "firmware-build-passed", "target": "firmware-build-blink" },
+    { "type": "flash-succeeded", "target": "flash-board-blink" },
+    { "type": "manual-observation-confirmed", "target": "observe-led-blink" },
+    { "type": "question-answered", "target": "gpio-core-reflection" }
+  ],
+  "reflectionQuestions": [
+    {
+      "questionId": "gpio-core-reflection",
+      "prompt": "1. 为什么使用 GPIOB 之前必须先打开外设时钟？\n2. 为什么在我们的开发板上，调用 GPIO_ResetBits（输出低电平）反而会让 LED 点亮？"
+    }
+  ],
+  "aiContext": {
+    "teachingFocus": "引导学生掌握沁恒官方标准库配置 GPIO 的三步法（开时钟、填结构体、调Init）以及高低电平控制；严格按照分层提示策略，不直接贴出完整 experiment.c 代码。",
+    "hints": [
+      "PB8 属于端口 B，时钟宏是 RCC_APB2Periph_GPIOB",
+      "推挽输出的宏定义是 GPIO_Mode_Out_PP",
+      "GPIO_Init 第二个参数需要传入结构体变量的指针地址（&）",
+      "开发板 PB8 LED 为共阳极接法，低电平导通点亮"
+    ]
+  },
+  "status": "draft"
+}
