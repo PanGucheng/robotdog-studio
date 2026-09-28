@@ -1,5 +1,5 @@
 import katex from 'katex'
-import { AlertOctagon, BookOpen, CircleAlert, ExternalLink, FileCode2, Lightbulb, Link2, ShieldAlert } from 'lucide-react'
+import { AlertOctagon, BookOpen, ChevronRight, CircleAlert, ExternalLink, FileCode2, Lightbulb, Link2, ShieldAlert } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { CourseLectureBlock, CourseLectureCalloutKind, CourseLectureDocument, CourseLectureInline, CourseLectureSelectionRange } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
@@ -75,9 +75,9 @@ function LectureBlockView({ block, document, mode, onOpenSection, onOpenCode, on
   if (block.type === 'table') return <div className="lecture-table-wrap"><table><tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => rowIndex === 0 ? <th key={cellIndex}>{renderInline(cell, inlineProps)}</th> : <td key={cellIndex}>{renderInline(cell, inlineProps)}</td>)}</tr>)}</tbody></table></div>
   if (block.type === 'callout') return <LectureCallout block={block} document={document} mode={mode} onOpenSection={onOpenSection} onOpenCode={onOpenCode} onOpenTask={onOpenTask} />
   if (block.type === 'code-target') return mode === 'learn'
-    ? <div className="lecture-action lecture-code-target is-learning"><FileCode2 size={15} /><span><strong>{block.label}</strong><small>{block.path}{block.line ? ` · 第 ${block.line} 行` : ''} · 该文件将在实验中使用</small></span></div>
-    : <button type="button" className="lecture-action lecture-code-target" onClick={() => onOpenCode(block.path, block.line)}><FileCode2 size={15} /><span><strong>{block.label}</strong><small>{block.path}{block.line ? ` · 第 ${block.line} 行` : ''}</small></span></button>
-  return <button type="button" className="lecture-action lecture-task-link" onClick={() => onOpenTask(block.stepId)}><Link2 size={15} /><span><strong>{block.label}</strong><small>{mode === 'learn' ? '进入实验后完成' : '返回实验任务'}</small></span></button>
+    ? <button type="button" className="lecture-action lecture-code-target" onClick={() => onOpenCode(block.path, block.line)}><FileCode2 size={16} /><span><strong>{block.label}</strong><small>{block.path}{block.line ? ` · 第 ${block.line} 行` : ''} · 点击预览代码骨架</small></span><ChevronRight size={15} className="lecture-action-arrow" /></button>
+    : <button type="button" className="lecture-action lecture-code-target" onClick={() => onOpenCode(block.path, block.line)}><FileCode2 size={16} /><span><strong>{block.label}</strong><small>{block.path}{block.line ? ` · 第 ${block.line} 行` : ''}</small></span><ChevronRight size={15} className="lecture-action-arrow" /></button>
+  return <button type="button" className="lecture-action lecture-task-link" onClick={() => onOpenTask(block.stepId)}><Link2 size={16} /><span><strong>{block.label}</strong><small>{mode === 'learn' ? '进入实验后完成' : '返回实验任务'}</small></span><ChevronRight size={15} className="lecture-action-arrow" /></button>
 }
 
 function LectureCallout({ block, document, mode, onOpenSection, onOpenCode, onOpenTask }: { block: Extract<CourseLectureBlock, { type: 'callout' }>; document: CourseLectureDocument; mode: 'learn' | 'reference'; onOpenSection(sectionId: string): void; onOpenCode(path: string, line?: number): void; onOpenTask(stepId: string): void }): React.JSX.Element {

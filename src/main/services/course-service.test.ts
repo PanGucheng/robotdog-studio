@@ -37,6 +37,19 @@ describe('CourseService', () => {
     expect(spec).toMatchObject({ templateId: 'first-program-on-chip', templateVersion: 'content-v12' })
   })
 
+  it('reads a template file for previewing code in lecture view', async () => {
+    const service = new CourseService({
+      rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'),
+      templatesRoot: join(process.cwd(), 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'),
+      includeDrafts: true
+    })
+    const file = await service.getLessonTemplateFile('ch32v203-foundations', 'gpio-output', 'App/Src/experiment.c')
+    expect(file.path).toBe('App/Src/experiment.c')
+    expect(file.content).toContain('GPIO_ResetBits')
+
+    await expect(service.getLessonTemplateFile('ch32v203-foundations', 'gpio-output', '../outside.c')).rejects.toThrow('COURSE_TEMPLATE_FILE_PATH_INVALID')
+  })
+
   it('rejects a catalog path that escapes the configured root', async () => {
     const root = await mkdtemp(join(tmpdir(), 'robotdog-course-'))
     temporaryRoots.push(root)

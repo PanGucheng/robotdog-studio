@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, FlaskConical, History, Sparkles } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, FileCode2, FlaskConical, History, Sparkles } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { AgentEvent, CourseDetail, CourseLectureResult, CourseLectureSelectionRange, CourseLesson, LessonLearningProgress, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
@@ -31,6 +31,7 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
   const [progressSaving, setProgressSaving] = useState(false)
   const [progressError, setProgressError] = useState(false)
   const [attemptStarting, setAttemptStarting] = useState(false)
+  const [codePreview, setCodePreview] = useState<{ path: string; line?: number; content?: string; loading: boolean; error?: string }>()
   const scrollRef = useRef<HTMLDivElement>(null)
   const tocRef = useRef<HTMLElement>(null)
   const tocListRef = useRef<HTMLDivElement>(null)
@@ -199,6 +200,20 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
     void api.askCourseLecture({ courseId: lesson.courseId, lessonId: lesson.lessonId, contentVersion: document.contentVersion, documentDigest: document.documentDigest, request: { selection: selection.range, question } }).then((turn) => { setAiTurnId(turn.turnId); setSelection(undefined); setQuestion('') }).catch(() => setAiText('AI 助教当前无法回答，请稍后再试。'))
   }
 
+  const openCodePreview = (path: string, line?: number): void => {
+    setCodePreview({ path, line, loading: true })
+    api.getCourseLessonTemplateFile(lesson.courseId, lesson.lessonId, path)
+      .then((res) => setCodePreview({ path, line, content: res.content, loading: false }))
+      .catch(() => setCodePreview({ path, line, error: '无法读取文件内容，请检查文件是否存在', loading: false }))
+  }
+
+  useEffect(() => {
+    if (codePreview?.line && !codePreview.loading && codePreview.content) {
+      const el = window.document.getElementById(`preview-line-${codePreview.line}`)
+      if (el) el.scrollIntoView({ block: 'center' })
+    }
+  }, [codePreview?.line, codePreview?.loading, codePreview?.content])
+
   if (!document || !activeUnit) return <section className="lesson-learn-state"><button type="button" onClick={onBack}><ArrowLeft size={15} /> 返回课程</button><BookOpen size={24} /><strong>{lecture?.status === 'invalid' ? '讲义暂时无法加载' : '正在准备课程内容'}</strong></section>
   const allComplete = progress?.completedSectionIds.length === units.length
   const actionAvailability = getLessonActionAvailability({ attemptStarting })
@@ -216,7 +231,7 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
         <div className="lesson-reading-notices">{progress?.integrityError && <div className="lesson-integrity-warning"><AlertTriangle size={17} /><span><strong>课程资源版本一致性异常</strong>正文仍可阅读，但完成记录已暂停写入。请让课程维护者检查 contentVersion。</span></div>}
         {progressError && <div className="lesson-progress-warning"><AlertTriangle size={15} /><span>阅读位置已保留，但已读进度暂未保存。继续阅读时会再次尝试。</span></div>}</div>
         <div className="lesson-reading-scroll" ref={scrollRef} tabIndex={0} aria-label="课程讲义连续阅读区" onPointerDown={() => { userInteractedRef.current = true }} onWheel={() => { userInteractedRef.current = true }} onTouchMove={() => { userInteractedRef.current = true }} onKeyDown={() => { userInteractedRef.current = true }} onScroll={handleReadingScroll}>
-          {units.map((unit) => <div className="lesson-reading-unit" data-reading-unit={unit.root.sectionId} key={unit.root.sectionId} ref={(node) => { if (node) unitRefs.current.set(unit.root.sectionId, node); else unitRefs.current.delete(unit.root.sectionId) }}>{unit.sections.map((section) => <div className="lesson-reading-section" id={`lecture-section-${section.sectionId}`} key={section.sectionId} ref={(node) => { if (node) sectionRefs.current.set(section.sectionId, node); else sectionRefs.current.delete(section.sectionId) }}><CourseLectureRenderer document={document} sectionId={section.sectionId} mode="learn" onOpenSection={selectSection} onOpenCode={() => undefined} onOpenTask={() => startLab()} onSelection={(range, preview) => setSelection({ range, preview })} /></div>)}</div>)}
+          {units.map((unit) => <div className="lesson-reading-unit" data-reading-unit={unit.root.sectionId} key={unit.root.sectionId} ref={(node) => { if (node) unitRefs.current.set(unit.root.sectionId, node); else unitRefs.current.delete(unit.root.sectionId) }}>{unit.sections.map((section) => <div className="lesson-reading-section" id={`lecture-section-${section.sectionId}`} key={section.sectionId} ref={(node) => { if (node) sectionRefs.current.set(section.sectionId, node); else sectionRefs.current.delete(section.sectionId) }}><CourseLectureRenderer document={document} sectionId={section.sectionId} mode="learn" onOpenSection={selectSection} onOpenCode={openCodePreview} onOpenTask={() => startLab()} onSelection={(range, preview) => setSelection({ range, preview })} /></div>)}</div>)}
           <section className="lesson-to-lab"><span><Check size={18} /></span><div><small>{allComplete ? '本课讲义已读完' : `还有 ${units.length - (progress?.completedSectionIds.length ?? 0)} 个标题尚未读到，可以稍后继续`}</small><h2>{lesson.title}</h2><ul>{lesson.objectives.map((objective) => <li key={objective}>{objective}</li>)}</ul><p><strong>实验目标：</strong>{lesson.expectedObservation}</p><button type="button" className="button-primary" onClick={startLab} disabled={actionAvailability.startLabDisabled}><FlaskConical size={16} /> {attemptStarting ? '正在准备实验…' : '开始实验'} <ArrowRight size={14} /></button></div></section>
         </div>
       </main>
@@ -225,6 +240,33 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
     {aiText && <aside className="lesson-ai-answer"><header><Sparkles size={15} /> 课程 AI</header><p>{aiText}</p><button type="button" onClick={() => setAiText('')}>关闭</button></aside>}
     {historyOpen && <aside className="lesson-history-drawer"><header><div><span className="eyebrow">COURSE AI</span><strong>课程问答历史</strong></div><button type="button" onClick={() => setHistoryOpen(false)}>×</button></header><label><input type="checkbox" checked={includeOlderHistory} onChange={(event) => setIncludeOlderHistory(event.target.checked)} /> 显示旧版课程回答</label><div>{groupLectureHistory(historyEvents).map((turn) => <article key={turn.turnId}><small>{turn.version === document.contentVersion && turn.digest === document.documentDigest ? `当前课程 v${turn.version}` : `来自课程 v${turn.version}`}</small><strong>{turn.question}</strong><p>{turn.answer || '回答未完成'}</p></article>)}{historyEvents.length === 0 && <p>还没有课程问答记录。</p>}</div></aside>}
     {attemptChooser && <div className="lesson-attempt-overlay" role="dialog" aria-modal="true"><section><header><div><span className="eyebrow">实验记录</span><h2>选择一次实验</h2></div><button type="button" onClick={() => setAttemptChooser(false)}>×</button></header>{attempts.map((attempt) => <button type="button" key={attempt.id} onClick={() => onContinueAttempt(attempt.id)} disabled={attemptStarting}><FlaskConical size={16} /><span><strong>第 {attempt.courseBinding?.attemptNumber} 次实验</strong><small>{attempt.name} · {new Date(attempt.updatedAt).toLocaleString('zh-CN', { hour12: false })}</small></span><ChevronRight size={15} /></button>)}<button type="button" className="button-primary" onClick={() => void createAttempt()} disabled={attemptStarting}>{attemptStarting ? '正在新建实验…' : '新建一次实验'}</button></section></div>}
+    {codePreview && <div className="lesson-code-preview-overlay" role="dialog" aria-modal="true" onClick={() => setCodePreview(undefined)}>
+      <section className="lesson-code-preview-modal" onClick={(e) => e.stopPropagation()}>
+        <header>
+          <div className="lesson-code-preview-title">
+            <FileCode2 size={18} />
+            <div>
+              <strong>{codePreview.path}</strong>
+              <small>{codePreview.line ? `定位到第 ${codePreview.line} 行 · ` : ''}课前只读骨架预览</small>
+            </div>
+          </div>
+          <button type="button" className="lesson-code-preview-close" onClick={() => setCodePreview(undefined)} aria-label="关闭预览">×</button>
+        </header>
+        <div className="lesson-code-preview-body">
+          {codePreview.loading && <div className="lesson-code-preview-loading">正在读取模板代码…</div>}
+          {codePreview.error && <div className="lesson-code-preview-error">{codePreview.error}</div>}
+          {codePreview.content !== undefined && <pre className="lesson-code-preview-code"><code>{codePreview.content.split('\n').map((lineContent, index) => {
+            const lineNum = index + 1
+            const isTargetLine = codePreview.line === lineNum
+            return <div key={lineNum} className={`code-line ${isTargetLine ? 'is-highlight' : ''}`} id={`preview-line-${lineNum}`}><span className="line-num">{lineNum}</span><span className="line-content">{lineContent || ' '}</span></div>
+          })}</code></pre>}
+        </div>
+        <footer>
+          <span className="lesson-code-preview-hint">此文件为实验初始骨架，进入实验后可在代码编辑器中直接修改。</span>
+          <button type="button" className="button-primary" onClick={() => { setCodePreview(undefined); startLab() }}><FlaskConical size={15} /> 进入实验并编辑</button>
+        </footer>
+      </section>
+    </div>}
   </section>
 }
 

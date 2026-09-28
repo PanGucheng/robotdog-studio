@@ -213,6 +213,24 @@ export class CourseService {
     }
   }
 
+  async getLessonTemplateFile(courseId: string, lessonId: string, filePath: string): Promise<{ path: string; content: string }> {
+    this.requireId(courseId)
+    this.requireId(lessonId)
+    if (typeof filePath !== 'string' || !filePath.trim()) throw new Error('COURSE_TEMPLATE_FILE_PATH_INVALID')
+    const templatesRoot = this.getTemplatesRoot()
+    if (!templatesRoot) throw new Error('COURSE_TEMPLATE_ROOT_UNAVAILABLE')
+    const lesson = await this.getLesson(courseId, lessonId)
+    const templateRoot = resolve(templatesRoot, lesson.templateId)
+    const normalized = filePath.replace(/\\/g, '/').replace(/^\/+/, '')
+    const target = resolve(templateRoot, ...normalized.split('/'))
+    const fromRoot = relative(templateRoot, target)
+    if (!fromRoot || fromRoot === '..' || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
+      throw new Error('COURSE_TEMPLATE_FILE_PATH_INVALID')
+    }
+    const content = await readFile(target, 'utf8')
+    return { path: normalized, content }
+  }
+
   async buildAiContext(courseId: string, lessonId: string, taskKind: CourseAiTaskKind, progress?: CourseProgressSnapshot): Promise<string> {
     const [course, lesson] = await Promise.all([this.getCourse(courseId), this.getLesson(courseId, lessonId)])
     const currentStep = lesson.steps.find((step) => !progress?.steps.find((item) => item.stepId === step.stepId)?.completed) ?? lesson.steps.at(-1)

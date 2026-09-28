@@ -295,6 +295,12 @@ export const browserDemoApi: RobotDogApi = {
     return document ? { status: 'ready', document: structuredClone(document) } : { status: 'missing' }
   },
   getCourseLectureAsset: async () => { throw new Error('浏览器演示没有讲义图片资源') },
+  getCourseLessonTemplateFile: async (_courseId, _lessonId, filePath) => {
+    return {
+      path: filePath,
+      content: `/* 演示模板文件: ${filePath} */\n#include "experiment.h"\n\nvoid Experiment_Init(void) {\n    // 模板初始化\n}\n\nvoid Experiment_Loop(void) {\n    // 模板循环\n}\n`
+    }
+  },
   askCourseLecture: async (input) => {
     if (browserAgentTurn) throw new Error('AI 助教正在处理上一条消息')
     const lectureScope = { courseId: input.courseId, lessonId: input.lessonId, contentVersion: input.contentVersion, documentDigest: input.documentDigest, ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}) }

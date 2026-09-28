@@ -250,6 +250,11 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       if (typeof courseId !== 'string' || typeof lessonId !== 'string' || typeof documentDigest !== 'string' || typeof assetId !== 'string') throw new Error('COURSE_LECTURE_ASSET_INPUT_INVALID')
       return courses.getLectureAsset(courseId, lessonId, documentDigest, assetId)
     })
+    ipcMain.handle(IPC_CHANNELS.courseLessonTemplateFileGet, (_event, courseId: unknown, lessonId: unknown, filePath: unknown) => {
+      if (!courses) throw new Error('COURSE_SERVICE_UNAVAILABLE')
+      if (typeof courseId !== 'string' || typeof lessonId !== 'string' || typeof filePath !== 'string') throw new Error('COURSE_TEMPLATE_FILE_INPUT_INVALID')
+      return courses.getLessonTemplateFile(courseId, lessonId, filePath)
+    })
     if (agents) ipcMain.handle(IPC_CHANNELS.courseLectureAsk, async (_event, input: unknown) => {
       if (!input || typeof input !== 'object') throw new Error('COURSE_LECTURE_QUESTION_INVALID')
       const value = input as import('../../shared/types').CourseLectureQuestionInput

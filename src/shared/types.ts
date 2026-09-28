@@ -891,6 +891,7 @@ export interface RobotDogApi {
   getCourseLesson(courseId: string, lessonId: string): Promise<CourseLesson>
   getCourseLecture(courseId: string, lessonId: string): Promise<CourseLectureResult>
   getCourseLectureAsset(courseId: string, lessonId: string, documentDigest: string, assetId: string): Promise<CourseLectureAsset>
+  getCourseLessonTemplateFile(courseId: string, lessonId: string, filePath: string): Promise<{ path: string; content: string }>
   askCourseLecture(input: CourseLectureQuestionInput): Promise<AgentTurnSnapshot>
   listCourseLectureHistory(courseId: string, lessonId: string, includeOlder?: boolean): Promise<AgentEvent[]>
   getLessonLearningProgress(courseId: string, lessonId: string): Promise<LessonLearningProgress>

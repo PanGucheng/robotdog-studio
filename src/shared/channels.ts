@@ -45,6 +45,7 @@ export const IPC_CHANNELS = {
   courseLectureAssetGet: 'course:lecture-asset:get',
   courseLectureAsk: 'course:lecture:ask',
   courseLectureHistoryList: 'course:lecture-history:list',
+  courseLessonTemplateFileGet: 'course:lesson-template-file:get',
   lessonLearningProgressGet: 'course:learning-progress:get',
   lessonLearningProgressList: 'course:learning-progress:list',
   lessonLearningProgressUpdate: 'course:learning-progress:update',

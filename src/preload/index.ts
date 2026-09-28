@@ -47,6 +47,7 @@ const api: RobotDogApi = {
   getCourseLesson: (courseId, lessonId) => ipcRenderer.invoke(IPC_CHANNELS.courseLessonGet, courseId, lessonId),
   getCourseLecture: (courseId, lessonId) => ipcRenderer.invoke(IPC_CHANNELS.courseLectureGet, courseId, lessonId),
   getCourseLectureAsset: (courseId, lessonId, documentDigest, assetId) => ipcRenderer.invoke(IPC_CHANNELS.courseLectureAssetGet, courseId, lessonId, documentDigest, assetId),
+  getCourseLessonTemplateFile: (courseId, lessonId, filePath) => ipcRenderer.invoke(IPC_CHANNELS.courseLessonTemplateFileGet, courseId, lessonId, filePath),
   askCourseLecture: (input) => ipcRenderer.invoke(IPC_CHANNELS.courseLectureAsk, input),
   listCourseLectureHistory: (courseId, lessonId, includeOlder) => ipcRenderer.invoke(IPC_CHANNELS.courseLectureHistoryList, courseId, lessonId, includeOlder),
   getLessonLearningProgress: (courseId, lessonId) => ipcRenderer.invoke(IPC_CHANNELS.lessonLearningProgressGet, courseId, lessonId),
