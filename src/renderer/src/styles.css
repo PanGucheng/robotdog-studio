@@ -1943,11 +1943,11 @@ button.lecture-action:hover .lecture-action-arrow {
 .mcu-lecture-chat article { display: grid; gap: 9px; margin-bottom: 14px; }
 
 @container (max-width: 1179px) {
-  .mcu-workbench-shell.has-lab-guide { --mcu-guide-width: 320px !important; --mcu-explorer-width: 220px !important; }
+  .mcu-workbench-shell.has-lab-guide { --mcu-guide-width: 320px; --mcu-explorer-width: 220px; }
   .mcu-development-area .student-editor-actions button:not(.button-primary) { display: none; }
 }
 @container (max-width: 899px) {
-  .mcu-workbench-shell.has-lab-guide { --mcu-guide-width: 280px !important; }
+  .mcu-workbench-shell.has-lab-guide { --mcu-guide-width: 280px; }
   .mcu-development-area .student-code-studio { grid-template-columns: 44px minmax(0, 1fr); }
   .mcu-development-area .student-file-rail { overflow: hidden; }
   .mcu-development-area .student-file-rail > :not(.editor-rail-heading) { display: none; }

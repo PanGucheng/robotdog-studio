@@ -1,7 +1,8 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import type { FirmwareBuildSnapshot, FirmwareUpdateSnapshot, WchLinkFlashSnapshot, WorkspaceSummary } from '../../../shared/types'
 import { isFirmwareArtifactCurrent, shouldShowProjectTour } from '../lib/mcu-workspace-model'
-import { flashNotice } from './McuWorkbench'
+import { clampWidth, flashNotice, readWorkspacePreference } from './McuWorkbench'
 
 const idleUpdate: FirmwareUpdateSnapshot = { state: 'idle', progress: 0, bytesWritten: 0, totalBytes: 0, canCancel: false, message: '等待烧录' }
 
@@ -74,5 +75,26 @@ describe('MCU sandbox workbench presentation', () => {
 
   it('does not show the lesson project tour in mcu-sandbox mode', () => {
     expect(shouldShowProjectTour(ponyWorkspace, undefined)).toBe(false)
+  })
+})
+
+describe('MCU workspace preference sizing', () => {
+  it('allows guide widths beyond 440px to be persisted and restored', () => {
+    const wsId = 'ws_pref_test'
+    localStorage.setItem(
+      `robotdog.mcu.workspace-ui.v1.${wsId}`,
+      JSON.stringify({ version: 1, explorerWidth: 280, guideWidth: 720, explorerCollapsed: false })
+    )
+    const pref = readWorkspacePreference(wsId)
+    expect(pref.guideWidth).toBe(720)
+    expect(pref.explorerWidth).toBe(280)
+    expect(pref.explorerCollapsed).toBe(false)
+    localStorage.removeItem(`robotdog.mcu.workspace-ui.v1.${wsId}`)
+  })
+
+  it('clamps guide width to min 300px and allows wide layouts', () => {
+    expect(clampWidth(250, 380, 300, 1600)).toBe(300)
+    expect(clampWidth(900, 380, 300, 1600)).toBe(900)
+    expect(clampWidth('invalid', 380, 300, 1600)).toBe(380)
   })
 })

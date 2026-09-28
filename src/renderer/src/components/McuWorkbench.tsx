@@ -102,8 +102,16 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
     const startWidth = kind === 'explorer' ? explorerWidth : guideWidth
     const move = (moveEvent: PointerEvent): void => {
       const raw = kind === 'explorer' ? startWidth + moveEvent.clientX - startX : startWidth + startX - moveEvent.clientX
-      if (kind === 'explorer') setExplorerWidth(Math.round(Math.max(220, Math.min(340, raw))))
-      else setGuideWidth(Math.round(Math.max(300, Math.min(440, raw))))
+      if (kind === 'explorer') {
+        const shellWidth = shellRef.current?.clientWidth ?? window.innerWidth
+        const maxExplorer = Math.max(220, Math.min(340, shellWidth - 320))
+        setExplorerWidth(Math.round(Math.max(220, Math.min(maxExplorer, raw))))
+      } else {
+        const shellWidth = shellRef.current?.clientWidth ?? window.innerWidth
+        const minLeftWidth = explorerOpen ? explorerWidth + 200 : 240
+        const maxGuide = Math.max(300, shellWidth - minLeftWidth)
+        setGuideWidth(Math.round(Math.max(300, Math.min(maxGuide, raw))))
+      }
     }
     const stop = (): void => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', stop) }
     document.addEventListener('pointermove', move)
@@ -139,14 +147,16 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
   </section>
 }
 
-function readWorkspacePreference(workspaceId: string): { explorerWidth: number; guideWidth: number; explorerCollapsed: boolean } {
+export function readWorkspacePreference(workspaceId: string): { explorerWidth: number; guideWidth: number; explorerCollapsed: boolean } {
   try {
-    const value = JSON.parse(localStorage.getItem(`robotdog.mcu.workspace-ui.v1.${workspaceId}`) ?? 'null') as { version?: unknown; explorerWidth?: unknown; guideWidth?: unknown; explorerCollapsed?: unknown } | null
-    if (value?.version === 1) return { explorerWidth: clampWidth(value.explorerWidth, 260, 220, 340), guideWidth: clampWidth(value.guideWidth, 380, 300, 440), explorerCollapsed: typeof value.explorerCollapsed === 'boolean' ? value.explorerCollapsed : true }
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(`robotdog.mcu.workspace-ui.v1.${workspaceId}`) : null
+    const value = JSON.parse(raw ?? 'null') as { version?: unknown; explorerWidth?: unknown; guideWidth?: unknown; explorerCollapsed?: unknown } | null
+    const maxGuide = typeof window !== 'undefined' ? Math.max(800, window.innerWidth - 240) : 2400
+    if (value?.version === 1) return { explorerWidth: clampWidth(value.explorerWidth, 260, 220, 340), guideWidth: clampWidth(value.guideWidth, 380, 300, maxGuide), explorerCollapsed: typeof value.explorerCollapsed === 'boolean' ? value.explorerCollapsed : true }
   } catch { /* default below */ }
   return { explorerWidth: 260, guideWidth: 380, explorerCollapsed: true }
 }
-function clampWidth(value: unknown, fallback: number, min: number, max: number): number { return typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback }
+export function clampWidth(value: unknown, fallback: number, min: number, max: number): number { return typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback }
 
 export function flashNotice(workspaceId: string, artifactCurrent: boolean, wchLink: WchLinkFlashSnapshot, update: FirmwareUpdateSnapshot): { title: string; text: string; tone: 'info' | 'success' | 'error' } | undefined {
   if (wchLink.artifact?.workspaceId === workspaceId) {
