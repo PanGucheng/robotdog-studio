@@ -1635,8 +1635,8 @@ button.lecture-action:hover .lecture-action-arrow {
 .lesson-code-preview-modal {
   display: flex;
   flex-direction: column;
-  width: min(840px, 92vw);
-  max-height: 82vh;
+  width: min(880px, 94vw);
+  height: min(640px, 85vh);
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 20px 50px rgb(10 30 40 / 25%);
@@ -1702,62 +1702,18 @@ button.lecture-action:hover .lecture-action-arrow {
 
 .lesson-code-preview-body {
   flex: 1;
-  overflow: auto;
-  padding: 0;
-  background: #fbfcfc;
-  min-height: 200px;
-  max-height: calc(82vh - 130px);
-}
-
-.lesson-code-preview-code {
-  margin: 0;
-  padding: 12px 0;
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.lesson-code-preview-code code {
-  display: block;
-}
-
-.code-line {
+  min-height: 0;
   display: flex;
-  align-items: flex-start;
-  padding: 0 16px;
-  min-height: 21px;
+  flex-direction: column;
+  background: #fff;
+  overflow: hidden;
 }
 
-.code-line:hover {
-  background: #f0f6f8;
-}
-
-.code-line.is-highlight {
-  background: #fff8e6;
-  border-left: 3px solid #f5a623;
-  padding-left: 13px;
-}
-
-.code-line .line-num {
-  width: 44px;
-  flex-shrink: 0;
-  color: #96a9b2;
-  font-size: 12px;
-  text-align: right;
-  padding-right: 16px;
-  user-select: none;
-}
-
-.code-line .line-content {
+.lesson-code-preview-monaco {
   flex: 1;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: #223f4d;
-}
-
-.code-line.is-highlight .line-content {
-  color: #7b4a00;
-  font-weight: 500;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .lesson-code-preview-loading, .lesson-code-preview-error {
@@ -1784,6 +1740,31 @@ button.lecture-action:hover .lecture-action-arrow {
 .lesson-code-preview-hint {
   color: #6b8592;
   font-size: 12px;
+}
+
+.lesson-code-preview-modal footer button.button-primary {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 16px !important;
+  color: #fff !important;
+  border: 1px solid var(--sensor-ink, #087f91) !important;
+  border-radius: 7px !important;
+  background: var(--sensor-ink, #087f91) !important;
+  box-shadow: 0 3px 10px rgb(8 127 145 / 18%) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all .15s ease;
+}
+
+.lesson-code-preview-modal footer button.button-primary:hover:not(:disabled) {
+  background: #076e80 !important;
+  border-color: #076e80 !important;
+  box-shadow: 0 4px 14px rgb(8 127 145 / 26%) !important;
 }
 .lecture-inline-link { display: inline-flex !important; min-height: 0 !important; padding: 0 2px !important; color: var(--sensor-ink) !important; border: 0 !important; background: transparent !important; box-shadow: none !important; font: inherit !important; text-decoration: underline; text-underline-offset: 2px; }
 .lecture-table-wrap { margin: 14px 0; overflow: auto; border: 1px solid #d2e0e5; border-radius: 7px; }

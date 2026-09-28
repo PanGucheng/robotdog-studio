@@ -39,7 +39,7 @@ interface StudentCodeEditorProps {
 
 export const MCU_AUTO_SAVE_DELAY_MS = 8_000
 
-const configureMonaco: BeforeMount = (monaco) => {
+export const configureMonaco: BeforeMount = (monaco) => {
   monaco.editor.defineTheme('robotdog-track', {
     base: 'vs', inherit: true,
     rules: [

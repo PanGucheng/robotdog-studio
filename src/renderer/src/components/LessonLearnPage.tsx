@@ -3,6 +3,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { AgentEvent, CourseDetail, CourseLectureResult, CourseLectureSelectionRange, CourseLesson, LessonLearningProgress, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 import { CourseLectureRenderer } from './CourseLectureRenderer'
+import Editor from '@monaco-editor/react'
+import { configureMonaco } from './StudentCodeEditor'
 
 interface LessonLearnPageProps {
   course: CourseDetail
@@ -183,8 +185,6 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
 
   const startLab = (): void => {
     if (attemptStarting) return
-    const remaining = units.length - (progress?.completedSectionIds.length ?? 0)
-    if (remaining > 0 && !window.confirm(`还有 ${remaining} 个课程章节尚未标记完成。你可以先进入实验，之后随时返回课程。\n\n仍然开始实验吗？`)) return
     if (attempts.length > 0) setAttemptChooser(true)
     else void createAttempt()
   }
@@ -207,12 +207,7 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
       .catch(() => setCodePreview({ path, line, error: '无法读取文件内容，请检查文件是否存在', loading: false }))
   }
 
-  useEffect(() => {
-    if (codePreview?.line && !codePreview.loading && codePreview.content) {
-      const el = window.document.getElementById(`preview-line-${codePreview.line}`)
-      if (el) el.scrollIntoView({ block: 'center' })
-    }
-  }, [codePreview?.line, codePreview?.loading, codePreview?.content])
+
 
   if (!document || !activeUnit) return <section className="lesson-learn-state"><button type="button" onClick={onBack}><ArrowLeft size={15} /> 返回课程</button><BookOpen size={24} /><strong>{lecture?.status === 'invalid' ? '讲义暂时无法加载' : '正在准备课程内容'}</strong></section>
   const allComplete = progress?.completedSectionIds.length === units.length
@@ -255,11 +250,35 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
         <div className="lesson-code-preview-body">
           {codePreview.loading && <div className="lesson-code-preview-loading">正在读取模板代码…</div>}
           {codePreview.error && <div className="lesson-code-preview-error">{codePreview.error}</div>}
-          {codePreview.content !== undefined && <pre className="lesson-code-preview-code"><code>{codePreview.content.split('\n').map((lineContent, index) => {
-            const lineNum = index + 1
-            const isTargetLine = codePreview.line === lineNum
-            return <div key={lineNum} className={`code-line ${isTargetLine ? 'is-highlight' : ''}`} id={`preview-line-${lineNum}`}><span className="line-num">{lineNum}</span><span className="line-content">{lineContent || ' '}</span></div>
-          })}</code></pre>}
+          {codePreview.content !== undefined && <div className="lesson-code-preview-monaco">
+            <Editor
+              beforeMount={configureMonaco}
+              theme="robotdog-track"
+              language={codePreview.path.endsWith('.h') || codePreview.path.endsWith('.c') ? 'c' : codePreview.path.endsWith('.json') ? 'json' : 'plaintext'}
+              value={codePreview.content}
+              onMount={(editor) => {
+                if (codePreview.line) {
+                  editor.revealLineInCenter(codePreview.line)
+                  editor.setPosition({ lineNumber: codePreview.line, column: 1 })
+                }
+              }}
+              options={{
+                readOnly: true,
+                automaticLayout: true,
+                minimap: { enabled: false },
+                fontFamily: "'Cascadia Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace",
+                fontSize: 14,
+                lineHeight: 22,
+                tabSize: 4,
+                padding: { top: 10, bottom: 10 },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                renderLineHighlight: 'all',
+                smoothScrolling: true,
+                bracketPairColorization: { enabled: true }
+              }}
+            />
+          </div>}
         </div>
         <footer>
           <span className="lesson-code-preview-hint">此文件为实验初始骨架，进入实验后可在代码编辑器中直接修改。</span>
