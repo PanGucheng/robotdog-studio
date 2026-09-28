@@ -1359,7 +1359,7 @@ html[data-ui-scale="175"] .studio-grid.is-mcu { grid-template-columns: minmax(0,
 .lesson-reading-surface { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; background: #fff; }
 .lesson-reading-notices:empty { display: none; }
 .lesson-reading-notices { display: grid; gap: 7px; padding: 10px clamp(28px, 7vw, 90px) 0; }
-.lesson-reading-scroll { overflow: auto; padding: 30px clamp(28px, 7vw, 90px) 70px; outline: none; scroll-behavior: smooth; }
+.lesson-reading-scroll { overflow: auto; padding: 30px clamp(28px, 7vw, 90px) 70px; outline: none; }
 .lesson-reading-scroll:focus-visible { box-shadow: inset 0 0 0 2px var(--sensor-ink); }
 .lesson-reading-unit { max-width: 780px; margin: 0 auto; }
 .lesson-reading-unit + .lesson-reading-unit { border-top: 1px solid #dbe6e9; }

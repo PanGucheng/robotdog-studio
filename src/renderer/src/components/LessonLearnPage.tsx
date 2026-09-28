@@ -73,9 +73,10 @@ export function LessonLearnPage({ course, lesson, attempts, onBack, onCreateAtte
         requestAnimationFrame(() => requestAnimationFrame(() => {
           const scroller = scrollRef.current
           if (!scroller) return
+          scroller.style.scrollBehavior = 'auto'
           if (stored.scrollTop !== undefined) scroller.scrollTop = stored.scrollTop
           else if (initial) {
-            sectionRefs.current.get(initial.sectionId)?.scrollIntoView({ block: 'start' })
+            sectionRefs.current.get(initial.sectionId)?.scrollIntoView({ block: 'start', behavior: 'instant' as ScrollBehavior })
             const root = findOwningUnit(nextLecture.document.sections, initial.sectionId)
             scroller.scrollTop += stored.scrollTopBySection[root?.sectionId ?? ''] ?? 0
           }
