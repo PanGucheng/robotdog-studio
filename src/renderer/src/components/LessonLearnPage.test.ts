@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateTocTrackGeometry, getLessonActionAvailability, shouldAutoCompleteReadingUnit } from './LessonLearnPage'
+import { calculateTocTrackGeometry, getLessonActionAvailability, resolvePreferredAttemptId, shouldAutoCompleteReadingUnit } from './LessonLearnPage'
 
 describe('LessonLearnPage action availability', () => {
   it('blocks starting another lab only while an attempt is already being created', () => {
@@ -40,3 +40,33 @@ describe('lesson table-of-contents progress track', () => {
     expect(calculateTocTrackGeometry(markers, ['led'])).toEqual({ top: 64, height: 139, fillHeight: 139 })
   })
 })
+
+describe('resolvePreferredAttemptId', () => {
+  const attempts = [
+    { id: 'ws-1', name: 'Attempt 1', courseBinding: { attemptNumber: 1 } },
+    { id: 'ws-2', name: 'Attempt 2', courseBinding: { attemptNumber: 2 } }
+  ] as unknown as import('../../../shared/types').WorkspaceSummary[]
+
+  it('prefers activeWorkspaceId if valid in attempts', () => {
+    expect(resolvePreferredAttemptId(attempts, 'ws-2', 'ws-1')).toBe('ws-2')
+  })
+
+  it('falls back to savedId if activeWorkspaceId is not matched or omitted', () => {
+    expect(resolvePreferredAttemptId(attempts, undefined, 'ws-2')).toBe('ws-2')
+    expect(resolvePreferredAttemptId(attempts, 'unknown', 'ws-1')).toBe('ws-1')
+  })
+
+  it('auto selects if exactly one attempt exists', () => {
+    expect(resolvePreferredAttemptId([attempts[0]], undefined, null)).toBe('ws-1')
+  })
+
+  it('returns undefined if multiple attempts exist and neither active nor saved matches', () => {
+    expect(resolvePreferredAttemptId(attempts, undefined, null)).toBeUndefined()
+    expect(resolvePreferredAttemptId(attempts, 'not-found', 'also-not-found')).toBeUndefined()
+  })
+
+  it('returns undefined for empty attempts', () => {
+    expect(resolvePreferredAttemptId([], 'ws-1', 'ws-1')).toBeUndefined()
+  })
+})
+
