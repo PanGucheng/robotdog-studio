@@ -116,14 +116,92 @@ function ProblemsView({ problems, candidate, onFocus, onExplain }: { problems: W
 
 function BuildView(props: McuBottomPanelProps & { belongs: boolean; artifactCurrent: boolean }): React.JSX.Element {
   const { build, baseline, connection, update, wchLink } = props
-  if (!props.belongs) return <div className="mcu-panel-empty"><LoaderCircle className="spin" size={18} /><span><strong>另一个项目正在编译</strong><small>当前项目会在后台任务结束后恢复编译入口。</small></span></div>
-  if (build.state === 'running') return <div className="mcu-build-panel"><div className="mcu-build-lead"><LoaderCircle className="spin" size={19} /><span><strong>{stageLabel(build.stage)}</strong><small>{build.currentFile ?? '正在准备完整固件'} · {build.completedFiles}/{build.totalFiles || 1}</small></span><button type="button" onClick={props.onCancelBuild}><Square size={14} />取消编译</button></div><div className="mcu-build-progress"><i style={{ width: `${build.totalFiles ? build.completedFiles / build.totalFiles * 100 : 4}%` }} /></div></div>
-  if (!props.artifactCurrent) return <div className="mcu-build-panel"><div className="mcu-build-lead"><Cpu size={19} /><span><strong>{build.state === 'completed' ? '代码已变化，需要重新编译' : build.state === 'failed' ? '编译失败' : '编译当前工程'}</strong><small>{build.error ?? '合并课程代码与受保护主固件，生成可烧录产物。'}</small></span><button type="button" className="button-primary" onClick={props.onBuildFirmware} disabled={props.busy}><Hammer size={14} />{build.state === 'failed' ? '重新编译' : '编译'}</button></div></div>
+  if (!props.belongs && build.state === 'running') {
+    return (
+      <div className="mcu-panel-empty">
+        <LoaderCircle className="spin" size={18} />
+        <span>
+          <strong>另一个项目正在编译</strong>
+          <small>当前项目会在后台任务结束后恢复编译入口。</small>
+        </span>
+      </div>
+    )
+  }
+  if (props.belongs && build.state === 'running') {
+    return (
+      <div className="mcu-build-panel">
+        <div className="mcu-build-lead">
+          <LoaderCircle className="spin" size={19} />
+          <span>
+            <strong>{stageLabel(build.stage)}</strong>
+            <small>{build.currentFile ?? '正在准备完整固件'} · {build.completedFiles}/{build.totalFiles || 1}</small>
+          </span>
+          <button type="button" onClick={props.onCancelBuild}><Square size={14} />取消编译</button>
+        </div>
+        <div className="mcu-build-progress">
+          <i style={{ width: `${build.totalFiles ? (build.completedFiles / build.totalFiles) * 100 : 4}%` }} />
+        </div>
+      </div>
+    )
+  }
+  if (!props.artifactCurrent) {
+    const isFailure = props.belongs && build.state === 'failed'
+    const isRebuild = props.belongs && build.state === 'completed'
+    return (
+      <div className="mcu-build-panel">
+        <div className="mcu-build-lead">
+          <Cpu size={19} />
+          <span>
+            <strong>{isRebuild ? '代码已变化，需要重新编译' : isFailure ? '编译失败' : '编译当前工程'}</strong>
+            <small>{isFailure && build.error ? build.error : '合并课程代码与受保护主固件，生成可烧录产物。'}</small>
+          </span>
+          <button
+            type="button"
+            className="button-primary"
+            onClick={props.onBuildFirmware}
+            disabled={props.busy || (!props.belongs && build.state === 'running')}
+          >
+            <Hammer size={14} />
+            {isFailure ? '重新编译' : '编译'}
+          </button>
+        </div>
+      </div>
+    )
+  }
   const flash = (build.size?.text ?? 0) + (build.size?.data ?? 0)
   const ram = (build.size?.data ?? 0) + (build.size?.bss ?? 0)
   const usbReady = ['connected', 'bootloader'].includes(connection.updatePort.state)
   const flashing = activeWch.has(wchLink.state) || !['idle', 'completed', 'failed', 'cancelled'].includes(update.state)
-  return <div className="mcu-build-panel"><div className="mcu-build-lead"><CheckCircle2 size={19} /><span><strong>程序已生成并通过哈希校验</strong><small>Flash {formatBytes(flash)} / {formatBytes(baseline?.memory.flashBytes ?? 0)} · RAM {formatBytes(ram)} / {formatBytes(baseline?.memory.ramBytes ?? 0)}</small></span>{flashing ? <button type="button" onClick={activeWch.has(wchLink.state) ? props.onCancelWchLink : props.onCancelUpdate}><Square size={14} />取消烧录</button> : <button type="button" className="button-primary" onClick={usbReady ? props.onStartUpdate : props.onFlashWchLink}><Zap size={14} />烧录</button>}</div><div className="mcu-artifact-row">{build.artifacts.map((item) => <span key={item.kind}><FileArchive size={13} />{item.kind.toUpperCase()} {item.bytes ? formatBytes(item.bytes) : ''}</span>)}</div></div>
+  return (
+    <div className="mcu-build-panel">
+      <div className="mcu-build-lead">
+        <CheckCircle2 size={19} />
+        <span>
+          <strong>程序已生成并通过哈希校验</strong>
+          <small>
+            Flash {formatBytes(flash)} / {formatBytes(baseline?.memory.flashBytes ?? 0)} · RAM {formatBytes(ram)} / {formatBytes(baseline?.memory.ramBytes ?? 0)}
+          </small>
+        </span>
+        {flashing ? (
+          <button type="button" onClick={activeWch.has(wchLink.state) ? props.onCancelWchLink : props.onCancelUpdate}>
+            <Square size={14} />取消烧录
+          </button>
+        ) : (
+          <button type="button" className="button-primary" onClick={usbReady ? props.onStartUpdate : props.onFlashWchLink}>
+            <Zap size={14} />烧录
+          </button>
+        )}
+      </div>
+      <div className="mcu-artifact-row">
+        {build.artifacts.map((item) => (
+          <span key={item.kind}>
+            <FileArchive size={13} />
+            {item.kind.toUpperCase()} {item.bytes ? formatBytes(item.bytes) : ''}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function TerminalView(props: McuBottomPanelProps & { belongs: boolean; artifactCurrent: boolean; problems: WorkspaceProblem[] }): React.JSX.Element {
@@ -137,19 +215,33 @@ function TerminalView(props: McuBottomPanelProps & { belongs: boolean; artifactC
     if (!pinned.current || !outputRef.current) return
     outputRef.current.scrollTop = outputRef.current.scrollHeight
   }, [lines.length, props.build.state, props.wchLink.logs.length])
-  return <div className="mcu-terminal-view">
-    <div className="mcu-terminal-toolbar"><span><TerminalSquare size={14} /> Managed build console</span><div>{props.problems.filter((item) => item.path).slice(0, 3).map((problem) => <button type="button" key={problem.id} onClick={() => props.onFocusFile(problem.path!, problem.line)}>{problem.path?.split('/').at(-1)}:{problem.line ?? 1}</button>)}<button type="button" onClick={() => setClearedSessionId(terminalSessionId)}>清空</button></div></div>
-    <pre ref={outputRef} className="mcu-output-view" aria-label="只读构建输出" tabIndex={0} onScroll={(event) => { const element = event.currentTarget; pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 28 }}>{lines.length ? lines.join('\n') : '> 等待编译\nCompiler / Linker 输出和烧录日志会连续显示在这里。'}</pre>
-    <BuildView {...props} />
-  </div>
+  return (
+    <div className="mcu-terminal-view">
+      <div className="mcu-terminal-toolbar">
+        <span><TerminalSquare size={14} /> Managed build console</span>
+        <div>
+          {props.problems.filter((item) => item.path).slice(0, 3).map((problem) => (
+            <button type="button" key={problem.id} onClick={() => props.onFocusFile(problem.path!, problem.line)}>
+              {problem.path?.split('/').at(-1)}:{problem.line ?? 1}
+            </button>
+          ))}
+          <button type="button" onClick={() => setClearedSessionId(terminalSessionId)}>清空</button>
+        </div>
+      </div>
+      <pre ref={outputRef} className="mcu-output-view" aria-label="只读构建输出" tabIndex={0} onScroll={(event) => { const element = event.currentTarget; pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 28 }}>
+        {lines.length ? lines.join('\n') : '> 等待编译\nCompiler / Linker 输出和烧录日志会连续显示在这里。'}
+      </pre>
+      <BuildView {...props} />
+    </div>
+  )
 }
 
-function panelStatus(build: FirmwareBuildSnapshot, belongs: boolean, current: boolean, problems: WorkspaceProblem[]): { tone: 'idle' | 'running' | 'passed' | 'failed' | 'stale'; summary: string } {
+export function panelStatus(build: FirmwareBuildSnapshot, belongs: boolean, current: boolean, problems: WorkspaceProblem[]): { tone: 'idle' | 'running' | 'passed' | 'failed' | 'stale'; summary: string } {
   if (problems.some((item) => item.severity === 'error')) return { tone: 'failed', summary: `${problems.length} 个问题需要处理` }
   if (!belongs && build.state === 'running') return { tone: 'running', summary: '另一个项目正在编译' }
   if (belongs && build.state === 'running') return { tone: 'running', summary: `正在编译 · ${build.completedFiles}/${build.totalFiles || 1}` }
   if (current) return { tone: 'passed', summary: `编译完成${build.size ? ` · Flash ${formatBytes(build.size.text + build.size.data)} · RAM ${formatBytes(build.size.data + build.size.bss)}` : ''}` }
-  if (build.state === 'completed') return { tone: 'stale', summary: '代码已变化，需要重新编译' }
+  if (belongs && build.state === 'completed') return { tone: 'stale', summary: '代码已变化，需要重新编译' }
   return { tone: 'idle', summary: problems.length ? `${problems.length} 个提示` : '代码与程序状态' }
 }
 

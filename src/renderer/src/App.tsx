@@ -68,6 +68,7 @@ export function App(): React.JSX.Element {
   const [toolchain, setToolchain] = useState<ToolchainStatus>()
   const [baseline, setBaseline] = useState<FirmwareBaselineStatus>()
   const [build, setBuild] = useState<FirmwareBuildSnapshot>(initialBuild)
+  const [buildsByWorkspace, setBuildsByWorkspace] = useState<Record<string, FirmwareBuildSnapshot>>({})
   const [connection, setConnection] = useState<DeviceConnectionSnapshot>(initialConnection)
   const [firmwareUpdate, setFirmwareUpdate] = useState<FirmwareUpdateSnapshot>(initialUpdate)
   const [wchLink, setWchLink] = useState<WchLinkFlashSnapshot>(initialWchLink)
@@ -190,6 +191,9 @@ export function App(): React.JSX.Element {
     const offBuild = api.onFirmwareBuild((event) => {
       if ('snapshot' in event) {
         setBuild(event.snapshot)
+        if (event.snapshot.workspaceId) {
+          setBuildsByWorkspace((current) => ({ ...current, [event.snapshot.workspaceId!]: event.snapshot }))
+        }
         if (['completed', 'failed', 'cancelled'].includes(event.snapshot.state) && event.snapshot.workspaceId) void refreshCourseProgress(event.snapshot.workspaceId)
       }
     })
@@ -255,11 +259,21 @@ export function App(): React.JSX.Element {
   const action = (value: RobotAction): void => { void run(() => api.runAction(value)) }
   const buildFirmware = (): void => { void run(async () => {
     if (!currentWorkspaceId) throw new Error('请先新建一个学生对话')
-    setBuild(await api.startFirmwareBuild(currentWorkspaceId))
+    const snapshot = await api.startFirmwareBuild(currentWorkspaceId)
+    setBuild(snapshot)
+    if (snapshot.workspaceId) {
+      setBuildsByWorkspace((current) => ({ ...current, [snapshot.workspaceId!]: snapshot }))
+    }
     await refreshCourseProgress(currentWorkspaceId)
   }) }
   const openSysconfig = (): void => { if (currentWorkspaceId) void run(async () => { await api.openTiSysconfig(currentWorkspaceId) }) }
-  const cancelBuild = (): void => { void run(async () => { setBuild(await api.cancelFirmwareBuild()) }) }
+  const cancelBuild = (): void => { void run(async () => {
+    const snapshot = await api.cancelFirmwareBuild()
+    setBuild(snapshot)
+    if (snapshot.workspaceId) {
+      setBuildsByWorkspace((current) => ({ ...current, [snapshot.workspaceId!]: snapshot }))
+    }
+  }) }
   const toggleUsb = (): void => { void run(async () => { setConnection(await api.setDemoUsbConnected(connection.updatePort.state === 'disconnected')) }) }
   const startUpdate = (): void => { void run(async () => {
     if (!currentWorkspaceId) throw new Error('请先选择学生对话')
@@ -656,6 +670,10 @@ export function App(): React.JSX.Element {
     })
   }
 
+  const effectiveBuild = build.state === 'running'
+    ? build
+    : (currentWorkspaceId && buildsByWorkspace[currentWorkspaceId] ? buildsByWorkspace[currentWorkspaceId] : initialBuild)
+
   return (
     <main className={`studio-shell ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
       <header className="topbar">
@@ -784,7 +802,7 @@ export function App(): React.JSX.Element {
           logs={logs}
           toolchain={toolchain}
           baseline={baseline}
-          build={build}
+          build={effectiveBuild}
           connection={connection}
           update={firmwareUpdate}
           wchLink={wchLink}
