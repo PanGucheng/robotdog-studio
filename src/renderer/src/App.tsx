@@ -621,11 +621,11 @@ export function App(): React.JSX.Element {
               )}
             </div>
           )}
-          {!aboutOpen && edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' && (
+          {!aboutOpen && edition.id !== 'fun-line-following' && (mcuView.kind === 'home' || mcuView.kind === 'course-center') && (
             <div className="topbar-context-group">
               <span className="topbar-page-title">
                 <GraduationCap size={15} />
-                <span>{mcuView.kind === 'home' ? '学习大厅' : mcuView.kind === 'course-center' ? '课程中心' : courseLesson?.title ?? '课程学习'}</span>
+                <span>{mcuView.kind === 'home' ? (mcuView.panel === 'free-practice' ? '自由练习' : '学习大厅') : '课程中心'}</span>
               </span>
             </div>
           )}
