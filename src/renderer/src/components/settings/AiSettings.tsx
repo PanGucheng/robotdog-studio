@@ -31,7 +31,7 @@ export function AiSettings({
         <div className="settings-rows">
           <div className="settings-row">
             <span className="settings-row-label">模型</span>
-            <span className="settings-row-value">DeepSeek V4 Flash</span>
+            <span className="settings-row-value">DeepSeek V4.1 Flash</span>
           </div>
           <div className="settings-row">
             <span className="settings-row-label">运行环境</span>

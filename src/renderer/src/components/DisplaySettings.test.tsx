@@ -98,7 +98,7 @@ describe('DisplaySettings', () => {
       navItems[1]?.click()
     })
 
-    expect(container.textContent).toContain('DeepSeek V4 Flash')
+    expect(container.textContent).toContain('DeepSeek V4.1 Flash')
     expect(container.textContent).toContain('Reasonix ACP')
     expect(container.textContent).toContain('API Key')
     expect(container.textContent).toContain('密钥由 Windows 安全存储')

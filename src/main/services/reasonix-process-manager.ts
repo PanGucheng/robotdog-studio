@@ -13,7 +13,7 @@ export interface ReasonixRuntimeManifest {
 }
 
 export type ReasonixRuntimeProfile = 'economy' | 'balanced' | 'delivery'
-export const ROBOTDOG_DEEPSEEK_MODEL_ID = 'deepseek/deepseek-v4-flash'
+export const ROBOTDOG_DEEPSEEK_MODEL_ID = 'deepseek/deepseek-flash'
 
 export interface ReasonixProcess {
   client: AcpClient
@@ -107,8 +107,8 @@ max_steps = 0
 name = "deepseek"
 kind = "openai"
 base_url = "https://api.deepseek.com"
-models = ["deepseek-v4-flash"]
-default = "deepseek-v4-flash"
+models = ["deepseek-flash"]
+default = "deepseek-flash"
 api_key_env = "DEEPSEEK_API_KEY"
 `
 
