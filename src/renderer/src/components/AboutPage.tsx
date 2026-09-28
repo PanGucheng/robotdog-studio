@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import type { AppEditionProfile } from '../../../shared/edition'
 import type { CourseUpdateStatus } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
@@ -22,10 +22,9 @@ const DEVELOPERS = [
 
 export interface AboutPageProps {
   edition: AppEditionProfile
-  onBack(): void
 }
 
-export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Element {
+export function AboutPage({ edition }: AboutPageProps): React.JSX.Element {
   const appVersion = packageJson.version || '0.1.0'
   const [updateStatus, setUpdateStatus] = useState<CourseUpdateStatus>()
   const [checking, setChecking] = useState(false)
@@ -68,18 +67,6 @@ export function AboutPage({ edition, onBack }: AboutPageProps): React.JSX.Elemen
 
   return (
     <div className="about-page">
-      <header className="about-header">
-        <button
-          type="button"
-          className="about-back-button"
-          onClick={onBack}
-          aria-label="返回"
-        >
-          <ArrowLeft size={16} />
-          <span>返回</span>
-        </button>
-      </header>
-
       <main className="about-content">
         <div className="about-brand-section">
           <div className="about-brand-hero">

@@ -11,12 +11,10 @@ import { EDITION_PROFILES } from '../../../shared/edition'
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 describe('AboutPage static rendering', () => {
-  it('renders RoboHorse Studio brand, project description, developer, and return button', () => {
-    const onBack = vi.fn()
+  it('renders RoboHorse Studio brand, project description, and developer without standalone back button', () => {
     const html = renderToString(
       createElement(AboutPage, {
-        edition: EDITION_PROFILES['mcu-foundations'],
-        onBack
+        edition: EDITION_PROFILES['mcu-foundations']
       })
     )
 
@@ -52,15 +50,14 @@ describe('AboutPage static rendering', () => {
     expect(html).toContain('软件版本')
     expect(html).toContain('RoboHorse Studio v0.1.0')
 
-    // 返回按钮存在
-    expect(html).toContain('返回')
+    // 不包含独立的返回按钮
+    expect(html).not.toContain('about-back-button')
   })
 
   it('renders edition information dynamically for fun-line-following edition', () => {
     const html = renderToString(
       createElement(AboutPage, {
-        edition: EDITION_PROFILES['fun-line-following'],
-        onBack: () => undefined
+        edition: EDITION_PROFILES['fun-line-following']
       })
     )
 
@@ -72,8 +69,7 @@ describe('AboutPage static rendering', () => {
   it('renders edition information dynamically for ti-mspm0-foundations edition', () => {
     const html = renderToString(
       createElement(AboutPage, {
-        edition: EDITION_PROFILES['ti-mspm0-foundations'],
-        onBack: () => undefined
+        edition: EDITION_PROFILES['ti-mspm0-foundations']
       })
     )
 
@@ -95,19 +91,14 @@ describe('AboutPage and AppMenu interactive behavior', () => {
     document.body.removeChild(container)
   })
 
-  it('calls onBack when return button is clicked', async () => {
-    const onBack = vi.fn()
+  it('renders without standalone return button and has no about-back-button element', async () => {
     const root = createRoot(container)
     await act(async () => {
-      root.render(createElement(AboutPage, { edition: EDITION_PROFILES['mcu-foundations'], onBack }))
+      root.render(createElement(AboutPage, { edition: EDITION_PROFILES['mcu-foundations'] }))
     })
 
     const backButton = container.querySelector<HTMLButtonElement>('.about-back-button')
-    expect(backButton).not.toBeNull()
-    await act(async () => {
-      backButton?.click()
-    })
-    expect(onBack).toHaveBeenCalledTimes(1)
+    expect(backButton).toBeNull()
   })
 
   it('renders AppMenu and triggers onOpenSettings and onSelectAbout when menu items clicked', async () => {
@@ -182,7 +173,7 @@ describe('AboutPage and AppMenu interactive behavior', () => {
   it("renders content version and handles check update button click", async () => {
     const root = createRoot(container)
     await act(async () => {
-      root.render(createElement(AboutPage, { edition: EDITION_PROFILES["mcu-foundations"], onBack: vi.fn() }))
+      root.render(createElement(AboutPage, { edition: EDITION_PROFILES["mcu-foundations"] }))
     })
 
     expect(container.textContent).toContain("教学内容版本")

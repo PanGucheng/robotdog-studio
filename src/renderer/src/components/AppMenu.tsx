@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { HelpCircle, Info, Settings2 } from 'lucide-react'
+import { ArrowLeft, HelpCircle, Info, Settings2 } from 'lucide-react'
 
 export interface AppMenuProps {
   anchorRef: React.RefObject<HTMLElement | null>
@@ -7,9 +7,11 @@ export interface AppMenuProps {
   onOpenSettings(): void
   onSelectAbout(): void
   onOpenLearning?: () => void
+  isAboutOpen?: boolean
+  onBackToApp?: () => void
 }
 
-export function AppMenu({ anchorRef, onClose, onOpenSettings, onSelectAbout, onOpenLearning }: AppMenuProps): React.JSX.Element {
+export function AppMenu({ anchorRef, onClose, onOpenSettings, onSelectAbout, onOpenLearning, isAboutOpen, onBackToApp }: AppMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -44,6 +46,23 @@ export function AppMenu({ anchorRef, onClose, onOpenSettings, onSelectAbout, onO
         <span className="project-menu-title">RoboHorse Studio</span>
       </div>
       <div className="project-menu-divider" role="separator" />
+      {isAboutOpen && onBackToApp && (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            className="project-menu-item"
+            onClick={() => {
+              onClose()
+              onBackToApp()
+            }}
+          >
+            <ArrowLeft size={15} />
+            <span>返回主界面</span>
+          </button>
+          <div className="project-menu-divider" role="separator" />
+        </>
+      )}
       <button
         type="button"
         role="menuitem"

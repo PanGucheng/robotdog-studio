@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ChevronLeft, GraduationCap, Menu, Pencil, Plus, X } from 'lucide-react'
+import { AlertTriangle, Menu, Pencil, Plus, X } from 'lucide-react'
 import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
@@ -15,6 +15,7 @@ import type { McuView } from './components/mcu-navigation'
 import brandMark from '../../../resources/brand/robohorse-mark.png'
 import { AboutPage } from './components/AboutPage'
 import { AppMenu } from './components/AppMenu'
+import { BreadcrumbNav, type BreadcrumbItem } from './components/BreadcrumbNav'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -328,6 +329,126 @@ export function App(): React.JSX.Element {
   const courseAttempts = courseLesson ? workspaces
     .filter((workspace) => workspace.courseBinding?.courseId === courseLesson.courseId && workspace.courseBinding.lessonId === courseLesson.lessonId)
     .sort((left, right) => (right.courseBinding?.attemptNumber ?? 0) - (left.courseBinding?.attemptNumber ?? 0)) : []
+
+  const breadcrumbs = useMemo((): BreadcrumbItem[] => {
+    if (aboutOpen) {
+      return [{ key: 'about', label: '关于', current: true }]
+    }
+
+    if (edition.id === 'fun-line-following') {
+      return []
+    }
+
+    if (mcuView.kind === 'home') {
+      if (mcuView.panel === 'free-practice') {
+        return [
+          {
+            key: 'home',
+            label: '学习大厅',
+            level: 'root',
+            onClick: () => openMcuView({ kind: 'home', panel: 'landing' })
+          },
+          {
+            key: 'free-practice',
+            label: '自由练习',
+            current: true
+          }
+        ]
+      }
+      return [
+        {
+          key: 'home',
+          label: '学习大厅',
+          current: true
+        }
+      ]
+    }
+
+    if (mcuView.kind === 'course-center') {
+      return [
+        {
+          key: 'course-center',
+          label: '课程中心',
+          current: true
+        }
+      ]
+    }
+
+    if (mcuView.kind === 'lesson') {
+      const currentLessonTitle = courseLesson?.title
+        ?? course?.lessons.find((l) => l.lessonId === mcuView.lessonId)?.title
+        ?? '课程详情'
+      return [
+        {
+          key: 'course-center',
+          label: '课程中心',
+          level: 'root',
+          onClick: () => openMcuView({ kind: 'course-center', courseId: mcuView.courseId, lessonId: mcuView.lessonId })
+        },
+        {
+          key: `lesson-${mcuView.lessonId}`,
+          label: currentLessonTitle,
+          title: currentLessonTitle,
+          current: true
+        }
+      ]
+    }
+
+    if (mcuView.kind === 'workspace' && activeWorkspace) {
+      if (activeWorkspace.workspacePurpose === 'mcu-lesson-attempt') {
+        const binding = activeWorkspace.courseBinding
+        const currentLessonTitle = workspaceLesson?.title
+          ?? course?.lessons.find((l) => l.lessonId === binding?.lessonId)?.title
+          ?? (activeWorkspace.name ? activeWorkspace.name.replace(/(?: ·| -) 第 \d+ 次$/, '') : '课程实验')
+
+        return [
+          {
+            key: 'course-center',
+            label: '课程中心',
+            level: 'root',
+            onClick: () => openMcuView({
+              kind: 'course-center',
+              courseId: binding?.courseId,
+              lessonId: binding?.lessonId
+            })
+          },
+          {
+            key: `lesson-${binding?.lessonId ?? 'item'}`,
+            label: currentLessonTitle,
+            title: currentLessonTitle,
+            level: 'parent',
+            onClick: binding ? () => openMcuView({
+              kind: 'lesson',
+              courseId: binding.courseId,
+              lessonId: binding.lessonId
+            }) : undefined
+          },
+          {
+            key: 'workspace',
+            label: '实验工作台',
+            current: true
+          }
+        ]
+      }
+
+      return [
+        {
+          key: 'free-practice',
+          label: '自由练习',
+          level: 'root',
+          onClick: () => openMcuView({ kind: 'home', panel: 'free-practice' })
+        },
+        {
+          key: `workspace-${activeWorkspace.id}`,
+          label: activeWorkspace.name,
+          title: activeWorkspace.name,
+          current: true
+        }
+      ]
+    }
+
+    return []
+  }, [aboutOpen, edition.id, mcuView, activeWorkspace, workspaceLesson, courseLesson, course])
   const activeCandidateId = activeWorkspace?.activeCandidateId
   const agentEvents = currentWorkspaceId ? agentEventsByWorkspace[currentWorkspaceId] ?? [] : []
   const diagnosticHelp = useMemo(() => buildDiagnosticHelp(agentEvents, candidate?.id), [agentEvents, candidate?.id])
@@ -538,6 +659,8 @@ export function App(): React.JSX.Element {
               <AppMenu
                 anchorRef={menuAnchorRef}
                 onClose={() => setMenuOpen(false)}
+                isAboutOpen={aboutOpen}
+                onBackToApp={() => setAboutOpen(false)}
                 onOpenSettings={() => {
                   setMenuOpen(false)
                   setSettingsOpen(true)
@@ -553,93 +676,68 @@ export function App(): React.JSX.Element {
               />
             )}
           </div>
-          <img className="brand-mark" src={brandMark} width="42" height="42" alt="" />
-          <div>
-            <h1>RoboHorse <em>Studio</em></h1>
-            <p>{edition.subtitle}</p>
+          <div
+            className={`brand-identity ${aboutOpen ? 'is-clickable' : ''}`}
+            onClick={aboutOpen ? () => setAboutOpen(false) : undefined}
+            role={aboutOpen ? 'button' : undefined}
+            tabIndex={aboutOpen ? 0 : undefined}
+            title={aboutOpen ? '返回主界面' : undefined}
+            onKeyDown={aboutOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') setAboutOpen(false) } : undefined}
+          >
+            <img className="brand-mark" src={brandMark} width="42" height="42" alt="" />
+            <div>
+              <h1>RoboHorse <em>Studio</em></h1>
+              <p>{edition.subtitle}</p>
+            </div>
           </div>
         </div>
 
         <div className="topbar-center">
-          {!aboutOpen && (edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && (
-            <div className="topbar-context-group">
-              {edition.id !== 'fun-line-following' && activeWorkspace ? (
-                <>
+          {breadcrumbs.length > 0 ? (
+            <BreadcrumbNav items={breadcrumbs} />
+          ) : (
+            edition.id === 'fun-line-following' && (
+              <div className="topbar-context-group">
+                {workspaces.length > 0 ? (
+                  <select
+                    aria-label="当前项目"
+                    className="topbar-project-select"
+                    value={currentWorkspaceId}
+                    onChange={(event) => setActiveWorkspaceId(event.target.value)}
+                  >
+                    {workspaces.map((workspace) => (
+                      <option key={workspace.id} value={workspace.id}>
+                        {workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="topbar-empty-notice">还没有项目</span>
+                )}
+                {activeWorkspace && (
                   <button
                     type="button"
-                    className="topbar-nav-back"
-                    onClick={() => activeWorkspace.courseBinding
-                      ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId })
-                      : openMcuView({ kind: 'home', panel: 'free-practice' })
-                    }
+                    className="topbar-icon-button"
+                    onClick={renameWorkspace}
                     disabled={busy}
-                    title={activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}
+                    title="修改当前项目名称"
+                    aria-label="修改当前项目名称"
                   >
-                    <ChevronLeft size={14} />
-                    <span>{activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</span>
+                    <Pencil size={13} />
                   </button>
-                  <span
-                    className="topbar-context-title"
-                    title={activeWorkspace.workspacePurpose === 'mcu-lesson-attempt'
-                      ? (workspaceLesson?.title ?? course?.lessons.find((l) => l.lessonId === activeWorkspace.courseBinding?.lessonId)?.title ?? activeWorkspace.name.replace(/(?: ·| -) 第 \d+ 次$/, ''))
-                      : activeWorkspace.name}
-                  >
-                    {activeWorkspace.workspacePurpose === 'mcu-lesson-attempt'
-                      ? (workspaceLesson?.title ?? course?.lessons.find((l) => l.lessonId === activeWorkspace.courseBinding?.lessonId)?.title ?? activeWorkspace.name.replace(/(?: ·| -) 第 \d+ 次$/, ''))
-                      : activeWorkspace.name}
-                  </span>
-                </>
-              ) : (
-                <>
-                  {workspaces.length > 0 ? (
-                    <select
-                      aria-label="当前项目"
-                      className="topbar-project-select"
-                      value={currentWorkspaceId}
-                      onChange={(event) => setActiveWorkspaceId(event.target.value)}
-                    >
-                      {workspaces.map((workspace) => (
-                        <option key={workspace.id} value={workspace.id}>
-                          {workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="topbar-empty-notice">还没有项目</span>
-                  )}
-                  {activeWorkspace && (
-                    <button
-                      type="button"
-                      className="topbar-icon-button"
-                      onClick={renameWorkspace}
-                      disabled={busy}
-                      title="修改当前项目名称"
-                      aria-label="修改当前项目名称"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="topbar-action-button"
-                    onClick={createWorkspace}
-                    disabled={busy}
-                    title="从当前版本模板创建独立项目"
-                  >
-                    <Plus size={13} />
-                    <span>新建项目</span>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-          {!aboutOpen && edition.id !== 'fun-line-following' && (mcuView.kind === 'home' || mcuView.kind === 'course-center') && (
-            <div className="topbar-context-group">
-              <span className="topbar-page-title">
-                <GraduationCap size={15} />
-                <span>{mcuView.kind === 'home' ? (mcuView.panel === 'free-practice' ? '自由练习' : '学习大厅') : '课程中心'}</span>
-              </span>
-            </div>
+                )}
+                <button
+                  type="button"
+                  className="topbar-action-button"
+                  onClick={createWorkspace}
+                  disabled={busy}
+                  title="从当前版本模板创建独立项目"
+                >
+                  <Plus size={13} />
+                  <span>新建项目</span>
+                </button>
+              </div>
+            )
           )}
         </div>
 
@@ -647,9 +745,9 @@ export function App(): React.JSX.Element {
           {!aboutOpen && activeWorkspace && (edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && (
             <span className={`topbar-kind-tag ${activeWorkspace.templateId === 'ch32v203-pony' || activeWorkspace.firmwareBaselineId === 'ch32v203-pony-v25' ? 'is-pony' : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt' ? 'is-rhs' : ''}`}>
               {activeWorkspace.workspacePurpose === 'mcu-sandbox'
-                ? (activeWorkspace.templateId === 'ch32v203-pony' ? '自由练习 · Pony v2.5' : '自由练习')
+                ? '自由练习'
                 : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt'
-                  ? '课程实验 · RHS Teaching'
+                  ? '课程实验'
                   : '巡线练习'}
             </span>
           )}
@@ -672,7 +770,7 @@ export function App(): React.JSX.Element {
       )}
 
       {aboutOpen ? (
-        <AboutPage edition={edition} onBack={() => setAboutOpen(false)} />
+        <AboutPage edition={edition} />
       ) : (
         <>
           <div className={`studio-grid ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
