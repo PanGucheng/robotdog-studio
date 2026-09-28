@@ -186,4 +186,28 @@ describe('AboutPage and AppMenu interactive behavior', () => {
     })
     expect(container.textContent).toContain("教学内容已是最新版本")
   })
+
+  it('renders as modal dialog with close button and responds to close/Escape when onClose is provided', async () => {
+    const onClose = vi.fn()
+    const root = createRoot(container)
+    await act(async () => {
+      root.render(createElement(AboutPage, { edition: EDITION_PROFILES['mcu-foundations'], onClose }))
+    })
+
+    const overlay = container.querySelector('.about-modal-overlay')
+    expect(overlay).not.toBeNull()
+
+    const closeBtn = container.querySelector<HTMLButtonElement>('.mcu-settings-close')
+    expect(closeBtn).not.toBeNull()
+
+    await act(async () => {
+      closeBtn?.click()
+    })
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    expect(onClose).toHaveBeenCalledTimes(2)
+  })
 });

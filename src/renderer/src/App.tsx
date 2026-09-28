@@ -111,6 +111,10 @@ export function App(): React.JSX.Element {
     setSettingsOpen(false)
     requestAnimationFrame(() => { document.getElementById('root')?.scrollTo(0, 0); menuButtonRef.current?.focus({ preventScroll: true }) })
   }
+  const closeAboutModal = (): void => {
+    setAboutOpen(false)
+    requestAnimationFrame(() => { document.getElementById('root')?.scrollTo(0, 0); menuButtonRef.current?.focus({ preventScroll: true }) })
+  }
 
   useEffect(() => {
     let disposed = false
@@ -331,10 +335,6 @@ export function App(): React.JSX.Element {
     .sort((left, right) => (right.courseBinding?.attemptNumber ?? 0) - (left.courseBinding?.attemptNumber ?? 0)) : []
 
   const breadcrumbs = useMemo((): BreadcrumbItem[] => {
-    if (aboutOpen) {
-      return [{ key: 'about', label: '关于', current: true }]
-    }
-
     if (edition.id === 'fun-line-following') {
       return []
     }
@@ -378,6 +378,9 @@ export function App(): React.JSX.Element {
       const currentLessonTitle = courseLesson?.title
         ?? course?.lessons.find((l) => l.lessonId === mcuView.lessonId)?.title
         ?? '课程详情'
+      const matchingAttempt = (activeWorkspace?.courseBinding?.lessonId === mcuView.lessonId ? activeWorkspace : undefined)
+        ?? workspaces.find((w) => w.workspacePurpose === 'mcu-lesson-attempt' && w.courseBinding?.lessonId === mcuView.lessonId)
+
       return [
         {
           key: 'course-center',
@@ -389,7 +392,20 @@ export function App(): React.JSX.Element {
           key: `lesson-${mcuView.lessonId}`,
           label: currentLessonTitle,
           title: currentLessonTitle,
+          level: 'parent',
           current: true
+        },
+        {
+          key: 'workspace',
+          label: '实验工作台',
+          level: 'child',
+          onClick: () => {
+            if (matchingAttempt) {
+              openMcuView({ kind: 'workspace', workspaceId: matchingAttempt.id })
+            } else {
+              void createCourseAttempt(mcuView.lessonId)
+            }
+          }
         }
       ]
     }
@@ -448,7 +464,7 @@ export function App(): React.JSX.Element {
     }
 
     return []
-  }, [aboutOpen, edition.id, mcuView, activeWorkspace, workspaceLesson, courseLesson, course])
+  }, [edition.id, mcuView, activeWorkspace, workspaceLesson, courseLesson, course, workspaces])
   const activeCandidateId = activeWorkspace?.activeCandidateId
   const agentEvents = currentWorkspaceId ? agentEventsByWorkspace[currentWorkspaceId] ?? [] : []
   const diagnosticHelp = useMemo(() => buildDiagnosticHelp(agentEvents, candidate?.id), [agentEvents, candidate?.id])
@@ -641,7 +657,7 @@ export function App(): React.JSX.Element {
   }
 
   return (
-    <main className={`studio-shell ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''} ${aboutOpen ? 'is-about' : ''}`}>
+    <main className={`studio-shell ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
       <header className="topbar">
         <div className="brand-block">
           <div className="menu-anchor" ref={menuAnchorRef}>
@@ -659,8 +675,6 @@ export function App(): React.JSX.Element {
               <AppMenu
                 anchorRef={menuAnchorRef}
                 onClose={() => setMenuOpen(false)}
-                isAboutOpen={aboutOpen}
-                onBackToApp={() => setAboutOpen(false)}
                 onOpenSettings={() => {
                   setMenuOpen(false)
                   setSettingsOpen(true)
@@ -676,14 +690,7 @@ export function App(): React.JSX.Element {
               />
             )}
           </div>
-          <div
-            className={`brand-identity ${aboutOpen ? 'is-clickable' : ''}`}
-            onClick={aboutOpen ? () => setAboutOpen(false) : undefined}
-            role={aboutOpen ? 'button' : undefined}
-            tabIndex={aboutOpen ? 0 : undefined}
-            title={aboutOpen ? '返回主界面' : undefined}
-            onKeyDown={aboutOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') setAboutOpen(false) } : undefined}
-          >
+          <div className="brand-identity">
             <img className="brand-mark" src={brandMark} width="42" height="42" alt="" />
             <div>
               <h1>RoboHorse <em>Studio</em></h1>
@@ -742,7 +749,7 @@ export function App(): React.JSX.Element {
         </div>
 
         <div className="topbar-right">
-          {!aboutOpen && activeWorkspace && (edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && (
+          {activeWorkspace && (edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && (
             <span className={`topbar-kind-tag ${activeWorkspace.templateId === 'ch32v203-pony' || activeWorkspace.firmwareBaselineId === 'ch32v203-pony-v25' ? 'is-pony' : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt' ? 'is-rhs' : ''}`}>
               {activeWorkspace.workspacePurpose === 'mcu-sandbox'
                 ? '自由练习'
@@ -769,84 +776,78 @@ export function App(): React.JSX.Element {
         </div>
       )}
 
-      {aboutOpen ? (
-        <AboutPage edition={edition} />
-      ) : (
-        <>
-          <div className={`studio-grid ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
-            {edition.id === 'fun-line-following' && <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onApply={applyCandidate} onOpenReview={() => setLearningDestination('修改确认')} onPermission={respondAgentPermission} />}
-            <Workbench
-              frame={frame}
-              status={status}
-              logs={logs}
-              toolchain={toolchain}
-              baseline={baseline}
-              build={build}
-              connection={connection}
-              update={firmwareUpdate}
-              wchLink={wchLink}
-              edition={edition}
-              busy={busy || Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
-              candidate={candidate?.workspaceId === currentWorkspaceId ? candidate : undefined}
-              workspace={activeWorkspace}
-              candidateDiff={candidateDiff}
-              candidateDiffLoading={candidateDiffLoading}
-              candidateDiffError={candidateDiffError}
-              workspaceHistory={workspaceHistory}
-              uiScale={uiScale}
-              onUiScaleChange={setUiScale}
-              onRejectCandidate={rejectCandidate}
-              onBuildCandidate={buildCandidate}
-              onApplyCandidate={applyCandidate}
-              onUndoWorkspace={undoWorkspace}
-              onCandidateChanged={setCandidate}
-              onExplainCode={explainCode}
-              diagnosticHelp={diagnosticHelp}
-              onRepairStudentCode={repairStudentCode}
-              onBuildFirmware={buildFirmware}
-              onCancelBuild={cancelBuild}
-              onOpenSysconfig={openSysconfig}
-              onToggleUsb={toggleUsb}
-              onStartUpdate={startUpdate}
-              onCancelUpdate={cancelUpdate}
-              onProbeWchLink={probeWchLink}
-              onFlashWchLink={flashWchLink}
-              onCancelWchLink={cancelWchLink}
-              learningDestination={learningDestination}
-              onLearningDestinationHandled={() => setLearningDestination(undefined)}
-              courses={courses}
-              course={course}
-              courseLesson={courseLesson}
-              courseLoading={courseLoading}
-              courseError={courseError}
-              courseAttempts={courseAttempts}
-              onSelectCourseLesson={selectCourseLesson}
-              onCreateCourseAttempt={createCourseAttempt}
-              onContinueCourseAttempt={continueCourseAttempt}
-              workspaceLesson={workspaceLesson}
-              courseProgress={courseProgress}
-              onUpdateCourseProgress={updateCourseProgress}
-              completedLessonIds={completedLessonIds}
-              agentEvents={agentEvents}
-              agentRunning={Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
-              onAgentPrompt={promptAgent}
-              onAgentCancel={cancelAgent}
-              onAgentPermission={respondAgentPermission}
-              onOpenSettings={() => setSettingsOpen(true)}
-              mcuView={mcuView}
-              onMcuNavigate={openMcuView}
-              onCreateMcuWorkspace={createWorkspace}
-              lessonLearningProgress={lessonLearningProgress}
-              onLessonLearningProgressChanged={(progress) => setLessonLearningProgress((current) => [progress, ...current.filter((item) => item.courseId !== progress.courseId || item.lessonId !== progress.lessonId || item.contentVersion !== progress.contentVersion)])}
-              mcuRecentActivity={mcuRecentActivity}
-              mcuWorkspaces={workspaces}
-            />
-          </div>
+      <div className={`studio-grid ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
+        {edition.id === 'fun-line-following' && <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onApply={applyCandidate} onOpenReview={() => setLearningDestination('修改确认')} onPermission={respondAgentPermission} />}
+        <Workbench
+          frame={frame}
+          status={status}
+          logs={logs}
+          toolchain={toolchain}
+          baseline={baseline}
+          build={build}
+          connection={connection}
+          update={firmwareUpdate}
+          wchLink={wchLink}
+          edition={edition}
+          busy={busy || Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
+          candidate={candidate?.workspaceId === currentWorkspaceId ? candidate : undefined}
+          workspace={activeWorkspace}
+          candidateDiff={candidateDiff}
+          candidateDiffLoading={candidateDiffLoading}
+          candidateDiffError={candidateDiffError}
+          workspaceHistory={workspaceHistory}
+          uiScale={uiScale}
+          onUiScaleChange={setUiScale}
+          onRejectCandidate={rejectCandidate}
+          onBuildCandidate={buildCandidate}
+          onApplyCandidate={applyCandidate}
+          onUndoWorkspace={undoWorkspace}
+          onCandidateChanged={setCandidate}
+          onExplainCode={explainCode}
+          diagnosticHelp={diagnosticHelp}
+          onRepairStudentCode={repairStudentCode}
+          onBuildFirmware={buildFirmware}
+          onCancelBuild={cancelBuild}
+          onOpenSysconfig={openSysconfig}
+          onToggleUsb={toggleUsb}
+          onStartUpdate={startUpdate}
+          onCancelUpdate={cancelUpdate}
+          onProbeWchLink={probeWchLink}
+          onFlashWchLink={flashWchLink}
+          onCancelWchLink={cancelWchLink}
+          learningDestination={learningDestination}
+          onLearningDestinationHandled={() => setLearningDestination(undefined)}
+          courses={courses}
+          course={course}
+          courseLesson={courseLesson}
+          courseLoading={courseLoading}
+          courseError={courseError}
+          courseAttempts={courseAttempts}
+          onSelectCourseLesson={selectCourseLesson}
+          onCreateCourseAttempt={createCourseAttempt}
+          onContinueCourseAttempt={continueCourseAttempt}
+          workspaceLesson={workspaceLesson}
+          courseProgress={courseProgress}
+          onUpdateCourseProgress={updateCourseProgress}
+          completedLessonIds={completedLessonIds}
+          agentEvents={agentEvents}
+          agentRunning={Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
+          onAgentPrompt={promptAgent}
+          onAgentCancel={cancelAgent}
+          onAgentPermission={respondAgentPermission}
+          onOpenSettings={() => setSettingsOpen(true)}
+          mcuView={mcuView}
+          onMcuNavigate={openMcuView}
+          onCreateMcuWorkspace={createWorkspace}
+          lessonLearningProgress={lessonLearningProgress}
+          onLessonLearningProgressChanged={(progress) => setLessonLearningProgress((current) => [progress, ...current.filter((item) => item.courseId !== progress.courseId || item.lessonId !== progress.lessonId || item.contentVersion !== progress.contentVersion)])}
+          mcuRecentActivity={mcuRecentActivity}
+          mcuWorkspaces={workspaces}
+        />
+      </div>
 
-          {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
-          {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
-        </>
-      )}
+      {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
+      {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
 
       {settingsOpen && (
         <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置">
@@ -857,6 +858,10 @@ export function App(): React.JSX.Element {
             <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} />
           </div>
         </div>
+      )}
+
+      {aboutOpen && (
+        <AboutPage edition={edition} onClose={closeAboutModal} />
       )}
     </main>
   )

@@ -87,4 +87,37 @@ describe('BreadcrumbNav', () => {
 
     document.body.removeChild(container)
   })
+
+  it('renders lesson page with clickable course-center, current lesson title, and clickable workspace child', async () => {
+    const onCourseCenter = vi.fn()
+    const onWorkspace = vi.fn()
+    const items: BreadcrumbItem[] = [
+      { key: 'course-center', label: '课程中心', level: 'root', onClick: onCourseCenter },
+      { key: 'lesson-1', label: '第一课：认识单片机', current: true },
+      { key: 'workspace', label: '实验工作台', level: 'child', onClick: onWorkspace }
+    ]
+
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    await act(async () => {
+      root.render(createElement(BreadcrumbNav, { items }))
+    })
+
+    const buttons = container.querySelectorAll('button')
+    expect(buttons.length).toBe(2)
+    expect(buttons[0]?.textContent).toBe('课程中心')
+    expect(buttons[1]?.textContent).toBe('实验工作台')
+
+    const current = container.querySelector('.is-current')
+    expect(current?.textContent).toContain('第一课：认识单片机')
+
+    await act(async () => {
+      buttons[1]?.click()
+    })
+    expect(onWorkspace).toHaveBeenCalledTimes(1)
+
+    document.body.removeChild(container)
+  })
 })

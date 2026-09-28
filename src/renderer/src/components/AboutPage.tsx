@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import type { AppEditionProfile } from '../../../shared/edition'
 import type { CourseUpdateStatus } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
@@ -22,12 +22,22 @@ const DEVELOPERS = [
 
 export interface AboutPageProps {
   edition: AppEditionProfile
+  onClose?(): void
 }
 
-export function AboutPage({ edition }: AboutPageProps): React.JSX.Element {
+export function AboutPage({ edition, onClose }: AboutPageProps): React.JSX.Element {
   const appVersion = packageJson.version || '0.1.0'
   const [updateStatus, setUpdateStatus] = useState<CourseUpdateStatus>()
   const [checking, setChecking] = useState(false)
+
+  useEffect(() => {
+    if (!onClose) return
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined
@@ -65,8 +75,18 @@ export function AboutPage({ edition }: AboutPageProps): React.JSX.Element {
     })
   }
 
-  return (
-    <div className="about-page">
+  const dialogContent = (
+    <div className="about-dialog">
+      {onClose && (
+        <button
+          type="button"
+          className="mcu-settings-close"
+          onClick={onClose}
+          aria-label="关闭关于窗口"
+        >
+          <X size={18} />
+        </button>
+      )}
       <main className="about-content">
         <div className="about-brand-section">
           <div className="about-brand-hero">
@@ -165,6 +185,28 @@ export function AboutPage({ edition }: AboutPageProps): React.JSX.Element {
           </section>
         </div>
       </main>
+    </div>
+  )
+
+  if (onClose) {
+    return (
+      <div
+        className="mcu-settings-overlay about-modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="关于 RoboHorse Studio"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        {dialogContent}
+      </div>
+    )
+  }
+
+  return (
+    <div className="about-page">
+      {dialogContent}
     </div>
   )
 }

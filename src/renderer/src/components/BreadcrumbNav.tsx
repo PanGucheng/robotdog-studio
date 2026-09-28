@@ -6,7 +6,7 @@ export interface BreadcrumbItem {
   onClick?(): void
   title?: string
   current?: boolean
-  level?: 'root' | 'parent' | 'current'
+  level?: 'root' | 'parent' | 'current' | 'child'
 }
 
 export interface BreadcrumbNavProps {
@@ -14,17 +14,23 @@ export interface BreadcrumbNavProps {
 }
 
 export function BreadcrumbNav({ items }: BreadcrumbNavProps): JSX.Element {
+  const hasExplicitCurrent = items.some((item) => item.current)
   return (
     <nav className="breadcrumb-nav" aria-label="页面位置导航">
       <ol className="breadcrumb-list">
         {items.map((item, index) => {
           const isLast = index === items.length - 1
-          const isInteractive = Boolean(item.onClick && !item.current && !isLast)
-          const levelClass = item.level ? `breadcrumb-level-${item.level}` : isLast ? 'breadcrumb-level-current' : ''
+          const isCurrent = Boolean(item.current || (!hasExplicitCurrent && isLast))
+          const isInteractive = Boolean(item.onClick && !isCurrent)
+          const levelClass = item.level
+            ? `breadcrumb-level-${item.level}`
+            : isCurrent
+              ? 'breadcrumb-level-current'
+              : ''
           return (
             <li
               key={item.key}
-              className={`breadcrumb-item ${levelClass} ${item.current || isLast ? 'is-current' : ''}`}
+              className={`breadcrumb-item ${levelClass} ${isCurrent ? 'is-current' : ''}`}
             >
               {isInteractive ? (
                 <button
@@ -38,7 +44,7 @@ export function BreadcrumbNav({ items }: BreadcrumbNavProps): JSX.Element {
               ) : (
                 <span
                   className="breadcrumb-text is-current"
-                  aria-current={item.current || isLast ? 'page' : undefined}
+                  aria-current={isCurrent ? 'page' : undefined}
                   title={item.title ?? item.label}
                 >
                   {item.label}
