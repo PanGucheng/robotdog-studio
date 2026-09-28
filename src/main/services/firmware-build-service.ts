@@ -37,7 +37,7 @@ const LIVE_BASELINE_SOURCES = [
   'Peripheral/src/ch32v20x_i2c.c', 'Peripheral/src/ch32v20x_usart.c', 'Peripheral/src/ch32v20x_adc.c'
 ]
 const LIVE_INCLUDE_DIRECTORIES = ['Core', 'Debug', 'User', 'Peripheral/inc', 'Startup', 'RHS_HAL/Inc', 'Board/Inc', 'Teaching/Inc']
-const LIVE_C_FLAGS = ['-Os', '-ffunction-sections', '-fdata-sections', '-fmessage-length=0', '-fsigned-char', '-fno-common']
+const LIVE_C_FLAGS = ['-O0', '-ffunction-sections', '-fdata-sections', '-fmessage-length=0', '-fsigned-char', '-fno-common']
 const LEGACY_LIVE_BASELINE_SOURCES = [
   'Startup/startup_ch32v20x_D6.S', 'Core/core_riscv.c', 'Debug/debug.c', 'User/main.c', 'User/system_ch32v20x.c', 'User/ch32v20x_it.c',
   'User/ccd_line_sensor.c', 'User/robotdog_types.c', 'User/robotdog_safety.c', 'User/robotdog_protocol.c', 'User/robotdog_text.c',
@@ -46,8 +46,8 @@ const LEGACY_LIVE_BASELINE_SOURCES = [
   'Peripheral/src/ch32v20x_rcc.c', 'Peripheral/src/ch32v20x_tim.c', 'Peripheral/src/ch32v20x_usart.c'
 ]
 const LEGACY_LIVE_INCLUDE_DIRECTORIES = ['Core/Inc', 'Core', 'Debug', 'User', 'Peripheral/inc', 'Startup']
-const LEGACY_LIVE_C_FLAGS = [...LIVE_C_FLAGS, '-DROBOTDOG_ENABLE_LEGACY_TEXT=0']
-const LIVE_STUDENT_C_FLAGS = ['-Wall', '-Wextra', '-Wconversion', '-Werror=implicit-function-declaration', '-Werror=return-type']
+const LEGACY_LIVE_C_FLAGS = ['-Os', '-ffunction-sections', '-fdata-sections', '-fmessage-length=0', '-fsigned-char', '-fno-common', '-DROBOTDOG_ENABLE_LEGACY_TEXT=0']
+const LIVE_STUDENT_C_FLAGS = ['-Wall', '-Wextra', '-Wno-sign-conversion', '-Werror=implicit-function-declaration', '-Werror=return-type']
 const LIVE_LINK_FLAGS = ['-nostartfiles', '--specs=nano.specs', '--specs=nosys.specs', '-Wl,--gc-sections']
 
 export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvents> {

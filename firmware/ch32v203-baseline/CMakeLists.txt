@@ -36,7 +36,7 @@ target_include_directories(RHSFirmwareBaseline PRIVATE
 )
 
 target_compile_options(RHSFirmwareBaseline PRIVATE
-    ${RHS_TARGET_FLAGS} -Os -ffunction-sections -fdata-sections
+    ${RHS_TARGET_FLAGS} -O0 -ffunction-sections -fdata-sections
     -fmessage-length=0 -fsigned-char -fno-common
 )
 
@@ -73,7 +73,7 @@ target_include_directories(RHSFirmwareGPIOLinkSmoke PRIVATE
 )
 
 target_compile_options(RHSFirmwareGPIOLinkSmoke PRIVATE
-    ${RHS_TARGET_FLAGS} -Os -ffunction-sections -fdata-sections
+    ${RHS_TARGET_FLAGS} -O0 -ffunction-sections -fdata-sections
     -fmessage-length=0 -fsigned-char -fno-common
 )
 

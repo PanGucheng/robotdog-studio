@@ -289,7 +289,7 @@ __attribute__( ( always_inline ) ) RV_STATIC_INLINE void NVIC_SetPriority(IRQn_T
  */
 __attribute__( ( always_inline ) ) RV_STATIC_INLINE void __WFI(void)
 {
-  NVIC->SCTLR &= ~(1<<3);	// wfi
+  NVIC->SCTLR &= ~(1U<<3);	// wfi
   asm volatile ("wfi");
 }
 
@@ -315,7 +315,7 @@ __attribute__( ( always_inline ) ) RV_STATIC_INLINE void _SEV(void)
 __attribute__( ( always_inline ) ) RV_STATIC_INLINE void _WFE(void)
 {
     uint32_t tmp= NVIC->SCTLR;
-    tmp &= ~(1<<5);
+    tmp &= ~(1U<<5);
     tmp |= (1<<3);
     NVIC->SCTLR = tmp;
     asm volatile ("wfi");
@@ -363,7 +363,7 @@ __attribute__( ( always_inline ) ) RV_STATIC_INLINE void SetVTFIRQ(uint32_t addr
   else
   {
       NVIC->VTFIDR[num] = IRQn;
-      NVIC->VTFADDR[num] = ((addr&0xFFFFFFFE)&(~0x1));
+      NVIC->VTFADDR[num] = ((addr&0xFFFFFFFE)&(~1U));
   }
 }
 

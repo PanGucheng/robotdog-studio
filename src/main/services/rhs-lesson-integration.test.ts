@@ -66,4 +66,49 @@ describe('RHS Lesson 01 integration', () => {
     expect(result.artifacts.map((artifact) => artifact.kind).sort()).toEqual(['bin', 'elf', 'hex', 'map'])
     expect(result.proof?.baselineSourceHash).toMatch(/^[a-f0-9]{64}$/)
   }, 120_000)
+
+  it('builds Lesson 2 gpio-output without warnings under -O0', async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), 'robotdog-lesson2-'))
+    const baseline = new FirmwareBaselineService({
+      manifestPath: join(repoRoot, 'resources', 'firmware-baselines', 'ch32v203-rhs', 'active.json'),
+      developmentSourceRoot: join(repoRoot, 'firmware', 'ch32v203-baseline')
+    })
+    const manifest = await baseline.getManifest()
+    const courses = new CourseService({
+      rootDir: join(repoRoot, 'resources', 'courses', 'mcu-foundations'),
+      templatesRoot: join(repoRoot, 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'),
+      includeDrafts: true
+    })
+    const spec = await courses.getWorkspaceCreationSpec('ch32v203-foundations', 'gpio-output')
+    const workspaces = new WorkspaceService({
+      rootDir: sandbox,
+      templateRoot: spec.templateRoot,
+      templateVersion: spec.templateVersion,
+      firmwareBaselineId: manifest.id,
+      baselineCommit: manifest.source.expectedCommit,
+      edition: EDITION_PROFILES['mcu-foundations']
+    })
+    const workspace = await workspaces.createLessonAttempt({
+      courseId: 'ch32v203-foundations', lessonId: 'gpio-output', studentDisplayName: '课程作者'
+    }, spec)
+
+    const candidates = new CandidateService({
+      rootDir: sandbox, workspaces,
+      builder: new CandidateBuildService(toolchain, join(sandbox, 'candidate-cache'), baseline)
+    })
+    await candidates.initialize()
+    const draft = await candidates.openManualDraft(workspace.id)
+    const experiment = (await candidates.listStudentCodeFiles(workspace.id, draft.id)).find((file) => file.path === 'App/Src/experiment.c')!
+    await candidates.writeManualDraft(draft.id, experiment.path, `${experiment.content}\n// test edit\n`)
+    expect((await candidates.validate(draft.id)).state).toBe('review_ready')
+    const buildResult = await candidates.build(draft.id)
+    expect(buildResult.state, `${buildResult.error} ${JSON.stringify(buildResult.diagnostics)}`).toBe('build_passed')
+    expect((await candidates.apply(draft.id)).state).toBe('applied')
+
+    const firmware = new FirmwareBuildService(toolchain, { baseline, workspaces, outputBase: join(sandbox, 'firmware') })
+    await firmware.initialize()
+    const result = await firmware.build({ workspaceId: workspace.id })
+    expect(result.state, `${result.error}\n${result.logs.join('\n')}`).toBe('completed')
+    expect(result.logs.some((line) => line.includes('warning:'))).toBe(false)
+  }, 120_000)
 })

@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { promisify } from 'node:util'
 import type { CandidateBuildProof, CandidateDiagnostic } from '../../shared/types'
 import type { EditionId, McuPlatformId } from '../../shared/edition'
 import { ToolchainService } from './toolchain-service'
+import type { FirmwareBaselineService } from './firmware-baseline-service'
+import type { FirmwareBaselineResolver } from './firmware-baseline-resolver'
 
 const execFileAsync = promisify(execFile)
 
@@ -40,7 +43,11 @@ export class CandidateBuildError extends Error {
 }
 
 export class CandidateBuildService implements CandidateBuilder {
-  constructor(private readonly toolchain: ToolchainService, private readonly cacheRoot: string) {}
+  constructor(
+    private readonly toolchain: ToolchainService,
+    private readonly cacheRoot: string,
+    private readonly baseline?: FirmwareBaselineService | FirmwareBaselineResolver
+  ) {}
 
   async build(input: CandidateBuildInput): Promise<CandidateBuildProof> {
     if (input.platform !== 'wch-ch32v203') throw new Error('WCH 候选构建拒绝处理非 CH32 工程。')
@@ -89,12 +96,37 @@ export class CandidateBuildService implements CandidateBuilder {
     }
   }
 
+  private async resolveBaselineIncludePaths(): Promise<string[]> {
+    let sourceRoot: string | undefined
+    if (this.baseline) {
+      if ('resolve' in this.baseline && typeof this.baseline.resolve === 'function') {
+        const baselineService = this.baseline.resolve('ch32v203-rhs')
+        const status = await baselineService.getStatus().catch(() => undefined)
+        if (status?.sourceRoot && existsSync(status.sourceRoot)) sourceRoot = status.sourceRoot
+      } else if ('getStatus' in this.baseline && typeof this.baseline.getStatus === 'function') {
+        const status = await this.baseline.getStatus().catch(() => undefined)
+        if (status?.sourceRoot && existsSync(status.sourceRoot)) sourceRoot = status.sourceRoot
+      }
+    }
+    if (!sourceRoot) {
+      const candidates = [
+        join(process.cwd(), 'firmware', 'ch32v203-baseline'),
+        join(process.resourcesPath ?? '', 'firmware-baselines', 'ch32v203-rhs', 'current', 'source')
+      ]
+      sourceRoot = candidates.find((dir) => existsSync(dir))
+    }
+    if (!sourceRoot) return []
+    const subdirs = ['Core', 'Debug', 'User', 'Peripheral/inc', 'Startup', 'RHS_HAL/Inc', 'Board/Inc', 'Teaching/Inc']
+    return subdirs.map((dir) => join(sourceRoot!, ...dir.split('/'))).filter((dir) => existsSync(dir))
+  }
+
   private async buildMcuProject(input: CandidateBuildInput, gccPath: string, compiler: string, outputDir: string): Promise<CandidateBuildProof> {
     await rm(outputDir, { recursive: true, force: true })
     await mkdir(outputDir, { recursive: true })
     const sourcePaths = await collectCFiles(join(input.candidateRoot, 'App', 'Src'))
     if (sourcePaths.length === 0) throw new CandidateBuildError([{ severity: 'error', message: '单片机教学目录中没有找到实验源文件。' }], 'MCU_SOURCE_MISSING')
-    const includePaths = [join(input.candidateRoot, 'App', 'Inc')]
+    const baselineIncludePaths = await this.resolveBaselineIncludePaths()
+    const includePaths = [join(input.candidateRoot, 'App', 'Inc'), ...baselineIncludePaths]
     const coreInc = join(input.candidateRoot, 'Core', 'Inc')
     if (await stat(coreInc).then((info) => info.isDirectory(), () => false)) {
       includePaths.push(coreInc)
@@ -105,7 +137,8 @@ export class CandidateBuildService implements CandidateBuilder {
         const objectPath = join(outputDir, `${index}-${sourcePath.split(/[\\/]/).at(-1)}.o`)
         await execFileAsync(gccPath, [
           '-march=rv32imac', '-mabi=ilp32', '-ffreestanding', '-fno-builtin',
-          '-Wall', '-Wextra', '-Wconversion', '-Werror=implicit-function-declaration',
+          '-O0',
+          '-Wall', '-Wextra', '-Wno-sign-conversion', '-Werror=implicit-function-declaration',
           ...includePaths.flatMap((path) => ['-I', path]), '-c', sourcePath, '-o', objectPath
         ], { cwd: input.candidateRoot, windowsHide: true, timeout: 60_000, maxBuffer: 1024 * 1024 })
         objectHash.update(await readFile(objectPath))

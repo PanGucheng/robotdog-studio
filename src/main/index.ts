@@ -256,7 +256,7 @@ app.whenReady().then(async () => {
     rootDir: workspaceRoot,
     workspaces,
     builder: new PlatformCandidateBuildService(
-      new CandidateBuildService(new ToolchainService(), candidateCache),
+      new CandidateBuildService(new ToolchainService(), candidateCache, baselineResolver),
       new TiMspm0CandidateBuildService(new TiMspm0ToolchainService(), candidateCache)
     )
   })
