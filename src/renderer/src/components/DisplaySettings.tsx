@@ -1,28 +1,35 @@
-import { Check, Eye, FileDown, FlaskConical, FolderOpen, GraduationCap, KeyRound, MonitorUp, RefreshCw, Route, Type } from 'lucide-react'
+import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
+import { X } from 'lucide-react'
 import type { AppEditionProfile } from '../../../shared/edition'
 import type { AgentRuntimeStatus, AppRuntimeInfo, CourseUpdateStatus, DiagnosticExportResult, FirmwareBaselineStatus, ToolchainStatus } from '../../../shared/types'
-import { UI_SCALE_OPTIONS, type UiScale } from '../lib/ui-scale'
+import type { UiScale } from '../lib/ui-scale'
 import { getRobotApi } from '../lib/browser-demo-api'
 import { type StudentProblem, toStudentErrorMessage, toStudentProblem } from '../lib/student-errors'
-import { ProblemCard } from './ProblemCard'
+import { SettingsSidebar, type SettingsCategoryId } from './settings/SettingsSidebar'
+import { GeneralSettings } from './settings/GeneralSettings'
+import { AiSettings } from './settings/AiSettings'
+import { CourseUpdateSettings } from './settings/CourseUpdateSettings'
+import { AdvancedSettings } from './settings/AdvancedSettings'
 
-interface DisplaySettingsProps {
+export interface DisplaySettingsProps {
   scale: UiScale
   toolchain?: ToolchainStatus
   baseline?: FirmwareBaselineStatus
   onScaleChange(scale: UiScale): void
+  onClose?(): void
 }
 
-const scaleCopy: Record<UiScale, string> = {
-  100: '适合 1080p 或已开启系统缩放',
-  125: '推荐 27 英寸 2K 屏幕',
-  150: '适合 4K 屏幕或偏大文字',
-  175: '最大文字与操作按钮'
-}
+let rememberedCategory: SettingsCategoryId = 'general'
 
-export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: DisplaySettingsProps): React.JSX.Element {
-  const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
+export function DisplaySettings({
+  scale,
+  toolchain,
+  baseline,
+  onScaleChange,
+  onClose
+}: DisplaySettingsProps): JSX.Element {
+  const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>(rememberedCategory)
   const [runtime, setRuntime] = useState<AppRuntimeInfo>()
   const [diagnostic, setDiagnostic] = useState<DiagnosticExportResult>()
   const [error, setError] = useState<StudentProblem>()
@@ -34,9 +41,32 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
   const [courseChecking, setCourseChecking] = useState(false)
   const [editionProfile, setEditionProfile] = useState<AppEditionProfile>()
 
-  useEffect(() => { void getRobotApi().getRuntimeInfo().then(setRuntime).catch((caught) => setError(toStudentProblem(caught, '设置状态读取失败'))) }, [])
-  useEffect(() => { void getRobotApi().getEditionProfile().then(setEditionProfile).catch(() => {}) }, [])
-  useEffect(() => { void getRobotApi().getAgentRuntimeStatus().then(setAgentRuntime).catch((caught) => setAgentError(toStudentErrorMessage(caught))) }, [])
+  const handleSelectCategory = (category: SettingsCategoryId): void => {
+    rememberedCategory = category
+    setActiveCategory(category)
+  }
+
+  useEffect(() => {
+    if (!onClose) return
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
+    void getRobotApi().getRuntimeInfo().then(setRuntime).catch((caught) => setError(toStudentProblem(caught, '设置状态读取失败')))
+  }, [])
+
+  useEffect(() => {
+    void getRobotApi().getEditionProfile().then(setEditionProfile).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    void getRobotApi().getAgentRuntimeStatus().then(setAgentRuntime).catch((caught) => setAgentError(toStudentErrorMessage(caught)))
+  }, [])
+
   useEffect(() => {
     void getRobotApi().getCourseUpdateStatus?.().then(setCourseUpdate).catch(() => {})
     const unsubscribe = getRobotApi().onCourseUpdate?.((status) => {
@@ -47,6 +77,25 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
     })
     return () => unsubscribe?.()
   }, [])
+
+  const handleSaveApiKey = (): void => {
+    setAgentError('')
+    void getRobotApi()
+      .setAgentApiKey(apiKey)
+      .then((value) => {
+        setAgentRuntime(value)
+        setApiKey('')
+      })
+      .catch((caught) => setAgentError(toStudentErrorMessage(caught)))
+  }
+
+  const handleClearApiKey = (): void => {
+    setAgentError('')
+    void getRobotApi()
+      .clearAgentApiKey()
+      .then(setAgentRuntime)
+      .catch((caught) => setAgentError(toStudentErrorMessage(caught)))
+  }
 
   const handleCheckCourseUpdate = (): void => {
     setCourseChecking(true)
@@ -65,107 +114,102 @@ export function DisplaySettings({ scale, toolchain, baseline, onScaleChange }: D
   }
 
   const exportDiagnostics = (): void => {
-    setBusy(true); setError(undefined)
-    void getRobotApi().exportDiagnostics().then(setDiagnostic).catch((caught) => setError(toStudentProblem(caught, '诊断文件没有导出'))).finally(() => setBusy(false))
+    setBusy(true)
+    setError(undefined)
+    void getRobotApi()
+      .exportDiagnostics()
+      .then(setDiagnostic)
+      .catch((caught) => setError(toStudentProblem(caught, '诊断文件没有导出')))
+      .finally(() => setBusy(false))
+  }
+
+  const handleOpenDataDirectory = (): void => {
+    void getRobotApi()
+      .openDataDirectory()
+      .catch((caught) => setError(toStudentProblem(caught, '数据文件夹没有打开')))
+  }
+
+  const dialogContent = (
+    <div className="settings-dialog">
+      <header className="settings-dialog-header">
+        <h2 className="settings-dialog-title">设置</h2>
+        {onClose && (
+          <button
+            type="button"
+            className="settings-dialog-close"
+            onClick={onClose}
+            aria-label="关闭设置"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </header>
+
+      <div className="settings-dialog-body">
+        <SettingsSidebar activeId={activeCategory} onSelect={handleSelectCategory} />
+
+        <main className="settings-content">
+          {activeCategory === 'general' && (
+            <GeneralSettings scale={scale} onScaleChange={onScaleChange} />
+          )}
+
+          {activeCategory === 'ai' && (
+            <AiSettings
+              agentRuntime={agentRuntime}
+              apiKey={apiKey}
+              onApiKeyChange={setApiKey}
+              onSave={handleSaveApiKey}
+              onClear={handleClearApiKey}
+              agentError={agentError}
+            />
+          )}
+
+          {activeCategory === 'courses' && (
+            <CourseUpdateSettings
+              editionProfile={editionProfile}
+              courseUpdate={courseUpdate}
+              courseChecking={courseChecking}
+              onCheckUpdate={handleCheckCourseUpdate}
+            />
+          )}
+
+          {activeCategory === 'advanced' && (
+            <AdvancedSettings
+              runtime={runtime}
+              toolchain={toolchain}
+              baseline={baseline}
+              editionProfile={editionProfile}
+              diagnostic={diagnostic}
+              error={error}
+              busy={busy}
+              onExportDiagnostics={exportDiagnostics}
+              onOpenDataDirectory={handleOpenDataDirectory}
+            />
+          )}
+        </main>
+      </div>
+    </div>
+  )
+
+  if (onClose) {
+    return (
+      <div
+        className="mcu-settings-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Studio 设置"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        {dialogContent}
+      </div>
+    )
   }
 
   return (
     <div className="display-settings">
-      <header className="settings-hero">
-        <span className="settings-hero-icon"><MonitorUp size={23} /></span>
-        <div>
-          <span className="eyebrow">显示与学习体验</span>
-          <h2>让文字和按钮看起来舒服</h2>
-          <p>界面大小只影响显示，不会改变代码、参数或机器马动作。</p>
-        </div>
-      </header>
-
-      <section className="scale-setting" aria-labelledby="scale-heading">
-        <div className="setting-copy">
-          <Type size={18} />
-          <span><strong id="scale-heading">界面大小</strong><small>当前为 {scale}%，选择后立即生效并在下次启动时保留。</small></span>
-        </div>
-        <div className="scale-options" role="group" aria-label="选择界面大小">
-          {UI_SCALE_OPTIONS.map((option) => (
-            <button type="button" key={option} className={option === scale ? 'active' : ''} aria-pressed={option === scale} onClick={() => onScaleChange(option)}>
-              <span className="scale-sample" style={{ fontSize: `${12 + (option - 100) / 25}px` }}>Aa</span>
-              <strong>{option}%</strong>
-              <small>{scaleCopy[option]}</small>
-              {option === scale && <i><Check size={12} /> 已选择</i>}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <div className="settings-status-grid">
-        <article>
-          <span className="settings-status-icon"><Route size={18} /></span>
-          <div><strong>学习步骤</strong><p>提出想法 → 看懂修改 → 生成程序 → 连接小马</p></div>
-        </article>
-        <article>
-          <span className="settings-status-icon"><Eye size={18} /></span>
-          <div><strong>文字优先</strong><p>主要说明使用较大字号，技术细节仍可按需查看。</p></div>
-        </article>
-        <article className={toolchainReady ? 'ready' : ''}>
-          <span className="settings-status-icon"><Check size={18} /></span>
-          <div><strong>程序翻译工具</strong><p>{toolchainReady ? '内置工具已经准备好。' : '工具仍在检查；这不会影响查看项目。'}</p></div>
-        </article>
-        <article className={baseline?.releaseEligible ? 'ready' : 'provisional'}>
-          <span className="settings-status-icon"><FlaskConical size={18} /></span>
-          <div><strong>{baseline?.releaseEligible ? '正式 SDK' : '临时 SDK 基线'}</strong><p>{baseline?.readyForTesting ? `${baseline.label}：仅用于功能测试。` : 'SDK 校验未通过，生成程序已停用。'}</p></div>
-        </article>
-      </div>
-
-      <section className="course-setting" aria-labelledby="course-setting-heading">
-        <div className="setting-copy">
-          <GraduationCap size={18} />
-          <span>
-            <strong id="course-setting-heading">课程更新</strong>
-            <small>教师发布 Gitee 课程后，学生无需升级软件即可自动或手动更新课程内容。</small>
-          </span>
-        </div>
-        <dl>
-          <div>
-            <dt>教学内容版本</dt>
-            <dd>{(editionProfile?.id === 'ti-mspm0-foundations' ? 'TI MSPM0 基础课程 · ' : 'MCU 基础课程 · ') + (courseUpdate?.currentVersion ? `第 ${courseUpdate.currentVersion} 版` : '内置内容')}</dd>
-          </div>
-          <div>
-            <dt>更新状态</dt>
-            <dd className={courseUpdate?.kind === 'updated' || courseUpdate?.kind === 'up-to-date' ? 'ready' : ''}>
-              {courseUpdate?.message || '未检查'}
-            </dd>
-          </div>
-        </dl>
-        <div className="diagnostic-actions">
-          <button type="button" onClick={handleCheckCourseUpdate} disabled={courseChecking}>
-            <RefreshCw size={14} className={courseChecking ? 'spin' : ''} />
-            {courseChecking ? '正在检查教学内容更新…' : '检查教学内容更新'}
-          </button>
-        </div>
-      </section>
-
-      <section className="agent-setting" aria-labelledby="agent-setting-heading">
-        <div className="setting-copy"><KeyRound size={18} /><span><strong id="agent-setting-heading">AI 助教</strong><small>所有 AI 功能统一使用 DeepSeek V4 Flash；密钥由 Windows 加密保存，界面不会再次读取。</small></span></div>
-        <div className={`agent-setting-state ${agentRuntime?.ready ? 'ready' : ''}`}><span>{agentRuntime?.ready ? <Check size={15} /> : <KeyRound size={15} />}</span><div><strong>{agentRuntime?.ready ? 'DeepSeek V4 Flash 已就绪' : '等待配置'}</strong><small>{agentRuntime?.detail ?? '正在检查 Reasonix 运行环境…'}</small></div></div>
-        {agentRuntime?.adapter === 'reasonix' && <><input type="password" value={apiKey} placeholder={agentRuntime.apiKeyConfigured ? '已配置；输入新密钥可替换' : '输入 DeepSeek API Key'} autoComplete="off" onChange={(event) => setApiKey(event.target.value)} />
-          {agentError && <small className="runtime-error">{agentError}</small>}
-          <div className="diagnostic-actions"><button type="button" disabled={!agentRuntime.apiKeyConfigured} onClick={() => { setAgentError(''); void getRobotApi().clearAgentApiKey().then(setAgentRuntime).catch((caught) => setAgentError(toStudentErrorMessage(caught))) }}>清除密钥</button><button type="button" className="button-primary" disabled={!apiKey.trim()} onClick={() => { setAgentError(''); void getRobotApi().setAgentApiKey(apiKey).then((value) => { setAgentRuntime(value); setApiKey('') }).catch((caught) => setAgentError(toStudentErrorMessage(caught))) }}>安全保存</button></div></>}
-      </section>
-
-      <section className="diagnostic-setting" aria-labelledby="diagnostic-heading">
-        <div className="setting-copy"><FileDown size={18} /><span><strong id="diagnostic-heading">教师诊断与本机数据</strong><small>排查问题时导出状态，不会收集 API Key、学生代码或聊天正文。</small></span></div>
-        <dl>
-          <div><dt>AI 助教</dt><dd className={runtime?.agent.ready ? 'ready' : ''}>{runtime?.agent.detail ?? '正在检查…'}</dd></div>
-          <div><dt>练习数量</dt><dd>{runtime ? `${runtime.workspaceCount} 个本机工作区` : '正在读取…'}</dd></div>
-          <div><dt>数据位置</dt><dd title={runtime?.dataRoot}>{runtime?.dataRoot ?? '正在读取…'}</dd></div>
-        </dl>
-        <div className="diagnostic-actions">
-          <button type="button" onClick={exportDiagnostics} disabled={busy}><FileDown size={14} /> {busy ? '正在导出…' : '导出诊断文件'}</button>
-          <button type="button" onClick={() => { void getRobotApi().openDataDirectory().catch((caught) => setError(toStudentProblem(caught, '数据文件夹没有打开'))) }}><FolderOpen size={14} /> 打开数据文件夹</button>
-        </div>
-        {diagnostic && <p className="diagnostic-success">已导出：{diagnostic.path}（{diagnostic.bytes} 字节）</p>}
-        {error && <ProblemCard problem={error} tone="danger" compact />}
-      </section>
+      {dialogContent}
     </div>
   )
 }

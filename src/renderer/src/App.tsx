@@ -850,14 +850,13 @@ export function App(): React.JSX.Element {
       {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
 
       {settingsOpen && (
-        <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置">
-          <div className="mcu-settings-dialog">
-            <button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置">
-              <X size={18} />
-            </button>
-            <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} />
-          </div>
-        </div>
+        <DisplaySettings
+          scale={uiScale}
+          toolchain={toolchain}
+          baseline={baseline}
+          onScaleChange={setUiScale}
+          onClose={closeMcuSettings}
+        />
       )}
 
       {aboutOpen && (
