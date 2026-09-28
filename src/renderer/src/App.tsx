@@ -563,61 +563,73 @@ export function App(): React.JSX.Element {
         <div className="topbar-center">
           {!aboutOpen && (edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && (
             <div className="topbar-context-group">
-              {edition.id !== 'fun-line-following' && activeWorkspace && (
-                <button
-                  type="button"
-                  className="topbar-nav-back"
-                  onClick={() => activeWorkspace.courseBinding
-                    ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId })
-                    : openMcuView({ kind: 'home', panel: 'free-practice' })
-                  }
-                >
-                  <ChevronLeft size={14} />
-                  <span>{activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</span>
-                </button>
-              )}
-              {workspaces.length > 0 ? (
-                <select
-                  aria-label="当前项目"
-                  className="topbar-project-select"
-                  value={currentWorkspaceId}
-                  onChange={(event) => edition.id !== 'fun-line-following'
-                    ? openMcuView({ kind: 'workspace', workspaceId: event.target.value })
-                    : setActiveWorkspaceId(event.target.value)
-                  }
-                >
-                  {workspaces.map((workspace) => (
-                    <option key={workspace.id} value={workspace.id}>
-                      {workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}
-                    </option>
-                  ))}
-                </select>
+              {edition.id !== 'fun-line-following' && activeWorkspace ? (
+                <>
+                  <button
+                    type="button"
+                    className="topbar-nav-back"
+                    onClick={() => activeWorkspace.courseBinding
+                      ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId })
+                      : openMcuView({ kind: 'home', panel: 'free-practice' })
+                    }
+                    disabled={busy}
+                    title={activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}
+                  >
+                    <ChevronLeft size={14} />
+                    <span>{activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</span>
+                  </button>
+                  <span
+                    className="topbar-context-title"
+                    title={activeWorkspace.workspacePurpose === 'mcu-lesson-attempt'
+                      ? (workspaceLesson?.title ?? course?.lessons.find((l) => l.lessonId === activeWorkspace.courseBinding?.lessonId)?.title ?? activeWorkspace.name.replace(/(?: ·| -) 第 \d+ 次$/, ''))
+                      : activeWorkspace.name}
+                  >
+                    {activeWorkspace.workspacePurpose === 'mcu-lesson-attempt'
+                      ? (workspaceLesson?.title ?? course?.lessons.find((l) => l.lessonId === activeWorkspace.courseBinding?.lessonId)?.title ?? activeWorkspace.name.replace(/(?: ·| -) 第 \d+ 次$/, ''))
+                      : activeWorkspace.name}
+                  </span>
+                </>
               ) : (
-                <span className="topbar-empty-notice">还没有项目</span>
-              )}
-              {activeWorkspace && (
-                <button
-                  type="button"
-                  className="topbar-icon-button"
-                  onClick={renameWorkspace}
-                  disabled={busy}
-                  title="修改当前项目名称"
-                  aria-label="修改当前项目名称"
-                >
-                  <Pencil size={13} />
-                </button>
-              )}
-              {edition.id === 'fun-line-following' && (
-                <button
-                  type="button"
-                  className="topbar-action-button"
-                  onClick={createWorkspace}
-                  disabled={busy}
-                  title="从当前版本模板创建独立项目"
-                >
-                  <Plus size={13} />
-                  <span>新建项目</span>
-                </button>
+                <>
+                  {workspaces.length > 0 ? (
+                    <select
+                      aria-label="当前项目"
+                      className="topbar-project-select"
+                      value={currentWorkspaceId}
+                      onChange={(event) => setActiveWorkspaceId(event.target.value)}
+                    >
+                      {workspaces.map((workspace) => (
+                        <option key={workspace.id} value={workspace.id}>
+                          {workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="topbar-empty-notice">还没有项目</span>
+                  )}
+                  {activeWorkspace && (
+                    <button
+                      type="button"
+                      className="topbar-icon-button"
+                      onClick={renameWorkspace}
+                      disabled={busy}
+                      title="修改当前项目名称"
+                      aria-label="修改当前项目名称"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="topbar-action-button"
+                    onClick={createWorkspace}
+                    disabled={busy}
+                    title="从当前版本模板创建独立项目"
+                  >
+                    <Plus size={13} />
+                    <span>新建项目</span>
+                  </button>
+                </>
               )}
             </div>
           )}
