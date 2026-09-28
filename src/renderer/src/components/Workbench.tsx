@@ -1,10 +1,9 @@
-import { Activity, BookOpenCheck, Cable, CheckSquare2, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, Settings2, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
+import { Activity, Cable, Code2, Cpu, FileArchive, Gauge, Play, ScrollText, ShieldCheck, Square, TerminalSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { AgentEvent, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry } from '../../../shared/types'
 import { CcdPlot } from './CcdPlot'
 import { ConnectionBay } from './ConnectionBay'
 import { DiffReview } from './DiffReview'
-import { DisplaySettings } from './DisplaySettings'
 import { StudentCodeEditor } from './StudentCodeEditor'
 import type { UiScale } from '../lib/ui-scale'
 import type { WorkspaceSummary } from '../../../shared/types'
@@ -13,8 +12,6 @@ import { toStudentProblem } from '../lib/student-errors'
 import { ProblemCard } from './ProblemCard'
 import { WchLinkFlasherPanel } from './WchLinkFlasherPanel'
 import type { AppEditionProfile } from '../../../shared/edition'
-import { CourseCenter } from './CourseCenter'
-import { CourseTaskPage } from './CourseTaskPage'
 import type { WorkbenchRoute } from './workbench-routes'
 import { McuWorkbench } from './McuWorkbench'
 import type { McuView } from './mcu-navigation'
@@ -93,30 +90,16 @@ const funTabs = [
   { id: 'build', label: '编译 / 烧录', icon: Cpu },
   { id: 'wch-link', label: '烧录器烧录', icon: Cable },
   { id: 'code', label: '编写代码', icon: Code2 },
-  { id: 'review', label: '修改确认', icon: ShieldCheck },
-  { id: 'settings', label: '设置', icon: Settings2 }
-] as const
-
-const mcuTabs = [
-  { id: 'course-center', label: '课程中心', icon: BookOpenCheck },
-  { id: 'course-tasks', label: '实验任务', icon: CheckSquare2 },
-  { id: 'code', label: '工程代码', icon: Code2 },
-  { id: 'build', label: '编译与问题', icon: Cpu },
-  { id: 'review', label: '修改确认', icon: ShieldCheck },
-  { id: 'flash', label: '烧录与运行', icon: Cable },
-  { id: 'resources', label: '程序资源', icon: Gauge },
-  { id: 'settings', label: '设置', icon: Settings2 }
+  { id: 'review', label: '修改确认', icon: ShieldCheck }
 ] as const
 
 export function Workbench(props: WorkbenchProps): React.JSX.Element {
-  const { frame, status, logs, toolchain, baseline, build, connection, update, wchLink, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, uiScale, onUiScaleChange, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled, courses, course, courseLesson, courseLoading, courseError, courseAttempts, onSelectCourseLesson, onCreateCourseAttempt, onContinueCourseAttempt, workspaceLesson, courseProgress, onUpdateCourseProgress, completedLessonIds } = props
-  const tabs = edition.id !== 'fun-line-following' ? mcuTabs.filter((tab) => tab.id !== 'course-tasks' || workspace?.workspacePurpose === 'mcu-lesson-attempt') : funTabs
-  const [activeTab, setActiveTab] = useState<WorkbenchRoute>(edition.id !== 'fun-line-following' ? 'course-center' : 'ccd')
-  useEffect(() => { setActiveTab(edition.id !== 'fun-line-following' ? 'course-center' : 'ccd') }, [edition.id])
-  useEffect(() => {
-    if (edition.id === 'fun-line-following' || !workspace) return
-    setActiveTab(workspace.workspacePurpose === 'mcu-lesson-attempt' ? 'course-tasks' : 'code')
-  }, [edition.id, workspace?.id])
+  if (props.edition.id !== 'fun-line-following') return <McuWorkbench {...props} />
+
+  const { frame, status, logs, toolchain, baseline, build, connection, update, wchLink, edition, busy, candidate, workspace, candidateDiff, candidateDiffLoading, candidateDiffError, workspaceHistory, onRejectCandidate, onBuildCandidate, onApplyCandidate, onUndoWorkspace, onCandidateChanged, onExplainCode, diagnosticHelp, onRepairStudentCode, onBuildFirmware, onCancelBuild, onToggleUsb, onStartUpdate, onCancelUpdate, onProbeWchLink, onFlashWchLink, onCancelWchLink, learningDestination, onLearningDestinationHandled } = props
+  const tabs = funTabs
+  const [activeTab, setActiveTab] = useState<WorkbenchRoute>('ccd')
+  useEffect(() => { setActiveTab('ccd') }, [edition.id])
   useEffect(() => { if (candidate?.state === 'build_passed' || (candidate?.state === 'review_ready' && candidate.origin !== 'manual' && !candidate.error)) setActiveTab('review') }, [candidate?.id, candidate?.state, candidate?.error, candidate?.origin])
   useEffect(() => {
     if (learningDestination && learningDestination !== 'chat') {
@@ -129,8 +112,7 @@ export function Workbench(props: WorkbenchProps): React.JSX.Element {
   const toolchainReady = Boolean(toolchain?.gcc.ok && toolchain?.objcopy.ok && toolchain?.size.ok)
   const artifactCurrent = build.state === 'completed' && Boolean(workspace && build.proof && build.proof.workspaceId === workspace.id && build.proof.workspaceCommit === workspace.headCommit && build.proof.firmwareBaselineId === workspace.firmwareBaselineId)
   const effectiveBuildState = build.state === 'completed' && !artifactCurrent ? 'idle' : build.state
-  const isMcu = edition.id !== 'fun-line-following'
-  if (isMcu) return <McuWorkbench {...props} />
+  const isMcu = false
   return (
     <section className="workbench">
       <nav className="workbench-tabs" aria-label="工作台标签">
@@ -141,8 +123,10 @@ export function Workbench(props: WorkbenchProps): React.JSX.Element {
         ))}
       </nav>
 
-      {activeTab === 'course-center' ? <CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} completedLessonIds={completedLessonIds} onSelectLesson={onSelectCourseLesson} onOpenLesson={onSelectCourseLesson} /> : activeTab === 'course-tasks' ? <CourseTaskPage workspace={workspace} lesson={workspaceLesson} progress={courseProgress} busy={busy} onUpdate={onUpdateCourseProgress} onNavigate={setActiveTab} /> : activeTab === 'code' ? <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('review')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} /> : activeTab === 'review' ? <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} /> : activeTab === 'settings' ? (
-        <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={onUiScaleChange} />
+      {activeTab === 'code' ? (
+        <StudentCodeEditor workspace={workspace} candidate={candidate} busy={busy} onCandidateChanged={onCandidateChanged} onReadyForReview={() => setActiveTab('review')} onExplainCode={onExplainCode} diagnosticHelp={diagnosticHelp} onRepairStudentCode={onRepairStudentCode} />
+      ) : activeTab === 'review' ? (
+        <DiffReview candidate={candidate} diff={candidateDiff} loading={candidateDiffLoading} error={candidateDiffError} history={workspaceHistory} busy={busy} onReject={onRejectCandidate} onBuild={onBuildCandidate} onApply={onApplyCandidate} onUndo={onUndoWorkspace} />
       ) : ['wch-link', 'flash'].includes(activeTab) ? (
         <WchLinkFlasherPanel
           snapshot={wchLink}

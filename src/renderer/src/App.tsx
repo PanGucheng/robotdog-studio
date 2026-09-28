@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, GraduationCap, Menu, Pencil, Plus, X } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, GraduationCap, Menu, Pencil, Plus, X } from 'lucide-react'
 import type { AgentEvent, AgentTurnSnapshot, CandidateDiff, CandidateSnapshot, CcdFrame, CourseDetail, CourseLesson, CourseProgressSnapshot, CourseProgressUpdate, CourseSummary, DeviceConnectionSnapshot, FirmwareBaselineStatus, FirmwareBuildSnapshot, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, RobotAction, RobotStatus, StudentCodeExplanationRequest, StudentDiagnosticHelp, ToolchainStatus, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../shared/types'
 import { compactAgentEvents } from '../../shared/agent-event-history'
 import { ChatPanel } from './components/ChatPanel'
@@ -559,115 +559,194 @@ export function App(): React.JSX.Element {
             <p>{edition.subtitle}</p>
           </div>
         </div>
+
+        <div className="topbar-center">
+          {!aboutOpen && (edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && (
+            <div className="topbar-context-group">
+              {edition.id !== 'fun-line-following' && activeWorkspace && (
+                <button
+                  type="button"
+                  className="topbar-nav-back"
+                  onClick={() => activeWorkspace.courseBinding
+                    ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId })
+                    : openMcuView({ kind: 'home', panel: 'free-practice' })
+                  }
+                >
+                  <ChevronLeft size={14} />
+                  <span>{activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</span>
+                </button>
+              )}
+              {workspaces.length > 0 ? (
+                <select
+                  aria-label="当前项目"
+                  className="topbar-project-select"
+                  value={currentWorkspaceId}
+                  onChange={(event) => edition.id !== 'fun-line-following'
+                    ? openMcuView({ kind: 'workspace', workspaceId: event.target.value })
+                    : setActiveWorkspaceId(event.target.value)
+                  }
+                >
+                  {workspaces.map((workspace) => (
+                    <option key={workspace.id} value={workspace.id}>
+                      {workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="topbar-empty-notice">还没有项目</span>
+              )}
+              {activeWorkspace && (
+                <button
+                  type="button"
+                  className="topbar-icon-button"
+                  onClick={renameWorkspace}
+                  disabled={busy}
+                  title="修改当前项目名称"
+                  aria-label="修改当前项目名称"
+                >
+                  <Pencil size={13} />
+                </button>
+              )}
+              {edition.id === 'fun-line-following' && (
+                <button
+                  type="button"
+                  className="topbar-action-button"
+                  onClick={createWorkspace}
+                  disabled={busy}
+                  title="从当前版本模板创建独立项目"
+                >
+                  <Plus size={13} />
+                  <span>新建项目</span>
+                </button>
+              )}
+            </div>
+          )}
+          {!aboutOpen && edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' && (
+            <div className="topbar-context-group">
+              <span className="topbar-page-title">
+                <GraduationCap size={15} />
+                <span>{mcuView.kind === 'home' ? '学习大厅' : mcuView.kind === 'course-center' ? '课程中心' : courseLesson?.title ?? '课程学习'}</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="topbar-right">
+          {!aboutOpen && activeWorkspace && (edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && (
+            <span className={`topbar-kind-tag ${activeWorkspace.templateId === 'ch32v203-pony' || activeWorkspace.firmwareBaselineId === 'ch32v203-pony-v25' ? 'is-pony' : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt' ? 'is-rhs' : ''}`}>
+              {activeWorkspace.workspacePurpose === 'mcu-sandbox'
+                ? (activeWorkspace.templateId === 'ch32v203-pony' ? '自由练习 · Pony v2.5' : '自由练习')
+                : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt'
+                  ? '课程实验 · RHS Teaching'
+                  : '巡线练习'}
+            </span>
+          )}
+        </div>
       </header>
+
+      {error && (
+        <div className="top-notification-banner" role="alert">
+          <AlertTriangle size={15} />
+          <span className="top-notification-text">{error}</span>
+          <button
+            type="button"
+            className="top-notification-dismiss"
+            onClick={() => setError(undefined)}
+            aria-label="关闭提示"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {aboutOpen ? (
         <AboutPage edition={edition} onBack={() => setAboutOpen(false)} />
       ) : (
         <>
-          <div className={`context-bar ${edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' ? 'is-learning-context' : ''}`}>
-        {(edition.id === 'fun-line-following' || mcuView.kind === 'workspace') && <span className="workspace-picker">
-          {edition.id !== 'fun-line-following' && activeWorkspace && <button type="button" onClick={() => activeWorkspace.courseBinding ? openMcuView({ kind: 'lesson', courseId: activeWorkspace.courseBinding.courseId, lessonId: activeWorkspace.courseBinding.lessonId }) : openMcuView({ kind: 'home', panel: 'free-practice' })}><ChevronLeft size={13} /> {activeWorkspace.courseBinding ? '返回课程' : '返回自由练习'}</button>}
-          <GraduationCap size={15} />
-          {workspaces.length > 0 ? (
-            <select aria-label="当前项目" value={currentWorkspaceId} onChange={(event) => edition.id !== 'fun-line-following' ? openMcuView({ kind: 'workspace', workspaceId: event.target.value }) : setActiveWorkspaceId(event.target.value)}>
-              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name} · {new Date(workspace.createdAt).toLocaleDateString('zh-CN')}</option>)}
-            </select>
-          ) : <strong>还没有项目</strong>}
-          {activeWorkspace && <button type="button" onClick={renameWorkspace} disabled={busy} title="修改当前项目名称"><Pencil size={13} /> 重命名</button>}
-          {edition.id === 'fun-line-following' && <button type="button" onClick={createWorkspace} disabled={busy} title="从当前版本模板创建独立项目"><Plus size={13} /> 新建项目</button>}
-        </span>}
-        {edition.id !== 'fun-line-following' && mcuView.kind !== 'workspace' && <span className="mcu-learning-context"><GraduationCap size={15} /> {mcuView.kind === 'home' ? '学习大厅' : mcuView.kind === 'course-center' ? '课程中心' : courseLesson?.title ?? '课程学习'}</span>}
-        <span className={`edition-tag edition-${edition.id}`}>{edition.shortName}</span>
-        {activeWorkspace && (
-          <span className={`workspace-kind-tag ${activeWorkspace.templateId === 'ch32v203-pony' || activeWorkspace.firmwareBaselineId === 'ch32v203-pony-v25' ? 'is-pony' : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt' ? 'is-rhs' : ''}`}>
-            {activeWorkspace.workspacePurpose === 'mcu-sandbox'
-              ? (activeWorkspace.templateId === 'ch32v203-pony' ? '自由练习 · Pony v2.5' : '自由练习')
-              : activeWorkspace.workspacePurpose === 'mcu-lesson-attempt'
-                ? '课程实验 · RHS Teaching'
-                : '巡线练习'}
-          </span>
-        )}
-        {activeWorkspace && <span className="checkpoint-tag">存档 {activeWorkspace.headCommit.slice(0, 7)}</span>}
-        <span>固件：{status.firmware}</span>
-        <span className="simulation-flag">SIMULATION</span>
-        {error && <span className="inline-error">{error}</span>}
-      </div>
+          <div className={`studio-grid ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
+            {edition.id === 'fun-line-following' && <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onApply={applyCandidate} onOpenReview={() => setLearningDestination('修改确认')} onPermission={respondAgentPermission} />}
+            <Workbench
+              frame={frame}
+              status={status}
+              logs={logs}
+              toolchain={toolchain}
+              baseline={baseline}
+              build={build}
+              connection={connection}
+              update={firmwareUpdate}
+              wchLink={wchLink}
+              edition={edition}
+              busy={busy || Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
+              candidate={candidate?.workspaceId === currentWorkspaceId ? candidate : undefined}
+              workspace={activeWorkspace}
+              candidateDiff={candidateDiff}
+              candidateDiffLoading={candidateDiffLoading}
+              candidateDiffError={candidateDiffError}
+              workspaceHistory={workspaceHistory}
+              uiScale={uiScale}
+              onUiScaleChange={setUiScale}
+              onRejectCandidate={rejectCandidate}
+              onBuildCandidate={buildCandidate}
+              onApplyCandidate={applyCandidate}
+              onUndoWorkspace={undoWorkspace}
+              onCandidateChanged={setCandidate}
+              onExplainCode={explainCode}
+              diagnosticHelp={diagnosticHelp}
+              onRepairStudentCode={repairStudentCode}
+              onBuildFirmware={buildFirmware}
+              onCancelBuild={cancelBuild}
+              onOpenSysconfig={openSysconfig}
+              onToggleUsb={toggleUsb}
+              onStartUpdate={startUpdate}
+              onCancelUpdate={cancelUpdate}
+              onProbeWchLink={probeWchLink}
+              onFlashWchLink={flashWchLink}
+              onCancelWchLink={cancelWchLink}
+              learningDestination={learningDestination}
+              onLearningDestinationHandled={() => setLearningDestination(undefined)}
+              courses={courses}
+              course={course}
+              courseLesson={courseLesson}
+              courseLoading={courseLoading}
+              courseError={courseError}
+              courseAttempts={courseAttempts}
+              onSelectCourseLesson={selectCourseLesson}
+              onCreateCourseAttempt={createCourseAttempt}
+              onContinueCourseAttempt={continueCourseAttempt}
+              workspaceLesson={workspaceLesson}
+              courseProgress={courseProgress}
+              onUpdateCourseProgress={updateCourseProgress}
+              completedLessonIds={completedLessonIds}
+              agentEvents={agentEvents}
+              agentRunning={Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
+              onAgentPrompt={promptAgent}
+              onAgentCancel={cancelAgent}
+              onAgentPermission={respondAgentPermission}
+              onOpenSettings={() => setSettingsOpen(true)}
+              mcuView={mcuView}
+              onMcuNavigate={openMcuView}
+              onCreateMcuWorkspace={createWorkspace}
+              lessonLearningProgress={lessonLearningProgress}
+              onLessonLearningProgressChanged={(progress) => setLessonLearningProgress((current) => [progress, ...current.filter((item) => item.courseId !== progress.courseId || item.lessonId !== progress.lessonId || item.contentVersion !== progress.contentVersion)])}
+              mcuRecentActivity={mcuRecentActivity}
+              mcuWorkspaces={workspaces}
+            />
+          </div>
 
-      <div className={`studio-grid ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
-        {edition.id === 'fun-line-following' && <ChatPanel workspace={activeWorkspace} edition={edition} events={agentEvents} candidate={candidate} running={Boolean(agentTurn)} onPrompt={promptAgent} onCancel={cancelAgent} onReject={rejectCandidate} onApply={applyCandidate} onOpenReview={() => setLearningDestination('修改确认')} onPermission={respondAgentPermission} />}
-        <Workbench
-          frame={frame}
-          status={status}
-          logs={logs}
-          toolchain={toolchain}
-          baseline={baseline}
-          build={build}
-          connection={connection}
-          update={firmwareUpdate}
-          wchLink={wchLink}
-          edition={edition}
-          busy={busy || Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
-          candidate={candidate?.workspaceId === currentWorkspaceId ? candidate : undefined}
-          workspace={activeWorkspace}
-          candidateDiff={candidateDiff}
-          candidateDiffLoading={candidateDiffLoading}
-          candidateDiffError={candidateDiffError}
-          workspaceHistory={workspaceHistory}
-          uiScale={uiScale}
-          onUiScaleChange={setUiScale}
-          onRejectCandidate={rejectCandidate}
-          onBuildCandidate={buildCandidate}
-          onApplyCandidate={applyCandidate}
-          onUndoWorkspace={undoWorkspace}
-          onCandidateChanged={setCandidate}
-          onExplainCode={explainCode}
-          diagnosticHelp={diagnosticHelp}
-          onRepairStudentCode={repairStudentCode}
-          onBuildFirmware={buildFirmware}
-          onCancelBuild={cancelBuild}
-          onOpenSysconfig={openSysconfig}
-          onToggleUsb={toggleUsb}
-          onStartUpdate={startUpdate}
-          onCancelUpdate={cancelUpdate}
-          onProbeWchLink={probeWchLink}
-          onFlashWchLink={flashWchLink}
-          onCancelWchLink={cancelWchLink}
-          learningDestination={learningDestination}
-          onLearningDestinationHandled={() => setLearningDestination(undefined)}
-          courses={courses}
-          course={course}
-          courseLesson={courseLesson}
-          courseLoading={courseLoading}
-          courseError={courseError}
-          courseAttempts={courseAttempts}
-          onSelectCourseLesson={selectCourseLesson}
-          onCreateCourseAttempt={createCourseAttempt}
-          onContinueCourseAttempt={continueCourseAttempt}
-          workspaceLesson={workspaceLesson}
-          courseProgress={courseProgress}
-          onUpdateCourseProgress={updateCourseProgress}
-          completedLessonIds={completedLessonIds}
-          agentEvents={agentEvents}
-          agentRunning={Boolean(agentTurn && currentWorkspaceId && agentTurn.workspaceId === currentWorkspaceId)}
-          onAgentPrompt={promptAgent}
-          onAgentCancel={cancelAgent}
-          onAgentPermission={respondAgentPermission}
-          onOpenSettings={() => setSettingsOpen(true)}
-          mcuView={mcuView}
-          onMcuNavigate={openMcuView}
-          onCreateMcuWorkspace={createWorkspace}
-          lessonLearningProgress={lessonLearningProgress}
-          onLessonLearningProgressChanged={(progress) => setLessonLearningProgress((current) => [progress, ...current.filter((item) => item.courseId !== progress.courseId || item.lessonId !== progress.lessonId || item.contentVersion !== progress.contentVersion)])}
-          mcuRecentActivity={mcuRecentActivity}
-          mcuWorkspaces={workspaces}
-        />
-      </div>
-
-      {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
-      {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
-      {settingsOpen && <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置"><div className="mcu-settings-dialog"><button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置"><X size={18} /></button><DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} /></div></div>}
+          {edition.id === 'fun-line-following' && <ControlDock connected={connected} busy={busy} onConnect={connect} onCapture={capture} onAction={action} />}
+          {edition.id === 'fun-line-following' && <LearningCenter open={learningOpen} onClose={closeLearning} onNavigate={navigateFromLearning} />}
         </>
+      )}
+
+      {settingsOpen && (
+        <div className="mcu-settings-overlay" role="dialog" aria-modal="true" aria-label="Studio 设置">
+          <div className="mcu-settings-dialog">
+            <button type="button" className="mcu-settings-close" onClick={closeMcuSettings} aria-label="关闭设置">
+              <X size={18} />
+            </button>
+            <DisplaySettings scale={uiScale} toolchain={toolchain} baseline={baseline} onScaleChange={setUiScale} />
+          </div>
+        </div>
       )}
     </main>
   )
