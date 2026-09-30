@@ -41,7 +41,7 @@ await cp(join(root, 'out'), join(appDir, 'out'), { recursive: true })
 await cp(join(root, 'config'), join(appDir, 'config'), { recursive: true })
 await writeFile(join(appDir, 'config', 'edition.json'), `${JSON.stringify({ schemaVersion: 1, edition: editionId }, null, 2)}\n`)
 await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
-  name: 'robotdog-studio-packaged', version: '0.1.0',
+  name: 'robotdog-studio-packaged', version: '1.0.0',
   description: formal ? 'RoboHorse Studio offline package' : 'RoboHorse Studio provisional offline test package',
   main: './out/main/index.cjs', author: 'RoboHorse Studio contributors', license: 'UNLICENSED', type: 'module', dependencies: {}
 }, null, 2)}\n`)

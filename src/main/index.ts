@@ -275,7 +275,7 @@ app.whenReady().then(async () => {
     ? new EditionContentUpdateService({
         userDataContentRoot,
         resolver: contentResolver,
-        appVersion: app.getVersion() || '0.1.0',
+        appVersion: app.getVersion() || '1.0.0',
         editionId: edition.id,
         onContentUpdated: async (_newRoot, status) => {
           for (const win of BrowserWindow.getAllWindows()) {

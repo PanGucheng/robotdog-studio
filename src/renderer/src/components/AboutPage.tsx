@@ -26,7 +26,7 @@ export interface AboutPageProps {
 }
 
 export function AboutPage({ edition, onClose }: AboutPageProps): React.JSX.Element {
-  const appVersion = packageJson.version || '0.1.0'
+  const appVersion = packageJson.version || '1.0.0'
   const [updateStatus, setUpdateStatus] = useState<CourseUpdateStatus>()
   const [checking, setChecking] = useState(false)
 
