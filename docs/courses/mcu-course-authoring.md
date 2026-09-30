@@ -1,9 +1,9 @@
 # RoboHorse Studio 课程制作与发布指南
 
-更新日期：2026-09-27  
+更新日期：2026-09-30  
 适用系统：RoboHorse Studio（支持 MCU Foundations 与 TI MSPM0 Foundations 两套硬件体系）  
 当前参考课程：
-- `ch32v203-foundations`（CH32V203 RISC-V 架构，当前 `contentVersion: 10`）
+- `ch32v203-foundations`（CH32V203 RISC-V 架构，当前 `contentVersion: 13`）
 - `ti-mspm0-gpio-foundations`（MSPM0G3507 ARM Cortex-M0+ 架构，当前 `contentVersion: 1`）
 
 ---
@@ -20,8 +20,9 @@
 6. **必要的离线本地图片**（`lectures/<lessonId>/assets/*`）；
 7. **内容版本与指纹冻结**（`compatibility/content-v<N>.json` 与兼容快照）；
 8. **自动化测试与门禁验证**（`npm run courses:validate`、`npm test`）；
-9. **硬件课真机验证记录**（严格满足硬件验证发布门禁）；
-10. **远程更新打包发布**（发布至 Gitee `robohorse-courses` 远程仓库）。
+9. **硬件课真机验证记录**（硬件课转正发布必须满足 `verification: hardware-checked` 门禁）；
+10. **作者草稿与正式发布分离**（开发模式可见作者验证课次，发布包通过 Published Snapshot 自动过滤草稿）；
+11. **远程更新打包发布**（发布至 Gitee `robohorse-courses` 远程仓库统一 `content.zip`）。
 
 > [!IMPORTANT]
 > 课程不是简单的富文本展示。Lesson 中的文件权限、任务步骤、完成条件与 AI 上下文会直接联动 Main 核心服务、学生受控工作区、固件编译工具链、AI Candidate 补丁、Flash 烧录与学习进度状态机。
@@ -32,36 +33,55 @@
 
 遇到文档与代码逻辑不一致时，按以下优先级判断：
 
-1. [`CourseService`](../../src/main/services/course-service.ts) 中的 Zod Schema 和关联安全校验；
-2. [`CourseLectureParser`](../../src/main/services/course-lecture-parser.ts) 的 Lecture 白名单解析规则；
-3. [`LessonLearningProgressStore`](../../src/main/services/lesson-learning-progress-store.ts) 的阅读进度与版本指纹校验；
-4. 校验脚本：[`validate-mcu-courses.ts`](../../scripts/validate-mcu-courses.ts) 与 [`validate-ti-mspm0-course.ts`](../../scripts/validate-ti-mspm0-course.ts)；
-5. 本指南；
-6. 其他历史设计文档。
+1. [`CourseService`](../../src/main/services/course-service.ts) 中的 Zod Schema、草稿过滤与安全校验；
+2. [`PublishedSnapshot`](../../src/main/services/published-snapshot.ts) 的发布过滤与快照导出规则；
+3. [`CourseLectureParser`](../../src/main/services/course-lecture-parser.ts) 的 Lecture 白名单解析规则；
+4. [`LessonLearningProgressStore`](../../src/main/services/lesson-learning-progress-store.ts) 的阅读进度与版本指纹校验；
+5. 校验脚本：[`validate-mcu-courses.ts`](../../scripts/validate-mcu-courses.ts) 与 [`validate-ti-mspm0-course.ts`](../../scripts/validate-ti-mspm0-course.ts)；
+6. 本指南；
+7. 其他历史设计文档。
 
 ---
 
 ## 3. 课程运行与分发架构
 
-RoboHorse Studio 课程采用 **本地内置（Bundled） + 远程热更新（Remote Gitee） + 本地持久缓存（UserData）** 的三层架构：
+RoboHorse Studio 课程采用 **本地内置（Bundled） + 远程热更新（Remote Gitee） + 本地持久缓存（UserData）** 的三层架构，并通过统一内容解析器（`EditionContentResolver`）统一管理课程、模板与固件基线。
+
+### 3.1 作者开发模式 vs 学生发行模式
+
+为了让课程维护者在本地开发迭代时**不受远程缓存覆盖**，系统在开发模式与学生模式下使用不同的优先级策略：
+
+```text
+【作者开发环境 (!app.isPackaged)】
+preferLocal = true
+  1. 源码仓库本地目录 (resources/)  <--- 开发者与课程作者直接编辑，即时生效
+  2. 本地用户数据缓存 (userData/content/<editionId>/current/)
+  3. 兜底静态资源
+
+【学生运行环境 (app.isPackaged)】
+preferLocal = false
+  1. 本地用户数据缓存 (userData/content/<editionId>/current/) <--- 优先使用从 Gitee 下载的最新热更新包
+  2. 安装包自带内置资源 (resources/)                         <--- 无缓存时回退到安装包内置版本
+```
+
+### 3.2 远程分发流
 
 ```text
 Gitee 远程仓库 (robohorse-courses)
-  ├─ update.json (schemaVersion: 2)
-  └─ courses/<editionId>/course.zip
+  ├─ update.json (schemaVersion: 3)
+  └─ packages/<editionId>/content.zip (包含 courses, workspace-templates, firmware-baselines)
         │ (后台检查更新 / 手动检查更新)
         ▼
-客户端本地缓存 (%APPDATA%/robotdog-studio/courses/<editionId>/)
-  ├─ current/   <--- 解压后的最新课程
+客户端本地缓存 (%APPDATA%/<UserDataDir>/content/<editionId>/)
+  ├─ current/   <--- 解压后的最新内容
   └─ state.json <--- 当前缓存版本号
-        │ (优先使用)
-        ├────────────────────────┐
-        ▼                        ▼ (无缓存时回退)
-CourseResolver          安装包自带内置课程 (resources/courses/<editionId>/)
+        │
+        ▼
+EditionContentResolver
         │
         ▼
 CourseService (Main 进程解析)
-  ├─ 课程中心展示 (Course Center)
+  ├─ 课程中心展示 (Course Center，学生端过滤草稿，作者端展示"作者验证")
   ├─ 讲义安全渲染 (Safe Lecture Document)
   ├─ 学生受控工作区权限 (Workspace / Candidate Policy)
   ├─ 实验步骤流与完成证据 (Lab Guide Stepper)
@@ -82,8 +102,8 @@ RobotDog_Studio/
 │  │  ├─ mcu-foundations/             # MCU (CH32V203) 课程内置资源
 │  │  │  ├─ catalog.json
 │  │  │  └─ ch32v203-foundations/
-│  │  │     ├─ course.json            # contentVersion: 10
-│  │  │     ├─ lessons/*.json
+│  │  │     ├─ course.json            # contentVersion: 13
+│  │  │     ├─ lessons/*.json         # 第一课 published，第二课 draft
 │  │  │     ├─ lectures/<lessonId>/lecture.md
 │  │  │     └─ compatibility/content-v*.json
 │  │  │
@@ -95,9 +115,11 @@ RobotDog_Studio/
 │  │        ├─ lectures/<lessonId>/lecture.md
 │  │        └─ compatibility/content-v*.json
 │  │
-│  └─ workspace-templates/
-│     ├─ ch32v203-mcu-lessons/        # MCU 课次代码模板
-│     └─ ti-mspm0-lessons/            # TI 课次代码模板
+│  ├─ workspace-templates/
+│  │  ├─ ch32v203-mcu-lessons/        # MCU 课次代码模板
+│  │  └─ ti-mspm0-lessons/            # TI 课次代码模板
+│  │
+│  └─ firmware-baselines/             # 固件基线源码
 ```
 
 ### 4.2 远程发布仓库（`robohorse-courses`）
@@ -106,18 +128,18 @@ RobotDog_Studio/
 
 ```text
 robohorse-courses/
-├── courses/
+├── packages/
 │   ├── mcu-foundations/
-│   │   └── course.zip                # MCU 课程发布压缩包
+│   │   └── content.zip               # 统一发布包（由 Published Snapshot 自动过滤草稿后打包）
 │   └── ti-mspm0-foundations/
-│       └── course.zip                # TI MSPM0 课程发布压缩包
+│       └── content.zip               # TI MSPM0 发布包
 ├── source/
-│   ├── mcu-foundations/              # MCU 课程源码（与 resources 同步）
-│   └── ti-mspm0-foundations/         # TI MSPM0 课程源码（与 resources 同步）
+│   ├── mcu-foundations/              # 源码镜像
+│   └── ti-mspm0-foundations/         # TI MSPM0 源码镜像
 ├── scripts/
-│   └── publish-course.cjs            # 多版本一键打包脚本
-├── update.json                       # 多版本清单 (schemaVersion: 2)
-└── course.zip                        # 根目录软兼容老客户端
+│   ├── publish-content.cjs           # 统一打包脚本（集成 exportPublishedSnapshot 过滤）
+│   └── publish-content.ps1           # 一键同步与打包脚本
+└── update.json                       # 远程更新清单 (schemaVersion: 3)
 ```
 
 ---
@@ -213,7 +235,7 @@ robohorse-courses/
 {
   "schemaVersion": 1,
   "courseId": "ch32v203-foundations",
-  "contentVersion": 10,
+  "contentVersion": 13,
   "title": "CH32V203 单片机入门",
   "summary": "从零认识单片机和开发板，逐步学会编译、写入并观察真实硬件现象。",
   "audience": "电子类专业大学低年级学生",
@@ -224,7 +246,8 @@ robohorse-courses/
   "status": "published",
   "boardScope": "CH32V203 RHS 机器马教学开发板",
   "lessonOrder": [
-    "first-program-on-chip"
+    "first-program-on-chip",
+    "gpio-output"
   ],
   "progressCompatibleFrom": [],
   "learningCompatibleFrom": [],
@@ -235,8 +258,11 @@ robohorse-courses/
 ```
 
 - `courseId`：全局唯一 kebab-case ID。MCU 课程以 `ch32` 开头，TI 课程以 `ti-mspm0` 开头。
-- `contentVersion`：整门课程的单调递增整数版本。
-- `status`：`draft | published`。正式发布前必须通过硬件真机验证门禁。
+- `contentVersion`：整门课程的单调递增整数版本（当前 MCU 课程为 `13`）。
+- `status`：`draft | published`。课程级状态。
+- `lessonOrder`：作者开发态下登记的完整课次顺序（包含开发中的草稿课次）。
+  > [!NOTE]
+  > 在打包发布至远程分发包时，`PublishedSnapshot` 导出器会自动重构该数组，剔除所有 `status: "draft"` 的课次，学生端仅会收到已发布的课次列表。
 
 ### 6.2 Lesson Manifest (`lessons/<lessonId>.json`)
 
@@ -331,6 +357,19 @@ robohorse-courses/
 }
 ```
 
+### 6.3 课次生命周期与发布门禁
+
+课次分为 **作者验证（草稿）** 与 **正式发布** 两个生命阶段：
+
+| 阶段 / 状态 | `status` | `verification` | 开发者本机展示 | 学生正式环境 | 是否进入远程包 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **作者验证（草稿）** | `"draft"` | `"pending-hardware-check"` | 可见，带 **`作者验证`** 徽标，可调试实验 | 彻底隐藏，不暴露 | **否**（导出时自动排除） |
+| **正式发布** | `"published"` | `"hardware-checked"` | 可见，带 **`已发布`** 徽标 | 正常展示并学习 | **是** |
+
+> [!CAUTION]
+> **发布硬门禁**：
+> `validate-mcu-courses.ts` 在校验时严格拦截：凡是 `hardware === 'required'` 且 `status === 'published'` 的课次，必须标记为 `verification: 'hardware-checked'`。若未通过真实硬件测试就修改为 `published`，校验将直接报错并阻断发布！
+
 #### Step 类型与验收映射
 
 | Step `type` | 含义 | 对应的 CompletionCheck |
@@ -404,27 +443,28 @@ H2 是阅读进度计算的核心单元，必须以字母开头并具备唯一 I
 
 ## 8. 打包与远程发布工作流
 
-在 `D:\RobotDog\robohorse-courses` 仓库中进行多版本发布：
+在 `D:\RobotDog\robohorse-courses` 仓库中进行统一发布：
 
-```bash
-# 1. 仅发布 MCU 课程 (递增版本号并打包 courses/mcu-foundations/course.zip)
-node scripts/publish-course.cjs mcu-foundations
+```powershell
+# 1. 仅发布 MCU 课程 (从 Studio 导出 Published Snapshot，过滤草稿，递增 update.json 版本号并生成 packages/mcu-foundations/content.zip)
+.\scripts\publish-content.ps1 mcu-foundations -sync
 
-# 2. 仅发布 TI MSPM0 课程 (递增版本号并打包 courses/ti-mspm0-foundations/course.zip)
-node scripts/publish-course.cjs ti-mspm0-foundations
+# 2. 仅发布 TI MSPM0 课程 (从 Studio 导出并生成 packages/ti-mspm0-foundations/content.zip)
+.\scripts\publish-content.ps1 ti-mspm0-foundations -sync
 
 # 3. 全量发布所有版本
-node scripts/publish-course.cjs all
+.\scripts\publish-content.ps1 all -sync
 
 # 可选标志：
-# --no-bump  重新打包但不递增 update.json 版本号
-# --init     首次初始化版本号为 1
+# -noBump     重新打包但不递增 update.json 版本号
+# -init       首次初始化版本号为 1
 ```
 
 发布后，提交并推送到 Gitee：
-```bash
+```powershell
+git status
 git add .
-git commit -m "feat(course): release updated mcu foundations v10"
+git commit -m "feat(course): publish verified mcu foundations lesson"
 git push origin master
 ```
 
@@ -435,20 +475,26 @@ git push origin master
 在提交任何课程修改前，依次运行以下自动化验证：
 
 ```powershell
-# 1. 校验课程 Schema、模板、指纹与讲义有效性
+# 1. 校验课程 Schema、模板、指纹与讲义有效性（含硬件发布门禁）
 npm run courses:validate
 
-# 2. 运行离线单元测试
-npm test
+# 2. 全工程类型检查
+npm run typecheck
 
-# 3. 运行在线 Gitee 课程更新拉取测试（需网络）
-npm run test:course-update:live
+# 3. 运行离线单元测试
+npm test
 
 # 4. 运行 MCU 与 TI 平台完整 Electron 冒烟测试
 npm run smoke:electron:mcu
 npm run smoke:electron:ti
 
-# 5. 全量检查（包含构建）
+# 5. 运行在线 Gitee 课程更新拉取测试（需网络）
+npm run test:content-update:live
+
+# 6. 运行下载远程包构建与隔离烟测（需网络）
+npm run smoke:content:live
+
+# 7. 全量静态与生产检查
 npm run check
 ```
 
@@ -458,5 +504,7 @@ npm run check
 - [ ] `compatibility/content-v<N>.json` 与当前讲义和 Manifest 指纹完全一致；
 - [ ] 讲义所有 H2 均携带合法且稳定的 `{#section-id}`；
 - [ ] 课次引用的代码模板存在于 `workspace-templates/` 下且能正常构建；
-- [ ] 硬件课程满足真机验证门禁，非 Draft 状态课次必须为 `verification: hardware-checked`；
-- [ ] `courses:validate` 与全套自动化测试 100% 通过。
+- [ ] 硬件课程满足真机验证门禁，`status: published` 的课次必须为 `verification: hardware-checked`；
+- [ ] 处于草稿阶段的课次标记为 `status: draft` 与 `verification: pending-hardware-check`；
+- [ ] 发布脚本使用 Published Snapshot 成功过滤未发布草稿；
+- [ ] `courses:validate`、单元测试、Electron 冒烟与远程更新烟测 100% 通过。

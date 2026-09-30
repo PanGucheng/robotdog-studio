@@ -1,8 +1,8 @@
 # 单片机课次编写与硬件验证清单
 
-更新日期：2026-08-10
+更新日期：2026-09-30
 
-适用范围：RobotDog Studio 单片机入门版新增或修改课次。该流程面向小范围教学与个人维护，保留必要安全门禁，不建设复杂审批系统。
+适用范围：RoboHorse Studio 单片机入门版新增或修改课次。该流程面向小范围教学与个人维护，保留必要安全门禁，不建设复杂审批系统。
 
 ## 1. 新增普通无硬件课
 
@@ -24,8 +24,6 @@
 只改讲义文字不代表实验兼容，实验未改也不代表讲义兼容。修改已发布内容必须提升 `contentVersion` 并更新兼容快照；`courses:validate` 会拒绝同版本内容摘要变化。
 
 Lecture v1 只有 H2 是学习完成单元，H3 只是章节内部结构。不要为了制造更多进度点拆分 H3。Lab 中的 `read` 表示阅读/观察工程代码或配置，不表示正式讲义阅读；已发布步骤不得改成 `inspect`。未来未发布的新课可使用 `inspect` 作为更明确的工程观察类型。
-
-新增第四课不应修改课程中心或实验任务页组件；除 `lessonOrder` 注册外，主要变化应限于 manifest、模板、测试夹具和课程文字。
 
 ## 2. 课次 manifest 骨架
 
@@ -74,14 +72,16 @@ Lecture v1 只有 H2 是学习完成单元，H3 只是章节内部结构。不�
 
 ## 4. 硬件课发布门禁
 
-硬件课在以下全部完成前必须保持：
+硬件课在完成真机验证前必须保持：
 
 ```text
 status: draft
 verification: pending-hardware-check
 ```
 
-检查清单：
+系统在 `scripts/validate-mcu-courses.ts` 中设有自动化硬门禁：**凡 `hardware === 'required'` 且 `status === 'published'` 的课次，必须具备 `verification === 'hardware-checked'`**，否则门禁直接报错中断发布。
+
+真机验证检查清单：
 
 - [ ] 目标芯片、板卡版本和原理图对应一致；
 - [ ] 引脚复用、时钟、调试口、CCD、运动控制和通信占用已核对；
@@ -92,26 +92,36 @@ verification: pending-hardware-check
 - [ ] 拔线、错误接线、错误目标、取消和急停/断电恢复至少覆盖相关项；
 - [ ] 一个正确示例和一个明显错误示例都不会得到误导性完成结果。
 
-完成后建立一份简明真机记录，至少包含硬件型号、接线、测试提交或版本、实际现象、问题、恢复结果、验证人和日期。照片或视频只在文字无法准确说明时保留。随后才能改为 `published + hardware-checked`，递增 `contentVersion`。
+完成后建立一份简明真机记录，至少包含硬件型号、接线、测试提交或版本、实际现象、问题、恢复结果、验证人和日期。随后才能将状态改为 `published + hardware-checked`，并递增课程 `contentVersion`。
 
-## 5. 当前第三课状态
+## 5. 当前课次验证状态（MCU 入门版）
 
-“第一个硬件实验（待定）”只有资源骨架和安全占位模板。本轮没有可核实的实物接线与真机现象，因此继续保持 `draft + pending-hardware-check`：
+### 第一课：`first-program-on-chip`（在芯片上跑起第一个程序）
+- **状态**：`status: "published"`, `verification: "hardware-checked"`
+- **验证结果**：已通过 CH32V203 完整固件构建、WCH-Link 烧录以及 100ms / 1000ms LED 闪烁周期实测。
+- **发布分发**：正式纳入发布包并同步至 Gitee 远程分发仓库，学生端正常展现。
 
-- 开发模式可查看结构和警告；
-- 不能创建练习、接线或烧录；
-- AI 必须说明尚未验证；
-- 正式单片机包不显示该课；
-- 不以模拟结果替代真机发布门禁。
+### 第二课：`gpio-output`（点亮第一盏灯：GPIO 输出与高低电平）
+- **状态**：`status: "draft"`, `verification: "pending-hardware-check"`
+- **当前阶段**：作者本地开发验证中。
+- **隔离机制**：仅在开发机开发模式可见（标有“作者验证”徽标），导出 Published Snapshot 时自动排除，不进入学生端远程更新包。
 
 ## 6. 发布前命令
 
 ```powershell
+# 1. 校验课程规范与硬件发布门禁
 npm run courses:validate
+
+# 2. 全工程类型与离线测试
+npm run typecheck
 npm test
-npm run build
+
+# 3. 运行 MCU 平台 Electron 冒烟测试
 npm run smoke:electron:mcu
-npm run package:win:mcu:test
+
+# 4. 在线拉取远程包与构建烟测（验证发布包不包含未发布草稿）
+npm run test:content-update:live
+npm run smoke:content:live
 ```
 
 硬件课还必须追加真机检查；上述命令不能替代实物验证。
