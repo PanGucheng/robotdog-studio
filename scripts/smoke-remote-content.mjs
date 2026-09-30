@@ -156,6 +156,21 @@ async function main() {
     console.log(`[smoke-remote-content] Verified MCU current root: ${mcuCurrent}`)
     console.log(`[smoke-remote-content] Verified TI current root: ${tiCurrent}`)
 
+    // Verify published vs draft separation in downloaded remote content
+    const mcuCourseJson = join(mcuCurrent, 'courses', 'ch32v203-foundations', 'course.json')
+    const mcuLesson1 = join(mcuCurrent, 'courses', 'ch32v203-foundations', 'lessons', 'first-program-on-chip.json')
+    const mcuLesson2 = join(mcuCurrent, 'courses', 'ch32v203-foundations', 'lessons', 'gpio-output.json')
+    const mcuTemplate1 = join(mcuCurrent, 'workspace-templates', 'ch32v203-mcu-lessons', 'first-program-on-chip', 'App', 'Src', 'experiment.c')
+    const mcuTemplate2 = join(mcuCurrent, 'workspace-templates', 'ch32v203-mcu-lessons', 'gpio-output')
+
+    if (!existsSync(mcuCourseJson) || !existsSync(mcuLesson1) || !existsSync(mcuTemplate1)) {
+      throw new Error('Remote MCU content is missing published Lesson 1 or its template!')
+    }
+    if (existsSync(mcuLesson2) || existsSync(mcuTemplate2)) {
+      throw new Error('Remote MCU content illegally contains draft Lesson 2 (gpio-output)!')
+    }
+    console.log('[smoke-remote-content] SUCCESS: Verified remote package has Lesson 1 and excludes draft Lesson 2!')
+
     // 3. Verify Baselines can be loaded from downloaded directories
     const mcuBaselineResolver = new FirmwareBaselineResolver({
       staticRoot,
