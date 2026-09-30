@@ -15,16 +15,21 @@ describe('CourseService', () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
     const courses = await service.listCourses()
     expect(courses).toHaveLength(1)
-    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 12, lessonCount: 2 })
+    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 13, lessonCount: 2 })
     const course = await service.getCourse('ch32v203-foundations')
     expect(course.lessons.map((lesson) => lesson.lessonId)).toEqual(['first-program-on-chip', 'gpio-output'])
   })
 
-  it('hides draft lessons outside development mode', async () => {
+  it('hides draft lessons outside development mode and exposes published lessons', async () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations') })
     const course = await service.getCourse('ch32v203-foundations')
-    expect(course.lessons).toHaveLength(0)
-    await expect(service.getLesson('ch32v203-foundations', 'first-program-on-chip')).rejects.toThrow('COURSE_LESSON_NOT_FOUND')
+    expect(course.lessons).toHaveLength(1)
+    expect(course.lessons[0].lessonId).toBe('first-program-on-chip')
+    expect(course.lessons[0].order).toBe(0)
+    expect(course.lessons[0].status).toBe('published')
+    expect(course.lessons[0].verification).toBe('hardware-checked')
+    await expect(service.getLesson('ch32v203-foundations', 'first-program-on-chip')).resolves.toMatchObject({ lessonId: 'first-program-on-chip' })
+    await expect(service.getLesson('ch32v203-foundations', 'gpio-output')).rejects.toThrow('COURSE_LESSON_NOT_FOUND')
   })
 
   it('resolves a published lesson to its registered workspace template and permissions', async () => {
@@ -34,7 +39,7 @@ describe('CourseService', () => {
       includeDrafts: true
     })
     const spec = await service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-program-on-chip')
-    expect(spec).toMatchObject({ templateId: 'first-program-on-chip', templateVersion: 'content-v12' })
+    expect(spec).toMatchObject({ templateId: 'first-program-on-chip', templateVersion: 'content-v13' })
   })
 
   it('reads a template file for previewing code in lecture view', async () => {
@@ -60,7 +65,7 @@ describe('CourseService', () => {
 
   it('builds isolated task-specific AI context and preserves the draft hardware warning', async () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
-    const draft = await service.buildAiContext('ch32v203-foundations', 'first-program-on-chip', 'summary')
+    const draft = await service.buildAiContext('ch32v203-foundations', 'gpio-output', 'summary')
     expect(draft).toContain('pending-hardware-check')
     expect(draft).toContain('不得声称已观察到现象')
     expect(draft.length).toBeLessThan(8_000)

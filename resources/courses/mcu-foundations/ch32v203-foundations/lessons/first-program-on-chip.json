@@ -8,7 +8,7 @@
   "prerequisites": [],
   "estimatedMinutes": 90,
   "hardware": "required",
-  "verification": "pending-hardware-check",
+  "verification": "hardware-checked",
   "expectedObservation": "写入修改后的程序后，PB8 LED 按学生选择的 100 ms 或 1000 ms 间隔明显闪烁。",
   "templateId": "first-program-on-chip",
   "editableGlobs": ["App/Src/experiment.c"],
@@ -35,5 +35,5 @@
   ],
   "reflectionQuestions": [{ "questionId": "validation-chain", "prompt": "为什么在电脑里修改代码以后 LED 不会立刻变化？编译、写入开发板和观察 LED 分别起什么作用？" }],
   "aiContext": { "teachingFocus": "帮助零基础学生理解单片机、开发板、程序以及从修改代码到真实 LED 现象的基本过程；不替学生完成参数修改，不提前展开 GPIO、定时器或机器人动作理论。", "hints": ["先定位 App/Src/experiment.c 中的 blink_period_ms", "一次只修改 500U 这一处", "编译成功、写入成功和 LED 现象是不同阶段的证据"] },
-  "status": "draft"
+  "status": "published"
 }

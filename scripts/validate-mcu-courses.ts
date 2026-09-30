@@ -51,7 +51,9 @@ for (const entry of catalog.courses!) {
     requireValue(lesson.schemaVersion === 1 && lesson.courseId === entry.courseId && lesson.lessonId === lessonId, `课次身份不一致：${lessonId}`)
     requireValue(['draft', 'published'].includes(lesson.status), `课次状态无效：${lessonId}`)
     requireValue(['none', 'optional', 'required'].includes(lesson.hardware), `课次硬件要求无效：${lessonId}`)
-    requireValue(['not-required', 'pending-hardware-check', 'hardware-checked'].includes(lesson.verification), `课次验证状态无效：${lessonId}`)
+    if (lesson.status === 'published' && lesson.hardware === 'required') {
+      requireValue(lesson.verification === 'hardware-checked', `需要硬件的正式课次必须通过真机验证：${lessonId}`)
+    }
     requireValue(!(lesson.status === 'published' && lesson.verification === 'pending-hardware-check'), `未通过硬件验证的课次不能发布：${lessonId}`)
     requireValue(Array.isArray(lesson.steps) && lesson.steps.length > 0, `课次没有实验步骤：${lessonId}`)
     requireValue(Array.isArray(lesson.prerequisites) && lesson.prerequisites.every((item) => lessonIds.has(item) && course.lessonOrder.indexOf(item) < lessonIndex), `课次前置顺序无效：${lessonId}`)

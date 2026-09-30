@@ -6,6 +6,7 @@ export interface EditionContentResolverOptions {
   staticRoot: string
   userDataContentRoot: string
   editionId?: EditionId
+  preferLocal?: boolean
 }
 
 export interface CachedContentState {
@@ -17,11 +18,17 @@ export class EditionContentResolver {
   private readonly staticRoot: string
   private readonly userDataContentRoot: string
   private readonly editionId: EditionId
+  private readonly preferLocal: boolean
 
   constructor(options: EditionContentResolverOptions) {
     this.staticRoot = resolve(options.staticRoot)
     this.userDataContentRoot = resolve(options.userDataContentRoot)
     this.editionId = options.editionId ?? 'mcu-foundations'
+    this.preferLocal = options.preferLocal ?? false
+  }
+
+  isPreferLocal(): boolean {
+    return this.preferLocal
   }
 
   getStaticRoot(): string {
@@ -96,7 +103,7 @@ export class EditionContentResolver {
 
   resolveCourseRoot(editionId?: EditionId | string): string {
     const targetEdition = (editionId as EditionId) ?? this.editionId
-    if (this.hasValidDownloadedContent(targetEdition)) {
+    if (!this.preferLocal && this.hasValidDownloadedContent(targetEdition)) {
       return join(this.getCurrentDir(targetEdition), 'courses')
     }
     const editionSubdir = targetEdition === 'ti-mspm0-foundations' ? 'ti-mspm0-foundations' : 'mcu-foundations'
@@ -105,7 +112,7 @@ export class EditionContentResolver {
 
   resolveWorkspaceTemplateRoot(editionId?: EditionId | string): string {
     const targetEdition = (editionId as EditionId) ?? this.editionId
-    if (this.hasValidDownloadedContent(targetEdition)) {
+    if (!this.preferLocal && this.hasValidDownloadedContent(targetEdition)) {
       return join(this.getCurrentDir(targetEdition), 'workspace-templates')
     }
     return join(this.staticRoot, 'workspace-templates')
@@ -113,7 +120,7 @@ export class EditionContentResolver {
 
   resolveFirmwareBaselineRoot(editionId?: EditionId | string): string {
     const targetEdition = (editionId as EditionId) ?? this.editionId
-    if (this.hasValidDownloadedContent(targetEdition)) {
+    if (!this.preferLocal && this.hasValidDownloadedContent(targetEdition)) {
       return join(this.getCurrentDir(targetEdition), 'firmware-baselines')
     }
     return join(this.staticRoot, 'firmware-baselines')

@@ -201,10 +201,12 @@ app.whenReady().then(async () => {
   if (app.isPackaged) process.env.ROBOTDOG_GIT_EXE = join(staticRoot, 'toolchains', 'git', 'cmd', 'git.exe')
   const wchLinkDriver = await readWchLinkDriverStatus(staticRoot, app.isPackaged)
   const userDataContentRoot = join(app.getPath('userData'), 'content')
+  const preferLocal = !app.isPackaged && !process.env.ROBOTDOG_SMOKE_USER_DATA
   const contentResolver = new EditionContentResolver({
     staticRoot,
     userDataContentRoot,
-    editionId: edition.id
+    editionId: edition.id,
+    preferLocal
   })
   const resolvedBaselinesRoot = contentResolver.resolveFirmwareBaselineRoot()
   const resolvedTemplatesRoot = contentResolver.resolveWorkspaceTemplateRoot()

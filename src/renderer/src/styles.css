@@ -297,6 +297,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .lesson-badges { display: flex; align-content: flex-start; justify-content: flex-end; flex-wrap: wrap; gap: 6px; min-width: 145px; }
 .lesson-badges span { display: inline-flex; align-items: center; gap: 4px; padding: 6px 7px; color: #526b79; border: 1px solid #d3dfe5; border-radius: 6px; background: #f8fafb; font-size: 12px; white-space: nowrap; }
 .lesson-badges span.is-hardware, .lesson-badges span.is-draft { color: #895b08; border-color: #ead08d; background: #fff8e6; }
+.lesson-badges span.is-published { color: #1e704a; border-color: #a4dcbe; background: #f0faf4; }
+.lesson-tag-draft { display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 11px; font-weight: 500; border-radius: 4px; color: #895b08; background: #fff3d4; border: 1px solid #ebd394; vertical-align: middle; }
+.lesson-tag-published { display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 11px; font-weight: 500; border-radius: 4px; color: #1e704a; background: #eaf8f0; border: 1px solid #a4dcbe; vertical-align: middle; }
 .course-hardware-warning { display: flex; align-items: flex-start; gap: 9px; margin-top: 14px; padding: 11px 12px; color: #7b570e; border: 1px solid #ead18f; border-radius: 8px; background: #fff9e9; font-size: 12px; }
 .course-hardware-warning span { display: grid; gap: 3px; }
 .course-hardware-warning strong { color: #593d08; }

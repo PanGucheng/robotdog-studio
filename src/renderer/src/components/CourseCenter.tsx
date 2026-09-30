@@ -29,6 +29,8 @@ export function CourseCenter({ courses, course, lesson, loading, error, complete
     return <div className="course-center-state"><BookOpenCheck size={22} /><strong>还没有可用课程</strong><span>普通 MCU 项目仍可继续使用。</span></div>
   }
 
+  const isAuthorMode = course.lessons.some((item) => item.status === 'draft')
+
   return (
     <div className="course-center">
       <header className="course-center-hero">
@@ -50,7 +52,7 @@ export function CourseCenter({ courses, course, lesson, loading, error, complete
           <div className="course-rail-heading"><GraduationCap size={16} /><span><strong>课程路径</strong><small>{courses.length} 门本地课程</small></span></div>
           <div className="course-rail-track">
             {course.lessons.map((item) => (
-              <LessonRailButton key={item.lessonId} lesson={item} active={lesson?.lessonId === item.lessonId} completed={completedLessonIds.includes(item.lessonId)} onSelect={onSelectLesson} />
+              <LessonRailButton key={item.lessonId} lesson={item} active={lesson?.lessonId === item.lessonId} completed={completedLessonIds.includes(item.lessonId)} isAuthorMode={isAuthorMode} onSelect={onSelectLesson} />
             ))}
           </div>
         </aside>
@@ -66,7 +68,11 @@ export function CourseCenter({ courses, course, lesson, loading, error, complete
               <div className="lesson-badges">
                 <span><Clock3 size={13} /> {lesson.estimatedMinutes} 分钟</span>
                 <span className={lesson.hardware === 'required' ? 'is-hardware' : ''}><FlaskConical size={13} /> {hardwareLabels[lesson.hardware]}</span>
-                {lesson.status === 'draft' && <span className="is-draft">待验证</span>}
+                {isAuthorMode && (
+                  lesson.status === 'draft'
+                    ? <span className="is-draft">作者验证</span>
+                    : <span className="is-published">已发布</span>
+                )}
               </div>
             </div>
 
@@ -105,11 +111,21 @@ export function CourseCenter({ courses, course, lesson, loading, error, complete
   )
 }
 
-function LessonRailButton({ lesson, active, completed, onSelect }: { lesson: CourseLessonSummary; active: boolean; completed: boolean; onSelect(lessonId: string): void }): React.JSX.Element {
+function LessonRailButton({ lesson, active, completed, isAuthorMode, onSelect }: { lesson: CourseLessonSummary; active: boolean; completed: boolean; isAuthorMode: boolean; onSelect(lessonId: string): void }): React.JSX.Element {
   return (
     <button type="button" className={active ? 'active' : ''} onClick={() => onSelect(lesson.lessonId)} aria-current={active ? 'step' : undefined}>
       <span className="lesson-node">{String(lesson.order + 1).padStart(2, '0')}</span>
-      <span className="lesson-rail-copy"><strong>{lesson.title}</strong><small>{lesson.estimatedMinutes} 分钟 · {hardwareLabels[lesson.hardware]}</small></span>
+      <span className="lesson-rail-copy">
+        <strong>
+          {lesson.title}
+          {isAuthorMode && (
+            lesson.status === 'draft'
+              ? <span className="lesson-tag-draft">作者验证</span>
+              : <span className="lesson-tag-published">已发布</span>
+          )}
+        </strong>
+        <small>{lesson.estimatedMinutes} 分钟 · {hardwareLabels[lesson.hardware]}</small>
+      </span>
       {completed ? <BookOpenCheck size={15} /> : <ChevronRight size={15} />}
     </button>
   )

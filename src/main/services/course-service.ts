@@ -283,7 +283,12 @@ export class CourseService {
       if (manifest.courseId !== item.courseId) throw new Error(`COURSE_ID_MISMATCH:${item.courseId}`)
       if (manifest.status === 'draft' && !this.includeDrafts) continue
       const lessons = await this.loadLessons(item.manifest, manifest)
-      const visibleLessons = lessons.filter((lesson) => this.includeDrafts || lesson.status === 'published')
+      const visibleLessons = lessons
+        .filter((lesson) => this.includeDrafts || lesson.status === 'published')
+        .map((lesson, index) => ({
+          ...lesson,
+          order: this.includeDrafts ? lesson.order : index
+        }))
       courses.push({
         lessons: visibleLessons,
         detail: {
