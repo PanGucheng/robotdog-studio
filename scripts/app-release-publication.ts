@@ -14,8 +14,8 @@ export interface ReleaseArtifact {
 export interface PublicationDependencies {
   ensureRepository(): Promise<void>
   readManifest(): Promise<AppUpdateManifest>
-  ensureRelease(version: string, notes: string): Promise<number>
-  ensureAttachment(releaseId: number, artifact: ReleaseArtifact): Promise<string>
+  ensureRelease(version: string, notes: string): Promise<string | number>
+  ensureAttachment(releaseId: string | number, artifact: ReleaseArtifact): Promise<string>
   verifyAttachment(artifact: ReleaseArtifact, url: string): Promise<void>
   publishManifest(manifest: AppUpdateManifest): Promise<void>
   verifyManifest(manifest: AppUpdateManifest): Promise<void>

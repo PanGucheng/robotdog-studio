@@ -24,5 +24,6 @@ export interface AppUpdateStatus {
   error?: string
 }
 
-export const APP_UPDATE_URL = 'https://gitee.com/Cidervinegar/robohorse-studio-releases/raw/main/update.json'
-export const APP_RELEASE_REPOSITORY = 'https://gitee.com/Cidervinegar/robohorse-studio-releases'
+export const APP_RELEASE_REPOSITORY = 'https://gitcode.com/Cider_Vinegar/robohorse-studio-releases'
+export const APP_RELEASE_API_ROOT = 'https://api.gitcode.com/api/v5/repos/Cider_Vinegar/robohorse-studio-releases'
+export const APP_UPDATE_URL = `${APP_RELEASE_API_ROOT}/raw/update.json?ref=main`

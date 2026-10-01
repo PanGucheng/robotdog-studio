@@ -1,5 +1,5 @@
 import semver from 'semver'
-import { APP_RELEASE_REPOSITORY, type AppUpdateEntry, type AppUpdateManifest } from '../../shared/app-update'
+import { APP_RELEASE_API_ROOT, type AppUpdateEntry, type AppUpdateManifest } from '../../shared/app-update'
 import { EDITION_PROFILES, type EditionId } from '../../shared/edition'
 
 export function isStableVersion(value: unknown): value is string {
@@ -12,6 +12,9 @@ export function installerFilename(edition: EditionId, version: string): string {
   if (!isStableVersion(version)) throw new Error('INVALID_APP_VERSION')
   return `${EDITION_PROFILES[edition].artifactSlug}-${version}-Windows-x64.exe`
 }
+export function installerDownloadUrl(edition: EditionId, version: string): string {
+  return `${APP_RELEASE_API_ROOT}/releases/v${version}/attach_files/${installerFilename(edition, version)}/download`
+}
 export function validateAppUpdateEntry(value: unknown, edition: EditionId): AppUpdateEntry {
   if (!value || typeof value !== 'object') throw new Error('INVALID_UPDATE_ENTRY')
   const entry = value as AppUpdateEntry
@@ -20,8 +23,8 @@ export function validateAppUpdateEntry(value: unknown, edition: EditionId): AppU
     throw new Error('INVALID_UPDATE_ENTRY')
   }
   const url = new URL(entry.url)
-  const repo = new URL(APP_RELEASE_REPOSITORY)
-  const expected = `${repo.pathname}/releases/download/v${entry.version}/${installerFilename(edition, entry.version)}`
+  const repo = new URL(APP_RELEASE_API_ROOT)
+  const expected = new URL(installerDownloadUrl(edition, entry.version)).pathname
   if (url.origin !== repo.origin || url.username || url.password || url.search || url.hash || decodeURIComponent(url.pathname) !== expected) {
     throw new Error('INSTALLER_EDITION_OR_URL_MISMATCH')
   }

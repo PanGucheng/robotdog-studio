@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { APP_RELEASE_REPOSITORY } from '../../shared/app-update'
-import { installerFilename } from './app-update-manifest'
+import { installerDownloadUrl, installerFilename } from './app-update-manifest'
 import { publishAppRelease, type PublicationDependencies, type ReleaseArtifact } from '../../../scripts/app-release-publication'
 
 const artifacts: ReleaseArtifact[] = ['mcu-foundations', 'ti-mspm0-foundations'].map(id => {
@@ -12,7 +12,7 @@ function dependencies(order: string[], failure?: string): PublicationDependencie
     ensureRepository: async () => { order.push('repository') },
     readManifest: async () => ({ schemaVersion: 1, editions: {} }),
     ensureRelease: async () => { order.push('release'); return 1 },
-    ensureAttachment: async (_id, item) => { order.push(`upload:${item.editionId}`); if (failure === 'upload') throw new Error('UPLOAD_FAILED'); return `${APP_RELEASE_REPOSITORY}/releases/download/v${item.version}/${item.filename}` },
+    ensureAttachment: async (_id, item) => { order.push(`upload:${item.editionId}`); if (failure === 'upload') throw new Error('UPLOAD_FAILED'); return installerDownloadUrl(item.editionId, item.version) },
     verifyAttachment: async item => { order.push(`verify:${item.editionId}`); if (failure === item.editionId) throw new Error('HASH_MISMATCH') },
     publishManifest: vi.fn(async () => { order.push('manifest') }),
     verifyManifest: async () => { order.push('public-manifest') }

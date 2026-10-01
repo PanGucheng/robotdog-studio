@@ -4,17 +4,17 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { APP_RELEASE_REPOSITORY, type AppUpdateEntry, type AppUpdateStatus } from '../../shared/app-update'
+import { type AppUpdateEntry, type AppUpdateStatus } from '../../shared/app-update'
 import type { EditionId } from '../../shared/edition'
 import { AppUpdateService, fetchHttps } from './app-update-service'
-import { installerFilename, isNewerVersion, parseAppUpdateManifest } from './app-update-manifest'
+import { installerDownloadUrl, installerFilename, isNewerVersion, parseAppUpdateManifest } from './app-update-manifest'
 import { appUpdateConfiguration, resolveEditionIdentity } from './app-update-config'
 
 const editionIds: EditionId[] = ['mcu-foundations', 'ti-mspm0-foundations', 'fun-line-following']
 const payload = Buffer.from('MZ-test-installer-do-not-execute-'.repeat(1000))
 const digest = createHash('sha256').update(payload).digest('hex')
 function entry(id: EditionId, overrides: Partial<AppUpdateEntry> = {}): AppUpdateEntry {
-  return { version: '1.1.0', url: `${APP_RELEASE_REPOSITORY}/releases/download/v1.1.0/${installerFilename(id, '1.1.0')}`,
+  return { version: '1.1.0', url: installerDownloadUrl(id, '1.1.0'),
     notes: '更新说明', size: payload.length, sha256: digest, ...overrides }
 }
 describe('App Update protocol and identity', () => {
@@ -40,7 +40,11 @@ describe('App Update protocol and identity', () => {
   })
   it('rejects wrong editions, HTTP, remote hosts, and bad integrity metadata', () => {
     for (const overrides of [{ url: entry('ti-mspm0-foundations').url }, { url: entry('mcu-foundations').url.replace('https:', 'http:') },
-      { url: entry('mcu-foundations').url.replace('gitee.com', 'evil.test') }, { size: 0 }, { sha256: 'bad' }]) {
+      { url: entry('mcu-foundations').url.replace('api.gitcode.com', 'evil.test') },
+      { url: entry('mcu-foundations').url.replace('Cider_Vinegar', 'another-owner') },
+      { url: `${entry('mcu-foundations').url}?access_token=forbidden` },
+      { url: 'https://gitee.com/Cidervinegar/robohorse-studio-releases/releases/download/v1.1.0/RoboHorse-Studio-MCU-1.1.0-Windows-x64.exe' },
+      { size: 0 }, { sha256: 'bad' }]) {
       expect(() => parseAppUpdateManifest({ schemaVersion: 1, editions: { 'mcu-foundations': entry('mcu-foundations', overrides) } })).toThrow()
     }
   })
@@ -51,7 +55,7 @@ describe('App Update protocol and identity', () => {
   })
 })
 
-describe('AppUpdateService with a local HTTP fixture (no Gitee)', () => {
+describe('AppUpdateService with a local HTTP fixture (no GitCode)', () => {
   let root: string
   let server: Server
   let base: string
@@ -97,7 +101,7 @@ describe('AppUpdateService with a local HTTP fixture (no Gitee)', () => {
     expect(a).toBe(b)
     expect((await a).kind).toBe('ready')
     expect(requests).toContain(new URL(entry(id).url).pathname)
-    expect(requests.filter(url => url.endsWith('.exe'))).toHaveLength(1)
+    expect(requests.filter(url => url.endsWith('.exe/download'))).toHaveLength(1)
     const progress = events.filter(value => value.kind === 'downloading').map(value => value.downloadedBytes)
     expect(progress[0]).toBe(0)
     expect(progress.at(-1)).toBe(payload.length)
@@ -109,7 +113,7 @@ describe('AppUpdateService with a local HTTP fixture (no Gitee)', () => {
     await restored.initialize()
     expect(restored.getStatus().kind).toBe('ready')
     await restored.downloadUpdate()
-    expect(requests.filter(url => url.endsWith('.exe'))).toHaveLength(1)
+    expect(requests.filter(url => url.endsWith('.exe/download'))).toHaveLength(1)
   })
   it('does not fall back when the current edition has no release', async () => {
     manifest = { schemaVersion: 1, editions: { 'ti-mspm0-foundations': entry('ti-mspm0-foundations') } }

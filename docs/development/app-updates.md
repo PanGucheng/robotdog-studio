@@ -21,7 +21,9 @@ pnpm dev:mcu
 
 ## 清单
 
-公开地址：`https://gitee.com/Cidervinegar/robohorse-studio-releases/raw/main/update.json`。
+发布仓库：`https://gitcode.com/Cider_Vinegar/robohorse-studio-releases`。
+
+公开地址：`https://api.gitcode.com/api/v5/repos/Cider_Vinegar/robohorse-studio-releases/raw/update.json?ref=main`。公开 raw 和附件下载均不携带 Token。清单使用稳定的附件下载 API 地址，由平台重定向至 HTTPS CDN；不保存临时签名链接。
 
 ```json
 {
@@ -29,7 +31,7 @@ pnpm dev:mcu
   "editions": {
     "mcu-foundations": {
       "version": "1.1.0",
-      "url": "https://gitee.com/Cidervinegar/robohorse-studio-releases/releases/download/v1.1.0/RoboHorse-Studio-MCU-1.1.0-Windows-x64.exe",
+      "url": "https://api.gitcode.com/api/v5/repos/Cider_Vinegar/robohorse-studio-releases/releases/v1.1.0/attach_files/RoboHorse-Studio-MCU-1.1.0-Windows-x64.exe/download",
       "notes": "更新说明",
       "size": 123456789,
       "sha256": "由实际安装包计算的64位十六进制摘要"
@@ -42,14 +44,14 @@ pnpm dev:mcu
 
 ## Agent 自动发布
 
-发布端配置 `GITEE_TOKEN`，允许操作目标仓库的 Release。Windows 支持进程环境变量或用户级环境变量。Token 仅用于发布 API，SSH 用于推送仓库元数据；客户端及匿名验证不携带凭据。无需安装 Gitee CLI。
+发布端配置 `GITCODE_TOKEN`，允许操作目标仓库的 Release 和文件。Windows 支持进程环境变量或用户级环境变量。Token 仅用于发布 API；README 和最后的 update.json 使用文件 API 提交到 main，安装包通过平台提供的临时签名地址流式 PUT 上传。无需配置 GitCode SSH 或安装 CLI。客户端及匿名验证不携带凭据，签名地址和上传请求头不写入日志或清单。
 
 1. 修改根包版本，更新对应 `docs/releases/<version>.md`。
 2. 运行 `pnpm test`、`pnpm build` 和三个 Edition 的 Electron smoke test。
 3. 提交源码，保证工作区干净。由同一提交顺序执行 `pnpm package:win:mcu`、`pnpm package:win:ti`。正式门禁不能跳过。Fun 基线正式就绪后才构建 `pnpm package:win:fun`。
 4. 正式 NSIS 打包完成并通过资源自检后，生成安装包旁的 `.release.json`，记录 Edition、版本、大小、摘要及源码提交。没有该记录、工作区不干净或记录不匹配均不能发布。
 5. `pnpm release:app` 默认 dry-run，只核对本地正式包和发布信息。
-6. `pnpm release:app --publish` 创建/复用 `v<version>` Release，上传 MCU/TI 附件。完整匿名下载验证所有附件后，最后推送 `update.json`，验证公开 raw 清单。
+6. `pnpm release:app --publish` 创建/复用 `v<version>` Release，上传 MCU/TI 附件。完整匿名下载验证所有附件后，最后通过 API 提交 `update.json`，验证公开 raw 清单。
 
 ```powershell
 pnpm release:app --publish --editions=mcu-foundations,ti-mspm0-foundations
@@ -57,13 +59,15 @@ pnpm release:app --publish --editions=mcu-foundations,ti-mspm0-foundations
 pnpm release:app --publish --editions=fun-line-following
 ```
 
-脚本固定目标仓库，不修改源码仓库 origin。重复发布复用已有附件并再次校验；同名内容不同直接失败，不覆盖附件。并发元数据变化时失败，重新执行即可。大包附件容量限制、匿名下载失败、Token/SSH 失败都会阻止新清单发布；不提交 exe 到 Git，不拆包或更换服务。
+脚本固定目标仓库，不修改源码仓库 origin。重复发布复用已有附件并再次校验；同名内容不同直接失败，不覆盖附件。提交清单前检查 main 提交和清单 Blob SHA，并发元数据变化时失败，重新执行即可。大包附件容量限制、匿名下载失败、Token 权限失败都会阻止新清单发布；不提交 exe 到 Git，不拆包或更换服务。
 
-手动备用流程：网页创建 `v<version>` Release，上传通过正式门禁的安装包，使用本地产物记录填写对应清单项，完整匿名下载核对大小和 SHA-256，最后才通过 SSH 推送清单。首次启用更新功能的 1.1.0 需要用户安装一次，旧版 1.0.0 没有远程软件更新能力。
+手动备用流程：网页创建 `v<version>` Release，上传通过正式门禁的安装包，使用本地产物记录填写对应清单项，完整匿名下载核对大小和 SHA-256，最后才通过网页或 Git 提交清单。首次启用更新功能的 1.1.0 需要用户安装一次，旧版 1.0.0 没有远程软件更新能力。
+
+2026-10-01 实测：原 Gitee 账户单附件限制 100 MB，拒绝 MCU 安装包上传。经用户授权迁移至 GitCode；1,340,137,304 字节测试附件上传、匿名完整下载及 SHA-256 校验通过，随后删除测试附件。正式发布仍须逐包验证。
 
 ## 验证
 
-普通自动化测试使用本地 HTTP fixture 和 mock 发布 API，不访问 Gitee、不开安装器。独立 Live Test：
+普通自动化测试使用本地 HTTP fixture 和 mock 发布 API，不访问 GitCode、不开安装器。独立 Live Test：
 
 ```powershell
 pnpm test:app-update:live

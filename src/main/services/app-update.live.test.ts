@@ -6,7 +6,7 @@ import { APP_UPDATE_URL } from '../../shared/app-update'
 import { parseAppUpdateManifest } from './app-update-manifest'
 import { AppUpdateService, fetchHttps } from './app-update-service'
 
-it('anonymously reads the real Gitee manifest and fully verifies each published installer without installing', async () => {
+it('anonymously reads the real GitCode manifest and fully verifies each published installer without installing', async () => {
   const response = await fetchHttps(fetch, APP_UPDATE_URL, { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
   expect(response.ok).toBe(true)
   const manifest = parseAppUpdateManifest(await response.json())
