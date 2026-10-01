@@ -3,6 +3,9 @@ import { cp, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc/register-ipc'
+import { prepareWindowsForAppInstall } from './ipc/app-update-ipc'
+import { AppUpdateService } from './services/app-update-service'
+import { appUpdateConfiguration, resolveEditionIdentity } from './services/app-update-config'
 import { MockRobotService } from './services/mock-robot-service'
 import { WorkspaceService } from './services/workspace-service'
 import { CandidateService } from './services/candidate-service'
@@ -41,6 +44,8 @@ app.setName(edition.productName)
 const smokeUserData = process.env.ROBOTDOG_SMOKE_TEST === '1' ? process.env.ROBOTDOG_SMOKE_USER_DATA : undefined
 app.setPath('userData', smokeUserData ? smokeUserData : join(app.getPath('appData'), edition.userDataDirectoryName))
 let disposeIpc: (() => void) | undefined
+let appUpdateService: AppUpdateService | undefined
+let appUpdateScheduled = false
 
 function createWindow(): void {
   const smokeTest = process.env.ROBOTDOG_SMOKE_TEST === '1'
@@ -67,9 +72,11 @@ function createWindow(): void {
       const result = await window.webContents.executeJavaScript(`(async () => {
         if (!window.robotDog) return { ok: false, reason: 'preload missing' }
         try {
-        const [toolchain, baseline, runtime, activeEdition] = await Promise.all([
-          window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo(), window.robotDog.getEditionProfile()
+        const [toolchain, baseline, runtime, activeEdition, health, appUpdate] = await Promise.all([
+          window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo(), window.robotDog.getEditionProfile(),
+          window.robotDog.getHealth(), window.robotDog.getAppUpdateStatus()
         ])
+        if (health.appVersion !== ${JSON.stringify(app.getVersion())} || appUpdate.currentVersion !== health.appVersion || appUpdate.editionId !== activeEdition.id || appUpdate.kind !== 'disabled') throw new Error('SMOKE_APP_UPDATE_VERSION_OR_MODE_MISMATCH')
         const courses = activeEdition.id !== 'fun-line-following' ? await window.robotDog.listCourses() : []
         const expectedCourseId = activeEdition.id === 'ti-mspm0-foundations' ? 'ti-mspm0-gpio-foundations' : undefined
         const courseSummary = expectedCourseId ? courses.find((item) => item.courseId === expectedCourseId) : courses[0]
@@ -156,6 +163,7 @@ function createWindow(): void {
         return {
           ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && !firmware.logs.some((line) => line === '进程结束 · exit code 0' || /^> .*gcc/i.test(line)) && tiSmokeOk && mcuSmokeOk),
           edition: activeEdition.id,
+          appVersion: health.appVersion, appUpdateMode: appUpdate.kind,
           courseCount: courses.length, lessonCount: course?.lessons.length ?? 0, lessonAttemptCount: lessonAttempts.length, secondLessonFileCount: secondLessonFiles.length,
           gcc: toolchain.gcc.ok, baseline: baseline.id, baselineReady: baseline.readyForTesting,
           releaseEligible: baseline.releaseEligible, reasonixInstalled: runtime.agent.installed,
@@ -177,7 +185,14 @@ function createWindow(): void {
       app.exit(1)
     })
   } else {
-    window.once('ready-to-show', () => window.show())
+    window.once('ready-to-show', () => {
+      window.show()
+      if (appUpdateService && !appUpdateScheduled) {
+        appUpdateScheduled = true
+        const service = appUpdateService
+        setTimeout(() => { void service.checkForUpdate().catch(error => console.warn('App update check failed', String(error))) }, 1500).unref()
+      }
+    })
   }
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) void shell.openExternal(url)
@@ -275,7 +290,7 @@ app.whenReady().then(async () => {
     ? new EditionContentUpdateService({
         userDataContentRoot,
         resolver: contentResolver,
-        appVersion: app.getVersion() || '1.0.0',
+        appVersion: app.getVersion(),
         editionId: edition.id,
         onContentUpdated: async (_newRoot, status) => {
           for (const win of BrowserWindow.getAllWindows()) {
@@ -338,10 +353,20 @@ app.whenReady().then(async () => {
       agent: await getAgentRuntimeStatus(runtime)
     })
   })
-  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, programmer, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory, baselineResolver, courseUpdateService)
+  let formal = false
+  try { formal = JSON.parse(readFileSync(join(app.getAppPath(), 'config', 'app-update.json'), 'utf8')).releaseMode === 'formal' } catch { /* Development and legacy packages are disabled by default. */ }
+  appUpdateService = new AppUpdateService({
+    editionId: edition.id, currentVersion: app.getVersion(), updatesRoot: join(app.getPath('userData'), 'updates'),
+    ...appUpdateConfiguration(app.isPackaged, process.platform, formal, process.env),
+    onStatus: status => { for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send(IPC_CHANNELS.appUpdateEvent, status) },
+    prepareInstall: prepareWindowsForAppInstall,
+    launchInstaller: path => shell.openPath(path), quit: () => app.quit()
+  })
+  disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, programmer, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory, baselineResolver, courseUpdateService, appUpdateService, app.getVersion())
   createWindow()
-  if (courseUpdateService) {
+  if (courseUpdateService && process.env.ROBOTDOG_SMOKE_TEST !== '1') {
     setTimeout(() => {
+      if (appUpdateService?.isInstalling()) return
       courseUpdateService.checkForUpdate({ silent: true }).catch((err) => {
         console.warn('Background course update check failed:', err)
       })
@@ -455,11 +480,10 @@ async function readReasonixRuntimeManifest(appRoot: string, staticRoot: string):
 }
 
 function readEditionId(): import('../shared/edition').EditionId {
-  if (process.env.ROBOTDOG_EDITION) return parseEditionId(process.env.ROBOTDOG_EDITION)
+  if (!app.isPackaged && process.env.ROBOTDOG_EDITION) return parseEditionId(process.env.ROBOTDOG_EDITION)
   try {
     const value = JSON.parse(readFileSync(join(app.getAppPath(), 'config', 'edition.json'), 'utf8')) as Record<string, unknown>
-    if (value.schemaVersion !== 1) throw new Error('ROBOTDOG_EDITION_CONFIG_INVALID')
-    return parseEditionId(value.edition)
+    return resolveEditionIdentity(app.isPackaged, process.env.ROBOTDOG_EDITION, value)
   } catch (caught) {
     if (!app.isPackaged) return DEFAULT_EDITION_ID
     throw caught

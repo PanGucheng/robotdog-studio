@@ -11,6 +11,7 @@ import { GeneralSettings } from './settings/GeneralSettings'
 import { AiSettings } from './settings/AiSettings'
 import { CourseUpdateSettings } from './settings/CourseUpdateSettings'
 import { AdvancedSettings } from './settings/AdvancedSettings'
+import { AppUpdateControls, useAppUpdate } from './AppUpdateProvider'
 
 export interface DisplaySettingsProps {
   scale: UiScale
@@ -29,6 +30,7 @@ export function DisplaySettings({
   onScaleChange,
   onClose
 }: DisplaySettingsProps): JSX.Element {
+  const appUpdate = useAppUpdate()
   const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>(rememberedCategory)
   const [runtime, setRuntime] = useState<AppRuntimeInfo>()
   const [diagnostic, setDiagnostic] = useState<DiagnosticExportResult>()
@@ -149,6 +151,14 @@ export function DisplaySettings({
         <SettingsSidebar activeId={activeCategory} onSelect={handleSelectCategory} />
 
         <main className="settings-content">
+          {activeCategory === 'app-update' && <div className="settings-panel">
+            <div className="settings-panel-header"><h3 className="settings-panel-title">软件更新</h3></div>
+            <section className="settings-section">
+              <h4 className="settings-section-title">RoboHorse Studio {appUpdate.status.currentVersion}</h4>
+              <p className="settings-section-desc">更新软件功能及 Windows 安装包。课程、模板与 Firmware Baseline 通过教学内容更新独立维护。</p>
+              <AppUpdateControls />
+            </section>
+          </div>}
           {activeCategory === 'general' && (
             <GeneralSettings scale={scale} onScaleChange={onScaleChange} />
           )}

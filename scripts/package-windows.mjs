@@ -8,6 +8,11 @@ import { Arch, build, Platform } from 'electron-builder'
 
 const execFileAsync = promisify(execFile)
 const root = process.cwd()
+const rootPackage = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
+const { default: semver } = await import('semver')
+if (!/^\d+\.\d+\.\d+$/.test(rootPackage.version) || semver.valid(rootPackage.version) !== rootPackage.version) throw new Error('正式软件版本必须为稳定 SemVer')
+const sourceCommit = (await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: root, windowsHide: true })).stdout.trim()
+const sourceDirty = Boolean((await execFileAsync('git', ['status', '--porcelain'], { cwd: root, windowsHide: true })).stdout.trim())
 const editionAliases = { fun: 'fun-line-following', mcu: 'mcu-foundations', ti: 'ti-mspm0-foundations', 'fun-line-following': 'fun-line-following', 'mcu-foundations': 'mcu-foundations', 'ti-mspm0-foundations': 'ti-mspm0-foundations' }
 const legacyInvocation = process.argv[2] === 'zip' || process.argv[2] === 'nsis'
 const editionId = legacyInvocation ? 'fun-line-following' : editionAliases[process.argv[2]]
@@ -39,9 +44,10 @@ await rm(appDir, { recursive: true, force: true })
 await mkdir(appDir, { recursive: true })
 await cp(join(root, 'out'), join(appDir, 'out'), { recursive: true })
 await cp(join(root, 'config'), join(appDir, 'config'), { recursive: true })
+await writeFile(join(appDir, 'config', 'app-update.json'), JSON.stringify({ schemaVersion: 1, releaseMode: formal ? 'formal' : 'provisional' }))
 await writeFile(join(appDir, 'config', 'edition.json'), `${JSON.stringify({ schemaVersion: 1, edition: editionId }, null, 2)}\n`)
 await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
-  name: 'robotdog-studio-packaged', version: '1.0.0',
+  name: 'robotdog-studio-packaged', version: rootPackage.version,
   description: formal ? 'RoboHorse Studio offline package' : 'RoboHorse Studio provisional offline test package',
   main: './out/main/index.cjs', author: 'RoboHorse Studio contributors', license: 'UNLICENSED', type: 'module', dependencies: {}
 }, null, 2)}\n`)
@@ -174,7 +180,7 @@ const artifacts = await build({
   targets: Platform.WINDOWS.createTarget([target], Arch.x64),
   config: {
     appId: edition.appId,
-    electronVersion: '42.4.1',
+    electronVersion: rootPackage.devDependencies.electron,
     productName: formal ? edition.productName : `${edition.productName} 临时测试版`,
     copyright: 'Copyright © 2026 RoboHorse Studio contributors',
     asar: true,
@@ -194,6 +200,7 @@ const artifacts = await build({
         uninstallerIcon: join(root, 'resources', 'brand', 'robohorse.ico'),
         installerHeaderIcon: join(root, 'resources', 'brand', 'robohorse.ico'),
         perMachine: true,
+        deleteAppDataOnUninstall: false,
         oneClick: false,
         allowToChangeInstallationDirectory: true,
         include: installerInclude
@@ -237,6 +244,17 @@ if (editionId === 'ti-mspm0-foundations') {
     env: { ...process.env, ROBOTDOG_TI_MSPM0_SDK_ROOT: 'Z:\\forbidden-development-sdk', ROBOTDOG_TI_SYSCONFIG_ROOT: 'Z:\\forbidden-development-sysconfig', ROBOTDOG_TI_GCC_ROOT: 'Z:\\forbidden-development-gcc', ROBOTDOG_TI_OPENOCD_ROOT: 'Z:\\forbidden-development-openocd' }
   }).then(({ stdout }) => console.log(stdout.trim()))
 } else await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
+
+// Publish provenance only after all packaged-resource checks have passed.
+if (formal && target === 'nsis') {
+  const expectedName = `${edition.artifactSlug}-${rootPackage.version}-Windows-x64.exe`
+  const installerPath = join(root, 'release', expectedName)
+  const { createReadStream } = await import('node:fs')
+  const digest = createHash('sha256')
+  for await (const chunk of createReadStream(installerPath)) digest.update(chunk)
+  await writeFile(`${installerPath}.release.json`, JSON.stringify({ schemaVersion: 1, editionId, version: rootPackage.version,
+    filename: expectedName, size: (await stat(installerPath)).size, sha256: digest.digest('hex'), sourceCommit, sourceDirty }, null, 2))
+}
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {
   await rm(destinationRoot, { recursive: true, force: true })

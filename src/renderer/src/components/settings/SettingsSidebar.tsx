@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import { Cpu, GraduationCap, Sliders, Sparkles } from 'lucide-react'
 
-export type SettingsCategoryId = 'general' | 'ai' | 'courses' | 'advanced'
+export type SettingsCategoryId = 'general' | 'ai' | 'courses' | 'advanced' | 'app-update'
 
 export interface SettingsCategoryItem {
   id: SettingsCategoryId
@@ -13,7 +13,8 @@ export const SETTINGS_CATEGORIES: SettingsCategoryItem[] = [
   { id: 'general', label: '常规', icon: Sliders },
   { id: 'ai', label: 'AI 助教', icon: Sparkles },
   { id: 'courses', label: '课程与更新', icon: GraduationCap },
-  { id: 'advanced', label: '高级', icon: Cpu }
+  { id: 'advanced', label: '高级', icon: Cpu },
+  { id: 'app-update', label: '软件更新', icon: Sliders }
 ]
 
 export interface SettingsSidebarProps {

@@ -1,3 +1,4 @@
+import packageJson from '../../../../package.json'
 import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, ProjectExplorerNode, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 import { EDITION_PROFILES, type EditionId } from '../../../shared/edition'
 import demoCourseResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/course.json'
@@ -275,7 +276,16 @@ async function runBrowserFirmwareUpdate(token: number): Promise<void> {
   browserUpdateWorkspaceId = undefined
 }
 
+const demoAppUpdateStatus = (): import('../../../shared/app-update').AppUpdateStatus => ({ kind: 'disabled', editionId: browserEditionId,
+  currentVersion: packageJson.version, downloadedBytes: 0, totalBytes: 0, message: '浏览器演示不支持软件安装更新' })
 export const browserDemoApi: RobotDogApi = {
+  getAppUpdateStatus: async () => demoAppUpdateStatus(),
+  checkAppUpdate: async () => demoAppUpdateStatus(),
+  downloadAppUpdate: async () => demoAppUpdateStatus(),
+  installAppUpdate: async () => demoAppUpdateStatus(),
+  onAppUpdate: () => () => {},
+  onAppUpdatePrepare: () => () => {},
+  acknowledgeAppUpdatePrepare: async () => false,
   getEditionProfile: async () => structuredClone(EDITION_PROFILES[browserEditionId]),
   getCourseUpdateStatus: async () => ({ kind: 'idle', message: '教学内容已是最新版本', currentVersion: 1 }),
   checkCourseUpdate: async () => ({ kind: 'up-to-date', message: '教学内容已是最新版本', currentVersion: 1 }),
@@ -395,7 +405,7 @@ export const browserDemoApi: RobotDogApi = {
     demoProgress.set(workspaceId, result)
     return structuredClone(result)
   },
-  getHealth: async () => ({ appVersion: '0.1.0', platform: 'browser', mode: 'simulation', checks: [] }),
+  getHealth: async () => ({ appVersion: packageJson.version, platform: 'browser', mode: 'simulation', checks: [] }),
   getRuntimeInfo: async () => ({
     dataRoot: '浏览器演示数据（不会写入磁盘）', diagnosticsRoot: '浏览器演示诊断', mode: 'simulation', workspaceCount: demoWorkspaces.length,
     toolchain: demoToolchainStatus,

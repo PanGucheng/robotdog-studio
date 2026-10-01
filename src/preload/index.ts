@@ -9,6 +9,13 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
 }
 
 const api: RobotDogApi = {
+  getAppUpdateStatus: () => ipcRenderer.invoke(IPC_CHANNELS.appUpdateStatusGet),
+  checkAppUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.appUpdateCheck),
+  downloadAppUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.appUpdateDownload),
+  installAppUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.appUpdateInstall),
+  onAppUpdate: (listener) => subscribe(IPC_CHANNELS.appUpdateEvent, listener),
+  onAppUpdatePrepare: (listener) => subscribe(IPC_CHANNELS.appUpdatePrepare, listener),
+  acknowledgeAppUpdatePrepare: (id, error) => ipcRenderer.invoke(IPC_CHANNELS.appUpdatePrepared, id, error),
   getEditionProfile: () => ipcRenderer.invoke(IPC_CHANNELS.editionProfileGet),
   getHealth: () => ipcRenderer.invoke(IPC_CHANNELS.healthGet),
   getRuntimeInfo: () => ipcRenderer.invoke(IPC_CHANNELS.runtimeInfoGet),

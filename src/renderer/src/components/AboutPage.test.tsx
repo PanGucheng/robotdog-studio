@@ -48,7 +48,7 @@ describe('AboutPage static rendering', () => {
 
     // 版本信息存在
     expect(html).toContain('软件版本')
-    expect(html).toContain('RoboHorse Studio v1.0.0')
+    expect(html).toContain('RoboHorse Studio v1.1.0')
 
     // 不包含独立的返回按钮
     expect(html).not.toContain('about-back-button')

@@ -8,6 +8,8 @@ import { getRobotApi } from '../lib/browser-demo-api'
 import { buildStudentDiagnosticCards, formatDiagnosticsForStudentAi } from '../lib/student-diagnostics'
 import { toStudentErrorMessage } from '../lib/student-errors'
 import { readMcuEditorViewState, saveMcuEditorViewState } from '../lib/mcu-monaco-session'
+import { registerPendingSave } from '../lib/pending-saves'
+import { useAppUpdate } from './AppUpdateProvider'
 
 interface StudentCodeEditorProps {
   workspace?: WorkspaceSummary
@@ -60,6 +62,7 @@ export const configureMonaco: BeforeMount = (monaco) => {
 
 export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onRejectCandidate, onExplainCode, diagnosticHelp: _diagnosticHelp, onRepairStudentCode: _onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange, editorOverlay, overlayVisible = false, bottomPanel, workspaceAction, workspaceNotice, workspaceDiagnostics = [], railAction }: StudentCodeEditorProps): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
+  const installing = useAppUpdate().status.kind === 'installing'
   const manualCandidate = candidate?.origin === 'manual' ? candidate : undefined
   const [files, setFiles] = useState<StudentCodeFile[]>([])
   const [explorer, setExplorer] = useState<ProjectExplorerSnapshot>()
@@ -96,6 +99,20 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   const fileGroups = useMemo(() => getStudentFileGroups(files), [files])
   contentRef.current = content
   pendingDraftRef.current = { workspaceId: workspace?.id, candidateId: manualCandidate?.id, path: selected?.path, content, dirty, direct: directEditing, editable: editorWritable }
+  useEffect(() => registerPendingSave(async () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    if (saveInFlightRef.current) await saveInFlightRef.current
+    const pending = pendingDraftRef.current
+    if (!pending.dirty) return
+    if (!pending.editable || !pending.path) throw new Error('EDITOR_CANNOT_SAVE')
+    if (pending.direct && pending.workspaceId) await api.writeWorkspaceFile(pending.workspaceId, pending.path, pending.content)
+    else if (pending.candidateId) await api.writeManualDraft(pending.candidateId, pending.path, pending.content)
+    else throw new Error('EDITOR_SAVE_TARGET_MISSING')
+    if (contentRef.current !== pending.content) throw new Error('EDITOR_CHANGED_DURING_SAVE')
+    setFiles(current => current.map(file => file.path === pending.path ? { ...file, content: pending.content } : file))
+    explorerContentCache.current.clear()
+    setDirty(false)
+  }), [api])
   viewContextRef.current = { workspaceId: workspace?.id, path: selectedPath }
 
   useEffect(() => () => {
@@ -372,7 +389,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
             value={content}
             onChange={(value) => { if (editorWritable) { editVersionRef.current += 1; setContent(value ?? ''); setDirty(true); setDiagnostic(undefined) } }}
             options={{
-              readOnly: !editorWritable, automaticLayout: true, minimap: { enabled: false },
+              readOnly: installing || !editorWritable, automaticLayout: true, minimap: { enabled: false },
               readOnlyMessage: { value: !selected?.editable ? '这是受保护文件，只能查看。' : aiReviewActive ? '请先完成或放弃当前 AI 修改。' : '请点击右上角的“开始编写”按钮后再修改。' },
               fontFamily: "'Cascadia Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace", fontSize: 15, lineHeight: 24, tabSize: 4,
               padding: { top: 14, bottom: 14 }, scrollBeyondLastLine: false, wordWrap: 'on',

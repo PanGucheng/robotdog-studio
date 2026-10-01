@@ -10,7 +10,7 @@ import avatarQiaoPengsen from '../../../../resources/brand/developer-qiaopengsen
 import avatarChenTingrui from '../../../../resources/brand/developer-chentingrui.jpg'
 import avatarYangJie from '../../../../resources/brand/developer-yangjie.jpg'
 import avatarYangYiyuan from '../../../../resources/brand/developer-yangyiyuan.jpg'
-import packageJson from '../../../../package.json'
+import { AppUpdateControls, useAppUpdate } from './AppUpdateProvider'
 
 const DEVELOPERS = [
   { name: '潘顾诚', role: 'RoboHorse Studio开发', avatar: avatarPanGucheng },
@@ -26,7 +26,7 @@ export interface AboutPageProps {
 }
 
 export function AboutPage({ edition, onClose }: AboutPageProps): React.JSX.Element {
-  const appVersion = packageJson.version || '1.0.0'
+  const appVersion = useAppUpdate().status.currentVersion
   const [updateStatus, setUpdateStatus] = useState<CourseUpdateStatus>()
   const [checking, setChecking] = useState(false)
 
@@ -165,6 +165,7 @@ export function AboutPage({ edition, onClose }: AboutPageProps): React.JSX.Eleme
                   </div>
                 </div>
               </div>
+              <div className="about-app-update"><AppUpdateControls /></div>
               <div className="about-course-update">
                 <button
                   type="button"

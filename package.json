@@ -1,6 +1,6 @@
 {
   "name": "robotdog-studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AI-assisted control and learning studio for the CH32V203 machine horse",
   "main": "./out/main/index.cjs",
   "author": "RoboHorse Studio contributors",
@@ -57,7 +57,9 @@
     "test": "vitest run",
     "test:course-update:live": "cross-env VITEST_INCLUDE_LIVE=1 vitest run src/main/services/course-update.live.test.ts",
     "test:content-update:live": "cross-env VITEST_INCLUDE_LIVE=1 vitest run src/main/services/course-update.live.test.ts",
-    "smoke:content:live": "tsx scripts/smoke-remote-content.mjs"
+    "smoke:content:live": "tsx scripts/smoke-remote-content.mjs",
+    "test:app-update:live": "cross-env VITEST_INCLUDE_LIVE=1 vitest run src/main/services/app-update.live.test.ts",
+    "release:app": "tsx scripts/publish-app-release.ts"
   },
   "devDependencies": {
     "@fontsource-variable/noto-sans-sc": "^5.3.0",
@@ -68,6 +70,7 @@
     "@types/node": "25.9.3",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "@types/semver": "^7.8.0",
     "@types/unist": "^3.0.3",
     "@vitejs/plugin-react": "5.2.0",
     "cross-env": "10.1.0",
@@ -85,6 +88,7 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
+    "semver": "^7.8.5",
     "tsx": "^4.23.11",
     "typescript": "6.0.3",
     "unified": "^11.0.5",

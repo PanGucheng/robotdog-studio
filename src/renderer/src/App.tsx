@@ -15,6 +15,7 @@ import type { McuView } from './components/mcu-navigation'
 import brandMark from '../../../resources/brand/robohorse-mark.png'
 import { AboutPage } from './components/AboutPage'
 import { AppMenu } from './components/AppMenu'
+import { AppUpdateProvider } from './components/AppUpdateProvider'
 import { BreadcrumbNav, type BreadcrumbItem } from './components/BreadcrumbNav'
 
 const initialStatus: RobotStatus = {
@@ -60,6 +61,10 @@ const initialUpdate: FirmwareUpdateSnapshot = {
 const initialWchLink: WchLinkFlashSnapshot = { state: 'idle', progress: 0, message: '连接 WCH-Link 后，可以先检测烧录器和芯片。', canCancel: false, logs: [] }
 
 export function App(): React.JSX.Element {
+  return <AppUpdateProvider><StudioApp /></AppUpdateProvider>
+}
+
+function StudioApp(): React.JSX.Element {
   const api = useMemo(() => getRobotApi(), [])
   const [status, setStatus] = useState(initialStatus)
   const [edition, setEdition] = useState<AppEditionProfile>(EDITION_PROFILES['fun-line-following'])

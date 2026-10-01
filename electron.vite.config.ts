@@ -25,7 +25,7 @@ const port = await findAvailablePort(Number(process.env.PORT) || 5173)
 
 export default defineConfig({
     main: {
-      plugins: [externalizeDepsPlugin({ exclude: ['zod'] })],
+      plugins: [externalizeDepsPlugin({ exclude: ['zod', 'semver'] })],
       build: {
         rollupOptions: {
           external: ['electron'],

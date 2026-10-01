@@ -1,4 +1,7 @@
-import { BrowserWindow, ipcMain, shell } from 'electron'
+import { BrowserWindow, ipcMain as electronIpcMain, shell } from 'electron'
+import packageJson from '../../../package.json'
+import { registerAppUpdateIpc } from './app-update-ipc'
+import type { AppUpdateService } from '../services/app-update-service'
 import { IPC_CHANNELS } from '../../shared/channels'
 import type { AgentRuntimeStatus, AppHealth, CandidateSnapshot, CourseOperationKind, FirmwareUpdateEvent } from '../../shared/types'
 import { FirmwareBuildService } from '../services/firmware-build-service'
@@ -28,8 +31,29 @@ import type { AppEditionProfile } from '../../shared/edition'
 
 export interface AgentRuntimeServices { secrets: DeepSeekSecretStore; processes: ReasonixProcessManager; version: string }
 
-export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain: ToolchainService | import('../services/ti-mspm0-toolchain-service').TiMspm0ToolchainService = new ToolchainService(), firmware: FirmwareBuildService | TiMspm0BuildService = new FirmwareBuildService(toolchain as ToolchainService), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink: WchLinkFlashService | TiMspm0FlashService = new WchLinkFlashService(toolchain as ToolchainService, firmware as FirmwareBuildService), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService, baselineResolver?: FirmwareBaselineResolver, courseUpdate?: CourseUpdateService): () => void {
+export function registerIpc(robot: MockRobotService, edition: AppEditionProfile, toolchain: ToolchainService | import('../services/ti-mspm0-toolchain-service').TiMspm0ToolchainService = new ToolchainService(), firmware: FirmwareBuildService | TiMspm0BuildService = new FirmwareBuildService(toolchain as ToolchainService), workspaces?: WorkspaceService, candidates?: CandidateService, agents?: AgentSessionService, agentRuntime?: AgentRuntimeServices, agentHistory?: AgentHistoryService, baseline?: FirmwareBaselineService, diagnostics?: DiagnosticService, courses?: CourseService, wchLink: WchLinkFlashService | TiMspm0FlashService = new WchLinkFlashService(toolchain as ToolchainService, firmware as FirmwareBuildService), courseProgress?: CourseProgressStore, projectExplorer?: ProjectExplorerService, lessonLearning?: LessonLearningProgressStore, mcuRecentActivity?: McuRecentActivityStore, lectureHistory?: CourseLectureHistoryService, baselineResolver?: FirmwareBaselineResolver, courseUpdate?: CourseUpdateService, appUpdate?: AppUpdateService, appVersion = packageJson.version): () => void {
+  let operations = 0
+  const readOnly = (channel: string): boolean => /:(get|get-diff|list|status|history|read)$/.test(channel)
+  const flushChannels: string[] = [IPC_CHANNELS.workspaceFileWrite, IPC_CHANNELS.manualDraftWrite]
+  const ipcMain = {
+    handle: (channel: string, handler: Parameters<typeof electronIpcMain.handle>[1]): void => {
+      electronIpcMain.handle(channel, async (event, ...args) => {
+        if (appUpdate?.isInstalling() && !readOnly(channel) && !flushChannels.includes(channel)) throw new Error('APP_UPDATE_INSTALLING')
+        const tracked = !readOnly(channel)
+        if (tracked) operations++
+        try { return await handler(event, ...args) } finally { if (tracked) operations-- }
+      })
+    },
+    removeHandler: (channel: string): void => electronIpcMain.removeHandler(channel)
+  }
   const connectivity = new MockConnectivityService(robot)
+  if (appUpdate) {
+    appUpdate.setBusyGuard(() => operations > 0 || Boolean(agents?.getActive()) || firmware.getSnapshot().state === 'running'
+      || ['probing', 'flashing', 'verifying', 'resetting'].includes(wchLink.getSnapshot().state)
+      || !['idle', 'completed', 'failed', 'cancelled'].includes(connectivity.getUpdate().state)
+      || ['checking', 'downloading'].includes(courseUpdate?.getStatus().kind ?? 'idle'))
+    registerAppUpdateIpc(appUpdate)
+  }
   const sendToAll = (channel: string, payload: unknown): void => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(channel, payload)
@@ -112,7 +136,7 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
   ipcMain.handle(IPC_CHANNELS.healthGet, async (): Promise<AppHealth> => {
     const toolchainStatus = await toolchain.getStatus()
     return {
-      appVersion: '0.1.0',
+      appVersion,
       platform: process.platform,
       mode: 'simulation',
       checks: [

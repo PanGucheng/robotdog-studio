@@ -844,6 +844,13 @@ export interface WchLinkFlashSnapshot {
 export type WchLinkFlashEvent = { type: 'snapshot' | 'progress' | 'completed' | 'failed' | 'cancelled'; snapshot: WchLinkFlashSnapshot }
 
 export interface RobotDogApi {
+  getAppUpdateStatus(): Promise<import('./app-update').AppUpdateStatus>
+  checkAppUpdate(): Promise<import('./app-update').AppUpdateStatus>
+  downloadAppUpdate(): Promise<import('./app-update').AppUpdateStatus>
+  installAppUpdate(): Promise<import('./app-update').AppUpdateStatus>
+  onAppUpdate(listener: (status: import('./app-update').AppUpdateStatus) => void): () => void
+  onAppUpdatePrepare(listener: (requestId: string) => void): () => void
+  acknowledgeAppUpdatePrepare(requestId: string, error?: string): Promise<boolean>
   getEditionProfile(): Promise<AppEditionProfile>
   getHealth(): Promise<AppHealth>
   getRuntimeInfo(): Promise<AppRuntimeInfo>

@@ -1,4 +1,11 @@
 export const IPC_CHANNELS = {
+  appUpdateStatusGet: 'app:update:status:get',
+  appUpdateCheck: 'app:update:check',
+  appUpdateDownload: 'app:update:download',
+  appUpdateInstall: 'app:update:install',
+  appUpdateEvent: 'app:update:event',
+  appUpdatePrepare: 'app:update:prepare',
+  appUpdatePrepared: 'app:update:prepared',
   editionProfileGet: 'app:edition-profile:get',
   healthGet: 'app:health:get',
   runtimeInfoGet: 'app:runtime-info:get',

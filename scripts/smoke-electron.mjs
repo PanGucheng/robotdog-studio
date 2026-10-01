@@ -7,7 +7,7 @@ import electron from 'electron'
 const smokeUserData = await mkdtemp(join(tmpdir(), 'robotdog-studio-smoke-'))
 const child = spawn(electron, ['.'], {
   cwd: process.cwd(),
-  env: { ...process.env, ROBOTDOG_SMOKE_TEST: '1', ROBOTDOG_SMOKE_USER_DATA: smokeUserData },
+  env: { ...process.env, ROBOTDOG_APP_UPDATE_ENABLE: '0', ROBOTDOG_SMOKE_TEST: '1', ROBOTDOG_SMOKE_USER_DATA: smokeUserData },
   windowsHide: true,
   stdio: ['ignore', 'pipe', 'pipe']
 })

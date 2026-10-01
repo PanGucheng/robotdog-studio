@@ -2304,3 +2304,20 @@ button.lecture-action:hover .lecture-action-arrow {
   color: #d97706;
 }
 
+/* App updates stay independent of the teaching-content update UI. */
+.app-update-toast {
+  position: fixed; right: 24px; bottom: 24px; z-index: 1200;
+  width: min(420px, calc(100vw - 48px)); max-height: 70vh; overflow-y: auto;
+  padding: 20px; border: 1px solid #bdd7dd; border-radius: 14px;
+  background: #fff; color: #17384a; box-shadow: 0 8px 32px #17384a24;
+}
+.app-update-controls { display: grid; gap: 10px; width: 100%; }
+.about-app-update { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e4ecef; }
+.app-update-controls p { margin: 0; line-height: 1.6; }
+.app-update-notes { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; }
+.app-update-controls progress { width: 100%; accent-color: #087f91; }
+.app-update-toast > button { margin-top: 12px; }
+.app-update-install-overlay {
+  position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center;
+  background: #f6f8fbef; color: #17384a; font-size: 18px;
+}
