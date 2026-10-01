@@ -17,13 +17,13 @@ const releaseArg = legacyInvocation ? process.argv[3] : process.argv[4]
 const target = targetArg === 'nsis' ? 'nsis' : 'zip'
 const formal = releaseArg === 'formal'
 const edition = editionId === 'ti-mspm0-foundations' ? {
-  appId: 'cn.robotdog.studio.ti.mspm0', productName: 'RoboHorse Studio TI MSPM0 教学版', executableName: 'RobotDogStudio-TI-MSPM0', artifactSlug: 'RobotDog-Studio-TI-MSPM0',
+  appId: 'cn.robotdog.studio.ti.mspm0', productName: 'RoboHorse Studio TI MSPM0 教学版', executableName: 'RobotDogStudio-TI-MSPM0', artifactSlug: 'RoboHorse-Studio-TI-MSPM0',
   templateBase: 'resources/workspace-templates/ti-mspm0g3507-foundations'
 } : editionId === 'mcu-foundations' ? {
-  appId: 'cn.robotdog.studio.mcu', productName: 'RoboHorse Studio 单片机入门版', executableName: 'RobotDogStudio-MCU', artifactSlug: 'RobotDog-Studio-MCU',
+  appId: 'cn.robotdog.studio.mcu', productName: 'RoboHorse Studio 单片机入门版', executableName: 'RobotDogStudio-MCU', artifactSlug: 'RoboHorse-Studio-MCU',
   templateBase: 'resources/workspace-templates/ch32v203-mcu-foundations'
 } : {
-  appId: 'cn.robotdog.studio.fun', productName: 'RoboHorse Studio 趣味巡线版', executableName: 'RobotDogStudio-Fun', artifactSlug: 'RobotDog-Studio-Fun',
+  appId: 'cn.robotdog.studio.fun', productName: 'RoboHorse Studio 趣味巡线版', executableName: 'RobotDogStudio-Fun', artifactSlug: 'RoboHorse-Studio-Fun',
   templateBase: 'resources/workspace-templates/ch32v203-robotdog'
 }
 const packageOutputRoot = join(root, 'release', `.stage-${editionId}-${target}`)
