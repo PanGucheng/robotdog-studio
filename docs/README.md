@@ -10,6 +10,7 @@
 - [本地开发指南 (Local Development)](development/local-development.md)：Node.js 24 与 pnpm 11.8.0 环境准备、Reasonix 运行时初始化与发行版启动命令；
 - [测试与质量门禁 (Testing & Validation)](development/testing-and-validation.md)：`pnpm check` 验证命令、课程校验、TypeScript 类型检查与 Vitest 服务测试；
 - [Windows 打包与基线门禁 (Windows Packaging)](development/windows-packaging.md)：便携版 ZIP 与 NSIS 安装包打包命令、WCH-Link 驱动集成及正式发布门禁。
+- [软件更新与发布操作说明 (App Update & Release)](development/app-updates.md)：GitCode 软件安装包发布、统一版本来源、下一版 Agent 操作清单、凭据检查、失败处理与独立 Live Test。
 
 ---
 

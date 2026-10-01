@@ -65,6 +65,7 @@ RobotDog_Studio/
 - [本地开发指南 (Local Development)](docs/development/local-development.md)
 - [测试与质量门禁 (Testing & Validation)](docs/development/testing-and-validation.md)
 - [Windows 打包与基线门禁 (Windows Packaging)](docs/development/windows-packaging.md)
+- [软件更新与发布操作说明（GitCode、版本推送与 Agent 发版清单）](docs/development/app-updates.md)
 - [单片机与 TI 课程制作指南 (Course Authoring)](docs/courses/mcu-course-authoring.md)
 - [固件基线说明 (Firmware Baselines)](firmware/README.md)
 - [品牌资产说明 (Brand Assets)](resources/brand/README.md)
