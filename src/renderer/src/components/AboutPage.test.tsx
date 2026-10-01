@@ -6,6 +6,7 @@ import { renderToString } from 'react-dom/server'
 import { AboutPage } from './AboutPage'
 import { AppMenu } from './AppMenu'
 import { EDITION_PROFILES } from '../../../shared/edition'
+import packageJson from '../../../../package.json'
 
 // @ts-expect-error React testing flag
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -48,7 +49,7 @@ describe('AboutPage static rendering', () => {
 
     // 版本信息存在
     expect(html).toContain('软件版本')
-    expect(html).toContain('RoboHorse Studio v1.1.0')
+    expect(html).toContain(`RoboHorse Studio v${packageJson.version}`)
 
     // 不包含独立的返回按钮
     expect(html).not.toContain('about-back-button')

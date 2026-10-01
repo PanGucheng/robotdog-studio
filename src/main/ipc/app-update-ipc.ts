@@ -40,7 +40,7 @@ export function registerAppUpdateIpc(service: AppUpdateService): void {
   ipcMain.handle(IPC_CHANNELS.appUpdatePrepared, (event, id: unknown, error: unknown) => {
     const task = pending.get(event.sender.id)
     if (!task || typeof id !== 'string' || task.id !== id || (error !== undefined && typeof error !== 'string')) return false
-    if (error) task.reject(new Error(error)); else task.resolve()
+    if (error !== undefined) task.reject(new Error(error)); else task.resolve()
     return true
   })
 }

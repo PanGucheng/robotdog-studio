@@ -43,6 +43,12 @@ describe('installation save IPC coordination', () => {
     mock.windows = []
     await expect(prepareWindowsForAppInstall()).rejects.toThrow('UPDATE_RENDERER_UNAVAILABLE')
   })
+  it('does not accept an empty failure message as save success', async () => {
+    const task = prepareWindowsForAppInstall()
+    const result = expect(task).rejects.toThrow()
+    acknowledge(1, window.webContents.send.mock.calls[0][1], '')
+    await result
+  })
   it('times out instead of treating a silent renderer as saved', async () => {
     vi.useFakeTimers()
     const task = prepareWindowsForAppInstall()
