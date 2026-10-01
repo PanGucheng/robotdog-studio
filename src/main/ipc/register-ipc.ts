@@ -66,15 +66,16 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
     sendToAll(IPC_CHANNELS.firmwareUpdateEvent, payload)
     const event = payload as FirmwareUpdateEvent
     if (activeUpdateWorkspaceId && (event.type === 'completed' || event.type === 'failed')) {
-      void recordCourseOperation(activeUpdateWorkspaceId, 'flash', event.type === 'completed', event.snapshot.error ?? event.snapshot.message)
+      const workspaceId = activeUpdateWorkspaceId
+      void operations.track(() => recordCourseOperation(workspaceId, 'flash', event.type === 'completed', event.snapshot.error ?? event.snapshot.message))
       activeUpdateWorkspaceId = undefined
     }
   }
   const wchLinkListener = (payload: unknown): void => sendToAll(IPC_CHANNELS.wchLinkEvent, payload)
   const agentListener = (payload: unknown): void => {
     const event = payload as import('../../shared/types').AgentEvent
-    if (agentHistory) void agentHistory.append(event)
-    if (lectureHistory) void lectureHistory.append(event)
+    if (agentHistory) void operations.track(() => agentHistory.append(event))
+    if (lectureHistory) void operations.track(() => lectureHistory.append(event))
     sendToAll(IPC_CHANNELS.agentEvent, payload)
   }
 

@@ -9,6 +9,9 @@ export class AppUpdateOperationGate {
   async run<T>(channel: string, operation: () => T | Promise<T>): Promise<T> {
     const flush = channel === IPC_CHANNELS.workspaceFileWrite || channel === IPC_CHANNELS.manualDraftWrite
     if (this.installing() && !flush) throw new Error('APP_UPDATE_INSTALLING')
+    return this.track(operation)
+  }
+  async track<T>(operation: () => T | Promise<T>): Promise<T> {
     this.pending++
     try { return await operation() } finally { this.pending-- }
   }

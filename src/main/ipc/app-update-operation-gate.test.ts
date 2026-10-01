@@ -3,6 +3,14 @@ import { IPC_CHANNELS } from '../../shared/channels'
 import { AppUpdateOperationGate } from './app-update-operation-gate'
 
 describe('update shutdown operation gate', () => {
+  it('keeps background history writes busy after their producing task ends', async () => {
+    const gate = new AppUpdateOperationGate(() => true)
+    let complete!: () => void
+    const task = gate.track(() => new Promise<void>(resolve => { complete = resolve }))
+    expect(gate.isBusy()).toBe(true)
+    complete(); await task
+    expect(gate.isBusy()).toBe(false)
+  })
   it('waits for read-named handlers that can persist or migrate user records', async () => {
     const gate = new AppUpdateOperationGate(() => false)
     let complete!: () => void
