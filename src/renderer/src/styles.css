@@ -2020,6 +2020,7 @@ button.lecture-action:hover .lecture-action-arrow {
   inset: 0;
   z-index: 120;
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   padding: 20px;
   background: rgb(7 24 35 / 65%);
@@ -2028,10 +2029,13 @@ button.lecture-action:hover .lecture-action-arrow {
 
 .about-dialog {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   width: min(680px, 94%);
-  max-height: 90vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* The overlay already uses the scaled shell's available height. */
+  max-height: 100%;
+  overflow: hidden;
   border: 1px solid #c5d7de;
   border-radius: 14px;
   background: var(--canvas);
@@ -2052,6 +2056,9 @@ button.lecture-action:hover .lecture-action-arrow {
 
 .about-content {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
