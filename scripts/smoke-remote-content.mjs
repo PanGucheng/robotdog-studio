@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -103,6 +103,7 @@ async function runPonyRemoteBuild(mcuCurrentDir) {
 }
 
 async function main() {
+  const currentAppVersion = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).version
   const smokeRoot = await mkdtemp(join(tmpdir(), 'robotdog-smoke-remote-content-'))
   const mcuUserData = join(smokeRoot, 'mcu-userData')
   const tiUserData = join(smokeRoot, 'ti-userData')
@@ -123,7 +124,7 @@ async function main() {
     const mcuUpdateService = new EditionContentUpdateService({
       userDataContentRoot: mcuContentUserData,
       resolver: mcuResolver,
-      appVersion: '0.1.0',
+      appVersion: currentAppVersion,
       editionId: 'mcu-foundations'
     })
     const mcuStatus = await mcuUpdateService.checkForUpdate()
@@ -142,7 +143,7 @@ async function main() {
     const tiUpdateService = new EditionContentUpdateService({
       userDataContentRoot: tiContentUserData,
       resolver: tiResolver,
-      appVersion: '0.1.0',
+      appVersion: currentAppVersion,
       editionId: 'ti-mspm0-foundations'
     })
     const tiStatus = await tiUpdateService.checkForUpdate()
@@ -156,7 +157,7 @@ async function main() {
     console.log(`[smoke-remote-content] Verified MCU current root: ${mcuCurrent}`)
     console.log(`[smoke-remote-content] Verified TI current root: ${tiCurrent}`)
 
-    // Verify published vs draft separation in downloaded remote content
+    // Verify both released MCU lessons and their templates in downloaded content
     const mcuCourseJson = join(mcuCurrent, 'courses', 'ch32v203-foundations', 'course.json')
     const mcuLesson1 = join(mcuCurrent, 'courses', 'ch32v203-foundations', 'lessons', 'first-program-on-chip.json')
     const mcuLesson2 = join(mcuCurrent, 'courses', 'ch32v203-foundations', 'lessons', 'gpio-output.json')
@@ -166,10 +167,10 @@ async function main() {
     if (!existsSync(mcuCourseJson) || !existsSync(mcuLesson1) || !existsSync(mcuTemplate1)) {
       throw new Error('Remote MCU content is missing published Lesson 1 or its template!')
     }
-    if (existsSync(mcuLesson2) || existsSync(mcuTemplate2)) {
-      throw new Error('Remote MCU content illegally contains draft Lesson 2 (gpio-output)!')
+    if (!existsSync(mcuLesson2) || !existsSync(mcuTemplate2) || JSON.parse(readFileSync(mcuLesson2, 'utf8')).status !== 'published') {
+      throw new Error('Remote MCU content is missing published Lesson 2 or its template!')
     }
-    console.log('[smoke-remote-content] SUCCESS: Verified remote package has Lesson 1 and excludes draft Lesson 2!')
+    console.log('[smoke-remote-content] SUCCESS: Verified remote package includes both published MCU lessons and templates!')
 
     // 3. Verify Baselines can be loaded from downloaded directories
     const mcuBaselineResolver = new FirmwareBaselineResolver({

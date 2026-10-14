@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,6 +9,7 @@ import { EditionContentUpdateService } from './edition-content-update-service'
 import { FirmwareBaselineResolver } from './firmware-baseline-resolver'
 
 const temporaryDirs: string[] = []
+const currentAppVersion = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).version as string
 
 async function createTempDir(prefix: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), `test-live-${prefix}-`))
@@ -35,7 +36,7 @@ describe('Live Gitee Remote Content Update', () => {
     const service = new EditionContentUpdateService({
       userDataContentRoot: contentUserData,
       resolver,
-      appVersion: '0.1.0',
+      appVersion: currentAppVersion,
       editionId: 'mcu-foundations'
     })
 
@@ -52,6 +53,9 @@ describe('Live Gitee Remote Content Update', () => {
     const courses = await courseService.listCourses()
     expect(courses.length).toBeGreaterThan(0)
     expect(courses[0].courseId).toBe('ch32v203-foundations')
+    const lesson = await courseService.getLesson('ch32v203-foundations', 'gpio-output')
+    expect(lesson.status).toBe('published')
+    expect(await courseService.getLecture('ch32v203-foundations', 'gpio-output')).toMatchObject({ status: 'ready' })
 
     // 2. Verify workspace-templates exist in downloaded content
     const templateRoot = resolver.resolveWorkspaceTemplateRoot()
@@ -96,7 +100,7 @@ describe('Live Gitee Remote Content Update', () => {
     const service = new EditionContentUpdateService({
       userDataContentRoot: contentUserData,
       resolver,
-      appVersion: '0.1.0',
+      appVersion: currentAppVersion,
       editionId: 'ti-mspm0-foundations'
     })
 
@@ -150,7 +154,7 @@ describe('Live Gitee Remote Content Update', () => {
     const mcuService = new EditionContentUpdateService({
       userDataContentRoot: contentUserData,
       resolver: mcuResolver,
-      appVersion: '0.1.0',
+      appVersion: currentAppVersion,
       editionId: 'mcu-foundations'
     })
     const mcuStatus = await mcuService.checkForUpdate()
@@ -166,7 +170,7 @@ describe('Live Gitee Remote Content Update', () => {
     const tiService = new EditionContentUpdateService({
       userDataContentRoot: contentUserData,
       resolver: tiResolver,
-      appVersion: '0.1.0',
+      appVersion: currentAppVersion,
       editionId: 'ti-mspm0-foundations'
     })
     const tiStatus = await tiService.checkForUpdate()

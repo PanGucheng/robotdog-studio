@@ -84,6 +84,8 @@ app.getPath('userData')/content/<editionId>/
 https://gitee.com/Cidervinegar/robohorse-courses/raw/master/update.json
 ```
 
+2026-10-14：MCU 内容包 v8（课程 v17）加入真实截图后，Gitee raw 拒绝大文件匿名下载。清单地址继续使用上面的 raw 地址，MCU 的包 URL 改为同一仓库的稳定 Release 附件下载 API；TI 小包 URL 不变。每次发布须先验证新附件匿名下载及摘要，再提交清单；本地打包脚本默认生成的 raw 包地址不能直接沿用到大包。详见 [1.2.0 与第二课发布记录](../releases/1.2.0-verification.md)。
+
 ### 3.2 Manifest 规范 (Schema Version 3)
 
 远程 `update.json` 支持多发行版统一配置：
