@@ -226,10 +226,10 @@ function writeLectureState(workspaceId: string, displayedContentVersion: number,
 function reducedMotion(): boolean { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false }
 
 function stepActionLabel(type: string): string {
-  if (type === 'candidate-build') return '生成并排查'
+  if (type === 'candidate-build') return '打开编译面板'
   if (type === 'review-apply') return '确认已保存'
-  if (type === 'firmware-build') return '编译'
-  if (type === 'flash') return '写入开发板'
+  if (type === 'firmware-build') return '打开编译面板'
+  if (type === 'flash') return '打开烧录面板'
   if (type === 'question') return '填写回答'
   return '记录完成'
 }

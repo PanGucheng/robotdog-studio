@@ -94,6 +94,7 @@ try {
     firmwareBaselineId: baselineId,
     baselineCommit: expectedCommit,
     edition: EDITION_PROFILES['mcu-foundations'],
+    sandboxSourceResolver: async workspace => (await resolver.resolveForWorkspace(workspace).requireTestingBaseline()).sourceRoot,
     sandboxDefaults: {
       templateRoot: ponyTemplateDir,
       templateVersion: expectedCommit.slice(0, 7),

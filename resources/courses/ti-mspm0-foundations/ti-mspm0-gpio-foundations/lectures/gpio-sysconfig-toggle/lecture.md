@@ -25,6 +25,12 @@
 
 它把计算机的核心部件——负责运算的 CPU、存放代码和数据的存储区（Flash 和 RAM）、以及与外界通信的引脚控制电路，全部集成在了一颗芯片里。
 
+![单片机内部组成：CPU、存储器、时钟与输入输出端口](./assets/microcontroller-internals.svg)
+
+图中 **CPU** 负责运算，**memory** 存储程序与数据，**clock** 提供运行节拍，**I/O-ports** 连接外部输入与输出。它们之间通过内部总线（bussystem）交换信息。这是通用组成概念图；具体封装、内部布局和可用引脚以 MSPM0G3507 的型号资料为准。
+
+图片：jiricek72，[Openclipart 原作](https://openclipart.org/detail/252719/microcontroller-simple-scheme)，CC0 / Public Domain；已保存为离线资源。
+
 :::concept[微控制器（MCU）]
 单片机（MCU）是将计算机的核心部件全部集成在一颗芯片上的微型计算机，专用于自动化控制与电子设备操作。在嵌入式开发中，单片机与 MCU 通常指同一个概念。
 :::

@@ -1,0 +1,189 @@
+{
+  "date": "2026-10-14",
+  "edition": "mcu-foundations",
+  "capture": "Alt+PrintScreen -> clipboard bitmap -> lossless PNG",
+  "resampling": false,
+  "hardware": "not-connected",
+  "figures": [
+    {
+      "name": "studio-start",
+      "source": "studio-start.png",
+      "crop": [
+        760,
+        770,
+        1490,
+        650
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1490,
+        920
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\studio-start.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\studio-start.drawio.png",
+      "exportSize": [
+        1492,
+        922
+      ]
+    },
+    {
+      "name": "studio-skeleton",
+      "source": "studio-skeleton.png",
+      "crop": [
+        0,
+        180,
+        2560,
+        1340
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1680
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\studio-skeleton.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\studio-skeleton.drawio.png",
+      "exportSize": [
+        2562,
+        1682
+      ]
+    },
+    {
+      "name": "studio-init",
+      "source": "studio-init.png",
+      "crop": [
+        485,
+        200,
+        1360,
+        770
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        1040
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\studio-init.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\studio-init.drawio.png",
+      "exportSize": [
+        1362,
+        1042
+      ]
+    },
+    {
+      "name": "studio-on",
+      "source": "studio-on.png",
+      "crop": [
+        485,
+        200,
+        1360,
+        920
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        1190
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\studio-on.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\studio-on.drawio.png",
+      "exportSize": [
+        1362,
+        1192
+      ]
+    },
+    {
+      "name": "studio-build-on",
+      "source": "studio-build-on.png",
+      "crop": [
+        485,
+        1010,
+        1360,
+        510
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        780
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\studio-build-on.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\studio-build-on.drawio.png",
+      "exportSize": [
+        1362,
+        782
+      ]
+    },
+    {
+      "name": "studio-blink",
+      "source": "studio-blink.png",
+      "crop": [
+        485,
+        200,
+        1360,
+        920
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        1190
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\studio-blink.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\studio-blink.drawio.png",
+      "exportSize": [
+        1362,
+        1192
+      ]
+    },
+    {
+      "name": "studio-problems",
+      "source": "studio-problems.png",
+      "crop": [
+        485,
+        500,
+        1360,
+        710
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        980
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\studio-problems.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\studio-problems.drawio.png",
+      "exportSize": [
+        1362,
+        982
+      ]
+    }
+  ],
+  "concepts": [
+    {
+      "name": "port-and-pin",
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\port-and-pin.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\port-and-pin.drawio.png"
+    },
+    {
+      "name": "active-low-led",
+      "drawio": "docs\\courses\\assets\\mcu-second-lesson-20261014\\annotations\\active-low-led.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\gpio-output\\assets\\active-low-led.drawio.png"
+    }
+  ]
+}

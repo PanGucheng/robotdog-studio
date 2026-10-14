@@ -58,7 +58,7 @@
       "PB8 属于端口 B，时钟宏是 RCC_APB2Periph_GPIOB",
       "推挽输出的宏定义是 GPIO_Mode_Out_PP",
       "GPIO_Init 第二个参数需要传入结构体变量的指针地址（&）",
-      "开发板 PB8 LED 为共阳极接法，低电平导通点亮"
+      "开发板 PB8 LED 为低电平有效；电流由电源经限流电阻和 LED 流入 PB8 输出级"
     ]
   },
   "status": "draft"

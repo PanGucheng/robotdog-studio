@@ -258,7 +258,7 @@ robohorse-courses/
 ```
 
 - `courseId`：全局唯一 kebab-case ID。MCU 课程以 `ch32` 开头，TI 课程以 `ti-mspm0` 开头。
-- `contentVersion`：整门课程的单调递增整数版本（当前 MCU 课程为 `13`）。
+- `contentVersion`：整门课程的单调递增整数版本（当前 MCU 课程为 `15`）。
 - `status`：`draft | published`。课程级状态。
 - `lessonOrder`：作者开发态下登记的完整课次顺序（包含开发中的草稿课次）。
   > [!NOTE]

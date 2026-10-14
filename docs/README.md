@@ -22,6 +22,7 @@
 - [真实界面截图与清晰度验收](courses/course-screenshots.md)：操作截图的无损采集、局部裁切、实际显示尺寸检查和本次保留事项；
 - [TI 第一课制作与软件验收记录](courses/ti-first-lesson-verification.md)：课程内容、SysConfig 窗口修复、软件验证结果与剩余实板验收；
 - [沁恒第一课截图与软件验收记录](courses/mcu-first-lesson-verification.md)：真实界面、AI 助教引导、参数修改与构建的软件验收；
+- [沁恒第二课截图与软件验收记录](courses/mcu-second-lesson-verification.md)：GPIO 操作、错误定位、概念配图与未发布课的软件验收；
 - [课次编写与硬件验证要求 (Hardware Validation)](courses/lesson-hardware-validation.md)：普通课与硬件实物课编写准则、真机运行验证门禁；
 - [远程课程热更新机制 (Remote Course Updates)](courses/remote-course-updates.md)：Gitee 远程源规范、Manifest 配置、缓存管理与原子回滚机制。
 

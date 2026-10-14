@@ -23,7 +23,7 @@ void RHS_Experiment_Init(void)
 
 void RHS_Experiment_Loop(void)
 {
-    /* 任务 6 & 任务 9：控制引脚高低电平与延时 */
+    /* 任务 6 & 任务 10：控制引脚高低电平与延时 */
     // 提示：
     // 点亮 LED（输出低电平）：GPIO_ResetBits(GPIOB, GPIO_Pin_8);
     // 熄灭 LED（输出高电平）：GPIO_SetBits(GPIOB, GPIO_Pin_8);
