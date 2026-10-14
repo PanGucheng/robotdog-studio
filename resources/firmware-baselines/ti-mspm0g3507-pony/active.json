@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "manifest": "manifest.json",
+  "packagedSource": "current/source"
+}

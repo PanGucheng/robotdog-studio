@@ -1,0 +1,307 @@
+{
+  "date": "2026-10-14",
+  "capture": "Alt+PrintScreen -> clipboard bitmap -> lossless PNG",
+  "resampling": false,
+  "figures": [
+    {
+      "name": "studio-home",
+      "source": "studio-home.png",
+      "crop": [
+        0,
+        34,
+        1920,
+        880
+      ],
+      "captureSize": [
+        1920,
+        1008
+      ],
+      "outputSize": [
+        1920,
+        1080
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\studio-home.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\studio-home.drawio.png"
+    },
+    {
+      "name": "studio-course",
+      "source": "studio-course.png",
+      "crop": [
+        0,
+        150,
+        2560,
+        1110
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1450
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\studio-course.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\studio-course.drawio.png"
+    },
+    {
+      "name": "studio-reader",
+      "source": "studio-reader.png",
+      "crop": [
+        0,
+        150,
+        2560,
+        1370
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1710
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\studio-reader.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\studio-reader.drawio.png"
+    },
+    {
+      "name": "studio-start",
+      "source": "studio-start.png",
+      "crop": [
+        760,
+        920,
+        1370,
+        530
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1370,
+        730
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\studio-start.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\studio-start.drawio.png"
+    },
+    {
+      "name": "studio-workbench",
+      "source": "studio-workbench.png",
+      "crop": [
+        0,
+        150,
+        2560,
+        1370
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1710
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\studio-workbench.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\studio-workbench.drawio.png"
+    },
+    {
+      "name": "studio-ai-tutor",
+      "source": "studio-ai-tutor.png",
+      "crop": [
+        1125,
+        180,
+        1430,
+        1310
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1430,
+        1650
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\studio-ai-tutor.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\studio-ai-tutor.drawio.png"
+    },
+    {
+      "name": "studio-edit-interval",
+      "source": "studio-edit-interval.png",
+      "crop": [
+        485,
+        200,
+        1360,
+        920
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        1120
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\studio-edit-interval.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\studio-edit-interval.drawio.png"
+    },
+    {
+      "name": "studio-blue-program",
+      "source": "studio-blue-program.png",
+      "crop": [
+        485,
+        200,
+        1360,
+        920
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        1190
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\studio-blue-program.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\studio-blue-program.drawio.png"
+    },
+    {
+      "name": "sysconfig-overview",
+      "source": "sysconfig-overview.png",
+      "crop": [
+        0,
+        34,
+        2560,
+        1490
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1830
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\sysconfig-overview.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\sysconfig-overview.drawio.png"
+    },
+    {
+      "name": "sysconfig-gpio-group",
+      "source": "sysconfig-overview.png",
+      "crop": [
+        55,
+        125,
+        1465,
+        790
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1465,
+        1060
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\sysconfig-gpio-group.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\sysconfig-gpio-group.drawio.png"
+    },
+    {
+      "name": "sysconfig-add-pin",
+      "source": "sysconfig-add-pin.png",
+      "crop": [
+        55,
+        125,
+        1465,
+        1040
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1465,
+        1240
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\sysconfig-add-pin.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\sysconfig-add-pin.drawio.png"
+    },
+    {
+      "name": "sysconfig-blue-name",
+      "source": "sysconfig-blue-name.png",
+      "crop": [
+        55,
+        125,
+        1465,
+        1060
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1465,
+        1330
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\sysconfig-blue-name.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\sysconfig-blue-name.drawio.png"
+    },
+    {
+      "name": "sysconfig-initial-menu",
+      "source": "sysconfig-initial-menu.png",
+      "crop": [
+        55,
+        125,
+        1465,
+        1130
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1465,
+        1400
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\sysconfig-initial-menu.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\sysconfig-initial-menu.drawio.png"
+    },
+    {
+      "name": "sysconfig-blue-settings",
+      "source": "sysconfig-blue-settings.png",
+      "crop": [
+        55,
+        125,
+        1465,
+        1330
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1465,
+        1600
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\sysconfig-blue-settings.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\sysconfig-blue-settings.drawio.png"
+    },
+    {
+      "name": "sysconfig-save-menu",
+      "source": "sysconfig-save-menu.png",
+      "crop": [
+        0,
+        34,
+        1520,
+        890
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1520,
+        1160
+      ],
+      "drawio": "docs\\courses\\assets\\ti-first-lesson-v3\\annotations\\sysconfig-save-menu.drawio",
+      "output": "resources\\courses\\ti-mspm0-foundations\\ti-mspm0-gpio-foundations\\lectures\\gpio-sysconfig-toggle\\assets\\sysconfig-save-menu.drawio.png"
+    }
+  ]
+}

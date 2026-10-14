@@ -1,0 +1,229 @@
+{
+  "date": "2026-10-14",
+  "edition": "mcu-foundations",
+  "capture": "Alt+PrintScreen -> clipboard bitmap -> lossless PNG",
+  "resampling": false,
+  "hardware": "not-connected",
+  "figures": [
+    {
+      "name": "studio-home",
+      "source": "studio-home.png",
+      "crop": [
+        0,
+        34,
+        2560,
+        1060
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1315
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-home.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-home.drawio.png"
+    },
+    {
+      "name": "studio-course",
+      "source": "studio-course.png",
+      "crop": [
+        0,
+        180,
+        2560,
+        1300
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1555
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-course.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-course.drawio.png"
+    },
+    {
+      "name": "studio-reader",
+      "source": "studio-reader.png",
+      "crop": [
+        0,
+        180,
+        2560,
+        1320
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1660
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-reader.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-reader.drawio.png"
+    },
+    {
+      "name": "studio-start",
+      "source": "studio-start.png",
+      "crop": [
+        760,
+        790,
+        1490,
+        620
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1490,
+        820
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-start.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-start.drawio.png"
+    },
+    {
+      "name": "studio-workbench",
+      "source": "studio-workbench.png",
+      "crop": [
+        0,
+        180,
+        2560,
+        1340
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        2560,
+        1680
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-workbench.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-workbench.drawio.png"
+    },
+    {
+      "name": "studio-ai-tutor",
+      "source": "studio-ai-tutor.png",
+      "crop": [
+        1190,
+        200,
+        1360,
+        1290
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        1560
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-ai-tutor.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-ai-tutor.drawio.png"
+    },
+    {
+      "name": "studio-locate",
+      "source": "studio-locate.png",
+      "crop": [
+        1165,
+        200,
+        1360,
+        1150
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        1420
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-locate.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-locate.drawio.png"
+    },
+    {
+      "name": "studio-edit",
+      "source": "studio-edit.png",
+      "crop": [
+        485,
+        200,
+        1360,
+        980
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        1180
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-edit.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-edit.drawio.png"
+    },
+    {
+      "name": "studio-save",
+      "source": "studio-edit.png",
+      "crop": [
+        485,
+        185,
+        1360,
+        490
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        760
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-save.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-save.drawio.png"
+    },
+    {
+      "name": "studio-build",
+      "source": "studio-build.png",
+      "crop": [
+        485,
+        1010,
+        1360,
+        500
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        770
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-build.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-build.drawio.png"
+    },
+    {
+      "name": "studio-compare",
+      "source": "studio-compare.png",
+      "crop": [
+        485,
+        200,
+        1360,
+        650
+      ],
+      "captureSize": [
+        2560,
+        1528
+      ],
+      "outputSize": [
+        1360,
+        850
+      ],
+      "drawio": "docs\\courses\\assets\\mcu-first-lesson-20261014\\annotations\\studio-compare.drawio",
+      "output": "resources\\courses\\mcu-foundations\\ch32v203-foundations\\lectures\\first-program-on-chip\\assets\\studio-compare.drawio.png"
+    }
+  ]
+}

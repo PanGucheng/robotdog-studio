@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "id": "ti-mspm0g3507-pony-v1",
+  "label": "TI MSPM0G3507 完整小马例程 0.2.5-ti.1",
+  "status": "provisional",
+  "releaseEligible": false,
+  "replacementPolicy": "独立自由工程模板，软件构建验证不代表真机验收。",
+  "source": {
+    "repository": "resources/workspace-templates/ti-mspm0g3507-pony",
+    "developmentDefaultRoot": "resources/workspace-templates/ti-mspm0g3507-pony",
+    "expectedCommit": "41e392c7bac4f44c3c05ec875ed67fd5fc48bf96"
+  },
+  "target": {
+    "board": "LP-MSPM0G3507",
+    "chip": "MSPM0G3507",
+    "startup": "gcc/startup_mspm0g350x_gcc.c",
+    "linkerScript": "gcc/device_linker.lds",
+    "memory": {
+      "flashBytes": 131072,
+      "ramBytes": 32768,
+      "confirmed": true
+    }
+  },
+  "toolchain": {
+    "profile": "ti-mspm0-sdk-2.11-gcc9-openocd",
+    "arch": "armv6-m",
+    "abi": "aapcs",
+    "codeModel": "thumb"
+  },
+  "build": {
+    "includeDirectories": [
+      "src"
+    ],
+    "sources": [
+      "src/main.c"
+    ],
+    "cFlags": [],
+    "assemblerFlags": [],
+    "linkFlags": []
+  },
+  "studentOverlay": {
+    "source": "src/main.c",
+    "header": "src/main.c",
+    "configInput": "board.syscfg",
+    "generatedHeader": "board.syscfg"
+  },
+  "artifacts": {
+    "elf": "RobotDog.out",
+    "hex": "RobotDog.hex",
+    "bin": "RobotDog.bin",
+    "map": "RobotDog.map"
+  },
+  "integrity": [
+    {
+      "path": "board.syscfg",
+      "sha256": "deeea3cf9bde2a02d85792b730986b9ba5cf646390f8f475f8fc41cf98a01b5e"
+    },
+    {
+      "path": "gcc/device_linker.lds",
+      "sha256": "4ea830abcc2704cd0d9b6348a2e2fdee24485cadf3b1a893ede91818bf18fe5a"
+    },
+    {
+      "path": "gcc/startup_mspm0g350x_gcc.c",
+      "sha256": "c94b9a8edf1c2efb441524c9231b82169965b16782fb4854bce9455b1fbadf3c"
+    },
+    {
+      "path": "generated/device.lds.genlibs",
+      "sha256": "f1e7465f97642c4742a49012d8fc5efb4bc216af20fc47e50383a0fdaf8fce46"
+    },
+    {
+      "path": "generated/device.opt",
+      "sha256": "560f5907159d8380a132e0eb273e7739fbbccb5f386377117fcf61c1372368cd"
+    },
+    {
+      "path": "generated/device_linker.lds",
+      "sha256": "4ea830abcc2704cd0d9b6348a2e2fdee24485cadf3b1a893ede91818bf18fe5a"
+    },
+    {
+      "path": "generated/Event.dot",
+      "sha256": "b058cff0e469cb126dcca593f6fbcb2f28921d8d06aa742cb32964648e56e1af"
+    },
+    {
+      "path": "generated/ti_msp_dl_config.c",
+      "sha256": "4354951144322c237ba4561535982692ef9e1a1d61b770b5e85401bc9d8de5f0"
+    },
+    {
+      "path": "generated/ti_msp_dl_config.h",
+      "sha256": "edb0eafdc1764678e9d09389496c15381aa133fc35f186707b7bbb2daadf9303"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "bcc33bb0d73d0066d78a53eed86ca3ea3e661f82f680600bf7a6fd90cabc2f9a"
+    },
+    {
+      "path": "openocd/board.cfg",
+      "sha256": "710ac1b6e088f926f966ab0eaa570ecb463ecdc2442d86abfedde6e60311693a"
+    },
+    {
+      "path": "README.md",
+      "sha256": "22e5417ddd3c75cc05eec4cdcbd494c47fa6db7296fc4c747647a1f339dca47f"
+    },
+    {
+      "path": "robotdog.firmware.json",
+      "sha256": "ace8dca71b1f80126193bf08cf0033b17112da61a58dd65287001a3f36ad5622"
+    },
+    {
+      "path": "scripts/stack-guard.lds",
+      "sha256": "b256f20aab10ac2ac8bc86ab9509f131760edfeb532c1eca2fd22e579bf9969b"
+    },
+    {
+      "path": "sources.json",
+      "sha256": "8c678cff2d3df64720c8f3239670f27561a94d44c88bf020cd978d295371ee99"
+    },
+    {
+      "path": "src/app/app.h",
+      "sha256": "caa0ec025690ad4d736a42d116f11518e9c1de2cb83e8ce4c804d8e65f4b5808"
+    },
+    {
+      "path": "src/app/app_display.c",
+      "sha256": "0bd133c24164c91ac7334377a10dec2eab780d3a0a2664ffff17967c6839053b"
+    },
+    {
+      "path": "src/app/app_protocol.c",
+      "sha256": "12e60d432d3b1c2073bff8cb6e0e35c8e2996f94793ebb0e918a52e4bf9522ae"
+    },
+    {
+      "path": "src/board/motion_config.h",
+      "sha256": "4fb4736d76d1440ff55acec4c924ce83dcbe4bcd0cbda5dfefe4b688a3a14231"
+    },
+    {
+      "path": "src/board/servo_geometry.c",
+      "sha256": "c42dc5337f5822814fea5b508ef92ffe0b727bc4a1db05a1827adce197d5b184"
+    },
+    {
+      "path": "src/board/servo_map.c",
+      "sha256": "da844a6391ab76722d508949cc21677a3f77cec1d3b806dd1f6e58674543e0b8"
+    },
+    {
+      "path": "src/board/student_config.h",
+      "sha256": "9870a11278bc05211b679bce988f362cc5d393a6270f3635b3ca05b3df8cded0"
+    },
+    {
+      "path": "src/bsp/bsp.h",
+      "sha256": "bd1fabe79649d58a5d267e063af09362bdb556bd32b78b0d36ffd6d51d387317"
+    },
+    {
+      "path": "src/bsp/bsp_i2c.c",
+      "sha256": "c6d62bc5e37f9938c10debff3b994778cc870bba5e3f93ff8f3b0f5d917ef2a2"
+    },
+    {
+      "path": "src/bsp/bsp_indicators.c",
+      "sha256": "9d94afbda9ab961e04f5397eaeedc21d99b041f16818994d774f3d914cf07a9a"
+    },
+    {
+      "path": "src/bsp/bsp_key.c",
+      "sha256": "f6c4265a6c977752e665967a3ad10e82594f53fd94a00c1b8acdad0b2748efff"
+    },
+    {
+      "path": "src/bsp/bsp_servo.c",
+      "sha256": "bba016ce3d852a375a5fb2d6202bf0c58b33de179f1f13d008d39173c2dfb09b"
+    },
+    {
+      "path": "src/bsp/bsp_servo.h",
+      "sha256": "9822639f61d5519253e73d8b58456eea163ab369abe954084bfa66c79344ece1"
+    },
+    {
+      "path": "src/bsp/bsp_time.c",
+      "sha256": "61d30018800266aa409d40e363b1c24107ae48df21cd9540c5538288e0ab8431"
+    },
+    {
+      "path": "src/bsp/bsp_uart.c",
+      "sha256": "e56cc50563781bc906c27b8a748ad5f3fbad217fe1f75df6a101b51dd8a2c0f2"
+    },
+    {
+      "path": "src/deferred/ccd_backend.h",
+      "sha256": "d1b186962f50f684ad034539b30e9de50f542c062a522cea67fc0c4c9f7cb148"
+    },
+    {
+      "path": "src/deferred/student_control.c",
+      "sha256": "4a864912e591c43136ccdc5b03a0174a5ae45bba337fbd46253a3d2a9998bc71"
+    },
+    {
+      "path": "src/deferred/student_control.h",
+      "sha256": "672e69543d8bc09a09cf00d4fd201b49b407fd841e362c939250ab80e174bc98"
+    },
+    {
+      "path": "src/main.c",
+      "sha256": "25c7c8d32f1ee85f29609f0ab0a4e65ca839b5f16fe7233b9a217f1068686cac"
+    },
+    {
+      "path": "src/middleware/oled.c",
+      "sha256": "1d2217a5cd44e21509574ffa2eeb2b46350e67558f4824c47d849bc2c805ca12"
+    },
+    {
+      "path": "src/middleware/oled.h",
+      "sha256": "a900047df8e5e727bba4a749e41e1d3c97e80f0e8d9f96c06801b936906edbd1"
+    },
+    {
+      "path": "src/middleware/ssd1306_font6x8.h",
+      "sha256": "f53f895f66239df24f9606fae8eb210da169725276c43e727ec217a714205480"
+    },
+    {
+      "path": "src/robotdog/robotdog_motion.c",
+      "sha256": "11e95a3021d9e9b9514437f69d3de4fa906a05f3a30dbbe3040d941627d1c89e"
+    },
+    {
+      "path": "src/robotdog/robotdog_motion.h",
+      "sha256": "9b9db45253877132374674605f58f9f650cd6693bf5ea99ef4f83fcfe5b07f21"
+    },
+    {
+      "path": "src/robotdog/robotdog_protocol.c",
+      "sha256": "9b5e341c4fe5e3701e4eb1e7f62e117d887021bbf1ef12c1eaef3973ef15138f"
+    },
+    {
+      "path": "src/robotdog/robotdog_protocol.h",
+      "sha256": "b4fbb277cd7814a55691882e50feb3671b66dd5bba27770f7a9ac7b7694fc87d"
+    },
+    {
+      "path": "src/robotdog/robotdog_runtime.c",
+      "sha256": "76f910dc09e74701b4ed90bcb1cb865e944e7b67c6eff2e5a9a665136b21e4fc"
+    },
+    {
+      "path": "src/robotdog/robotdog_runtime.h",
+      "sha256": "3e6564076a41a1d459805b1a2162c84f94cf910ea23efef2fb9cf56fcf4a9128"
+    },
+    {
+      "path": "src/robotdog/robotdog_safety.c",
+      "sha256": "dc9bca83b261f4e33874c0cc9365102361dee93e0ea7ddb5c00c2365d9af7880"
+    },
+    {
+      "path": "src/robotdog/robotdog_safety.h",
+      "sha256": "2744a0b934879f1fb8480493962c969bb7e73a985b87d0abe74d4ba04c7c082d"
+    },
+    {
+      "path": "src/robotdog/robotdog_student_bridge.c",
+      "sha256": "71980701c0fdcf431ff53dab8236db96b8c6ec15f33337530ca547e69998c69b"
+    },
+    {
+      "path": "src/robotdog/robotdog_student_bridge.h",
+      "sha256": "4e31446a7e7b620e515a39a7fb009097fad6388e7cf4159e5442d3c69a22ea3f"
+    },
+    {
+      "path": "src/robotdog/robotdog_telemetry.c",
+      "sha256": "357faae809319ec2cd7772466d24dc99e4bb573a458827b2d37c4e900247aeef"
+    },
+    {
+      "path": "src/robotdog/robotdog_telemetry.h",
+      "sha256": "c6733ede670451563db6f287407806ce6ec02d8ec6a604e28c5405d1db4f839f"
+    },
+    {
+      "path": "src/robotdog/robotdog_text.c",
+      "sha256": "6105647f8af82027de58fd00571231fbdab04eed196abe4564b8c2596e69a29f"
+    },
+    {
+      "path": "src/robotdog/robotdog_text.h",
+      "sha256": "91f9b7c87aef8c33279dfd66e34ded5911875df07b43edc2856339ffadbf616b"
+    },
+    {
+      "path": "src/robotdog/robotdog_tx_queue.c",
+      "sha256": "7f436a5a5f73ac8c6b726aabe3d156a2a0cb5dda8a392c627202888abbe7a3a1"
+    },
+    {
+      "path": "src/robotdog/robotdog_tx_queue.h",
+      "sha256": "f01b317163b1efe673fa2abe767c71f466e9815f121b42a6539f23095c60ab3a"
+    },
+    {
+      "path": "src/robotdog/robotdog_types.c",
+      "sha256": "0eb0fb3ec75cd8fd4a4e90935ed12c17cd51d5578a2e818cc51f720fddf5d372"
+    },
+    {
+      "path": "src/robotdog/robotdog_types.h",
+      "sha256": "d7b88a0af001d4808bec6be907bdd6b02b5438447412871aed31995453115c22"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "60315137898d9a0a25ce365590b4986a8cb21380fde52909af996f47b4262381"
+    },
+    {
+      "path": "VALIDATION.md",
+      "sha256": "6cabd1bd4004f5e3883d0bdeddf23ab74eb124928684217b5503647006f6c2d7"
+    }
+  ]
+}

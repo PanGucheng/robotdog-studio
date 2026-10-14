@@ -72,7 +72,10 @@ describe('ProjectExplorerService', () => {
       rootDir: dataRoot, templateRoot, templateVersion: 'test', firmwareBaselineId: 'baseline-test', baselineCommit: 'a'.repeat(40), edition: EDITION_PROFILES['mcu-foundations']
     })
     await workspaces.initialize()
-    workspaceId = (await workspaces.create({ name: '单片机练习', studentDisplayName: '测试同学' })).id
+    workspaceId = (await workspaces.createLessonAttempt({ courseId: 'test-course', lessonId: 'test-lesson', studentDisplayName: '测试同学' }, {
+      workspacePurpose: 'mcu-lesson-attempt', templateRoot, templateId: 'test-template', templateVersion: 'test', lessonTitle: '测试课程',
+      courseBinding: { courseId: 'test-course', lessonId: 'test-lesson', contentVersion: 1 }, allowedEditGlobs: ['App/Src/**/*.c', 'App/Inc/**/*.h'], deniedGlobs: []
+    })).id
     candidates = new CandidateService({ rootDir: dataRoot, workspaces, builder })
     await candidates.initialize()
     service = new ProjectExplorerService(workspaces, candidates, baseline)
@@ -109,7 +112,7 @@ describe('ProjectExplorerService', () => {
     expect(snapshot.nodes.find((node) => node.displayPath === 'Ld/Link.ld')?.access).toBe('read-only')
   })
 
-  it('shows Pony workspace root label and keeps experiment.c editable while student_control.h and baseline are read-only', async () => {
+  it('shows a complete independent Pony sandbox with editable runtime and headers', async () => {
     const ponyBaselineDir = join(sandbox, 'pony-baseline')
     await mkdir(join(ponyBaselineDir, 'User'), { recursive: true })
     await mkdir(join(ponyBaselineDir, 'Core', 'Inc'), { recursive: true })
@@ -156,6 +159,7 @@ describe('ProjectExplorerService', () => {
       rootDir: ponyDataRoot,
       templateRoot: ponyTemplate,
       edition: EDITION_PROFILES['mcu-foundations'],
+      sandboxSourceResolver: async () => ponyBaselineDir,
       sandboxDefaults: {
         templateRoot: ponyTemplate,
         templateVersion: 'b'.repeat(7),
@@ -172,7 +176,7 @@ describe('ProjectExplorerService', () => {
     expect(snapshot.rootLabel).toContain('Pony Firmware')
     expect(snapshot.baselineId).toBe('ch32v203-pony-v25')
     expect(snapshot.nodes.find((n) => n.displayPath === 'App/Src/experiment.c')).toMatchObject({ origin: 'lesson-overlay', access: 'editable' })
-    expect(snapshot.nodes.find((n) => n.displayPath === 'User/robotdog_runtime.c')).toMatchObject({ origin: 'firmware-baseline', access: 'read-only' })
-    expect(snapshot.nodes.find((n) => n.displayPath === 'Core/Inc/student_control.h')).toMatchObject({ origin: 'firmware-baseline', access: 'read-only' })
+    expect(snapshot.nodes.find((n) => n.displayPath === 'User/robotdog_runtime.c')).toMatchObject({ access: 'editable' })
+    expect(snapshot.nodes.find((n) => n.displayPath === 'Core/Inc/student_control.h')).toMatchObject({ access: 'editable' })
   })
 })

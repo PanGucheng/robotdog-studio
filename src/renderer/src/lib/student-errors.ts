@@ -7,6 +7,13 @@ export interface StudentProblem {
 }
 
 const friendlyProblems: Array<[RegExp, Omit<StudentProblem, 'technicalDetail'>]> = [
+  [/ENOSPC/, { title: '磁盘空间不足', whatHappened: '磁盘空间不足，文件未能写入。', why: '工程所在磁盘没有足够空间。', nextStep: '释放磁盘空间后重试。' }],
+  [/EACCES|EPERM/, { title: '文件无法写入', whatHappened: '当前目录无法写入，请检查权限或文件占用。', why: '系统拒绝了写入请求。', nextStep: '处理目录权限或文件占用后重试。' }],
+  [/同名文件或文件夹已存在|EEXIST/, { title: '名称已被使用', whatHappened: '同名文件或文件夹已存在，请换一个名称。', why: '新建操作不会覆盖已有文件。', nextStep: '更换名称后再次创建。' }],
+  [/名称无效/, { title: '名称无效', whatHappened: '名称无效，请检查特殊字符、保留名称及末尾的空格或句点。', why: '文件和文件夹名称需要符合 Windows 规则。', nextStep: '只输入一个文件名或文件夹名，不包含路径。' }],
+  [/父目录不存在或不可用|SANDBOX_PATH_INVALID|SANDBOX_LINK_DENIED/, { title: '目录不可用', whatHappened: '选择的目录不存在或不可用，请重新选择工程内的目录。', why: '文件只能创建在当前工程的普通目录中。', nextStep: '重新打开新建窗口并选择父目录。' }],
+  [/检查点同步失败/, { title: '文件已创建', whatHappened: '文件已创建，但检查点同步失败，请重新打开工程。', why: '文件提交已完成，工作区信息尚未同步。', nextStep: '重新打开工程，不要重复创建同名文件。' }],
+  [/请等待当前任务完成后再新建文件/, { title: '工程正在执行任务', whatHappened: '请等待当前任务完成后再新建文件。', why: '编译、烧录或 AI 修改期间需要保持工程稳定。', nextStep: '任务完成后重试。' }],
   [/CANDIDATE_DIFF_NOT_READY/i, {
     title: '修改对比还没准备好',
     whatHappened: '系统正在整理这次修改的前后对比，暂时还不能展示。',

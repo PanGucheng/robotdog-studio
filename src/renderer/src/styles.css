@@ -1794,6 +1794,13 @@ button.lecture-action:hover .lecture-action-arrow {
 .lecture-loading p, .lecture-empty p { margin: 0; font-size: 12px; line-height: 1.55; }
 .lecture-empty strong { color: #3a5968; }
 .lecture-asset { display: block; max-width: 100%; height: auto; margin: 14px auto; border: 1px solid #d5e2e6; border-radius: 7px; }
+.lecture-asset-open { display: block; max-width: 100%; margin: 14px auto; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+.lecture-asset-open .lecture-asset { margin: 0; }
+.lecture-asset-open > span { display: block; padding-top: 5px; color: #55727b; font-size: 12px; }
+.lecture-image-dialog { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 24px; background: #102b36cc; }
+.lecture-image-dialog-content { max-width: 100%; max-height: 100%; overflow: auto; padding: 14px; border-radius: 12px; background: white; }
+.lecture-image-dialog-content > button { display: block; margin: 0 0 12px auto; padding: 8px 14px; border: 1px solid #bdd6dc; border-radius: 6px; background: #f5fafb; cursor: pointer; }
+.lecture-image-dialog-content > img { display: block; width: auto; height: auto; max-width: none; }
 .lecture-asset-loading, .lecture-asset-error { display: inline-flex; gap: 5px; align-items: center; padding: 5px 7px; color: #758b96; border-radius: 5px; background: #f2f5f6; font-size: 12px; }
 .lecture-asset-error { color: #a1483e; background: #fff0ed; }
 .lecture-math-block { margin: 15px 0; padding: 10px; overflow: auto; text-align: center; }
@@ -2312,6 +2319,7 @@ button.lecture-action:hover .lecture-action-arrow {
 }
 
 /* App updates stay independent of the teaching-content update UI. */
+.app-update-content { width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .app-update-toast {
   position: fixed; right: 24px; bottom: 24px; z-index: 1200;
   width: min(420px, calc(100vw - 48px)); max-height: 70vh; overflow-y: auto;
@@ -2328,3 +2336,19 @@ button.lecture-action:hover .lecture-action-arrow {
   position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center;
   background: #f6f8fbef; color: #17384a; font-size: 18px;
 }
+
+.sandbox-menu-dismiss { position:fixed; inset:0; z-index:150; }
+.sandbox-inline-create { padding:4px 10px 6px; }
+.sandbox-inline-create > div { display:flex; align-items:center; gap:6px; }
+.sandbox-inline-create input { flex:1; min-width:0; width:100%; padding:4px 6px; border:1px solid #087f91; border-radius:3px; background:white; color:#17384a; font-size:12px; outline-offset:1px; }
+.sandbox-inline-create small { display:block; margin:3px 0 0 21px; color:#688896; font-size:10px; }
+.sandbox-inline-create p { margin:4px 0 0 21px; color:#b32727; font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
+.sandbox-tree-menu { transform:scale(var(--ui-scale)); transform-origin:top left; position:fixed; width:170px; padding:6px; background:white; border:1px solid #b9d2da; border-radius:6px; box-shadow:0 4px 16px #10263833; }
+.sandbox-tree-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:8px 10px; border:0; border-radius:4px; background:transparent; color:#17384a; font-family:inherit; font-size:12px; line-height:1.5; text-align:left; cursor:pointer; }
+.sandbox-tree-menu button:hover { background:#e9f5f7; color:#087f91; }
+.sandbox-tree-menu button:focus-visible { outline:2px solid #087f91; outline-offset:-2px; background:#e9f5f7; }
+
+/* Keep the full project tree scrollable and expose both template choices. */
+.sandbox-template-choices { display: grid; gap: 14px; }
+.mcu-development-area .student-file-rail { min-height: 0; min-width: 0; }
+.project-explorer-tree { min-height: 0; padding-bottom: 18px; }

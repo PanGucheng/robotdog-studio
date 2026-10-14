@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { constants as fsConstants } from 'node:fs'
-import { copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, cp, lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { z } from 'zod'
 import type { CreateLessonAttemptInput, CreateWorkspaceInput, WorkspaceCourseBinding, WorkspaceHistoryEntry, WorkspaceMetadata, WorkspacePurpose, WorkspaceSummary } from '../../shared/types'
@@ -14,6 +14,7 @@ const PROVISIONAL_BASELINE_COMMIT = '0858d821d56daaea6e45740f5b496714fea20aca'
 const workspaceNameSchema = z.string().trim().min(1).max(48).refine((value) => !/[<>"/\\|?*\u0000-\u001f]/.test(value), '对话名称包含不支持的字符')
 const studentNameSchema = z.string().trim().min(1).max(24).refine((value) => !/[<>:"/\\|?*\u0000-\u001f]/.test(value), '学生名称包含 Windows 不支持的字符')
 const createSchema = z.object({
+  projectType: z.enum(['sdk-empty', 'pony']).optional(),
   name: workspaceNameSchema.optional(),
   studentDisplayName: studentNameSchema
 }).strict()
@@ -127,7 +128,19 @@ export interface WorkspaceCreationSpec {
   baselineCommit?: string
 }
 
+export interface SandboxTemplate {
+  materializeBaseline?: boolean
+  templateRoot: string
+  templateVersion: string
+  templateId: string
+  firmwareBaselineId: string
+  baselineCommit: string
+}
+
 export interface WorkspaceServiceOptions {
+  sandboxTemplates?: Partial<Record<'sdk-empty' | 'pony', SandboxTemplate>>
+  sandboxSourceResolver?: (workspace: { firmwareBaselineId: string; baselineCommit: string }) => Promise<string>
+  sandboxStartupSource?: string
   rootDir: string
   templateRoot: string
   templateVersion?: string
@@ -145,6 +158,10 @@ export interface WorkspaceServiceOptions {
 }
 
 export class WorkspaceService {
+  private readonly sandboxTemplates: WorkspaceServiceOptions['sandboxTemplates']
+  private readonly sandboxSourceResolver?: WorkspaceServiceOptions['sandboxSourceResolver']
+  private readonly sandboxStartupSource?: string
+  private readonly sandboxPreparations = new Map<string, Promise<WorkspaceMetadata>>()
   private readonly rootDir: string
   private readonly workspacesDir: string
   private readonly templateRoot: string
@@ -162,6 +179,9 @@ export class WorkspaceService {
   }
 
   constructor(options: WorkspaceServiceOptions) {
+    this.sandboxTemplates = options.sandboxTemplates
+    this.sandboxSourceResolver = options.sandboxSourceResolver
+    this.sandboxStartupSource = options.sandboxStartupSource
     this.rootDir = resolve(options.rootDir)
     this.workspacesDir = join(this.rootDir, 'workspaces')
     this.templateRoot = resolve(options.templateRoot)
@@ -171,6 +191,10 @@ export class WorkspaceService {
     this.git = options.git ?? new GitWorkspaceService()
     this.edition = options.edition ?? EDITION_PROFILES['fun-line-following']
     this.sandboxDefaults = options.sandboxDefaults
+  }
+
+  getSandboxTemplateRoot(templateId: string): string | undefined {
+    return Object.values(this.sandboxTemplates ?? {}).find(template => template?.templateId === templateId)?.templateRoot
   }
 
   async initialize(): Promise<void> {
@@ -208,13 +232,20 @@ export class WorkspaceService {
     const projectRoot = join(temporaryRoot, 'project')
     const now = new Date().toISOString()
     const isSandbox = !spec && isMcuEdition(this.edition.id)
-    const templateRoot = spec?.templateRoot ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.templateRoot : this.templateRoot)
-    const templateId = spec?.templateId ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.templateId : this.edition.templateId)
-    const templateVersion = spec?.templateVersion ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.templateVersion : this.templateVersion)
-    const firmwareBaselineId = spec?.firmwareBaselineId ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.firmwareBaselineId : this.firmwareBaselineId)
-    const baselineCommit = spec?.baselineCommit ?? (isSandbox && this.sandboxDefaults ? this.sandboxDefaults.baselineCommit : this.baselineCommit)
+    const selected = input.projectType ? this.sandboxTemplates?.[input.projectType] : undefined
+    if (input.projectType && (!isSandbox || !selected)) throw new Error('该发行版不支持所选自由工程模板。')
+    const sandbox = selected ?? this.sandboxDefaults
+    const templateRoot = spec?.templateRoot ?? (isSandbox && sandbox ? sandbox.templateRoot : this.templateRoot)
+    const templateId = spec?.templateId ?? (isSandbox && sandbox ? sandbox.templateId : this.edition.templateId)
+    const templateVersion = spec?.templateVersion ?? (isSandbox && sandbox ? sandbox.templateVersion : this.templateVersion)
+    const firmwareBaselineId = spec?.firmwareBaselineId ?? (isSandbox && sandbox ? sandbox.firmwareBaselineId : this.firmwareBaselineId)
+    const baselineCommit = spec?.baselineCommit ?? (isSandbox && sandbox ? sandbox.baselineCommit : this.baselineCommit)
     try {
       await this.copyTemplate(projectRoot, templateRoot)
+      if (isSandbox && this.sandboxSourceResolver && (!selected || selected.materializeBaseline)) {
+        const sourceRoot = await this.sandboxSourceResolver({ firmwareBaselineId, baselineCommit })
+        await this.copySandboxSource(sourceRoot, projectRoot)
+      }
       await writeFile(join(projectRoot, '.robotdog-managed'), 'RobotDog Studio workspace v1\n', { encoding: 'utf8', flag: 'wx' })
       await this.writeManagedProjectFiles(projectRoot, spec)
       const lastCheckpoint = await this.git.initialize(projectRoot)
@@ -242,6 +273,7 @@ export class WorkspaceService {
         state: 'ready'
       }
       await writeFile(join(temporaryRoot, 'workspace.json'), `${JSON.stringify(metadata, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' })
+      if (isSandbox && (this.sandboxSourceResolver || selected)) await writeFile(join(temporaryRoot, 'sandbox-project-v1.json'), JSON.stringify({ baselineCommit }), 'utf8')
       await mkdir(join(temporaryRoot, 'conversations'))
       await mkdir(join(temporaryRoot, 'diagnostics'))
       await rename(temporaryRoot, finalRoot)
@@ -352,7 +384,39 @@ export class WorkspaceService {
     if (parsed.id !== workspaceId) throw new Error('WORKSPACE_ID_MISMATCH')
     if (parsed.learningPath !== this.edition.id) throw new Error('WORKSPACE_EDITION_MISMATCH')
     await this.git.assertManagedRepository(this.projectPath(workspaceId))
-    return parsed
+    if (parsed.workspacePurpose !== 'mcu-sandbox' || !this.sandboxSourceResolver) return parsed
+    let preparation = this.sandboxPreparations.get(workspaceId)
+    if (!preparation) {
+      preparation = this.prepareSandbox(parsed)
+      this.sandboxPreparations.set(workspaceId, preparation)
+    }
+    try { return await preparation } finally { this.sandboxPreparations.delete(workspaceId) }
+  }
+
+  private async prepareSandbox(metadata: WorkspaceMetadata): Promise<WorkspaceMetadata> {
+    const marker = join(this.workspacesDir, metadata.id, 'sandbox-project-v1.json')
+    if (await stat(marker).then(info => info.isFile(), () => false)) return metadata
+    const root = this.projectPath(metadata.id)
+    // Keep older projects accessible so students can finish drafts or resolve edits.
+    // Materialize missing files on the next access after the project becomes idle.
+    if (metadata.state !== 'ready' || metadata.activeCandidateId || !(await this.git.isClean(root))) return metadata
+    const source = await this.sandboxSourceResolver!(metadata)
+    await this.copySandboxSource(source, root)
+    const lastCheckpoint = await this.git.isClean(root) ? await this.git.getHead(root) : await this.git.commitAll(root, 'chore: materialize complete sandbox project')
+    const updated = { ...metadata, lastCheckpoint }
+    await this.writeMetadata(updated)
+    await writeFile(marker, JSON.stringify({ baselineCommit: metadata.baselineCommit }), 'utf8')
+    return updated
+  }
+
+  private async copySandboxSource(source: string, destination: string): Promise<void> {
+    const excluded = new Set(['.git', '.robotdog-managed', 'robotdog.project.json', 'reasonix.toml', 'AGENTS.md', 'build', 'out', 'release', 'node_modules', '.mrs'])
+    await cp(source, destination, { recursive: true, force: false, errorOnExist: false,
+      filter: async path => !relative(source, path).split(/[\\/]/).some(part => excluded.has(part)) && !(await lstat(path)).isSymbolicLink() })
+    if (this.sandboxStartupSource) {
+      await mkdir(join(destination, 'gcc'), { recursive: true })
+      await copyFile(this.sandboxStartupSource, join(destination, 'gcc', 'startup_mspm0g350x_gcc.c'), fsConstants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'EEXIST') throw error })
+    }
   }
 
   private projectPath(workspaceId: string): string {

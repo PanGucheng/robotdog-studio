@@ -20,7 +20,7 @@ describe('browserDemoApi MCU Pony v2.5 workflow', () => {
     expect(ws.name).toContain('小马自由练习')
   })
 
-  it('lists student code files with App as editable and Core as read-only bridge', async () => {
+  it('lists all free engineering files as editable', async () => {
     const ws = await browserDemoApi.createWorkspace({ studentDisplayName: '小明' })
     const files = await browserDemoApi.listStudentCodeFiles(ws.id)
 
@@ -31,17 +31,17 @@ describe('browserDemoApi MCU Pony v2.5 workflow', () => {
 
     expect(expC).toBeDefined()
     expect(expC?.editable).toBe(true)
-    expect(expC?.group).toBe('实验代码')
+    expect(expC?.group).toBe('工程文件')
 
     expect(expH).toBeDefined()
     expect(expH?.editable).toBe(true)
 
     expect(ctrlC).toBeDefined()
-    expect(ctrlC?.editable).toBe(false)
-    expect(ctrlC?.group).toBe('只读接口')
+    expect(ctrlC?.editable).toBe(true)
+    expect(ctrlC?.group).toBe('工程文件')
 
     expect(ctrlH).toBeDefined()
-    expect(ctrlH?.editable).toBe(false)
+    expect(ctrlH?.editable).toBe(true)
   })
 
   it('builds Project Explorer tree with Pony v2.5 root label and correct file permissions', async () => {
@@ -56,14 +56,14 @@ describe('browserDemoApi MCU Pony v2.5 workflow', () => {
     expect(expNode?.origin).toBe('lesson-overlay')
 
     const userMain = explorer.nodes.find((n) => n.kind === 'file' && n.displayPath === 'User/main.c')
-    expect(userMain?.access).toBe('read-only')
+    expect(userMain?.access).toBe('editable')
     expect(userMain?.origin).toBe('firmware-baseline')
 
     const coreBridge = explorer.nodes.find((n) => n.kind === 'file' && n.displayPath === 'Core/Src/student_control.c')
-    expect(coreBridge?.access).toBe('read-only')
+    expect(coreBridge?.access).toBe('editable')
 
     const ponyManifest = explorer.nodes.find((n) => n.kind === 'file' && n.displayPath === 'pony.firmware.json')
-    expect(ponyManifest?.access).toBe('read-only')
+    expect(ponyManifest?.access).toBe('editable')
   })
 
   it('reads project explorer files including Pony specific runtime files', async () => {
@@ -117,8 +117,22 @@ describe('browserDemoApi MCU Pony v2.5 workflow', () => {
     // Writing App/Src/experiment.c succeeds
     await expect(browserDemoApi.writeWorkspaceFile(ws.id, 'App/Src/experiment.c', '/* code */')).resolves.toBeDefined()
 
-    // Writing Core/Src/student_control.c fails
-    await expect(browserDemoApi.writeWorkspaceFile(ws.id, 'Core/Src/student_control.c', '/* code */')).rejects.toThrow('这个文件当前不能修改')
+    // Free engineering files are editable; internal metadata remains protected.
+    await expect(browserDemoApi.writeWorkspaceFile(ws.id, 'Core/Src/student_control.c', '/* code */')).resolves.toBeDefined()
+    await expect(browserDemoApi.writeWorkspaceFile(ws.id, 'robotdog.project.json', '{}')).rejects.toThrow('这个文件当前不能修改')
+  })
+
+  it('creates and retains a demo text file and empty directory', async () => {
+    const workspace = await browserDemoApi.createWorkspace({ studentDisplayName: '测试同学' })
+    await browserDemoApi.createWorkspaceDirectory(workspace.id, 'App/Src', 'modules')
+    const file = await browserDemoApi.createWorkspaceFile(workspace.id, 'App/Src/modules', 'helper.h')
+    await browserDemoApi.writeWorkspaceFile(workspace.id, file.path, '#pragma once\nint Helper(void);\n')
+    const snapshot = await browserDemoApi.getProjectExplorer(workspace.id)
+    const node = snapshot.nodes.find(item => item.displayPath === file.path)!
+    expect((await browserDemoApi.readProjectExplorerFile(workspace.id, node.id)).content).toContain('Helper')
+    await expect(browserDemoApi.createWorkspaceFile(workspace.id, 'App/Src/modules', 'HELPER.H')).rejects.toThrow('同名')
+    await browserDemoApi.createWorkspaceDirectory(workspace.id, '', 'empty')
+    expect((await browserDemoApi.getProjectExplorer(workspace.id)).nodes.some(item => item.displayPath === 'empty' && item.kind === 'directory')).toBe(true)
   })
 
   it('preserves fun edition workspace behavior when fun edition is active', async () => {
@@ -144,5 +158,21 @@ describe('browserDemoApi MCU Pony v2.5 workflow', () => {
     expect(ws.target).toBe('MSPM0G3507')
     expect(ws.templateId).toBe('ti-mspm0g3507-foundations')
     expect(ws.name).toContain('MSPM0 练习')
+  })
+})
+
+
+describe('sandbox template choices in browser demonstration', () => {
+  it.each([
+    ['mcu-foundations', 'sdk-empty', 'App/Src/main.c'],
+    ['ti-mspm0-foundations', 'sdk-empty', 'board.syscfg'],
+    ['ti-mspm0-foundations', 'pony', 'src/robotdog/robotdog_runtime.c']
+  ] as const)('selects %s / %s', async (edition, projectType, expectedPath) => {
+    setDemoEdition(edition)
+    const workspace = await browserDemoApi.createWorkspace({ studentDisplayName: '测试', projectType })
+    expect(workspace.templateId).toContain(projectType)
+    const files = await browserDemoApi.listStudentCodeFiles(workspace.id)
+    expect(files.some(file => file.path === expectedPath)).toBe(true)
+    expect(files.some(file => file.path === 'gpio_toggle_output.syscfg')).toBe(false)
   })
 })

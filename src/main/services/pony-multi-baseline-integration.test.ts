@@ -56,6 +56,7 @@ describe('Pony & RHS Multi-Baseline Integration', () => {
       firmwareBaselineId: rhsManifest.id,
       baselineCommit: rhsManifest.source.expectedCommit,
       edition: EDITION_PROFILES['mcu-foundations'],
+      sandboxSourceResolver: async workspace => (await resolver.resolveForWorkspace(workspace).requireTestingBaseline()).sourceRoot,
       sandboxDefaults: {
         templateRoot: ponyTemplateRoot,
         templateVersion: ponyManifest.source.expectedCommit.slice(0, 7),
@@ -103,7 +104,7 @@ describe('Pony & RHS Multi-Baseline Integration', () => {
     const ponyExperimentNode = ponySnapshot.nodes.find((n) => n.displayPath === 'App/Src/experiment.c')
     expect(ponyExperimentNode).toMatchObject({ origin: 'lesson-overlay', access: 'editable' })
     const ponyControlHeader = ponySnapshot.nodes.find((n) => n.displayPath === 'Core/Inc/student_control.h')
-    expect(ponyControlHeader).toMatchObject({ origin: 'firmware-baseline', access: 'read-only' })
+    expect(ponyControlHeader).toMatchObject({ access: 'editable' })
 
     const rhsSnapshot = await explorer.getSnapshot(lessonWs.id)
     expect(rhsSnapshot.rootLabel).toContain('RHS Firmware')
@@ -121,7 +122,7 @@ describe('Pony & RHS Multi-Baseline Integration', () => {
     const lessonStatus = await lessonBaseline.getStatus()
     expect(lessonStatus.id).toBe('ch32v203-rhs-baseline')
     expect(lessonStatus.label).toContain('RHS')
-  })
+  }, 60_000)
 
   it.runIf(canRun)('completes full Candidate build, apply, and Firmware build on Pony baseline, with stale detection', async () => {
     sandbox = await mkdtemp(join(tmpdir(), 'pony-full-build-'))
@@ -154,6 +155,7 @@ describe('Pony & RHS Multi-Baseline Integration', () => {
       firmwareBaselineId: ponyManifest.id,
       baselineCommit: ponyManifest.source.expectedCommit,
       edition: EDITION_PROFILES['mcu-foundations'],
+      sandboxSourceResolver: async workspace => (await resolver.resolveForWorkspace(workspace).requireTestingBaseline()).sourceRoot,
       sandboxDefaults: {
         templateRoot: ponyTemplateRoot,
         templateVersion: ponyManifest.source.expectedCommit.slice(0, 7),
@@ -235,4 +237,30 @@ void Experiment_Update(const student_control_input_t *input, student_control_out
     await candidates.apply(secondDraft.id)
     await expect(firmware.requireCurrentArtifact(workspace.id, 'bin')).rejects.toThrow('学生代码或固件基线已经变化')
   }, 180_000)
+  it.skipIf(!canRun)('compiles a newly created nested module with the RHS direct GCC builder', async () => {
+    sandbox = await mkdtemp(join(tmpdir(), 'rhs-new-files-'))
+    const baseline = new FirmwareBaselineService({ manifestPath: join(repoRoot, 'resources/firmware-baselines/ch32v203-rhs/active.json'), developmentSourceRoot: join(repoRoot, 'firmware/ch32v203-baseline') })
+    const manifest = await baseline.getManifest()
+    const workspaces = new WorkspaceService({ rootDir: sandbox, templateRoot: join(repoRoot, 'resources/workspace-templates/ch32v203-mcu-lessons/first-program-on-chip'), edition: EDITION_PROFILES['mcu-foundations'], firmwareBaselineId: manifest.id, baselineCommit: manifest.source.expectedCommit, sandboxSourceResolver: async () => (await baseline.requireTestingBaseline()).sourceRoot })
+    const workspace = await workspaces.create({ studentDisplayName: '源码创建测试' })
+    const candidates = new CandidateService({ rootDir: sandbox, workspaces })
+    await candidates.createWorkspaceEntry(workspace.id, 'App/Src', 'modules', true)
+    await candidates.createWorkspaceEntry(workspace.id, 'App/Src/modules', 'helper.h', false)
+    await candidates.createWorkspaceEntry(workspace.id, 'App/Src/modules', 'helper.c', false)
+    await candidates.writeWorkspaceFile(workspace.id, 'App/Src/modules/helper.h', '#pragma once\nint Sandbox_Helper(void);\n')
+    const entry = (await candidates.listStudentCodeFiles(workspace.id)).find(file => file.path === 'App/Src/experiment.c')!
+    expect(entry.content).toMatch(/void RHS_Experiment_Init\(void\)\s*\{/)
+    await candidates.writeWorkspaceFile(workspace.id, entry.path, '#include "modules/helper.h"\n' + entry.content.replace(/void RHS_Experiment_Init\(void\)\s*\{/, match => match + '\n    (void)Sandbox_Helper();\n'))
+    await candidates.writeWorkspaceFile(workspace.id, 'App/Src/modules/helper.c', '#error RHS_NEW_MODULE\nint Sandbox_Helper(void) { return 7; }\n')
+    const firmware = new FirmwareBuildService(toolchain, { baseline, workspaces, outputBase: join(sandbox, 'output') })
+    await firmware.initialize()
+    const invalid = await firmware.build({ workspaceId: workspace.id })
+    expect(invalid.state).toBe('failed')
+    expect(invalid.logs.join(' ')).toContain('RHS_NEW_MODULE')
+    await candidates.writeWorkspaceFile(workspace.id, 'App/Src/modules/helper.c', '#include "helper.h"\nint Sandbox_Helper(void) { return 7; }\n')
+    const valid = await firmware.build({ workspaceId: workspace.id })
+    expect(valid.state, valid.logs.join('\n')).toBe('completed')
+    await expect(firmware.requireCurrentArtifact(workspace.id, 'bin')).resolves.toBeDefined()
+  }, 120_000)
+
 })

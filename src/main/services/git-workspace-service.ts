@@ -117,9 +117,22 @@ export class GitWorkspaceService {
     return this.getHead(projectRoot)
   }
 
+  async commitFile(projectRoot: string, path: string, message: string): Promise<string> {
+    await this.assertManagedRepository(projectRoot)
+    if (!path || path.startsWith('/') || path.includes('\\') || path.includes(':') || path.split('/').some(part => !part || part === '.' || part === '..' || part === '.git')) throw new Error('WORKSPACE_PATH_INVALID')
+    await this.run(projectRoot, ['add', '--force', '--', path])
+    await this.run(projectRoot, ['-c', 'user.name=RoboHorse Studio', '-c', 'user.email=studio@robotdog.local', 'commit', '-m', message])
+    return this.getHead(projectRoot)
+  }
+
   async restoreManagedChanges(projectRoot: string): Promise<void> {
     await this.assertManagedRepository(projectRoot)
     await this.run(projectRoot, ['restore', '--staged', '--worktree', '.'])
+  }
+
+  async unstageFile(projectRoot: string, path: string): Promise<void> {
+    await this.assertManagedRepository(projectRoot)
+    await this.run(projectRoot, ['restore', '--staged', '--', path])
   }
 
   async revertHead(projectRoot: string): Promise<string> {

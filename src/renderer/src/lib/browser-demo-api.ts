@@ -1,5 +1,5 @@
 import packageJson from '../../../../package.json'
-import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, ProjectExplorerNode, RobotAction, RobotDogApi, RobotStatus, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
+import type { AgentEvent, AgentEventPayload, AgentTurnSnapshot, CandidateSnapshot, CcdFrame, CourseDetail, CourseLectureDocument, CourseLesson, CourseOperationKind, CourseProgressSnapshot, CourseProgressUpdate, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareBuildSnapshot, FirmwareUpdateEvent, FirmwareUpdateSnapshot, LessonLearningProgress, LogEntry, McuRecentActivity, ProjectExplorerNode, RobotAction, RobotDogApi, RobotStatus, StudentCodeFile, ToolchainStatus, WchLinkFlashEvent, WchLinkFlashSnapshot, WorkspaceHistoryEntry, WorkspaceSummary } from '../../../shared/types'
 import { EDITION_PROFILES, type EditionId } from '../../../shared/edition'
 import demoCourseResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/course.json'
 import firstLessonResource from '../../../../resources/courses/mcu-foundations/ch32v203-foundations/lessons/studio-first-build.json'
@@ -15,6 +15,8 @@ export function setDemoEdition(editionId: EditionId): void {
   browserEditionId = editionId
   if (editionId !== 'fun-line-following') {
     demoWorkspaces = []
+    demoCreatedFiles.clear()
+    demoCreatedDirectories.clear()
   }
 }
 
@@ -60,6 +62,8 @@ const demoCandidateChangedFiles = new Map<string, string[]>()
 let browserAgentToken = 0
 let browserAgentTurn: AgentTurnSnapshot | undefined
 
+const demoCreatedFiles = new Map<string, Map<string, string>>()
+const demoCreatedDirectories = new Map<string, Set<string>>()
 let demoWorkspaces: WorkspaceSummary[] = browserEditionId !== 'fun-line-following' ? [] : [{
   id: 'ws_0123456789abcdef01234567', name: '巡线基础训练', studentDisplayName: '林同学',
   learningPath: 'fun-line-following',
@@ -452,6 +456,9 @@ export const browserDemoApi: RobotDogApi = {
   },
   getWorkspaceFirmwareBaselineStatus: async (workspaceId) => {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    if (workspace.templateId.includes('sdk-empty') || workspace.templateId === 'ti-mspm0g3507-pony') {
+      return { id: workspace.firmwareBaselineId, label: workspace.templateId.includes('sdk-empty') ? '基础 SDK 空工程' : 'TI 完整小马例程', sourceRoot: `resources/workspace-templates/${workspace.templateId}`, expectedCommit: workspace.baselineCommit, status: 'provisional', readyForTesting: true, releaseEligible: false, verifiedFiles: [], errors: [], warnings: [], memory: workspace.platform === 'ti-mspm0' ? { flashBytes: 131072, ramBytes: 32768, confirmed: true } : { flashBytes: 65536, ramBytes: 20480, confirmed: true } }
+    }
     if (workspace.firmwareBaselineId === 'ch32v203-pony-v25' || workspace.templateId === 'ch32v203-pony') {
       return {
         id: 'ch32v203-pony-v25',
@@ -662,9 +669,9 @@ export const browserDemoApi: RobotDogApi = {
         target: 'CH32V203C8T6',
         toolchainProfile: 'wch-gcc12-openocd',
         workspacePurpose: 'mcu-sandbox',
-        templateId: 'ch32v203-pony',
-        templateVersion: '0.2.5',
-        firmwareBaselineId: 'ch32v203-pony-v25',
+        templateId: input.projectType === 'sdk-empty' ? 'ch32v203-sdk-empty' : 'ch32v203-pony',
+        templateVersion: input.projectType === 'sdk-empty' ? '1' : '0.2.5',
+        firmwareBaselineId: input.projectType === 'sdk-empty' ? 'ch32v203-sdk-empty-v1' : 'ch32v203-pony-v25',
         baselineCommit: '797dd6a0a53277197a7c54db2bb4a37debd0a9b0',
         createdAt: now.toISOString(),
         headCommit: 'demo000000000000000000000000000000000000',
@@ -689,9 +696,9 @@ export const browserDemoApi: RobotDogApi = {
         target: 'MSPM0G3507',
         toolchainProfile: 'ti-mspm0-sdk-2.11-gcc9-openocd',
         workspacePurpose: 'mcu-sandbox',
-        templateId: 'ti-mspm0g3507-foundations',
-        templateVersion: '0.1.0',
-        firmwareBaselineId: 'ti-mspm0g3507',
+        templateId: input.projectType ? `ti-mspm0g3507-${input.projectType}` : 'ti-mspm0g3507-foundations',
+        templateVersion: input.projectType === 'pony' ? '0.2.5-ti.1' : input.projectType === 'sdk-empty' ? '1' : '0.1.0',
+        firmwareBaselineId: input.projectType ? `ti-mspm0g3507-${input.projectType}-v1` : 'ti-mspm0g3507',
         baselineCommit: '0000000000000000000000000000000000000000',
         createdAt: now.toISOString(),
         headCommit: 'demo000000000000000000000000000000000000',
@@ -759,8 +766,24 @@ export const browserDemoApi: RobotDogApi = {
     return structuredClone(reverted)
   },
   listStudentCodeFiles: async (workspaceId, candidateId) => {
+    const defaults = await (async () => {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
     const changed = candidateId && demoCandidates.get(candidateId)?.origin === 'manual'
+    if (workspace.templateId.includes('sdk-empty') || workspace.templateId === 'ti-mspm0g3507-pony') {
+      const ti = workspace.platform === 'ti-mspm0'
+      const entries = ti ? [
+        ['src/main.c', '#include "ti_msp_dl_config.h"\nint main(void) { SYSCFG_DL_init(); for (;;) {} }\n'],
+        ['board.syscfg', '// SysConfig configuration (browser demonstration)\n'],
+        ['gcc/startup_mspm0g350x_gcc.c', '/* SDK startup */\n'],
+        ['gcc/device_linker.lds', '/* SDK linker configuration */\n'],
+        ...(workspace.templateId.endsWith('pony') ? [['src/robotdog/robotdog_runtime.c', '/* TI pony runtime */\n'], ['src/bsp/bsp_servo.h', '/* TI servo API */\n']] : [])
+      ] : [
+        ['App/Src/main.c', '#include "ch32v20x.h"\nint main(void) { SystemCoreClockUpdate(); for (;;) {} }\n'],
+        ['Startup/startup_ch32v20x_D6.S', '/* SDK startup */\n'], ['Ld/Link.ld', '/* SDK linker configuration */\n'],
+        ['User/system_ch32v20x.c', '/* SDK system clock */\n'], ['Peripheral/inc/ch32v20x_gpio.h', '/* SDK DriverLib */\n']
+      ]
+      return [...entries, ['README.md', '# 基础 SDK / 小马工程浏览器演示\n']].map(([path, content]) => ({ path, label: path.split('/').at(-1)!, group: '工程文件', language: (path.endsWith('.c') || path.endsWith('.h') ? 'c' : 'text') as StudentCodeFile['language'], editable: true, content }))
+    }
     if (workspace.courseBinding) {
       const common = [
         { path: 'App/Src/experiment.c' as const, label: '实验主程序', group: '实验代码' as const, language: 'c' as const, editable: true, content: '#include "experiment.h"\n\nvoid Experiment_Init(void) {}\nvoid Experiment_Update(void) {}\n' },
@@ -826,10 +849,15 @@ export const browserDemoApi: RobotDogApi = {
       { path: 'student-config/line-following.yaml' as const, label: '巡线参数', group: '参数设置' as const, language: 'yaml' as const, editable: true, content: 'turn_strength: 18\nline_target: 64\n' },
       { path: 'Core/Inc/student_control.h' as const, label: '输入和动作说明', group: '参考接口' as const, language: 'c' as const, editable: false, content: '/* 这是固件提供的只读接口说明。 */\n' }
     ]
+    })()
+    if (candidateId) return defaults
+    const extra = demoCreatedFiles.get(workspaceId) ?? new Map<string, string>()
+    const workspace = await browserDemoApi.getWorkspace(workspaceId)
+    return [...defaults.map(file => ({ ...file, editable: workspace.workspacePurpose === 'mcu-sandbox' ? true : file.editable, group: workspace.workspacePurpose === 'mcu-sandbox' ? '工程文件' : file.group, content: extra.get(file.path) ?? file.content })), ...[...extra].filter(([path]) => !defaults.some(file => file.path === path)).map(([path, content]) => ({ path, label: path.split('/').at(-1)!, group: '工程文件', language: (/\.[ch]$/i.test(path) ? 'c' : path.endsWith('.md') ? 'markdown' : 'text') as StudentCodeFile['language'], editable: true, content }))]
   },
   getProjectExplorer: async (workspaceId, candidateId) => {
     const workspace = await browserDemoApi.getWorkspace(workspaceId)
-    if (workspace.learningPath !== 'mcu-foundations') throw new Error('PROJECT_EXPLORER_MCU_REQUIRED')
+    if (workspace.learningPath === 'fun-line-following') throw new Error('PROJECT_EXPLORER_MCU_REQUIRED')
     const files = await browserDemoApi.listStudentCodeFiles(workspaceId, candidateId)
     const isPony = workspace.firmwareBaselineId === 'ch32v203-pony-v25' || workspace.templateId === 'ch32v203-pony'
     const ponyBaselineFiles = [
@@ -860,7 +888,7 @@ export const browserDemoApi: RobotDogApi = {
       ['CMakePresets.json', 'build'],
       ['rhs.firmware.json', 'build']
     ] as const
-    const baselineFiles = isPony ? ponyBaselineFiles : rhsBaselineFiles
+    const baselineFiles = workspace.platform === 'ti-mspm0' || workspace.templateId.includes('sdk-empty') ? [] : isPony ? ponyBaselineFiles : rhsBaselineFiles
     const descriptors = new Map(files.map((file) => [file.path, { path: file.path, access: file.editable ? 'editable' as const : 'read-only' as const, origin: 'lesson-overlay' as const, role: file.path.startsWith('App/') ? 'student-code' as const : 'course-adapter' as const, language: file.language === 'markdown' ? 'markdown' as const : file.language }]))
     for (const [path, role] of baselineFiles) if (!descriptors.has(path)) descriptors.set(path, { path, access: 'read-only', origin: 'firmware-baseline', role, language: path.endsWith('.json') ? 'json' : path.endsWith('.S') ? 'asm' : path.endsWith('.ld') ? 'linker' : path === 'CMakeLists.txt' ? 'cmake' : 'c' } as never)
     const nodes = new Map<string, ProjectExplorerNode>()
@@ -874,7 +902,12 @@ export const browserDemoApi: RobotDogApi = {
       const parent = parts.slice(0, -1).join('/')
       nodes.set(descriptor.path, { id: id('file', descriptor.path), parentId: parent ? id('directory', parent) : undefined, name: parts.at(-1)!, kind: 'file', language: descriptor.language, origin: descriptor.origin, role: descriptor.role, access: descriptor.access, state: 'normal', displayPath: descriptor.path })
     }
-    const rootLabel = isPony
+    for (const path of demoCreatedDirectories.get(workspaceId) ?? []) {
+      const parts = path.split('/')
+      nodes.set(path, { id: id('directory', path), parentId: parts.length > 1 ? id('directory', parts.slice(0, -1).join('/')) : undefined, name: parts.at(-1)!, kind: 'directory', origin: 'lesson-overlay', role: 'student-code', access: 'editable', state: 'normal', displayPath: path })
+    }
+    if (workspace.workspacePurpose === 'mcu-sandbox') for (const node of nodes.values()) node.access = 'editable'
+    const rootLabel = workspace.templateId.includes('sdk-empty') ? '基础 SDK 空工程' : workspace.platform === 'ti-mspm0' ? `TI MSPM0G3507 · ${workspace.templateId.includes('pony') ? '完整小马例程' : 'SysConfig 工程'}` : isPony
       ? `Pony v2.5 Firmware · ${workspace.baselineCommit.slice(0, 7)}`
       : `RHS Teaching Firmware · ${workspace.baselineCommit.slice(0, 7)}`
     return { workspaceId, candidateId, rootLabel, baselineId: workspace.firmwareBaselineId, baselineCommit: workspace.baselineCommit, baselineAvailable: true, nodes: [...nodes.values()] }
@@ -904,10 +937,17 @@ export const browserDemoApi: RobotDogApi = {
     }
     return { node, content: student?.content ?? examples[node.displayPath] ?? '/* 只读工程文件 */\n' }
   },
+  createWorkspaceFile: async (workspaceId, parentPath, name) => createDemoEntry(workspaceId, parentPath, name, false),
+  createWorkspaceDirectory: async (workspaceId, parentPath, name) => createDemoEntry(workspaceId, parentPath, name, true),
   writeWorkspaceFile: async (workspaceId, path, _content) => {
     const current = await browserDemoApi.getWorkspace(workspaceId)
-    const editable = (await browserDemoApi.listStudentCodeFiles(workspaceId)).some((file) => file.path === path && file.editable)
+    const editable = current.workspacePurpose === 'mcu-sandbox'
+      ? (await browserDemoApi.getProjectExplorer(workspaceId)).nodes.some(node => node.kind === 'file' && node.displayPath === path && node.access === 'editable')
+      : (await browserDemoApi.listStudentCodeFiles(workspaceId)).some(file => file.path === path && file.editable)
     if (!editable || current.activeCandidateId) throw new Error('这个文件当前不能修改')
+    const saved = demoCreatedFiles.get(workspaceId) ?? new Map<string, string>()
+    saved.set(path, _content)
+    demoCreatedFiles.set(workspaceId, saved)
     const now = new Date().toISOString()
     const headCommit = Math.random().toString(16).slice(2).padEnd(40, '0').slice(0, 40)
     const updated = { ...current, headCommit, updatedAt: now }
@@ -1144,4 +1184,23 @@ function emitBrowserAgent(turn: AgentTurnSnapshot, sequence: number, event: Agen
 
 export function getRobotApi(): RobotDogApi {
   return window.robotDog ?? browserDemoApi
+}
+
+async function createDemoEntry(workspaceId: string, parentPath: string, name: string, directory: boolean): Promise<{ workspace: WorkspaceSummary; path: string }> {
+  const workspace = await browserDemoApi.getWorkspace(workspaceId)
+  if (workspace.workspacePurpose !== 'mcu-sandbox' || workspace.activeCandidateId) throw new Error('只有空闲的自由工程可以新建文件。')
+  if (!name || /[<>:"/\\|?*\x00-\x1f]/.test(name) || /[ .]$/.test(name) || name.toLowerCase() === '.gitkeep') throw new Error('名称无效')
+  const snapshot = await browserDemoApi.getProjectExplorer(workspaceId)
+  if (parentPath && !snapshot.nodes.some(node => node.kind === 'directory' && node.displayPath === parentPath && node.access === 'editable')) throw new Error('父目录不存在')
+  const path = parentPath ? `${parentPath}/${name}` : name
+  if (snapshot.nodes.some(node => node.displayPath.toLowerCase() === path.toLowerCase())) throw new Error('同名文件或文件夹已存在')
+  if (directory) { const directories = demoCreatedDirectories.get(workspaceId) ?? new Set<string>(); directories.add(path); demoCreatedDirectories.set(workspaceId, directories) }
+  else { const files = demoCreatedFiles.get(workspaceId) ?? new Map<string, string>(); files.set(path, name.toLowerCase().endsWith('.h') ? '#pragma once\n' : ''); demoCreatedFiles.set(workspaceId, files) }
+  const now = new Date().toISOString()
+  const commit = Math.random().toString(16).slice(2).padEnd(40, '0').slice(0, 40)
+  const updated = { ...workspace, headCommit: commit, updatedAt: now }
+  demoWorkspaces = demoWorkspaces.map(item => item.id === workspaceId ? updated : item)
+  demoHistories.set(workspaceId, [{ commit, shortCommit: commit.slice(0, 7), message: `feat(student): create ${path}`, createdAt: now }, ...(demoHistories.get(workspaceId) ?? [])])
+  workspaceListeners.forEach(listener => listener(structuredClone(updated)))
+  return { workspace: structuredClone(updated), path }
 }

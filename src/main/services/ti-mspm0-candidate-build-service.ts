@@ -42,7 +42,8 @@ export class TiMspm0CandidateBuildService implements CandidateBuilder {
       for (const [index, source] of sources.entries()) {
         const object = join(objectDir, `${index}-${basename(source, '.c')}.o`)
         await run(this.toolchain.getGccPath(), [
-          '-c', source, '-o', object, '-I', join(input.candidateRoot, 'src'), '-I', generatedDir,
+          '-c', source, '-o', object, '-I', join(input.candidateRoot, 'src'),
+          ...['app', 'bsp', 'board', 'robotdog', 'middleware', 'deferred'].flatMap(directory => ['-I', join(input.candidateRoot, 'src', directory)]), '-I', generatedDir,
           `@${join(generatedDir, 'device.opt')}`, '-O0', '-mcpu=cortex-m0plus', '-march=armv6-m', '-mthumb', '-mfloat-abi=soft',
           '-std=c99', '-ffunction-sections', '-fdata-sections', '-Wall', '-Wextra', '-Werror=implicit-function-declaration',
           '-I', join(this.toolchain.sdkRoot, 'source', 'third_party', 'CMSIS', 'Core', 'Include'), '-I', join(this.toolchain.sdkRoot, 'source')

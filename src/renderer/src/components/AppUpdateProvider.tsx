@@ -38,7 +38,7 @@ export function AppUpdateProvider({ children }: { children: ReactNode }): React.
   const promptKey = `${status.targetVersion}:${status.kind === 'ready' ? 'ready' : status.kind === 'error' ? 'error' : 'available'}`
   const show = (['available', 'downloading', 'verifying', 'ready'].includes(status.kind) || (foreground && status.kind === 'error')) && dismissed !== promptKey
   return <Context.Provider value={context}>
-    <div inert={status.kind === 'installing'}>{children}</div>
+    <div className="app-update-content" inert={status.kind === 'installing'}>{children}</div>
     {show && <aside className="app-update-toast" aria-label="软件更新" aria-live="polite">
       <strong>RoboHorse Studio {status.targetVersion ?? status.currentVersion}</strong>
       <p>{EDITION_PROFILES[status.editionId].shortName}</p>

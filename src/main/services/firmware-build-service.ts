@@ -79,7 +79,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
   async initialize(): Promise<void> {
     await mkdir(this.outputBase, { recursive: true })
     const entries = await readdir(this.outputBase, { withFileTypes: true })
-    await Promise.all(entries.filter((entry) => entry.isDirectory() && entry.name.startsWith('.building-')).map((entry) => rm(join(this.outputBase, entry.name), { recursive: true, force: true })))
+    await Promise.all(entries.filter((entry) => entry.isDirectory() && (entry.name.startsWith('.building-') || /^\.b-[a-f0-9]{8}$/.test(entry.name))).map((entry) => rm(join(this.outputBase, entry.name), { recursive: true, force: true })))
     const recovered: FirmwareBuildSnapshot[] = []
     for (const entry of entries) {
       if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue
@@ -130,7 +130,8 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
 
     this.cancelRequested = false
     const buildId = randomUUID()
-    const temporaryRoot = join(this.outputBase, `.building-${buildId}`)
+    // WCH's Windows toolchain cannot reliably compile long CMake scratch paths.
+    const temporaryRoot = join(this.outputBase, `.b-${buildId.slice(0, 8)}`)
     let publishedRoot: string | undefined
     try {
       const workspace = await this.workspaces.get(options.workspaceId)
@@ -142,7 +143,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       if (workspace.firmwareBaselineId !== manifest.id || workspace.baselineCommit !== manifest.source.expectedCommit) throw new Error('工作区绑定的固件基线与当前基线不一致')
       const projectRoot = await this.workspaces.getProjectRootForMain(workspace.id)
       if (manifest.schemaVersion === 2) {
-        if (manifest.id.startsWith('ch32v203-pony')) {
+        if (manifest.id.startsWith('ch32v203-pony') || manifest.id === 'ch32v203-sdk-empty-v1') {
           return await this.buildPonyCmakeBaseline({ buildId, temporaryRoot, sourceRoot, sourceHash, manifest, workspace, projectRoot, toolchain })
         }
         return await this.buildCmakeBaseline({ buildId, temporaryRoot, sourceRoot, sourceHash, manifest, workspace, projectRoot, toolchain })
@@ -172,7 +173,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const stagingRoot = join(temporaryRoot, 'source')
       const outputRoot = join(temporaryRoot, 'output')
       await mkdir(this.outputBase, { recursive: true })
-      await this.copyBaseline(sourceRoot, stagingRoot)
+      await this.copyBaseline(workspace.workspacePurpose === 'mcu-sandbox' ? projectRoot : sourceRoot, stagingRoot)
       await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay, workspace.learningPath)
       await mkdir(join(outputRoot, 'obj'), { recursive: true })
 
@@ -185,7 +186,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
         const sourcePath = join(stagingRoot, ...source.split('/'))
         const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
         await mkdir(dirname(objectPath), { recursive: true })
-        const includeDirectories = workspace.learningPath === 'mcu-foundations' ? [...manifest.build.includeDirectories, 'App/Inc'] : manifest.build.includeDirectories
+        const includeDirectories = workspace.learningPath === 'mcu-foundations' ? [...manifest.build.includeDirectories, 'App/Inc', ...(workspace.workspacePurpose === 'mcu-sandbox' ? ['App/Src'] : [])] : manifest.build.includeDirectories
         const includeArgs = includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
         const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
         const isAssembly = extname(source).toLowerCase() === '.s'
@@ -296,9 +297,29 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     const stagingRoot = join(temporaryRoot, 'source')
     const outputRoot = join(temporaryRoot, 'output')
     await mkdir(outputRoot, { recursive: true })
-    await this.copyBaseline(sourceRoot, stagingRoot)
+    await this.copyBaseline(workspace.workspacePurpose === 'mcu-sandbox' ? projectRoot : sourceRoot, stagingRoot)
 
     const cmakePath = this.toolchain.getCmakePath()
+    if (workspace.workspacePurpose === 'mcu-sandbox' && workspace.templateId !== 'ch32v203-sdk-empty') {
+      const quote = (path: string): string => `"${path.replaceAll('\\', '/').replace(/["$;]/g, character => `\\${character}`)}"`
+      const helper = join(temporaryRoot, 'sandbox-sources.cmake')
+      await writeFile(helper, [
+        'if(NOT TARGET RobotDogFirmware)', '  message(FATAL_ERROR "Sandbox target RobotDogFirmware is missing")', 'endif()',
+        `set(_sandbox_root ${quote(projectRoot)})`, `set(_sandbox_staging ${quote(stagingRoot)})`,
+        'get_target_property(_sandbox_existing RobotDogFirmware SOURCES)',
+        'set(_sandbox_known "")',
+        'foreach(_source IN LISTS _sandbox_existing)',
+        '  if(NOT _source MATCHES "^\\\\$<")',
+        '    get_filename_component(_source "${_source}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")',
+        '    string(REPLACE "${_sandbox_staging}/" "${_sandbox_root}/" _source "${_source}")',
+        '    list(APPEND _sandbox_known "${_source}")', '  endif()', 'endforeach()',
+        'file(GLOB_RECURSE _sandbox_sources CONFIGURE_DEPENDS "${_sandbox_root}/App/Src/*.c")',
+        'foreach(_source IN LISTS _sandbox_sources)',
+        '  if(NOT _source IN_LIST _sandbox_known)', '    target_sources(RobotDogFirmware PRIVATE "${_source}")', '  endif()', 'endforeach()',
+        'target_include_directories(RobotDogFirmware PRIVATE "${_sandbox_root}/App/Src" "${_sandbox_root}/App/Inc")', ''
+      ].join('\n'), 'utf8')
+      await writeFile(join(stagingRoot, 'CMakeLists.txt'), `${await readFile(join(stagingRoot, 'CMakeLists.txt'), 'utf8')}\ninclude(${quote(helper)})\n`, 'utf8')
+    }
     const toolchainRoot = this.toolchain.getWchToolchainRoot()
     const preset = manifest.build.preset || 'robotdog-wch-gcc12'
 
@@ -397,7 +418,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
     const outputRoot = join(temporaryRoot, 'output')
     await mkdir(outputRoot, { recursive: true })
     await mkdir(join(outputRoot, 'obj'), { recursive: true })
-    await this.copyBaseline(sourceRoot, stagingRoot)
+    await this.copyBaseline(workspace.workspacePurpose === 'mcu-sandbox' ? projectRoot : sourceRoot, stagingRoot)
     await this.applyStudentOverlay(projectRoot, stagingRoot, manifest.studentOverlay, workspace.learningPath)
 
     const isMcu = workspace.learningPath === 'mcu-foundations'
@@ -411,7 +432,7 @@ export class FirmwareBuildService extends EventEmitter<FirmwareBuildServiceEvent
       const sourcePath = join(stagingRoot, ...source.split('/'))
       const objectPath = join(outputRoot, 'obj', `${source.replaceAll(/[\\/]/g, '__').replace(/\.[^.]+$/, '')}.o`)
       await mkdir(dirname(objectPath), { recursive: true })
-      const includeDirectories = isMcu ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc'] : LEGACY_LIVE_INCLUDE_DIRECTORIES
+      const includeDirectories = isMcu ? [...LIVE_INCLUDE_DIRECTORIES, 'App/Inc', ...(workspace.workspacePurpose === 'mcu-sandbox' ? ['App/Src'] : [])] : LEGACY_LIVE_INCLUDE_DIRECTORIES
       const includeArgs = includeDirectories.flatMap((path) => ['-I', join(stagingRoot, ...path.split('/'))])
       const targetArgs = [`-march=${manifest.toolchain.arch}`, `-mabi=${manifest.toolchain.abi}`, `-mcmodel=${manifest.toolchain.codeModel}`]
       const isAssembly = extname(source).toLowerCase() === '.s'

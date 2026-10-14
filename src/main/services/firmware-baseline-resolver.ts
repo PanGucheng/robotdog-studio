@@ -53,6 +53,10 @@ export class FirmwareBaselineResolver {
       }
     }
 
+    if (baselineId === 'ch32v203-sdk-empty-v1') return { ...createOptions('ch32v203-sdk-empty'), developmentSourceRoot: join(this.options.staticRoot, 'workspace-templates', 'ch32v203-sdk-empty') }
+    if (baselineId === 'ti-mspm0g3507-sdk-empty-v1') return { ...createOptions('ti-mspm0g3507-sdk-empty'), developmentSourceRoot: join(this.options.staticRoot, 'workspace-templates', 'ti-mspm0g3507-sdk-empty') }
+    if (baselineId === 'ti-mspm0g3507-pony-v1') return { ...createOptions('ti-mspm0g3507-pony'), developmentSourceRoot: join(this.options.staticRoot, 'workspace-templates', 'ti-mspm0g3507-pony') }
+
     if (baselineId === 'ch32v203-pony-v25' || baselineId.startsWith('ch32v203-pony')) {
       return createOptions('ch32v203-pony')
     }

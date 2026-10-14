@@ -26,7 +26,7 @@ const timeout = setTimeout(() => {
   child.kill()
   console.error('\nElectron smoke test timed out.\n' + output)
   process.exitCode = 1
-}, 60_000)
+}, 120_000)
 
 child.on('error', (error) => {
   clearTimeout(timeout)

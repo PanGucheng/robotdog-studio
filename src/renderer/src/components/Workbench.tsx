@@ -76,7 +76,7 @@ export interface WorkbenchProps {
   onOpenSettings?(): void
   mcuView?: McuView
   onMcuNavigate?(view: McuView): void
-  onCreateMcuWorkspace?(): void
+  onCreateMcuWorkspace?(projectType?: import('../../../shared/types').SandboxProjectType): void
   lessonLearningProgress?: LessonLearningProgress[]
   onLessonLearningProgressChanged?(progress: LessonLearningProgress): void
   mcuRecentActivity?: McuRecentActivity[]

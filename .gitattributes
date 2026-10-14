@@ -1,3 +1,6 @@
 vendor/wch/** -text
 *.md text eol=lf
 resources/courses/** text eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary

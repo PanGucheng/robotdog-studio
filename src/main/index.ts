@@ -72,6 +72,20 @@ function createWindow(): void {
       const result = await window.webContents.executeJavaScript(`(async () => {
         if (!window.robotDog) return { ok: false, reason: 'preload missing' }
         try {
+        for (let attempt = 0; !document.querySelector('.studio-shell') && attempt < 50; attempt++) await new Promise(resolve => setTimeout(resolve, 100))
+        const shell = document.querySelector('.studio-shell')
+        if (!shell) throw new Error('SMOKE_STUDIO_SHELL_MISSING')
+        const previousScale = document.documentElement.style.getPropertyValue('--ui-scale')
+        try {
+          for (const scale of [1, 1.25, 1.5, 1.75]) {
+            document.documentElement.style.setProperty('--ui-scale', String(scale))
+            const bounds = shell.getBoundingClientRect()
+            if (Math.abs(bounds.width - innerWidth) > 2 || Math.abs(bounds.height - innerHeight) > 2) throw new Error('SMOKE_STUDIO_VIEWPORT_SIZE_MISMATCH: ' + JSON.stringify({ scale, width: bounds.width, height: bounds.height, innerWidth, innerHeight }))
+          }
+        } finally {
+          if (previousScale) document.documentElement.style.setProperty('--ui-scale', previousScale)
+          else document.documentElement.style.removeProperty('--ui-scale')
+        }
         const [toolchain, baseline, runtime, activeEdition, health, appUpdate] = await Promise.all([
           window.robotDog.getToolchainStatus(), window.robotDog.getFirmwareBaselineStatus(), window.robotDog.getRuntimeInfo(), window.robotDog.getEditionProfile(),
           window.robotDog.getHealth(), window.robotDog.getAppUpdateStatus()
@@ -160,6 +174,44 @@ function createWindow(): void {
           stale: invalidatedFirstLessonProgress?.state === 'needs-attention' && invalidatedFirstLessonProgress?.operations['firmware-build'].state === 'stale'
         }
         const mcuSmokeOk = activeEdition.id !== 'mcu-foundations' || Object.values(mcuChecks).every(Boolean)
+        if (activeEdition.id !== 'fun-line-following') {
+          const freeWorkspace = await window.robotDog.createWorkspace({ name: '完整自由工程冒烟', studentDisplayName: '测试同学' })
+          const freeExplorer = await window.robotDog.getProjectExplorer(freeWorkspace.id)
+          const criticalPath = activeEdition.id === 'ti-mspm0-foundations' ? 'gcc/startup_mspm0g350x_gcc.c' : 'User/robotdog_runtime.c'
+          const critical = freeExplorer.nodes.find(node => node.displayPath === criticalPath)
+          if (!critical || critical.access !== 'editable' || freeExplorer.nodes.some(node => node.kind === 'file' && node.access !== 'editable')) throw new Error('SMOKE_SANDBOX_FILE_ACCESS')
+          const sourceRoot = activeEdition.id === 'ti-mspm0-foundations' ? 'src' : 'App/Src'
+          await window.robotDog.createWorkspaceDirectory(freeWorkspace.id, sourceRoot, 'modules')
+          await window.robotDog.createWorkspaceDirectory(freeWorkspace.id, '', 'empty-folder')
+          await window.robotDog.createWorkspaceFile(freeWorkspace.id, sourceRoot + '/modules', 'helper.h')
+          await window.robotDog.createWorkspaceFile(freeWorkspace.id, sourceRoot + '/modules', 'helper.c')
+          const createdExplorer = await window.robotDog.getProjectExplorer(freeWorkspace.id)
+          if (!createdExplorer.nodes.some(node => node.displayPath === 'empty-folder' && node.kind === 'directory') || createdExplorer.nodes.some(node => node.name === '.gitkeep')) throw new Error('SMOKE_SANDBOX_EMPTY_DIRECTORY')
+          await window.robotDog.writeWorkspaceFile(freeWorkspace.id, sourceRoot + '/modules/helper.h', '#pragma once\\nint Sandbox_Helper(void);\\n')
+          await window.robotDog.writeWorkspaceFile(freeWorkspace.id, sourceRoot + '/modules/helper.c', '#include "helper.h"\\n#error SANDBOX_SMOKE_NEW_SOURCE\\nint Sandbox_Helper(void) { return 7; }\\n')
+          const entryPath = activeEdition.id === 'ti-mspm0-foundations' ? 'src/main.c' : 'App/Src/experiment.c'
+          const entryFile = (await window.robotDog.listStudentCodeFiles(freeWorkspace.id)).find(file => file.path === entryPath)
+          if (!entryFile) throw new Error('SMOKE_SANDBOX_ENTRY_MISSING')
+          const pattern = activeEdition.id === 'ti-mspm0-foundations' ? /int main\\(void\\)\\s*\\{/ : /void Experiment_Init\\(void\\)\\s*\\{/
+          if (!pattern.test(entryFile.content)) throw new Error('SMOKE_SANDBOX_ENTRY_SIGNATURE')
+          await window.robotDog.writeWorkspaceFile(freeWorkspace.id, entryPath, '#include "modules/helper.h"\\n' + entryFile.content.replace(pattern, match => match + '\\n    (void)Sandbox_Helper();\\n'))
+          const original = await window.robotDog.readProjectExplorerFile(freeWorkspace.id, critical.id)
+          await window.robotDog.writeWorkspaceFile(freeWorkspace.id, criticalPath, original.content + '\\n/* sandbox source access */\\n')
+          const invalidBuild = await window.robotDog.startFirmwareBuild(freeWorkspace.id)
+          if (invalidBuild.state !== 'failed' || !invalidBuild.logs.join(' ').includes('SANDBOX_SMOKE_NEW_SOURCE')) throw new Error('SMOKE_SANDBOX_MODIFICATION_IGNORED: ' + JSON.stringify(invalidBuild))
+          await window.robotDog.writeWorkspaceFile(freeWorkspace.id, criticalPath, original.content + '\\n/* Sandbox smoke restored source */\\n')
+          await window.robotDog.writeWorkspaceFile(freeWorkspace.id, sourceRoot + '/modules/helper.c', '#include \"helper.h\"\\nint Sandbox_Helper(void) { return 7; }\\n')
+          const freeBuild = await window.robotDog.startFirmwareBuild(freeWorkspace.id)
+          if (freeBuild.state !== 'completed') throw new Error('SMOKE_SANDBOX_BUILD: ' + JSON.stringify(freeBuild))
+          if (activeEdition.id === 'ti-mspm0-foundations') {
+            const generated = (await window.robotDog.listStudentCodeFiles(freeWorkspace.id)).find(file => file.path === 'generated/ti_msp_dl_config.c')
+            if (!generated) throw new Error('SMOKE_SANDBOX_GENERATED_MISSING')
+            await window.robotDog.writeWorkspaceFile(freeWorkspace.id, generated.path, generated.content + '\\n/* preserve student generated edit */\\n')
+            const rebuilt = await window.robotDog.startFirmwareBuild(freeWorkspace.id)
+            const retained = (await window.robotDog.listStudentCodeFiles(freeWorkspace.id)).find(file => file.path === generated.path)
+            if (rebuilt.state !== 'completed' || !retained?.content.includes('preserve student generated edit')) throw new Error('SMOKE_SANDBOX_GENERATED_OVERWRITTEN')
+          }
+        }
         return {
           ok: Boolean(activeEdition.id === ${JSON.stringify(edition.id)} && workspace.learningPath === activeEdition.id && toolchain.gcc.ok && toolchain.objcopy.ok && toolchain.size.ok && baseline.readyForTesting && runtime.agent.installed && firmware.state === 'completed' && firmware.artifacts.length === 4 && !firmware.logs.some((line) => line === '进程结束 · exit code 0' || /^> .*gcc/i.test(line)) && tiSmokeOk && mcuSmokeOk),
           edition: activeEdition.id,
@@ -257,6 +309,24 @@ app.whenReady().then(async () => {
     }
   }
 
+  const sandboxTemplates: import('./services/workspace-service').WorkspaceServiceOptions['sandboxTemplates'] = {}
+  if (isMcuEdition(edition.id)) {
+    for (const projectType of ['sdk-empty', 'pony'] as const) {
+      if (edition.id === 'mcu-foundations' && projectType === 'pony') continue
+      const directory = edition.platform === 'ti-mspm0' ? `ti-mspm0g3507-${projectType}` : 'ch32v203-sdk-empty'
+      const source = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, `resources/workspace-templates/${directory}`, app.isPackaged)
+      const service = new FirmwareBaselineService({
+        manifestPath: join(staticRoot, 'firmware-baselines', directory, 'active.json'),
+        developmentSourceRoot: source
+      })
+      const manifest = await service.getManifest()
+      baselineResolver.register(manifest.id, service)
+      sandboxTemplates[projectType] = { templateRoot: source, templateId: directory, templateVersion: projectType === 'pony' ? '0.2.5-ti.1' : '1', firmwareBaselineId: manifest.id, baselineCommit: manifest.source.expectedCommit }
+    }
+    if (edition.id === 'mcu-foundations' && sandboxDefaults) sandboxTemplates.pony = { ...sandboxDefaults, materializeBaseline: true }
+  }
+
+  const toolchain = edition.platform === 'ti-mspm0' ? new TiMspm0ToolchainService() : new ToolchainService()
   const workspaces = new WorkspaceService({
     rootDir: workspaceRoot,
     templateRoot,
@@ -264,10 +334,16 @@ app.whenReady().then(async () => {
     firmwareBaselineId: baselineManifest.id,
     baselineCommit: baselineManifest.source.expectedCommit,
     edition,
-    sandboxDefaults
+    sandboxDefaults,
+    sandboxTemplates,
+    sandboxSourceResolver: async workspace => {
+      const resolved = await baselineResolver.resolveForWorkspace(workspace).requireTestingBaseline()
+      if (resolved.manifest.source.expectedCommit !== workspace.baselineCommit) throw new Error('SANDBOX_BASELINE_MISMATCH')
+      return resolved.sourceRoot
+    },
+    sandboxStartupSource: toolchain instanceof TiMspm0ToolchainService ? join(toolchain.sdkRoot, 'source', 'ti', 'devices', 'msp', 'm0p', 'startup_system_files', 'gcc', 'startup_mspm0g350x_gcc.c') : undefined
   })
   await workspaces.initialize()
-  const toolchain = edition.platform === 'ti-mspm0' ? new TiMspm0ToolchainService() : new ToolchainService()
   const candidateCache = join(workspaceRoot, 'build-cache')
   const candidates = new CandidateService({
     rootDir: workspaceRoot,

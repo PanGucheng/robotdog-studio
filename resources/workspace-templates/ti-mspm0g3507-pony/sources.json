@@ -1,0 +1,13 @@
+[
+  "src/main.c",
+  "src/app/app_protocol.c", "src/app/app_display.c",
+  "src/bsp/bsp_time.c", "src/bsp/bsp_uart.c", "src/bsp/bsp_servo.c",
+  "src/bsp/bsp_key.c", "src/bsp/bsp_indicators.c", "src/bsp/bsp_i2c.c",
+  "src/board/servo_map.c", "src/board/servo_geometry.c",
+  "src/middleware/oled.c",
+  "src/robotdog/robotdog_protocol.c", "src/robotdog/robotdog_text.c",
+  "src/robotdog/robotdog_types.c", "src/robotdog/robotdog_safety.c",
+  "src/robotdog/robotdog_tx_queue.c", "src/robotdog/robotdog_runtime.c",
+  "src/robotdog/robotdog_motion.c", "src/robotdog/robotdog_student_bridge.c",
+  "src/robotdog/robotdog_telemetry.c", "src/deferred/student_control.c"
+]

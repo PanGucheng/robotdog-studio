@@ -11,6 +11,7 @@
 - [测试与质量门禁 (Testing & Validation)](development/testing-and-validation.md)：`pnpm check` 验证命令、课程校验、TypeScript 类型检查与 Vitest 服务测试；
 - [Windows 打包与基线门禁 (Windows Packaging)](development/windows-packaging.md)：便携版 ZIP 与 NSIS 安装包打包命令、WCH-Link 驱动集成及正式发布门禁。
 - [软件更新与发布操作说明 (App Update & Release)](development/app-updates.md)：GitCode 软件安装包发布、统一版本来源、下一版 Agent 操作清单、凭据检查、失败处理与独立 Live Test。
+- [自由工程文件编辑与构建](development/sandbox-projects.md)：沁恒/TI 基础 SDK 空工程与完整小马例程选择、文件与文件夹新建、完整工程副本、编译接入、课程权限边界和生成代码保留规则。
 
 ---
 
@@ -18,6 +19,9 @@
 
 - [单片机与 TI 实验课程制作指南 (Course Authoring)](courses/mcu-course-authoring.md)：课程目录、Manifest 规范、独立工程模板与验收条件定义；
 - [讲义受控 Markdown 语法规范 (Lecture Markdown)](courses/lecture-markdown.md)：章节 ID 锚点规则、白名单指令语法与数学公式规范；
+- [真实界面截图与清晰度验收](courses/course-screenshots.md)：操作截图的无损采集、局部裁切、实际显示尺寸检查和本次保留事项；
+- [TI 第一课制作与软件验收记录](courses/ti-first-lesson-verification.md)：课程内容、SysConfig 窗口修复、软件验证结果与剩余实板验收；
+- [沁恒第一课截图与软件验收记录](courses/mcu-first-lesson-verification.md)：真实界面、AI 助教引导、参数修改与构建的软件验收；
 - [课次编写与硬件验证要求 (Hardware Validation)](courses/lesson-hardware-validation.md)：普通课与硬件实物课编写准则、真机运行验证门禁；
 - [远程课程热更新机制 (Remote Course Updates)](courses/remote-course-updates.md)：Gitee 远程源规范、Manifest 配置、缓存管理与原子回滚机制。
 

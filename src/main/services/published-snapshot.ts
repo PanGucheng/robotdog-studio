@@ -58,8 +58,8 @@ export function exportPublishedSnapshot(options: PublishedSnapshotOptions): Publ
   const publishedCourses: Array<{ courseId: string; publishedLessonIds: string[] }> = []
   const publishedTemplateIds = new Set<string>()
 
-  if (editionId === 'mcu-foundations') {
-    const studioCoursesDir = join(resolvedStudioRoot, 'resources', 'courses', 'mcu-foundations')
+  {
+    const studioCoursesDir = join(resolvedStudioRoot, 'resources', 'courses', editionId)
     const catalogPath = join(studioCoursesDir, 'catalog.json')
     if (!existsSync(catalogPath)) throw new Error(`CATALOG_NOT_FOUND:${catalogPath}`)
 
@@ -134,6 +134,8 @@ export function exportPublishedSnapshot(options: PublishedSnapshotOptions): Publ
         }
       }
 
+      if (publishedLessonIds.length === 0) continue
+
       // Rebuild course.json with ONLY published lessons
       const publishedCourseManifest = {
         ...course,
@@ -162,6 +164,9 @@ export function exportPublishedSnapshot(options: PublishedSnapshotOptions): Publ
       'utf8'
     )
 
+  }
+
+  if (editionId === 'mcu-foundations') {
     // 2. Workspace templates: copy ONLY published lesson templates
     const mcuLessonsTargetDir = join(targetTemplatesDir, 'ch32v203-mcu-lessons')
     mkdirSync(mcuLessonsTargetDir, { recursive: true })
@@ -217,22 +222,13 @@ export function exportPublishedSnapshot(options: PublishedSnapshotOptions): Publ
       join(targetPonyDir, 'current', 'source')
     )
   } else if (editionId === 'ti-mspm0-foundations') {
-    // 1. courses
-    copyDirectoryFiltered(
-      join(resolvedStudioRoot, 'resources', 'courses', 'ti-mspm0-foundations'),
-      targetCoursesDir
-    )
-    publishedCourses.push({
-      courseId: 'ti-mspm0-gpio-foundations',
-      publishedLessonIds: ['ti-mspm0-gpio-toggle']
-    })
-    publishedTemplateIds.add('ti-mspm0g3507-foundations')
-
-    // 2. workspace-templates
-    copyDirectoryFiltered(
-      join(resolvedStudioRoot, 'resources', 'workspace-templates', 'ti-mspm0g3507-foundations'),
-      join(targetTemplatesDir, 'ti-mspm0g3507-foundations')
-    )
+    // Only verified, published TI lessons contribute course templates.
+    for (const templateId of publishedTemplateIds) {
+      copyDirectoryFiltered(
+        join(resolvedStudioRoot, 'resources', 'workspace-templates', templateId),
+        join(targetTemplatesDir, templateId)
+      )
+    }
 
     // 3. firmware-baselines
     const targetTiBaselineDir = join(targetBaselinesDir, 'ti-mspm0g3507')

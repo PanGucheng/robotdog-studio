@@ -1,15 +1,25 @@
 {
   "schemaVersion": 1,
   "courseId": "ti-mspm0-gpio-foundations",
-  "contentVersion": 1,
-  "title": "TI MSPM0：SysConfig 与第一个 GPIO",
-  "summary": "用 MSPM0G3507、SysConfig、Arm GCC 和 CMSIS-DAP 完成第一个真实 LED 实验。",
+  "contentVersion": 4,
+  "title": "TI MSPM0 单片机入门",
+  "summary": "从零认识单片机、开发板与 RoboHorse Studio，学会使用 SysConfig 图形化配置芯片外设，跑通代码修改、编译、烧录与实物观察的完整工程闭环。",
   "audience": "单片机零基础或刚入门的大学生",
-  "objectives": ["理解 SysConfig 与应用 C 代码的分工", "完成 SysConfig 生成、编译和烧录闭环", "通过真实 LED 现象验证程序"],
+  "objectives": [
+    "认识单片机、开发板和 Studio 的主要操作区域",
+    "能够保存代码、生成配置、编译并烧录真实程序",
+    "能够在 SysConfig 中新增一路 LED GPIO 并通过实物验证"
+  ],
   "status": "published",
-  "boardScope": "TI LP-MSPM0G3507",
-  "lessonOrder": ["gpio-sysconfig-toggle"],
+  "boardScope": "TI MSPM0G3507SPMR 机器马教学板（LQFP-64）",
+  "lessonOrder": [
+    "gpio-sysconfig-toggle"
+  ],
   "progressCompatibleFrom": [],
   "learningCompatibleFrom": [],
-  "sourceAttribution": ["Texas Instruments MSPM0 SDK 2.11.00.07 gpio_toggle_output example"]
+  "sourceAttribution": [
+    "RoboHorse Studio 单片机基础教程教学法与工程操作工作流",
+    "TI MSPM0 SDK 2.11.00.07 DriverLib 与 SysConfig 1.28.1",
+    "TI 机器马板引脚参考：mspm0g3507_example 与 mspm0g3507_pony；本课 GPIO 实验待重新真机验证"
+  ]
 }

@@ -292,9 +292,10 @@ function StudioApp(): React.JSX.Element {
     await refreshCourseProgress(currentWorkspaceId)
   }) }
   const cancelWchLink = (): void => { void run(async () => { setWchLink(await api.cancelWchLink()) }) }
-  const createWorkspace = (): void => {
+  const createWorkspace = (projectType?: import('../../shared/types').SandboxProjectType): void => {
+    if (edition.id !== 'fun-line-following' && !projectType) { openMcuView({ kind: 'home', panel: 'free-practice' }); return }
     void run(async () => {
-      const workspace = await api.createWorkspace({ studentDisplayName: activeWorkspace?.studentDisplayName ?? (edition.id === 'fun-line-following' ? '林同学' : '学习者') })
+      const workspace = await api.createWorkspace({ projectType, studentDisplayName: activeWorkspace?.studentDisplayName ?? (edition.id === 'fun-line-following' ? '林同学' : '学习者') })
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)])
       setActiveWorkspaceId(workspace.id)
       if (edition.id !== 'fun-line-following') openMcuView({ kind: 'workspace', workspaceId: workspace.id })
@@ -759,7 +760,7 @@ function StudioApp(): React.JSX.Element {
                 <button
                   type="button"
                   className="topbar-action-button"
-                  onClick={createWorkspace}
+                  onClick={() => createWorkspace()}
                   disabled={busy}
                   title="从当前版本模板创建独立项目"
                 >

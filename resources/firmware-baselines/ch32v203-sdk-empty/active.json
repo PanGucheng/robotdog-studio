@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "name": "ch32v203-sdk-empty",
+  "id": "ch32v203-sdk-empty-v1",
+  "label": "CH32V203 基础 SDK 空工程",
+  "activeCommit": "480d701db0e291ede11138c3eefd3dc82912f930",
+  "shortCommit": "480d701",
+  "sourceRoot": "resources/workspace-templates/ch32v203-sdk-empty",
+  "verifiedFirmwareManifest": "sdk.firmware.json",
+  "build": {
+    "preset": "robotdog-wch-gcc12"
+  }
+}

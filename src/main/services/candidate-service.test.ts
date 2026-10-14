@@ -104,10 +104,13 @@ describe('CandidateService', () => {
     expect(saved.headCommit).not.toBe(mcuWorkspace.headCommit)
     expect(await readFile(join(sandbox, 'mcu-data', 'workspaces', mcuWorkspace.id, 'project', 'App', 'Src', 'experiment.c'), 'utf8')).toBe(changed)
     expect((await mcuWorkspaces.history(mcuWorkspace.id, 1))[0].message).toBe('feat(student): save App/Src/experiment.c')
-    await expect(service.writeWorkspaceFile(mcuWorkspace.id, 'Core/Src/student_control.c', 'changed')).rejects.toThrow('只能查看')
+    await service.writeWorkspaceFile(mcuWorkspace.id, 'Core/Src/student_control.c', 'changed')
+    expect((await service.listStudentCodeFiles(mcuWorkspace.id)).find(file => file.path === 'Core/Src/student_control.c')?.content).toBe('changed')
+    await expect(service.writeWorkspaceFile(mcuWorkspace.id, 'robotdog.project.json', '{}')).rejects.toThrow('只能查看')
 
     await service.create(mcuWorkspace.id)
     await expect(service.writeWorkspaceFile(mcuWorkspace.id, 'App/Src/experiment.c', 'concurrent')).rejects.toThrow('AI 修改')
+    await expect(service.createWorkspaceEntry(mcuWorkspace.id, 'App/Src', 'new.c', false)).rejects.toThrow('AI 修改')
   }, 15_000)
 
   it('validates, builds, reviews, and applies a manual draft as one Git checkpoint', async () => {

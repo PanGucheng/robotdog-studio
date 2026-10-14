@@ -381,6 +381,17 @@ export function registerIpc(robot: MockRobotService, edition: AppEditionProfile,
       return candidates.listStudentCodeFiles(workspaceId, candidateId as string | undefined)
     })
     if (projectExplorer && edition.id !== 'fun-line-following') {
+      for (const [channel, directory] of [[IPC_CHANNELS.workspaceFileCreate, false], [IPC_CHANNELS.workspaceDirectoryCreate, true]] as const) {
+        ipcMain.handle(channel, async (_event, workspaceId: unknown, parentPath: unknown, name: unknown) => {
+          if (typeof workspaceId !== 'string' || typeof parentPath !== 'string' || typeof name !== 'string') throw new Error('WORKSPACE_FILE_INPUT_INVALID')
+          const assertIdle = (): void => {
+            if (agents?.getActive() || firmware.getSnapshot().state === 'running' || ['probing', 'flashing', 'verifying', 'resetting'].includes(wchLink.getSnapshot().state)) throw new Error('请等待当前任务完成后再新建文件。')
+          }
+          const result = await candidates.createWorkspaceEntry(workspaceId, parentPath, name, directory, assertIdle)
+          sendToAll(IPC_CHANNELS.workspaceChangedEvent, result.workspace)
+          return result
+        })
+      }
       ipcMain.handle(IPC_CHANNELS.projectExplorerGet, (_event, workspaceId: unknown, candidateId: unknown) => {
         if (typeof workspaceId !== 'string' || (candidateId !== undefined && typeof candidateId !== 'string')) throw new Error('PROJECT_EXPLORER_INPUT_INVALID')
         return projectExplorer.getSnapshot(workspaceId, candidateId as string | undefined)

@@ -109,6 +109,8 @@ const extraResources = [
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'courses', 'mcu-foundations'), to: 'courses/mcu-foundations' }] : []),
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'workspace-templates', 'ch32v203-mcu-lessons'), to: 'workspace-templates/ch32v203-mcu-lessons' }] : []),
   ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'workspace-templates', 'ch32v203-pony'), to: 'workspace-templates/ch32v203-pony' }] : []),
+  ...(editionId === 'mcu-foundations' ? [{ from: join(root, 'resources', 'workspace-templates', 'ch32v203-sdk-empty'), to: 'workspace-templates/ch32v203-sdk-empty' }] : []),
+  ...(editionId === 'ti-mspm0-foundations' ? ['ti-mspm0g3507-sdk-empty', 'ti-mspm0g3507-pony'].map(name => ({ from: join(root, 'resources', 'workspace-templates', name), to: `workspace-templates/${name}` })) : []),
   ...(editionId === 'ti-mspm0-foundations' ? [{ from: join(root, 'resources', 'courses', 'ti-mspm0-foundations'), to: 'courses/ti-mspm0-foundations' }] : []),
   { from: join(root, 'resources', 'firmware-baselines'), to: 'firmware-baselines' },
   { from: join(root, 'resources', 'board-profiles'), to: 'board-profiles' },

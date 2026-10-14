@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { access, copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { access, copyFile, mkdir, open, type FileHandle, readFile, readdir, rename, rm, rmdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
 import type { CandidateBuildProof, CandidateDiff, CandidateSnapshot, CandidateState, PatchValidationReport, StudentCodeFile, WorkspaceSummary } from '../../shared/types'
@@ -8,6 +8,7 @@ import { GitWorkspaceService } from './git-workspace-service'
 import { PatchPolicyService } from './patch-policy-service'
 import { SourceFingerprintService } from './source-fingerprint-service'
 import { WorkspaceService } from './workspace-service'
+import { assertSandboxFile, assertSandboxParent, validateSandboxName, isSandboxProjectPath, listSandboxProjectFiles, SANDBOX_MAX_FILE_BYTES } from './sandbox-project-files'
 
 const candidateIdSchema = z.string().regex(/^cand_[a-f0-9]{24}$/)
 const candidateStateSchema = z.enum([
@@ -51,6 +52,7 @@ export interface CandidateServiceOptions {
   fingerprint?: SourceFingerprintService
   lifetimeMs?: number
   builder?: CandidateBuilder
+  createFileWriter?: (file: FileHandle, content: string) => Promise<void>
 }
 
 export interface ManualRepairBackup {
@@ -66,6 +68,65 @@ export class CandidateService {
   private readonly fingerprint: SourceFingerprintService
   private readonly lifetimeMs: number
   private readonly builder?: CandidateBuilder
+  private readonly createFileWriter: (file: FileHandle, content: string) => Promise<void>
+  private readonly fileMutations = new Map<string, Promise<unknown>>()
+
+  private async serializeFileMutation<T>(workspaceId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.fileMutations.get(workspaceId)
+    const pending = (previous ?? Promise.resolve()).catch(() => undefined).then(operation)
+    this.fileMutations.set(workspaceId, pending)
+    try { return await pending } finally { if (this.fileMutations.get(workspaceId) === pending) this.fileMutations.delete(workspaceId) }
+  }
+
+  async createWorkspaceEntry(workspaceId: string, parentPath: string, name: string, directory: boolean, assertIdle: () => void = () => undefined): Promise<{ workspace: WorkspaceSummary; path: string }> {
+    return this.serializeFileMutation(workspaceId, async () => {
+      assertIdle()
+      validateSandboxName(name)
+      const workspace = await this.workspaces.get(workspaceId)
+      if (workspace.workspacePurpose !== 'mcu-sandbox' || workspace.learningPath === 'fun-line-following') throw new Error('只有自由工程可以新建文件和文件夹。')
+      if (workspace.state !== 'ready' || workspace.activeCandidateId) throw new Error('请先完成或放弃当前 AI 修改，再新建文件。')
+      const root = await this.workspaces.getProjectRootForMain(workspaceId)
+      if (!(await this.git.isClean(root))) throw new Error('WORKSPACE_DIRTY')
+      const baseCommit = await this.git.getHead(root)
+      const parent = await assertSandboxParent(root, parentPath)
+      if ((await readdir(parent)).some(entry => entry.toLowerCase() === name.toLowerCase())) throw new Error('同名文件或文件夹已存在。')
+      const path = parentPath ? `${parentPath}/${name}` : name
+      const target = join(parent, name)
+      const tracked = directory ? `${path}/.gitkeep` : path
+      let created = false
+      let fileCreated = false
+      let committed = false
+      try {
+        if (directory) { await mkdir(target); created = true }
+        const file = await open(directory ? join(target, '.gitkeep') : target, 'wx')
+        created = true
+        fileCreated = true
+        try { await this.createFileWriter(file, !directory && name.toLowerCase().endsWith('.h') ? '#pragma once\n' : '') }
+        finally { await file.close() }
+        assertIdle()
+        const current = await this.workspaces.get(workspaceId)
+        if (current.state !== 'ready' || current.activeCandidateId) throw new Error('WORKSPACE_BUSY')
+        const commit = await this.git.commitFile(root, tracked, `feat(student): create ${path}`)
+        committed = true
+        try { return { workspace: await this.workspaces.completeDirectEdit(workspaceId, commit), path } }
+        catch { throw new Error('文件已创建，但检查点同步失败，请重新打开工程。') }
+      } catch (error) {
+        if (created && !committed) {
+          // If the command committed but reporting HEAD failed, preserve the data.
+          committed = await this.git.getHead(root).then(head => head !== baseCommit, () => true)
+        }
+        if (created && !committed) {
+          await this.git.unstageFile(root, tracked).catch(() => undefined)
+          // Only remove our own new entries; never recursively remove student data.
+          if (directory) {
+            if (fileCreated) await rm(join(target, '.gitkeep'), { force: true }).catch(() => undefined)
+            await rmdir(target).catch(() => undefined)
+          } else await rm(target, { force: true }).catch(() => undefined)
+        }
+        throw error
+      }
+    })
+  }
 
   constructor(options: CandidateServiceOptions) {
     this.candidatesDir = resolve(options.rootDir, 'candidates')
@@ -75,6 +136,7 @@ export class CandidateService {
     this.fingerprint = options.fingerprint ?? new SourceFingerprintService()
     this.lifetimeMs = options.lifetimeMs ?? 2 * 60 * 60 * 1000
     this.builder = options.builder
+    this.createFileWriter = options.createFileWriter ?? ((file, content) => file.writeFile(content, 'utf8'))
   }
 
   async getWorkspace(workspaceId: string): Promise<WorkspaceSummary> {
@@ -146,6 +208,7 @@ export class CandidateService {
       if (candidate.workspaceId !== workspace.id) throw new Error('CANDIDATE_WORKSPACE_MISMATCH')
       root = this.candidateRoot(candidate.id)
     }
+    if (workspace.workspacePurpose === 'mcu-sandbox' && !candidateId) return listSandboxProjectFiles(root)
     const descriptors = workspace.learningPath !== 'fun-line-following'
       ? workspace.platform === 'ti-mspm0' ? await this.listTiDescriptors(root) : await this.listMcuDescriptors(root)
       : [
@@ -188,17 +251,41 @@ export class CandidateService {
   }
 
   async writeWorkspaceFile(workspaceId: string, path: StudentCodeFile['path'], content: string): Promise<import('../../shared/types').WorkspaceSummary> {
+    return this.serializeFileMutation(workspaceId, () => this.writeWorkspaceFileExclusive(workspaceId, path, content))
+  }
+
+  private async writeWorkspaceFileExclusive(workspaceId: string, path: StudentCodeFile['path'], content: string): Promise<WorkspaceSummary> {
     const workspace = await this.workspaces.get(workspaceId)
     if (workspace.learningPath === 'fun-line-following') throw new Error('WORKSPACE_DIRECT_EDIT_UNAVAILABLE')
     if (workspace.state !== 'ready' || workspace.activeCandidateId) throw new Error('请先完成或放弃当前 AI 修改，再继续编辑工程。')
     const root = await this.workspaces.getProjectRootForMain(workspaceId)
     const listedFile = (await this.listStudentCodeFiles(workspaceId)).find((file) => file.path === path)
-    if (!isSafeRelativePath(path) || !listedFile?.editable || !(await this.policy.isEditablePath(root, path))) throw new Error('这个文件只能查看，不能修改。')
+    const sandbox = workspace.workspacePurpose === 'mcu-sandbox'
+    if (!isSafeRelativePath(path) || !listedFile?.editable || (sandbox ? !isSandboxProjectPath(path) : !(await this.policy.isEditablePath(root, path)))) throw new Error('这个文件只能查看，不能修改。')
     const bytes = Buffer.byteLength(content, 'utf8')
-    if (bytes > 64_000 || content.includes('\0')) throw new Error('代码内容过大或包含不支持的字符。')
+    if (bytes > (sandbox ? SANDBOX_MAX_FILE_BYTES : 64_000) || content.includes('\0')) throw new Error('代码内容过大或包含不支持的字符。')
     if (listedFile.content === content) return workspace
-    if (!(await this.git.isClean(root))) throw new Error('WORKSPACE_DIRTY')
+    if (!(await this.git.isClean(root))) {
+      // TI's configuration editor writes directly to the workspace. Checkpoint
+      // only existing, editable root .syscfg files before saving application code.
+      // Other external changes, staged changes and edits to the target still block.
+      const changes = await this.git.changedFiles(root)
+      if (workspace.platform !== 'ti-mspm0' || !changes.length) throw new Error('WORKSPACE_DIRTY')
+      const files = await this.listStudentCodeFiles(workspaceId)
+      for (const change of changes) {
+        if (change.code !== ' M' || change.path === path || !/^[^/]+\.syscfg$/.test(change.path)
+          || !files.some(file => file.path === change.path && file.editable)
+          || (!sandbox && !(await this.policy.isEditablePath(root, change.path)))) throw new Error('WORKSPACE_DIRTY')
+        await assertSandboxFile(root, change.path)
+      }
+      for (const change of changes) {
+        const configCommit = await this.git.commitFile(root, change.path, `feat(student): save SysConfig ${change.path}`)
+        await this.workspaces.completeDirectEdit(workspaceId, configCommit)
+      }
+      if (!(await this.git.isClean(root))) throw new Error('WORKSPACE_DIRTY')
+    }
     const target = join(root, ...path.split('/'))
+    if (sandbox) await assertSandboxFile(root, path)
     const temporary = `${target}.workspace.tmp`
     try {
       await mkdir(dirname(target), { recursive: true })
@@ -206,7 +293,7 @@ export class CandidateService {
       await rename(temporary, target)
       const currentWorkspace = await this.workspaces.get(workspaceId)
       if (currentWorkspace.state !== 'ready' || currentWorkspace.activeCandidateId) throw new Error('请先完成或放弃当前 AI 修改，再继续编辑工程。')
-      const commit = await this.git.commitAll(root, `feat(student): save ${path}`)
+      const commit = sandbox ? await this.git.commitFile(root, path, `feat(student): save ${path}`) : await this.git.commitAll(root, `feat(student): save ${path}`)
       return this.workspaces.completeDirectEdit(workspaceId, commit)
     } catch (caught) {
       await rm(temporary, { force: true }).catch(() => undefined)

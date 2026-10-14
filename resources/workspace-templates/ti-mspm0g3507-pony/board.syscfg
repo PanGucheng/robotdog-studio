@@ -1,0 +1,132 @@
+/**
+ * MSPM0G3507SPMR board - full-feature example
+ *
+ * Pin map:
+ *   UART1  TX=PA8(PINCM19)  RX=PA9(PINCM20)         debug console 115200
+ *   I2C0   SCL=PA31(PINCM6) SDA=PA28(PINCM3)        SSD1306 OLED 400k
+ *   RGB    R=PA5(PINCM10/TIMG0.CCP0)  B=PA6(PINCM11/TIMG0.CCP1)
+ *          G=PA26(PINCM59/TIMG7.CCP0)               active-LOW led
+ *   Servo1..4 TIMA0 CCP0=PB8(PINCM25) CCP1=PA22(PINCM47)
+ *             CCP2=PA10(PINCM21) CCP3=PA12(PINCM34)  50 Hz
+ *   Buzzer TIMG8.CCP0=PA7(PINCM14)                   passive buzzer
+ *   KEY1   PA1 -> SysConfig GPIO input, external pull-up
+ */
+
+//@cliArgs --device "MSPM0G350X" --package "LQFP-64(PM)" --part "Default"
+//@v2CliArgs --device "MSPM0G3507" --package "LQFP-64(PM)"
+
+const UART        = scripting.addModule("/ti/driverlib/UART", {}, false);
+const UART1       = UART.addInstance();
+const I2C         = scripting.addModule("/ti/driverlib/I2C", {}, false);
+const I2C1        = I2C.addInstance();
+const PWM         = scripting.addModule("/ti/driverlib/PWM", {}, false);
+const PWMSERVO    = PWM.addInstance();
+const PWMRGB_RB   = PWM.addInstance();
+const PWMRGB_G    = PWM.addInstance();
+const PWMBUZ      = PWM.addInstance();
+const SYSCTL      = scripting.addModule("/ti/driverlib/SYSCTL", {}, false);
+const ProjectConfig = scripting.addModule("/ti/project_config/ProjectConfig");
+const Board       = scripting.addModule("/ti/driverlib/Board", {}, false);
+
+ProjectConfig.deviceSpin = "MSPM0G3507";
+
+/* ---------------- UART1 debug console: 115200 8N1 ---------------- */
+UART1.$name                   = "UART_DEBUG";
+UART1.profile                 = "CONFIG_PROFILE_1";
+UART1.peripheral.$assign      = "UART1";
+UART1.uartClkSrc              = "BUSCLK";
+UART1.ovsRate                 = "16";
+UART1.targetBaudRate          = 115200;
+UART1.enableInternalLoopback  = false;
+UART1.enableFIFO              = true;
+UART1.peripheral.txPin.$assign = "PA8";
+UART1.peripheral.rxPin.$assign = "PA9";
+
+/* ---------------- I2C0 OLED ---------------- */
+I2C1.$name                     = "I2C_OLED";
+I2C1.basicEnableController     = true;
+I2C1.basicControllerBusSpeed   = 400000;
+I2C1.advAnalogGlitchFilter     = "DISABLED";
+I2C1.peripheral.$assign        = "I2C0";
+I2C1.peripheral.sclPin.$assign = "PA31";
+I2C1.peripheral.sdaPin.$assign = "PA28";
+
+/* ---------------- Servo: TIMA0 CCP0..3, 50Hz ---------------- */
+PWMSERVO.$name              = "PWM_SERVO";
+PWMSERVO.ccIndex            = [0,1,2,3];
+PWMSERVO.clockPrescale      = 64;
+PWMSERVO.timerCount         = 10000;
+PWMSERVO.peripheral.$assign = "TIMA0";
+PWMSERVO.peripheral.ccp0Pin.$assign = "PB8";
+PWMSERVO.peripheral.ccp1Pin.$assign = "PA22";
+PWMSERVO.peripheral.ccp2Pin.$assign = "PA10";
+PWMSERVO.peripheral.ccp3Pin.$assign = "PA12";
+PWMSERVO.PWM_CHANNEL_0.$name = "ti_driverlib_pwm_servo_cc0";
+PWMSERVO.PWM_CHANNEL_0.ccValue = 9250;
+PWMSERVO.PWM_CHANNEL_1.$name = "ti_driverlib_pwm_servo_cc1";
+PWMSERVO.PWM_CHANNEL_1.ccValue = 9250;
+PWMSERVO.PWM_CHANNEL_2.$name = "ti_driverlib_pwm_servo_cc2";
+PWMSERVO.PWM_CHANNEL_2.ccValue = 9250;
+PWMSERVO.PWM_CHANNEL_3.$name = "ti_driverlib_pwm_servo_cc3";
+PWMSERVO.PWM_CHANNEL_3.ccValue = 9250;
+
+/* ---------------- RGB R(PA5) + B(PA6) on TIMG0 ---------------- */
+PWMRGB_RB.$name              = "PWM_RGB_RB";
+PWMRGB_RB.clockPrescale      = 32;
+PWMRGB_RB.timerCount         = 1000;
+PWMRGB_RB.peripheral.$assign = "TIMG0";
+PWMRGB_RB.peripheral.ccp0Pin.$assign = "PA5";
+PWMRGB_RB.peripheral.ccp1Pin.$assign = "PA6";
+PWMRGB_RB.PWM_CHANNEL_0.$name = "ti_driverlib_pwm_rgb_rb_cc0";
+PWMRGB_RB.PWM_CHANNEL_0.ccValue = 0;
+PWMRGB_RB.PWM_CHANNEL_1.$name = "ti_driverlib_pwm_rgb_rb_cc1";
+PWMRGB_RB.PWM_CHANNEL_1.ccValue = 0;
+
+/* ---------------- RGB G(PA26) on TIMG7 ---------------- */
+PWMRGB_G.$name              = "PWM_RGB_G";
+PWMRGB_G.ccIndex            = [0];
+PWMRGB_G.clockPrescale      = 32;
+PWMRGB_G.timerCount         = 200;
+PWMRGB_G.peripheral.$assign = "TIMG7";
+PWMRGB_G.peripheral.ccp0Pin.$assign = "PA26";
+PWMRGB_G.PWM_CHANNEL_0.$name = "ti_driverlib_pwm_rgb_g_cc0";
+PWMRGB_G.PWM_CHANNEL_0.ccValue = 0;
+
+/* ---------------- Passive buzzer on TIMG8 CCP0 ---------------- */
+PWMBUZ.$name              = "PWM_BUZZER";
+PWMBUZ.ccIndex            = [0];
+PWMBUZ.clockPrescale      = 32;
+PWMBUZ.timerCount         = 249;
+PWMBUZ.peripheral.$assign = "TIMG8";
+PWMBUZ.peripheral.ccp0Pin.$assign = "PA7";
+PWMBUZ.PWM_CHANNEL_0.$name = "ti_driverlib_pwm_buz_cc0";
+PWMBUZ.PWM_CHANNEL_0.ccValue = 249;
+
+
+const GPIOKEY = scripting.addModule("/ti/driverlib/GPIO", {}, false);
+const GPIOKEY1 = GPIOKEY.addInstance();
+GPIOKEY1.$name = "GPIO_KEYS";
+GPIOKEY1.associatedPins[0].$name = "STOP_KEY";
+GPIOKEY1.associatedPins[0].assignedPort = "PORTA";
+GPIOKEY1.associatedPins[0].assignedPin = "1";
+GPIOKEY1.associatedPins[0].pin.$assign = "PA1";
+GPIOKEY1.associatedPins[0].direction = "INPUT";
+GPIOKEY1.associatedPins[0].internalResistor = "NONE";
+const SYSTICK = scripting.addModule("/ti/driverlib/SYSTICK");
+SYSTICK.period = 32000;
+SYSTICK.periodEnable = true;
+SYSTICK.systickEnable = true;
+SYSTICK.interruptEnable = true;
+
+
+SYSCTL.forceDefaultClkConfig = true;
+
+
+UART1.rxFifoThreshold = "DL_UART_RX_FIFO_LEVEL_ONE_ENTRY";
+UART1.rxTimeoutValue = 15;
+UART1.enabledInterrupts = ["RX", "RX_TIMEOUT_ERROR", "OVERRUN_ERROR", "FRAMING_ERROR", "PARITY_ERROR", "BREAK_ERROR"];
+
+PWMSERVO.PWM_CHANNEL_0.shadowUpdateMode = "ZERO_EVT";
+PWMSERVO.PWM_CHANNEL_1.shadowUpdateMode = "ZERO_EVT";
+PWMSERVO.PWM_CHANNEL_2.shadowUpdateMode = "ZERO_EVT";
+PWMSERVO.PWM_CHANNEL_3.shadowUpdateMode = "ZERO_EVT";

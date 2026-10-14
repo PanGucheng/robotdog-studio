@@ -1,24 +1,16 @@
 #include "ti_msp_dl_config.h"
 
-/* 32 MHz CPU_CLK 下约为 0.5 秒。 */
-#define LED_TOGGLE_DELAY_CYCLES (16000000U)
+/* 每次改变亮灭状态前的等待时间，单位为毫秒。 */
+static unsigned int blink_interval_ms = 500U;
 
 int main(void)
 {
+    /* 应用 SysConfig 保存的时钟、引脚和输出初始状态。 */
     SYSCFG_DL_init();
 
-    DL_GPIO_clearPins(GPIO_LEDS_PORT, GPIO_LEDS_USER_LED_2_PIN);
-    DL_GPIO_setPins(GPIO_LEDS_PORT,
-        GPIO_LEDS_USER_LED_1_PIN |
-        GPIO_LEDS_USER_LED_3_PIN |
-        GPIO_LEDS_USER_TEST_PIN);
-
     while (1) {
-        delay_cycles(LED_TOGGLE_DELAY_CYCLES);
-        DL_GPIO_togglePins(GPIO_LEDS_PORT,
-            GPIO_LEDS_USER_LED_1_PIN |
-            GPIO_LEDS_USER_LED_2_PIN |
-            GPIO_LEDS_USER_LED_3_PIN |
-            GPIO_LEDS_USER_TEST_PIN);
+        delay_cycles((CPUCLK_FREQ / 1000U) * blink_interval_ms);
+        /* 配置 LED_BLUE 后，把下面的 LED_GREEN 改为 LED_BLUE。 */
+        DL_GPIO_togglePins(GPIO_LEDS_PORT, GPIO_LEDS_LED_GREEN_PIN);
     }
 }

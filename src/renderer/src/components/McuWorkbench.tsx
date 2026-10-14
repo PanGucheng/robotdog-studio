@@ -79,7 +79,7 @@ export function McuWorkbench(props: WorkbenchProps): React.JSX.Element {
 
   const view = props.mcuView ?? { kind: 'home' as const, panel: 'landing' as const }
   const navigate = props.onMcuNavigate ?? (() => undefined)
-  if (view.kind === 'home') return <McuHome panel={view.panel} course={course} workspaces={props.mcuWorkspaces ?? []} learning={props.lessonLearningProgress ?? []} recent={props.mcuRecentActivity ?? []} busy={busy} onNavigate={navigate} onCreateWorkspace={props.onCreateMcuWorkspace ?? (() => undefined)} />
+  if (view.kind === 'home') return <McuHome editionId={props.edition.id} panel={view.panel} course={course} workspaces={props.mcuWorkspaces ?? []} learning={props.lessonLearningProgress ?? []} recent={props.mcuRecentActivity ?? []} busy={busy} onNavigate={navigate} onCreateWorkspace={props.onCreateMcuWorkspace ?? (() => undefined)} />
   if (view.kind === 'course-center') return <section className="mcu-catalog-shell"><button type="button" className="mcu-page-back" onClick={() => navigate({ kind: 'home', panel: 'landing' })}><ChevronLeft size={15} /> 返回首页</button><CourseCenter courses={courses} course={course} lesson={courseLesson} loading={courseLoading} error={courseError} completedLessonIds={completedLessonIds} onSelectLesson={(lessonId) => { props.onSelectCourseLesson(lessonId); if (course) navigate({ kind: 'course-center', courseId: course.courseId, lessonId }) }} onOpenLesson={(lessonId) => { props.onSelectCourseLesson(lessonId); if (course) navigate({ kind: 'lesson', courseId: course.courseId, lessonId }) }} /></section>
   if (view.kind === 'lesson') {
     const selected = courseLesson?.courseId === view.courseId && courseLesson.lessonId === view.lessonId ? courseLesson : undefined

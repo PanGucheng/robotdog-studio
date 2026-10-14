@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "id": "ti-mspm0g3507-sdk-empty-v1",
+  "label": "TI MSPM0G3507 基础 SDK 空工程",
+  "status": "provisional",
+  "releaseEligible": false,
+  "replacementPolicy": "独立自由工程模板，软件构建验证不代表真机验收。",
+  "source": {
+    "repository": "resources/workspace-templates/ti-mspm0g3507-sdk-empty",
+    "developmentDefaultRoot": "resources/workspace-templates/ti-mspm0g3507-sdk-empty",
+    "expectedCommit": "41c6740ef2cdb6d112372408c85846bd54ee2faa"
+  },
+  "target": {
+    "board": "LP-MSPM0G3507",
+    "chip": "MSPM0G3507",
+    "startup": "gcc/startup_mspm0g350x_gcc.c",
+    "linkerScript": "gcc/device_linker.lds",
+    "memory": {
+      "flashBytes": 131072,
+      "ramBytes": 32768,
+      "confirmed": true
+    }
+  },
+  "toolchain": {
+    "profile": "ti-mspm0-sdk-2.11-gcc9-openocd",
+    "arch": "armv6-m",
+    "abi": "aapcs",
+    "codeModel": "thumb"
+  },
+  "build": {
+    "includeDirectories": [
+      "src"
+    ],
+    "sources": [
+      "src/main.c"
+    ],
+    "cFlags": [],
+    "assemblerFlags": [],
+    "linkFlags": []
+  },
+  "studentOverlay": {
+    "source": "src/main.c",
+    "header": "src/main.c",
+    "configInput": "board.syscfg",
+    "generatedHeader": "board.syscfg"
+  },
+  "artifacts": {
+    "elf": "mspm0-empty.out",
+    "hex": "mspm0-empty.hex",
+    "bin": "mspm0-empty.bin",
+    "map": "mspm0-empty.map"
+  },
+  "integrity": [
+    {
+      "path": "board.syscfg",
+      "sha256": "f503dfad1c570c3058c7fb401064e047c46d98d5b3bdb2c73488ad299f4d1c04"
+    },
+    {
+      "path": "gcc/device_linker.lds",
+      "sha256": "4ea830abcc2704cd0d9b6348a2e2fdee24485cadf3b1a893ede91818bf18fe5a"
+    },
+    {
+      "path": "gcc/startup_mspm0g350x_gcc.c",
+      "sha256": "c94b9a8edf1c2efb441524c9231b82169965b16782fb4854bce9455b1fbadf3c"
+    },
+    {
+      "path": "generated/device.lds.genlibs",
+      "sha256": "f1e7465f97642c4742a49012d8fc5efb4bc216af20fc47e50383a0fdaf8fce46"
+    },
+    {
+      "path": "generated/device.opt",
+      "sha256": "560f5907159d8380a132e0eb273e7739fbbccb5f386377117fcf61c1372368cd"
+    },
+    {
+      "path": "generated/device_linker.lds",
+      "sha256": "4ea830abcc2704cd0d9b6348a2e2fdee24485cadf3b1a893ede91818bf18fe5a"
+    },
+    {
+      "path": "generated/ti_msp_dl_config.c",
+      "sha256": "0802b040318f8663b6027f7aea2ad61ea14d95de9334fe8aeb85a51f608b2598"
+    },
+    {
+      "path": "generated/ti_msp_dl_config.h",
+      "sha256": "65a42f4494026cc16ce467bc61cd16fab26c7abd88655adc7140f5a8de261472"
+    },
+    {
+      "path": "README.md",
+      "sha256": "59a29fada3c150994a861a85d1588d0bf3cae861a6fcf97f7aff2d5e71b3a01b"
+    },
+    {
+      "path": "src/main.c",
+      "sha256": "18d08a7274d7483fc1d029f9a59d7a8a23ee42ac51b7cf0a76d51572d23ab044"
+    }
+  ]
+}

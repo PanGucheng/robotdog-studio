@@ -1,10 +1,12 @@
-# TI MSPM0G3507 GPIO 教学工程
+# TI 机器马板第一课：两路 LED
 
-这是 RoboHorse Studio TI MSPM0 教学版的最小真实工程。
+目标芯片 MSPM0G3507SPMR，LQFP-64，内部 SYSOSC 32 MHz。RGB：红 PA5、绿 PA26、蓝 PA6，低电平点亮。
 
-- `gpio_toggle_output.syscfg`：硬件资源配置，请使用工程文件标题右侧的“SysConfig”按钮打开。
-- `src/main.c`：学生应用程序，可以直接编辑。
-- `generated/`：构建时由 SysConfig CLI 重新生成，不要手工修改。
-- `gcc/device_linker.lds`：MSPM0G3507 GNU 链接脚本，不要手工修改。
+- gpio_toggle_output.syscfg：预配绿色输出和保持熄灭的红色输出；学生在 SysConfig 中添加 LED_BLUE / PA6 / Output / Initial Value=Set。
+- src/main.c：修改 blink_interval_ms，再将 GPIO_LEDS_LED_GREEN_PIN 改为 GPIO_LEDS_LED_BLUE_PIN。
+- generated/：编译时由 SysConfig 重新生成；不手工修改。
+- gcc/：启动和链接配置，保持受保护。
 
-构建固定使用 MSPM0 SDK 2.11.00.07、SysConfig 1.28.1 和 GNU Arm Embedded 9-2019-q4-major。
+通过 Studio 的“配置芯片 · SysConfig”打开当前工程配置，保存后回到 Studio 编译，再通过 CMSIS-DAP/SWD 烧录。使用 MSPM0 SDK 2.11.00.07、SysConfig 1.28.1、Arm GCC 9-2019-q4-major。
+
+本课只控制灯，不初始化舵机、OLED、蜂鸣器或通信。课程正在作者验证阶段；新的 GPIO 灯实验尚未完成真机验收，不能沿用旧 LaunchPad 工程的硬件验证结论。

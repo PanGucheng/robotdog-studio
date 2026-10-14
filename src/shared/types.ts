@@ -109,7 +109,10 @@ export interface DiagnosticExportResult {
 
 export type WorkspaceState = 'ready' | 'candidate_active' | 'applying' | 'error' | 'conflict' | 'archived'
 
+export type SandboxProjectType = 'sdk-empty' | 'pony'
+
 export interface CreateWorkspaceInput {
+  projectType?: SandboxProjectType
   name?: string
   studentDisplayName: string
 }
@@ -520,7 +523,7 @@ export interface StudentCodeFile {
   path: string
   label: string
   group: string
-  language: 'c' | 'yaml' | 'markdown' | 'javascript'
+  language: ProjectExplorerLanguage
   editable: boolean
   content: string
 }
@@ -883,6 +886,8 @@ export interface RobotDogApi {
   getProjectExplorer(workspaceId: string, candidateId?: string): Promise<ProjectExplorerSnapshot>
   readProjectExplorerFile(workspaceId: string, nodeId: string, candidateId?: string): Promise<ProjectExplorerFile>
   writeWorkspaceFile(workspaceId: string, path: StudentCodeFile['path'], content: string): Promise<WorkspaceSummary>
+  createWorkspaceFile(workspaceId: string, parentPath: string, name: string): Promise<{ workspace: WorkspaceSummary; path: string }>
+  createWorkspaceDirectory(workspaceId: string, parentPath: string, name: string): Promise<{ workspace: WorkspaceSummary; path: string }>
   openManualDraft(workspaceId: string): Promise<CandidateSnapshot>
   writeManualDraft(candidateId: string, path: StudentCodeFile['path'], content: string): Promise<CandidateSnapshot>
   explainStudentCode(workspaceId: string, request: StudentCodeExplanationRequest): Promise<AgentTurnSnapshot>

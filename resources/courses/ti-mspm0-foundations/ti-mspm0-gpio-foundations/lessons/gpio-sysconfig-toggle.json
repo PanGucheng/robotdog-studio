@@ -2,34 +2,183 @@
   "schemaVersion": 1,
   "courseId": "ti-mspm0-gpio-foundations",
   "lessonId": "gpio-sysconfig-toggle",
-  "title": "第一课：用 SysConfig 配置 GPIO，让 LED 闪起来",
-  "summary": "在官方 SysConfig 中配置引脚，重新生成代码，再用 Arm GCC 编译并通过 CMSIS-DAP 烧录。",
-  "objectives": ["认识 .syscfg 工程文件", "理解生成代码不应手工修改", "完成 MSPM0G3507 GPIO 的真实构建与烧录"],
+  "title": "第一课：认识 Studio，配置并控制两路灯",
+  "summary": "从零认识单片机与开发板，通过修改代码改变绿色灯闪烁节奏，并在 SysConfig 中图形化配置蓝色灯，跑通软硬件开发全流程。",
+  "objectives": [
+    "认识单片机、开发板和 Studio 的主要操作区域",
+    "能够保存代码、生成配置、编译并烧录真实程序",
+    "能够在 SysConfig 中新增一路 LED GPIO 并通过实物验证"
+  ],
   "prerequisites": [],
-  "estimatedMinutes": 75,
+  "estimatedMinutes": 90,
   "hardware": "required",
-  "verification": "hardware-checked",
-  "expectedObservation": "MSPM0G3507 LaunchPad 的 LED 按程序设定持续翻转。",
+  "verification": "pending-hardware-check",
+  "expectedObservation": "在 TI 机器马板上，绿色通道先按 500 ms、再按 1000 ms 间隔改变亮灭；新增 PA6 蓝色通道并修改控制目标后，绿色熄灭，蓝色按 1000 ms 间隔改变亮灭。需实板确认。",
   "templateId": "ti-mspm0g3507-foundations",
-  "editableGlobs": ["src/**/*.c", "src/**/*.h", "*.syscfg"],
-  "readableFiles": ["README.md", "gcc/device_linker.lds"],
-  "deniedGlobs": ["generated/**", "gcc/**", "robotdog.project.json", "reasonix.toml", "AGENTS.md"],
+  "editableGlobs": [
+    "src/main.c",
+    "gpio_toggle_output.syscfg"
+  ],
+  "readableFiles": [
+    "README.md"
+  ],
+  "deniedGlobs": [
+    "generated/**",
+    "gcc/**",
+    "robotdog.project.json",
+    "reasonix.toml",
+    "AGENTS.md"
+  ],
   "steps": [
-    { "stepId": "learn-sysconfig", "type": "read", "title": "认识配置与程序的分工", "instruction": "阅读讲义，理解 .syscfg、自动生成代码、DriverLib 和 main.c 的关系。", "lectureSectionId": "workflow" },
-    { "stepId": "open-sysconfig", "type": "read", "title": "打开芯片配置", "instruction": "在工作台点击“配置芯片”，用官方 SysConfig 打开 gpio_toggle_output.syscfg。", "fileTarget": { "path": "gpio_toggle_output.syscfg", "line": 1 } },
-    { "stepId": "edit-application", "type": "edit", "title": "查看应用代码", "instruction": "打开 src/main.c，确认应用通过生成的 GPIO 名称调用 DriverLib。", "fileTarget": { "path": "src/main.c", "line": 1 } },
-    { "stepId": "firmware-build", "type": "firmware-build", "title": "生成并编译", "instruction": "点击编译；Studio 会先运行 SysConfig CLI，再依次编译、链接并生成 ELF。" },
-    { "stepId": "flash-board", "type": "flash", "title": "通过 CMSIS-DAP 烧录", "instruction": "连接 DAPLink / CMSIS-DAP 与 SWD，烧录、校验并复位 MSPM0。" },
-    { "stepId": "observe-led", "type": "hardware-observation", "title": "观察 LED", "instruction": "确认 LED 持续翻转，并记录实际现象。" },
-    { "stepId": "reflect-workflow", "type": "question", "questionId": "sysconfig-role", "title": "解释工作流", "instruction": "说明 SysConfig 和 main.c 分别负责什么。" }
+    {
+      "stepId": "read-intro",
+      "type": "read",
+      "title": "认识单片机与工作台",
+      "instruction": "阅读基础介绍，进入本课实验，找到讲义、工程文件、编辑器和实验任务。",
+      "lectureSectionId": "studio-tour"
+    },
+    {
+      "stepId": "find-program",
+      "type": "read",
+      "title": "找到绿色灯程序",
+      "instruction": "打开 src/main.c，找到 blink_interval_ms 和 GPIO_LEDS_LED_GREEN_PIN。",
+      "lectureSectionId": "gpio-program",
+      "fileTarget": {
+        "path": "src/main.c",
+        "line": 4
+      }
+    },
+    {
+      "stepId": "build-green",
+      "type": "firmware-build",
+      "title": "编译绿色灯示例",
+      "instruction": "使用未修改的工程编译，确认 SysConfig 生成和 Arm GCC 编译成功。"
+    },
+    {
+      "stepId": "flash-green",
+      "type": "flash",
+      "title": "写入绿色灯示例",
+      "instruction": "按讲义连接 CMSIS-DAP 与 SWD，写入刚刚编译的程序。"
+    },
+    {
+      "stepId": "observe-green",
+      "type": "hardware-observation",
+      "title": "记录绿色灯初始现象",
+      "instruction": "记录绿色通道是否约每 0.5 秒改变一次亮灭，约 1 秒完成一轮。"
+    },
+    {
+      "stepId": "edit-interval",
+      "type": "edit",
+      "title": "让绿色灯变慢",
+      "instruction": "将 blink_interval_ms 的 500U 改为 1000U，保留 U 和分号，确认保存。",
+      "fileTarget": {
+        "path": "src/main.c",
+        "line": 4
+      }
+    },
+    {
+      "stepId": "observe-slow-green",
+      "type": "hardware-observation",
+      "title": "重新编译烧录并比较",
+      "instruction": "用工具栏重新编译、烧录后，记录绿色灯约 1 秒亮、1 秒灭的现象，并与初始节奏比较。"
+    },
+    {
+      "stepId": "learn-sysconfig",
+      "type": "read",
+      "title": "理解配置和程序的分工",
+      "instruction": "理解 .syscfg 保存资源配置，main.c 使用生成的名称控制灯。",
+      "lectureSectionId": "workflow"
+    },
+    {
+      "stepId": "open-sysconfig",
+      "type": "read",
+      "title": "新增蓝色灯配置",
+      "instruction": "点击“配置芯片 · SysConfig”，保留现有 GPIO，在 GPIO_LEDS 中新增 LED_BLUE，选择 PA6、Output、Initial Value=Set，并保存到当前工程。",
+      "lectureSectionId": "second-led",
+      "fileTarget": {
+        "path": "gpio_toggle_output.syscfg",
+        "line": 1
+      }
+    },
+    {
+      "stepId": "edit-application",
+      "type": "edit",
+      "title": "让程序控制蓝色灯",
+      "instruction": "把 DL_GPIO_togglePins 中的 GPIO_LEDS_LED_GREEN_PIN 改为 GPIO_LEDS_LED_BLUE_PIN，保留 1000U 并保存。",
+      "fileTarget": {
+        "path": "src/main.c",
+        "line": 14
+      }
+    },
+    {
+      "stepId": "firmware-build",
+      "type": "firmware-build",
+      "title": "生成并编译蓝色灯程序",
+      "instruction": "编译，确认保存的蓝色配置被重新生成，且应用使用的蓝色引脚名称存在。"
+    },
+    {
+      "stepId": "flash-board",
+      "type": "flash",
+      "title": "写入蓝色灯程序",
+      "instruction": "将最新编译产物烧录到 TI 机器马板，等待校验和复位完成。"
+    },
+    {
+      "stepId": "observe-led",
+      "type": "hardware-observation",
+      "title": "记录蓝色灯现象",
+      "instruction": "记录绿色是否熄灭、蓝色是否约 1 秒亮 1 秒灭；以实际看到的现象填写，不把编译成功当作灯已改变。"
+    },
+    {
+      "stepId": "reflect-workflow",
+      "type": "question",
+      "questionId": "sysconfig-role",
+      "title": "解释配置到硬件的过程",
+      "instruction": "说明配置与应用代码的分工，以及保存、编译、烧录、观察分别证明了什么。"
+    }
   ],
   "completionChecks": [
-    { "type": "firmware-build-passed" },
-    { "type": "flash-succeeded" },
-    { "type": "manual-observation-confirmed", "target": "observe-led" },
-    { "type": "question-answered", "target": "sysconfig-role" }
+    {
+      "type": "student-change-applied",
+      "target": "src/main.c"
+    },
+    {
+      "type": "firmware-build-passed"
+    },
+    {
+      "type": "flash-succeeded"
+    },
+    {
+      "type": "manual-observation-confirmed",
+      "target": "observe-green"
+    },
+    {
+      "type": "manual-observation-confirmed",
+      "target": "observe-slow-green"
+    },
+    {
+      "type": "manual-observation-confirmed",
+      "target": "observe-led"
+    },
+    {
+      "type": "question-answered",
+      "target": "sysconfig-role"
+    }
   ],
-  "reflectionQuestions": [{ "questionId": "sysconfig-role", "prompt": "为什么 GPIO 引脚配置放在 SysConfig，而 LED 翻转逻辑写在 main.c？" }],
-  "aiContext": { "teachingFocus": "帮助学生区分硬件资源配置和应用逻辑，并理解生成文件不可手工维护。", "hints": ["先检查 .syscfg 是否保存", "编译日志的第一阶段应为 SysConfig", "烧录使用 CMSIS-DAP、SWD 和 MSPM0 OpenOCD"] },
-  "status": "published"
+  "reflectionQuestions": [
+    {
+      "questionId": "sysconfig-role",
+      "prompt": "新增蓝色灯后，为什么既要保存 SysConfig 配置，又要修改 main.c 并重新编译烧录？怎样确认新的程序已经运行在开发板上？"
+    }
+  ],
+  "aiContext": {
+    "teachingFocus": "聚焦于引导零基础初学者理解单片机工程闭环与 SysConfig 图形化配置流程；先提示定位和检查，不直接替学生完成蓝色灯配置，不提前引入 PWM、舵机或机器人复杂运动。",
+    "hints": [
+      "先在当前工程中找到 src/main.c 和 gpio_toggle_output.syscfg",
+      "板载 RGB 引脚分配为红 PA5、绿 PA26、蓝 PA6，低电平点亮",
+      "在 SysConfig 的 GPIO_LEDS 组中新增 LED_BLUE，方向 Output，初始值 Set，绑定 PA6",
+      "保存 .syscfg 配置后，将 main.c 中的控制引脚宏改为 GPIO_LEDS_LED_BLUE_PIN",
+      "每次修改后重新编译、烧录，通过观察实板灯光颜色与闪烁节奏验证结果"
+    ]
+  },
+  "status": "draft"
 }

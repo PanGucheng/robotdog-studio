@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "firmwareVersion": "0.2.5-ti.1",
+  "protocolVersion": 1,
+  "board": "robotdog-mspm0g3507",
+  "chip": "MSPM0G3507SPMR",
+  "clock": "internal SYSOSC 32 MHz",
+  "sysconfigInput": "board.syscfg",
+  "sdkVersion": "2.11.00.07",
+  "sysconfigVersion": "1.28.1",
+  "gccVersion": "9-2019-q4-major",
+  "ccdSupported": false,
+  "iapSupported": false,
+  "hardwareValidated": false,
+  "sourceBaseline": "CH32 pony 0.2.5",
+  "templateOrigin": "MSPM0 SDK CUSTOM_BOARD/driverlib/empty_mspm0g3507"
+}

@@ -1,6 +1,6 @@
 import katex from 'katex'
 import { AlertOctagon, BookOpen, ChevronRight, CircleAlert, ExternalLink, FileCode2, Lightbulb, Link2, ShieldAlert } from 'lucide-react'
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { CourseLectureBlock, CourseLectureCalloutKind, CourseLectureDocument, CourseLectureInline, CourseLectureSelectionRange } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 
@@ -113,9 +113,12 @@ function LectureAssetImage({ document, assetId, alt, title }: { document: Course
   const api = useMemo(() => getRobotApi(), [])
   const [source, setSource] = useState<string>()
   const [failed, setFailed] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const opener = useRef<HTMLButtonElement>(null)
+  const closeImage = (): void => { setExpanded(false); opener.current?.focus() }
   useEffect(() => {
     let disposed = false
-    setSource(undefined); setFailed(false)
+    setSource(undefined); setFailed(false); setExpanded(false)
     void api.getCourseLectureAsset(document.courseId, document.lessonId, document.documentDigest, assetId).then((asset) => {
       if (!disposed) setSource(`data:${asset.mimeType};base64,${asset.dataBase64}`)
     }).catch(() => { if (!disposed) setFailed(true) })
@@ -123,7 +126,18 @@ function LectureAssetImage({ document, assetId, alt, title }: { document: Course
   }, [api, document.documentDigest, assetId])
   if (failed) return <span className="lecture-asset-error"><AlertOctagon size={15} /> 图片暂时无法显示{alt ? `：${alt}` : ''}</span>
   if (!source) return <span className="lecture-asset-loading">正在载入图片…</span>
-  return <img className="lecture-asset" src={source} alt={alt} title={title} />
+  return <>
+    <button ref={opener} type="button" className="lecture-asset-open" onClick={() => setExpanded(true)} aria-label={`查看大图：${alt || '讲义图片'}`}>
+      <img className="lecture-asset" src={source} alt={alt} title={title} />
+      <span>点击查看大图</span>
+    </button>
+    {expanded && <div className="lecture-image-dialog" role="dialog" aria-modal="true" aria-label={alt || '讲义图片'} onKeyDown={(event) => { if (event.key === 'Escape') closeImage() }} onClick={closeImage}>
+      <div className="lecture-image-dialog-content" onClick={(event) => event.stopPropagation()}>
+        <button autoFocus type="button" onClick={closeImage}>关闭大图 · Esc</button>
+        <img src={source} alt={alt} />
+      </div>
+    </div>}
+  </>
 }
 
 function SafeMath({ value, displayMode = false }: { value: string; displayMode?: boolean }): React.JSX.Element {

@@ -2,13 +2,14 @@ import Editor, { type BeforeMount } from '@monaco-editor/react'
 import type { Monaco } from '@monaco-editor/react'
 import type { editor as MonacoEditor } from 'monaco-editor'
 import { BookOpen, CheckCircle2, ChevronDown, ChevronRight, CircleAlert, Code2, File, FileCode2, FileJson2, FileSliders, Folder, FolderOpen, FolderTree, Hammer, LockKeyhole, Play, RotateCcw, Save, ShieldCheck, Sparkles, Zap } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { useLayoutEffect, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CandidateDiagnostic, CandidateSnapshot, ProjectExplorerNode, ProjectExplorerSnapshot, StudentCodeExplanationRequest, StudentCodeFile, StudentDiagnosticHelp, WorkspaceSummary } from '../../../shared/types'
 import { getRobotApi } from '../lib/browser-demo-api'
 import { buildStudentDiagnosticCards, formatDiagnosticsForStudentAi } from '../lib/student-diagnostics'
 import { toStudentErrorMessage } from '../lib/student-errors'
 import { readMcuEditorViewState, saveMcuEditorViewState } from '../lib/mcu-monaco-session'
-import { registerPendingSave } from '../lib/pending-saves'
+import { flushPendingSaves, registerPendingSave } from '../lib/pending-saves'
 import { useAppUpdate } from './AppUpdateProvider'
 
 interface StudentCodeEditorProps {
@@ -73,6 +74,13 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string>()
   const [diagnostic, setDiagnostic] = useState<string>()
+  const [selectedDirectory, setSelectedDirectory] = useState<string>()
+  const [creation, setCreation] = useState<{ directory: boolean; parent: string; name: string }>()
+  const [creating, setCreating] = useState(false)
+  const creatingRef = useRef(false)
+  const [creationError, setCreationError] = useState<string>()
+  const [treeMenu, setTreeMenu] = useState<{ path: string; x: number; y: number }>()
+  useEffect(() => { setSelectedDirectory(undefined); setCreation(undefined); setTreeMenu(undefined) }, [workspace?.id])
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const saveInFlightRef = useRef<Promise<CandidateSnapshot | undefined> | undefined>(undefined)
   const editVersionRef = useRef(0)
@@ -94,6 +102,50 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   } : undefined)
   const directEditing = workspace?.platform === 'wch-ch32v203' || workspace?.platform === 'ti-mspm0'
   const aiReviewActive = isActiveAiCandidate(candidate)
+  const canCreate = Boolean(workspace?.workspacePurpose === 'mcu-sandbox' && workspace.state === 'ready' && !workspace.activeCandidateId && !busy && !workspaceAction?.compileDisabled && !aiReviewActive && !saving && !installing && !creating)
+  const openCreation = (directory: boolean, parent?: string): void => {
+    if (!canCreate) return
+    setTreeMenu(undefined)
+    setCreationError(undefined)
+    const targetParent = parent ?? selectedDirectory ?? (selected ? selected.path.split('/').slice(0, -1).join('/') : '')
+    const target = explorer?.nodes.find(node => node.kind === 'directory' && node.displayPath === targetParent)
+    if (target && explorer) setExpandedNodes(current => { const next = withExpandedAncestors(current, explorer.nodes, target); next.add(target.id); return next })
+    setSelectedDirectory(targetParent)
+    setCreation({ directory, parent: targetParent, name: '' })
+  }
+  const createEntry = async (): Promise<void> => {
+    if (!workspace || !creation || !canCreate || creatingRef.current) return
+    const request = creation
+    creatingRef.current = true
+    setCreating(true)
+    setCreationError(undefined)
+    try {
+      await flushPendingSaves()
+      const result = request.directory
+        ? await api.createWorkspaceDirectory(workspace.id, request.parent, request.name)
+        : await api.createWorkspaceFile(workspace.id, request.parent, request.name)
+      const snapshot = await api.getProjectExplorer(workspace.id)
+      if (viewContextRef.current.workspaceId !== workspace.id) { setCreation(undefined); return }
+      setExplorer(snapshot)
+      explorerContentCache.current.clear()
+      const node = snapshot.nodes.find(item => item.displayPath === result.path)
+      if (node) {
+        setExpandedNodes(current => { const next = withExpandedAncestors(current, snapshot.nodes, node); if (request.directory) next.add(node.id); return next })
+        if (request.directory) setSelectedDirectory(result.path)
+        else {
+          const file = await api.readProjectExplorerFile(workspace.id, node.id)
+          setSelectedDirectory(undefined)
+          setSelectedPath(result.path)
+          setContent(file.content)
+          setDirty(false)
+          localStorage.setItem(`robotdog.mcu-last-file.${workspace.id}`, result.path)
+          requestAnimationFrame(() => editorRef.current?.focus())
+        }
+      }
+      setCreation(undefined)
+    } catch (error) { setCreationError(toStudentErrorMessage(error)) }
+    finally { creatingRef.current = false; setCreating(false) }
+  }
   const editorWritable = Boolean(selected?.editable && (directEditing ? !aiReviewActive : manualCandidate))
   const buildDiagnostics = directEditing ? workspaceDiagnostics : manualCandidate?.diagnostics ?? []
   const fileGroups = useMemo(() => getStudentFileGroups(files), [files])
@@ -130,6 +182,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   }, [api])
 
   useEffect(() => {
+    if (creatingRef.current) return
     if (!workspace) { setFiles([]); setExplorer(undefined); setContent(''); return }
     explorerContentCache.current.clear()
     let disposed = false
@@ -261,6 +314,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
   }
 
   const switchFile = (path: StudentCodeFile['path'], line?: number): void => {
+    setSelectedDirectory(undefined)
     void (async () => {
       if (workspace && selectedPath) saveMcuEditorViewState(workspace.id, selectedPath, editorRef.current?.saveViewState() ?? null)
       await saveCurrent()
@@ -339,12 +393,18 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
 
   if (!workspace) return <div className="code-editor-empty"><Code2 size={28} /><h3>先新建一个项目</h3><p>系统会复制当前版本的教学模板，再让你在安全草稿中试改。</p></div>
   const mcu = workspace.learningPath === 'mcu-foundations' || workspace.platform === 'ti-mspm0'
+  const creationInput = creation ? <form className="sandbox-inline-create" aria-label={creation.directory ? '新建文件夹' : '新建文件'} onSubmit={event => { event.preventDefault(); void createEntry() }} onKeyDown={event => { if (event.key === 'Escape' && !creating) { event.stopPropagation(); setCreation(undefined) } }}>
+    <div>{creation.directory ? <Folder size={15} /> : <File size={15} />}<input key={`${creation.parent}:${creation.directory}`} autoFocus aria-label={creation.directory ? '文件夹名称' : '文件名称'} value={creation.name} disabled={creating} maxLength={255} placeholder={creation.directory ? '文件夹名称' : '文件名称，例如 helper.c'} onChange={event => { setCreationError(undefined); setCreation({ ...creation, name: event.target.value }) }} /></div>
+    <small>{creating ? '正在创建…' : 'Enter 创建 · Esc 取消'}</small>
+    {creationError && <p role="alert">{creationError}</p>}
+  </form> : undefined
+
 
   return (
     <div className="student-code-studio">
       <aside className={`student-file-rail ${explorerMode ? 'is-project-explorer' : ''}`}>
         <div className="editor-rail-heading"><span>{mcu ? '工程文件' : '代码赛道'}</span><strong>{mcu ? 'Workspace' : manualCandidate ? '安全草稿' : '项目原稿'}</strong>{railAction}</div>
-        {explorerMode && explorer ? <ProjectExplorerTree snapshot={explorer} selectedPath={selectedPath} expanded={expandedNodes} errorPaths={new Set(buildDiagnostics.map((item) => item.path).filter((path): path is string => Boolean(path)))} onToggle={(id) => setExpandedNodes((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next })} onSelect={(path) => switchFile(path)} /> : fileGroups.map((group) => (
+        {explorerMode && explorer ? <ProjectExplorerTree snapshot={explorer} creationInput={creationInput} creationParent={creation?.parent} selectedPath={selectedDirectory ?? selectedPath} expanded={expandedNodes} errorPaths={new Set(buildDiagnostics.map((item) => item.path).filter((path): path is string => Boolean(path)))} onToggle={(id) => { if (creating) return; if (creation) setCreation(undefined); setSelectedDirectory(explorer.nodes.find(node => node.id === id)?.displayPath); setExpandedNodes((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next }) }} onRootSelect={() => setSelectedDirectory('')} onContextMenu={canCreate ? (path, x, y) => setTreeMenu({ path, x, y }) : undefined} onSelect={(path) => { if (creating) return; setCreation(undefined); switchFile(path) }} /> : fileGroups.map((group) => (
           <div className="student-file-group" key={group}>
             <span>{group}</span>
             {files.filter((file) => file.group === group).map((file) => (
@@ -356,15 +416,15 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
           </div>
         ))}
         {explorerMode && explorer?.warning && <div className="explorer-warning"><CircleAlert size={14} /> {explorer.warning}</div>}
-        <div className="editor-safety-note"><ShieldCheck size={16} /><span>{workspace.platform === 'ti-mspm0' ? '只会保存 src 教学代码，启动、链接和烧录设置保持受保护。' : mcu ? '只会保存 App 教学目录，启动、链接和烧录设置保持受保护。' : '只会保存学生代码，硬件和烧录设置不会被改动。'}</span></div>
+        <div className="editor-safety-note"><ShieldCheck size={16} /><span>{workspace.workspacePurpose === 'mcu-sandbox' ? '自由工程：可编辑完整工程文件，修改仅保存到当前工程。' : workspace.platform === 'ti-mspm0' ? '只会保存 src 教学代码，启动、链接和烧录设置保持受保护。' : mcu ? '只会保存 App 教学目录，启动、链接和烧录设置保持受保护。' : '只会保存学生代码，硬件和烧录设置不会被改动。'}</span></div>
       </aside>
 
-      <div className="student-editor-main">
+      <div inert={creation ? true : undefined} className="student-editor-main">
         <header className="student-editor-toolbar">
-          <div><span className="eyebrow">{selected?.group ?? selectedNode?.role ?? '学生代码'}</span><h2>{selected?.label ?? selectedNode?.name ?? '选择一个文件'}</h2><p>{selected?.path ?? selectedNode?.displayPath}{selectedNode ? ` · ${selectedNode.origin === 'lesson-overlay' ? `课程工程 ${workspace.headCommit.slice(0, 7)}` : `工程文件`}` : ''}</p></div>
+          <div><span className="eyebrow">{selected?.group ?? selectedNode?.role ?? '学生代码'}</span><h2>{selected?.label ?? selectedNode?.name ?? '选择一个文件'}</h2><p>{selected?.path ?? selectedNode?.displayPath}{selectedNode ? ` · ${selectedNode.origin === 'lesson-overlay' ? `${workspace.workspacePurpose === 'mcu-sandbox' ? '自由工程' : '课程工程'} ${workspace.headCommit.slice(0, 7)}` : `工程文件`}` : ''}</p></div>
           <div className="student-editor-actions">
             <button type="button" onClick={explainSelection} disabled={busy || !selected}><Sparkles size={14} /> 解释选中代码</button>
-            {mcu ? (aiReviewActive && candidate ? <><span className="draft-save-state"><CheckCircle2 size={13} /> AI 修改待确认</span>{onRejectCandidate && <button type="button" onClick={() => onRejectCandidate(candidate.id)} disabled={busy}><RotateCcw size={14} /> 放弃修改</button>}<button type="button" className="button-primary" onClick={onReadyForReview} disabled={busy}><FolderTree size={14} /> 查看并处理修改</button></> : <><span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`} role="status" aria-live="polite">{saving ? '正在保存…' : dirty ? '有未保存修改' : <><CheckCircle2 size={13} /> 已保存</>}</span>{workspaceAction && <><button type="button" onClick={() => { void saveCurrent() }} disabled={!dirty || saving || !editorWritable}><Save size={14} />保存</button><button type="button" onClick={workspaceAction.onCompile} disabled={workspaceAction.compileDisabled || saving || dirty}><Hammer size={14} />编译</button><button type="button" className="button-primary" onClick={workspaceAction.onFlash} disabled={workspaceAction.flashDisabled || saving || dirty} title={workspaceAction.flashTitle}><Zap size={14} />烧录</button></>}</>) : !manualCandidate ? <button type="button" className="button-primary" onClick={startDraft} disabled={busy}><Play size={14} /> 开始编写</button> : <>
+            {mcu ? (aiReviewActive && candidate ? <><span className="draft-save-state"><CheckCircle2 size={13} /> AI 修改待确认</span>{onRejectCandidate && <button type="button" onClick={() => onRejectCandidate(candidate.id)} disabled={busy}><RotateCcw size={14} /> 放弃修改</button>}<button type="button" className="button-primary" onClick={onReadyForReview} disabled={busy}><FolderTree size={14} /> 查看并处理修改</button></> : <><span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`} role="status" aria-live="polite">{saving ? '正在保存…' : dirty ? '有未保存修改' : <><CheckCircle2 size={13} /> 已保存</>}</span>{workspaceAction && <><button type="button" onClick={() => { void saveCurrent() }} disabled={!dirty || saving || !editorWritable}><Save size={14} />保存</button><button type="button" onClick={workspaceAction.onCompile} disabled={workspaceAction.compileDisabled || saving || dirty || Boolean(creation)}><Hammer size={14} />编译</button><button type="button" className="button-primary" onClick={workspaceAction.onFlash} disabled={workspaceAction.flashDisabled || saving || dirty || Boolean(creation)} title={workspaceAction.flashTitle}><Zap size={14} />烧录</button></>}</>) : !manualCandidate ? <button type="button" className="button-primary" onClick={startDraft} disabled={busy}><Play size={14} /> 开始编写</button> : <>
               <span className={`draft-save-state ${dirty || saving ? 'saving' : ''}`}>{saving ? '正在保存草稿…' : dirty ? '等待自动保存…' : <><CheckCircle2 size={13} /> 草稿已保存</>}</span>
               <button type="button" onClick={discard} disabled={busy}><RotateCcw size={14} /> 放弃草稿</button>
               <button type="button" className="button-primary" onClick={checkCode} disabled={busy || saving}><Save size={14} /> 检查代码</button>
@@ -389,7 +449,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
             value={content}
             onChange={(value) => { if (editorWritable) { editVersionRef.current += 1; setContent(value ?? ''); setDirty(true); setDiagnostic(undefined) } }}
             options={{
-              readOnly: installing || !editorWritable, automaticLayout: true, minimap: { enabled: false },
+              readOnly: installing || creating || !editorWritable, automaticLayout: true, minimap: { enabled: false },
               readOnlyMessage: { value: !selected?.editable ? '这是受保护文件，只能查看。' : aiReviewActive ? '请先完成或放弃当前 AI 修改。' : '请点击右上角的“开始编写”按钮后再修改。' },
               fontFamily: "'Cascadia Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace", fontSize: 15, lineHeight: 24, tabSize: 4,
               padding: { top: 14, bottom: 14 }, scrollBeyondLastLine: false, wordWrap: 'on',
@@ -405,8 +465,26 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
             : message && <div className="editor-feedback"><strong>当前进度</strong><p>{message}</p></div>}
         {bottomPanel}
       </div>
+      {treeMenu && canCreate && createPortal(<TreeContextMenu menu={treeMenu} onClose={() => setTreeMenu(undefined)} onCreate={directory => openCreation(directory, treeMenu.path)} />, document.body)}
+
     </div>
   )
+}
+
+function TreeContextMenu({ menu, onClose, onCreate }: { menu: { x: number; y: number }; onClose(): void; onCreate(directory: boolean): void }): React.JSX.Element {
+  const element = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ x: menu.x, y: menu.y })
+  useLayoutEffect(() => {
+    const bounds = element.current?.getBoundingClientRect()
+    if (bounds) setPosition({ x: Math.max(0, Math.min(menu.x, window.innerWidth - bounds.width)), y: Math.max(0, Math.min(menu.y, window.innerHeight - bounds.height)) })
+  }, [menu.x, menu.y])
+  useEffect(() => { window.addEventListener('resize', onClose); return () => window.removeEventListener('resize', onClose) }, [onClose])
+  return <div className="sandbox-menu-dismiss" onKeyDown={event => { if (event.key === 'Escape') onClose() }} onClick={onClose} onContextMenu={event => { event.preventDefault(); onClose() }}>
+    <div ref={element} className="sandbox-tree-menu" role="menu" aria-label="工程目录操作" style={{ left: position.x, top: position.y }}>
+      <button autoFocus role="menuitem" type="button" onClick={() => onCreate(false)}><File size={14} />新建文件</button>
+      <button role="menuitem" type="button" onClick={() => onCreate(true)}><Folder size={14} />新建文件夹</button>
+    </div>
+  </div>
 }
 
 export function shouldClearCompilerIssue(candidate: CandidateSnapshot | undefined, diagnosticCount: number): boolean {
@@ -424,14 +502,14 @@ export function getStudentFileGroups(files: StudentCodeFile[]): string[] {
   return [...new Set(files.map((file) => file.group))]
 }
 
-function ProjectExplorerTree({ snapshot, selectedPath, expanded, errorPaths, onToggle, onSelect }: { snapshot: ProjectExplorerSnapshot; selectedPath: string; expanded: Set<string>; errorPaths: Set<string>; onToggle(id: string): void; onSelect(path: string): void }): React.JSX.Element {
+function ProjectExplorerTree({ snapshot, selectedPath, expanded, errorPaths, onToggle, onSelect, onContextMenu, onRootSelect, creationInput, creationParent }: { snapshot: ProjectExplorerSnapshot; selectedPath: string; expanded: Set<string>; errorPaths: Set<string>; onToggle(id: string): void; onSelect(path: string): void; onContextMenu?(path: string, x: number, y: number): void; onRootSelect?(): void; creationInput?: ReactNode; creationParent?: string }): React.JSX.Element {
   const children = new Map<string | undefined, ProjectExplorerNode[]>()
   for (const node of snapshot.nodes) children.set(node.parentId, [...(children.get(node.parentId) ?? []), node])
   const render = (parentId: string | undefined, depth: number): React.JSX.Element[] => (children.get(parentId) ?? []).map((node) => {
     const open = node.kind === 'directory' && expanded.has(node.id)
     const Icon = node.kind === 'directory' ? open ? FolderOpen : Folder : fileIcon(node)
     return <div className="explorer-tree-entry" key={node.id}>
-      <button type="button" role="treeitem" aria-expanded={node.kind === 'directory' ? open : undefined} aria-selected={node.kind === 'file' ? selectedPath === node.displayPath : undefined} className={`${selectedPath === node.displayPath ? 'active' : ''} ${errorPaths.has(node.displayPath) ? 'is-error' : node.state !== 'normal' ? `is-${node.state}` : ''}`} style={{ paddingLeft: `${10 + depth * 15}px` }} onClick={() => node.kind === 'directory' ? onToggle(node.id) : onSelect(node.displayPath)} onKeyDown={(event) => {
+      <button type="button" onContextMenu={event => { if (onContextMenu && node.kind === 'directory' && node.access === 'editable') { event.preventDefault(); onContextMenu(node.displayPath, event.clientX, event.clientY) } }} role="treeitem" aria-expanded={node.kind === 'directory' ? open : undefined} aria-selected={node.kind === 'file' ? selectedPath === node.displayPath : undefined} className={`${selectedPath === node.displayPath ? 'active' : ''} ${errorPaths.has(node.displayPath) ? 'is-error' : node.state !== 'normal' ? `is-${node.state}` : ''}`} style={{ paddingLeft: `${10 + depth * 15}px` }} onClick={() => node.kind === 'directory' ? onToggle(node.id) : onSelect(node.displayPath)} onKeyDown={(event) => {
         if (event.key === 'ArrowRight' && node.kind === 'directory' && !open) { event.preventDefault(); onToggle(node.id) }
         else if (event.key === 'ArrowLeft' && node.kind === 'directory' && open) { event.preventDefault(); onToggle(node.id) }
         else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); moveTreeFocus(event.currentTarget, event.key === 'ArrowDown' ? 1 : -1) }
@@ -443,10 +521,11 @@ function ProjectExplorerTree({ snapshot, selectedPath, expanded, errorPaths, onT
         {node.kind === 'file' && node.state === 'modified' && <i className="explorer-state-dot" title="安全草稿中已修改" />}
         {node.kind === 'file' && errorPaths.has(node.displayPath) && <i className="explorer-error-dot" title="这个文件有编译错误" />}
       </button>
+      {open && creationParent === node.displayPath && <div style={{ paddingLeft: `${25 + depth * 15}px` }}>{creationInput}</div>}
       {open && render(node.id, depth + 1)}
     </div>
   })
-  return <div className="project-explorer-tree" role="tree" aria-label={`${snapshot.rootLabel} 工程目录`}><div className="explorer-root"><FolderOpen size={15} /><strong>{snapshot.rootLabel}</strong><small>{snapshot.baselineAvailable ? '完整构建工程' : '仅课程文件'}</small></div>{snapshot.nodes.length > 0 ? render(undefined, 0) : <div className="explorer-empty">工程目录为空，请重新打开工作区。</div>}</div>
+  return <div className="project-explorer-tree" role="tree" aria-label={`${snapshot.rootLabel} 工程目录`}><div className="explorer-root" role="button" tabIndex={0} onClick={onRootSelect} onKeyDown={event => { if (event.key === 'Enter') onRootSelect?.() }} onContextMenu={event => { if (onContextMenu) { event.preventDefault(); onContextMenu('', event.clientX, event.clientY) } }}><FolderOpen size={15} /><strong>{snapshot.rootLabel}</strong><small>{snapshot.baselineAvailable ? '完整构建工程' : '仅课程文件'}</small></div>{creationParent === '' && creationInput}{snapshot.nodes.length > 0 ? render(undefined, 0) : <div className="explorer-empty">工程目录为空，请重新打开工作区。</div>}</div>
 }
 
 function fileIcon(node: ProjectExplorerNode): typeof File {

@@ -6,6 +6,7 @@ import { CandidateService } from './candidate-service'
 import { FirmwareBaselineResolver } from './firmware-baseline-resolver'
 import { FirmwareBaselineService } from './firmware-baseline-service'
 import { WorkspaceService } from './workspace-service'
+import { listSandboxDirectories, listSandboxProjectFiles } from './sandbox-project-files'
 
 const ROOT_DIRECTORIES = new Set(['Core', 'Debug', 'Ld', 'Peripheral', 'Startup', 'User', 'RHS_HAL', 'Board', 'Teaching', 'cmake'])
 const ROOT_FILES = new Set(['CMakeLists.txt', 'CMakePresets.json', 'rhs.firmware.json', 'pony.firmware.json', 'README.md'])
@@ -47,8 +48,8 @@ export class ProjectExplorerService {
     const context = await this.buildContext(workspaceId, candidateId)
     const isPony = context.workspace.firmwareBaselineId.startsWith('ch32v203-pony')
     const rootLabel = context.workspace.platform === 'ti-mspm0'
-      ? 'TI MSPM0G3507 · SysConfig 工程'
-      : isPony
+      ? `TI MSPM0G3507 · ${context.workspace.templateId.includes('sdk-empty') ? '基础 SDK 空工程' : context.workspace.templateId.includes('pony') ? '完整小马例程' : 'SysConfig 工程'}`
+      : context.workspace.templateId === 'ch32v203-sdk-empty' ? 'CH32V203 · 基础 SDK 空工程' : isPony
         ? `Pony Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`
         : `RHS Firmware · ${context.workspace.baselineCommit.slice(0, 7)}`
     return {
@@ -59,7 +60,7 @@ export class ProjectExplorerService {
       baselineCommit: context.workspace.baselineCommit,
       baselineAvailable: context.baselineAvailable,
       warning: context.warning,
-      nodes: buildNodes(context.files, context.modifiedPaths)
+      nodes: buildNodes(context.files, context.modifiedPaths, context.directories)
     }
   }
 
@@ -86,6 +87,7 @@ export class ProjectExplorerService {
     baselineRoot?: string
     baselineAvailable: boolean
     warning?: string
+    directories?: string[]
   }> {
     const workspace = await this.workspaces.get(workspaceId)
     if (workspace.learningPath === 'fun-line-following') throw new Error('PROJECT_EXPLORER_MCU_REQUIRED')
@@ -97,6 +99,11 @@ export class ProjectExplorerService {
       for (const file of candidate.validation?.files ?? []) modifiedPaths.add(file.path)
     }
     const files = new Map<string, FileDescriptor>()
+    if (workspace.workspacePurpose === 'mcu-sandbox' && !candidateId) {
+      const root = await this.workspaces.getProjectRootForMain(workspaceId)
+      for (const file of await listSandboxProjectFiles(root)) files.set(file.path, fromStudentFile(file))
+      return { workspace, files, modifiedPaths, baselineRoot: root, baselineAvailable: true, directories: await listSandboxDirectories(root) }
+    }
     let baselineRoot: string | undefined
     let baselineAvailable = false
     let warning: string | undefined
@@ -201,8 +208,13 @@ function languageFor(name: string): ProjectExplorerLanguage | undefined {
   return undefined
 }
 
-function buildNodes(files: Map<string, FileDescriptor>, modifiedPaths: Set<string>): ProjectExplorerNode[] {
+function buildNodes(files: Map<string, FileDescriptor>, modifiedPaths: Set<string>, directories: string[] = []): ProjectExplorerNode[] {
   const nodes = new Map<string, ProjectExplorerNode>()
+  for (const path of directories) {
+    const parts = path.split('/')
+    nodes.set(path, { id: nodeId('directory', path), parentId: parts.length > 1 ? nodeId('directory', parts.slice(0, -1).join('/')) : undefined,
+      name: parts.at(-1)!, kind: 'directory', origin: 'lesson-overlay', role: roleFor(path), access: 'editable', state: 'normal', displayPath: path })
+  }
   for (const descriptor of files.values()) {
     const parts = descriptor.path.split('/')
     for (let index = 1; index < parts.length; index += 1) {

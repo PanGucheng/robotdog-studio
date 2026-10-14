@@ -67,6 +67,8 @@ export const IPC_CHANNELS = {
   projectExplorerGet: 'project-explorer:get',
   projectExplorerFileRead: 'project-explorer:file:read',
   workspaceFileWrite: 'workspace:file:write',
+  workspaceFileCreate: 'workspace:file:create',
+  workspaceDirectoryCreate: 'workspace:directory:create',
   manualDraftOpen: 'manual-draft:open',
   manualDraftWrite: 'manual-draft:write',
   manualDraftExplain: 'manual-draft:explain',

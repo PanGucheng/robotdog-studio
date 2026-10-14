@@ -78,7 +78,7 @@ describe('McuHome free practice filtering and Pony presentation', () => {
 
     // Contains the sandbox project
     expect(html).toContain('小马自由练习')
-    expect(html).toContain('完整小马固件 · Pony v2.5')
+    expect(html).toContain('完整小马例程')
 
     // Filtered out lesson attempt and fun project
     expect(html).not.toContain('流水灯实验')
@@ -86,7 +86,7 @@ describe('McuHome free practice filtering and Pony presentation', () => {
 
     // Creation card details
     expect(html).toContain('创建自由练习工程')
-    expect(html).toContain('基于 Pony v2.5 全功能小马固件')
+    expect(html).toContain('基础 SDK 空工程')
   })
 
   it('renders landing panel with free practice entry pointing to Pony v2.5', () => {
@@ -104,7 +104,7 @@ describe('McuHome free practice filtering and Pony presentation', () => {
 
     expect(html).toContain('FREE WORKSHOP')
     expect(html).toContain('自由练习')
-    expect(html).toContain('基于 Pony v2.5 全功能小马固件')
+    expect(html).toContain('基础 SDK 空工程')
     expect(html).toContain('小马自由练习')
   })
 
@@ -136,4 +136,14 @@ describe('McuHome free practice filtering and Pony presentation', () => {
     )
     expect(disabledHtml).toContain('disabled=""')
   })
+  it('shows TI history and both templates without mixing MCU workspaces', () => {
+    const ti = { ...ponySandbox, id: 'ws_ti', name: 'TI 学生工程', learningPath: 'ti-mspm0-foundations', platform: 'ti-mspm0', target: 'MSPM0G3507', templateId: 'ti-mspm0g3507-pony' } as WorkspaceSummary
+    const html = renderToString(createElement(McuHome, { editionId: 'ti-mspm0-foundations', panel: 'free-practice', workspaces: [ti, ponySandbox], learning: [], recent: [], busy: false, onNavigate: () => undefined, onCreateWorkspace: () => undefined }))
+    expect(html).toContain('TI 学生工程')
+    expect(html).not.toContain('2026-09-23 16:00 小马自由练习')
+    expect(html).toContain('基础 SDK 空工程')
+    expect(html).toContain('完整小马例程')
+    expect(html).toContain('真机待验收')
+  })
+
 })

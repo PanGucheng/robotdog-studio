@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": 2,
+  "courseSemanticSha256": "ab4a2d31d67bc7d2462a44398fa92b96d1d6215e53eb78c8a52b25076b143620",
+  "lessonSemanticSha256": {
+    "gpio-sysconfig-toggle": "41b07e0c48c4d036a38f56482024043d373f0e5873898e7bd9251d0d9234982e"
+  },
+  "lectureDocumentDigest": {
+    "gpio-sysconfig-toggle": "d13cb803c509084d34ec92c4b00417727230749acce58745a7b732d5a9e0849b"
+  },
+  "lectureAssetSha256": {
+    "asset_c03ce4cf8704ce20b86fb007": "b4f708fce4f1e06992a42297e6f1041c2c9bd676a4b14e7f21250a4e1e91fe49",
+    "asset_efb93046168b071a1cb04d3e": "8e4ff79ac6eb938083897a16da7ba14f154d222c3e4cea5938e3689b94963068",
+    "asset_7c21298b50cf2c9b5ca27fd1": "ac66c45930119200d2a4b736148928095b2a3dadd7492928214b8b6b053f95a4",
+    "asset_92ed8c30962a7666df61b9bc": "4c41b0f6bedfadde00b9bd85476ae3c1d9c9d852d61c6b3729b104453a6c5b1a",
+    "asset_3f2553bd9dab14ecd5b3d628": "46e3107f9434ec5a4eff2ee253de9133bee5cb0b5ffda2cc662ac24ed9e6da7c",
+    "asset_65f63f0ca35e72dde62d7a7c": "d5243a2122728bb7432173fa7005ad90acfd7a793add63c97ca7c6ebd5113814"
+  }
+}
