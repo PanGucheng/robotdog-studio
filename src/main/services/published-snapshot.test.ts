@@ -42,7 +42,7 @@ describe('exportPublishedSnapshot', () => {
       lessonOrder: string[]
     }
     expect(publishedCourse.status).toBe('published')
-    expect(publishedCourse.contentVersion).toBe(15)
+    expect(publishedCourse.contentVersion).toBe(16)
     // Section 9: lessonOrder must be rebuilt containing ONLY published lessons
     expect(publishedCourse.lessonOrder).toEqual(['first-program-on-chip'])
 
@@ -80,7 +80,7 @@ describe('exportPublishedSnapshot', () => {
     expect(courseDetail.lessons[0].verification).toBe('hardware-checked')
 
     const spec = await studentCourseService.getWorkspaceCreationSpec('ch32v203-foundations', 'first-program-on-chip')
-    expect(spec.templateVersion).toBe('content-v15')
+    expect(spec.templateVersion).toBe('content-v16')
     expect(spec.templateId).toBe('first-program-on-chip')
     expect(existsSync(join(spec.templateRoot, 'App', 'Src', 'experiment.c'))).toBe(true)
 

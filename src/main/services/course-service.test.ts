@@ -15,7 +15,7 @@ describe('CourseService', () => {
     const service = new CourseService({ rootDir: join(process.cwd(), 'resources', 'courses', 'mcu-foundations'), includeDrafts: true })
     const courses = await service.listCourses()
     expect(courses).toHaveLength(1)
-    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 15, lessonCount: 2 })
+    expect(courses[0]).toMatchObject({ courseId: 'ch32v203-foundations', contentVersion: 16, lessonCount: 2 })
     const course = await service.getCourse('ch32v203-foundations')
     expect(course.lessons.map((lesson) => lesson.lessonId)).toEqual(['first-program-on-chip', 'gpio-output'])
   })
@@ -39,7 +39,7 @@ describe('CourseService', () => {
       includeDrafts: true
     })
     const spec = await service.getWorkspaceCreationSpec('ch32v203-foundations', 'first-program-on-chip')
-    expect(spec).toMatchObject({ templateId: 'first-program-on-chip', templateVersion: 'content-v15' })
+    expect(spec).toMatchObject({ templateId: 'first-program-on-chip', templateVersion: 'content-v16' })
   })
 
   it('reads a template file for previewing code in lecture view', async () => {

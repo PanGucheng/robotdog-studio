@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": 16,
+  "courseSemanticSha256": "1bd007eb433ce57f138de48038a9c38823a1df24f79747bac19d22777b715f87",
+  "lessonSemanticSha256": {
+    "first-program-on-chip": "359ede162da9888395b8e5307ea001aec9e596a1630b96980843f60b4ec44917",
+    "gpio-output": "f3f7dfbdab1db551fb5704f38c5f6874c6b67b4d471abd4e0d3e2a51a3f13de5"
+  },
+  "lectureDocumentDigest": {
+    "first-program-on-chip": "86f54cd68d13529499b4f017785a2f25be1aa7c9e33c50a44fcd575c0cab46e4",
+    "gpio-output": "82bcdbce9f6e8d1027ef5118d1139f286d9a5039431f1b6940be6717d18bedae"
+  }
+}

@@ -15,7 +15,7 @@ describe('TI machine-horse first lesson', () => {
     const options = { rootDir: join(repo, 'resources/courses/ti-mspm0-foundations'), templatesRoot: join(repo, 'resources/workspace-templates') }
     const author = new CourseService({ ...options, includeDrafts: true })
     const lesson = await author.getLesson('ti-mspm0-gpio-foundations', 'gpio-sysconfig-toggle')
-    expect(lesson).toMatchObject({ contentVersion: 5, status: 'draft', verification: 'pending-hardware-check' })
+    expect(lesson).toMatchObject({ contentVersion: 6, status: 'draft', verification: 'pending-hardware-check' })
     expect(lesson.completionChecks.filter(check => check.type === 'manual-observation-confirmed').map(check => check.target)).toEqual(['observe-green', 'observe-slow-green', 'observe-led'])
     const lecture = await author.getLecture(lesson.courseId, lesson.lessonId)
     expect(lecture.status).toBe('ready')
