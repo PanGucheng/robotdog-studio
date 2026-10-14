@@ -136,7 +136,7 @@ git push
 ### 4.1 Published Snapshot 自动过滤机制
 
 执行 `publish-content.ps1 <editionId> -sync` 时，脚本会自动调用 Studio 的 `exportPublishedSnapshot` 规则：
-1. **课次过滤**：仅收集 `status: "published"` 的 Lesson Manifest（如 `first-program-on-chip.json`）及其对应的讲义（`lectures/first-program-on-chip/lecture.md`），彻底排除 `status: "draft"` 的课次（如 `gpio-output`）；
+1. **课次过滤**：仅收集 `status: "published"` 的 Lesson Manifest 及对应讲义，排除草稿。2026-10-14 沁恒第二课 `gpio-output` 已由维护者授权纳入正式快照；`author-approved` 记录免去本次实板验收，不能视为硬件已实测。该内容要求最低软件版本 1.2.0；
 2. **课序重构**：`course.json` 中的 `lessonOrder` 会被自动重写为仅包含已发布课次 ID 列表；
 3. **模板过滤**：仅打包已发布课次所引用的工作区模板，草稿课次的专属模板不会进入发布包；通用自由工程模板（如 `robohorse-pony-firmware`, `ch32v203-mcu-foundations` 等）和固件基线则予以完整保留；
 4. **远程分发隔离保证**：学生端下载并解压 `content.zip` 后，其课程中心绝不会显示开发中的草稿课次，杜绝未验证代码流向教学环境。

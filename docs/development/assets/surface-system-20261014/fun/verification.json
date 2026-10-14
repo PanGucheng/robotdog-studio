@@ -1,0 +1,3019 @@
+{
+  "edition": "fun-line-following",
+  "capture": "hidden Electron webContents.capturePage, lossless PNG; native caption buttons excluded",
+  "screenshots": [
+    {
+      "name": "after-fun-workbench",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-fun-parameters",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-fun-serial",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-fun-build",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-fun-wch",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-fun-code",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-fun-review",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-fun-narrow",
+      "size": {
+        "width": 1620,
+        "height": 1050
+      },
+      "viewport": [
+        1080,
+        700
+      ],
+      "scale": "1.75"
+    },
+    {
+      "name": "after-rename-dialog",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-settings",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-settings-2",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-settings-3",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-settings-4",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-settings-5",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-settings-narrow",
+      "size": {
+        "width": 1620,
+        "height": 1050
+      },
+      "viewport": [
+        1080,
+        700
+      ],
+      "scale": "1.75"
+    },
+    {
+      "name": "after-learning-center",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-learning-center-narrow",
+      "size": {
+        "width": 1620,
+        "height": 1050
+      },
+      "viewport": [
+        1080,
+        700
+      ],
+      "scale": "1.75"
+    },
+    {
+      "name": "after-about",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      },
+      "viewport": [
+        1440,
+        900
+      ],
+      "scale": "1.25"
+    },
+    {
+      "name": "after-about-narrow",
+      "size": {
+        "width": 1620,
+        "height": 1050
+      },
+      "viewport": [
+        1080,
+        700
+      ],
+      "scale": "1.75"
+    }
+  ],
+  "checks": [
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".window-titlebar",
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 36,
+          "right": 1440,
+          "bottom": 36
+        },
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1440,
+          "height": 85,
+          "right": 1440,
+          "bottom": 121
+        },
+        {
+          "selector": ".studio-shell",
+          "x": 0,
+          "y": 36,
+          "width": 1440,
+          "height": 863.9974365234375,
+          "right": 1440,
+          "bottom": 899.9974365234375
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".studio-dialog",
+          "x": 407.5,
+          "y": 257.97918701171875,
+          "width": 625,
+          "height": 384.04168701171875,
+          "right": 1032.5,
+          "bottom": 642.0208740234375
+        },
+        {
+          "selector": ".studio-dialog-actions",
+          "x": 408.16668701171875,
+          "y": 556.5208740234375,
+          "width": 623.6666870117188,
+          "height": 84.83333587646484,
+          "right": 1031.8333740234375,
+          "bottom": 641.3542098999023
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".settings-dialog",
+          "x": 170,
+          "y": 92.9921875,
+          "width": 1100,
+          "height": 750,
+          "right": 1270,
+          "bottom": 842.9921875
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "x": 170.83334350585938,
+          "y": 93.82552337646484,
+          "width": 1098.3333740234375,
+          "height": 70.83333587646484,
+          "right": 1269.1667175292969,
+          "bottom": 164.6588592529297
+        },
+        {
+          "selector": ".settings-dialog-close",
+          "x": 1206.666748046875,
+          "y": 110.07552337646484,
+          "width": 37.5,
+          "height": 37.5,
+          "right": 1244.166748046875,
+          "bottom": 147.57552337646484
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".settings-dialog",
+          "x": 170,
+          "y": 92.9921875,
+          "width": 1100,
+          "height": 750,
+          "right": 1270,
+          "bottom": 842.9921875
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "x": 170.83334350585938,
+          "y": 93.82552337646484,
+          "width": 1098.3333740234375,
+          "height": 70.83333587646484,
+          "right": 1269.1667175292969,
+          "bottom": 164.6588592529297
+        },
+        {
+          "selector": ".settings-dialog-close",
+          "x": 1206.666748046875,
+          "y": 110.07552337646484,
+          "width": 37.5,
+          "height": 37.5,
+          "right": 1244.166748046875,
+          "bottom": 147.57552337646484
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".settings-dialog",
+          "x": 170,
+          "y": 92.9921875,
+          "width": 1100,
+          "height": 750,
+          "right": 1270,
+          "bottom": 842.9921875
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "x": 170.83334350585938,
+          "y": 93.82552337646484,
+          "width": 1098.3333740234375,
+          "height": 70.83333587646484,
+          "right": 1269.1667175292969,
+          "bottom": 164.6588592529297
+        },
+        {
+          "selector": ".settings-dialog-close",
+          "x": 1206.666748046875,
+          "y": 110.07552337646484,
+          "width": 37.5,
+          "height": 37.5,
+          "right": 1244.166748046875,
+          "bottom": 147.57552337646484
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".settings-dialog",
+          "x": 170,
+          "y": 92.9921875,
+          "width": 1100,
+          "height": 750,
+          "right": 1270,
+          "bottom": 842.9921875
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "x": 170.83334350585938,
+          "y": 93.82552337646484,
+          "width": 1098.3333740234375,
+          "height": 70.83333587646484,
+          "right": 1269.1667175292969,
+          "bottom": 164.6588592529297
+        },
+        {
+          "selector": ".settings-dialog-close",
+          "x": 1206.666748046875,
+          "y": 110.07552337646484,
+          "width": 37.5,
+          "height": 37.5,
+          "right": 1244.166748046875,
+          "bottom": 147.57552337646484
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".settings-dialog",
+          "x": 170,
+          "y": 92.9921875,
+          "width": 1100,
+          "height": 750,
+          "right": 1270,
+          "bottom": 842.9921875
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "x": 170.83334350585938,
+          "y": 93.82552337646484,
+          "width": 1098.3333740234375,
+          "height": 70.83333587646484,
+          "right": 1269.1667175292969,
+          "bottom": 164.6588592529297
+        },
+        {
+          "selector": ".settings-dialog-close",
+          "x": 1206.666748046875,
+          "y": 110.07552337646484,
+          "width": 37.5,
+          "height": 37.5,
+          "right": 1244.166748046875,
+          "bottom": 147.57552337646484
+        }
+      ]
+    },
+    {
+      "width": 1080,
+      "height": 700,
+      "nodes": [
+        {
+          "selector": ".settings-dialog",
+          "x": 35,
+          "y": 71,
+          "width": 1009.9869995117188,
+          "height": 593.9974365234375,
+          "right": 1044.9869995117188,
+          "bottom": 664.9974365234375
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "x": 36.16666793823242,
+          "y": 72.16667175292969,
+          "width": 1007.6536865234375,
+          "height": 95.66667175292969,
+          "right": 1043.82035446167,
+          "bottom": 167.83334350585938
+        },
+        {
+          "selector": ".settings-dialog-close",
+          "x": 963.3203125,
+          "y": 93.16667175292969,
+          "width": 52.5,
+          "height": 52.5,
+          "right": 1015.8203125,
+          "bottom": 145.6666717529297
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".learning-center",
+          "x": 145,
+          "y": 66,
+          "width": 1150,
+          "height": 803.9974365234375,
+          "right": 1295,
+          "bottom": 869.9974365234375
+        },
+        {
+          "selector": ".learning-header",
+          "x": 145.83334350585938,
+          "y": 66.83333587646484,
+          "width": 1148.3333740234375,
+          "height": 146.6666717529297,
+          "right": 1294.1667175292969,
+          "bottom": 213.50000762939453
+        },
+        {
+          "selector": ".learning-close",
+          "x": 1222.916748046875,
+          "y": 93.08333587646484,
+          "width": 40,
+          "height": 40,
+          "right": 1262.916748046875,
+          "bottom": 133.08333587646484
+        }
+      ]
+    },
+    {
+      "width": 1080,
+      "height": 700,
+      "nodes": [
+        {
+          "selector": ".learning-center",
+          "x": 42,
+          "y": 78,
+          "width": 995.9869995117188,
+          "height": 579.9974365234375,
+          "right": 1037.9869995117188,
+          "bottom": 657.9974365234375
+        },
+        {
+          "selector": ".learning-header",
+          "x": 43.16666793823242,
+          "y": 79.16667175292969,
+          "width": 993.6536865234375,
+          "height": 173.83334350585938,
+          "right": 1036.82035446167,
+          "bottom": 253.00001525878906
+        },
+        {
+          "selector": ".learning-close",
+          "x": 956.3203125,
+          "y": 100.16667175292969,
+          "width": 56,
+          "height": 56,
+          "right": 1012.3203125,
+          "bottom": 156.1666717529297
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".about-dialog",
+          "x": 295,
+          "y": 61,
+          "width": 850,
+          "height": 813.9974365234375,
+          "right": 1145,
+          "bottom": 874.9974365234375
+        }
+      ]
+    },
+    {
+      "width": 1080,
+      "height": 700,
+      "nodes": [
+        {
+          "selector": ".about-dialog",
+          "x": 65.296875,
+          "y": 71,
+          "width": 949.375,
+          "height": 593.9974365234375,
+          "right": 1014.671875,
+          "bottom": 664.9974365234375
+        }
+      ]
+    }
+  ],
+  "surfaceChecks": [
+    {
+      "scene": "after-fun-workbench",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-fun-parameters",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-fun-serial",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-fun-build",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".firmware-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".firmware-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-fun-wch",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".wch-flasher-workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".wch-hero",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".wch-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".wch-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".wch-log",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-fun-code",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".student-file-rail",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".editor-rail-heading",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".editor-safety-note",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".student-editor-toolbar",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".student-file-group button.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".student-editor-toolbar p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".student-file-group button small",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(223, 243, 246)",
+          "ratio": 4.88624436074374
+        },
+        {
+          "selector": ".student-file-group button small",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(234, 242, 246)",
+          "ratio": 4.950768421348649
+        },
+        {
+          "selector": ".student-file-group button small",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(234, 242, 246)",
+          "ratio": 4.950768421348649
+        },
+        {
+          "selector": ".student-file-group > span",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(234, 242, 246)",
+          "ratio": 4.950768421348649
+        },
+        {
+          "selector": ".student-file-group > span",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(234, 242, 246)",
+          "ratio": 4.950768421348649
+        },
+        {
+          "selector": ".student-file-group > span",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(234, 242, 246)",
+          "ratio": 4.950768421348649
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".editor-safety-note",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(234, 242, 246)",
+          "ratio": 4.950768421348649
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-fun-review",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-fun-narrow",
+      "scale": "1.75",
+      "width": 1080,
+      "height": 700,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 478.58856201171875,
+        "centerLeft": 506.58856201171875,
+        "centerWidth": 548.8984375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-rename-dialog",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".studio-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".studio-dialog-heading",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".studio-dialog-body",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".studio-dialog-actions",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".studio-dialog input",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-settings",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".settings-sidebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-content",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-nav-item.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        },
+        {
+          "selector": ".scale-btn.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".settings-section-desc",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-settings-2",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".settings-sidebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-content",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-nav-item.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".settings-section-desc",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-settings-3",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".settings-sidebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-content",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-nav-item.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".settings-section-desc",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-settings-4",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".settings-sidebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-content",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-nav-item.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".settings-section-desc",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".settings-section-desc",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".settings-subtext",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".settings-subtext",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-settings-5",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".settings-sidebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-content",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-nav-item.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".settings-section-desc",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-settings-narrow",
+      "scale": "1.75",
+      "width": 1080,
+      "height": 700,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".settings-sidebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-dialog-header",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-content",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".settings-nav-item.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".settings-section-desc",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 478.58856201171875,
+        "centerLeft": 506.58856201171875,
+        "centerWidth": 548.8984375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-learning-center",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".learning-body nav",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-center",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-header",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-progress",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-task",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-body nav button.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-learning-center-narrow",
+      "scale": "1.75",
+      "width": 1080,
+      "height": 700,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".learning-body nav",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-center",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-header",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-progress",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-task",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".learning-body nav button.active",
+          "role": "surface-selected",
+          "expected": "rgb(223, 243, 246)",
+          "actual": "rgb(223, 243, 246)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 478.58856201171875,
+        "centerLeft": 506.58856201171875,
+        "centerWidth": 548.8984375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-about",
+      "scale": "1.25",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".about-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".about-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".about-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".about-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 341.8489685058594,
+        "centerLeft": 361.8489685058594,
+        "centerWidth": 956.484375,
+        "crumbs": []
+      }
+    },
+    {
+      "scene": "after-about-narrow",
+      "scale": "1.75",
+      "width": 1080,
+      "height": 700,
+      "dpr": 1.5,
+      "nodes": [
+        {
+          "selector": ".workbench",
+          "role": "surface-page",
+          "expected": "rgb(245, 248, 250)",
+          "actual": "rgb(245, 248, 250)"
+        },
+        {
+          "selector": ".window-titlebar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".topbar",
+          "role": "surface-navigation",
+          "expected": "rgb(234, 242, 246)",
+          "actual": "rgb(234, 242, 246)"
+        },
+        {
+          "selector": ".chat-panel",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".chat-welcome",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".about-dialog",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".about-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".about-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".about-card",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        },
+        {
+          "selector": ".workbench-tabs",
+          "role": "surface-content",
+          "expected": "rgb(255, 255, 255)",
+          "actual": "rgb(255, 255, 255)"
+        }
+      ],
+      "contrast": [
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        },
+        {
+          "selector": ".workbench-tabs button",
+          "fg": "rgb(7, 120, 138)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.1690804640247405
+        },
+        {
+          "selector": ".chat-welcome p",
+          "fg": "rgb(82, 107, 122)",
+          "bg": "rgb(255, 255, 255)",
+          "ratio": 5.610662025393877
+        }
+      ],
+      "navigation": {
+        "brandRight": 478.58856201171875,
+        "centerLeft": 506.58856201171875,
+        "centerWidth": 548.8984375,
+        "crumbs": []
+      }
+    }
+  ],
+  "interactionChecks": []
+}

@@ -112,14 +112,14 @@ describe('AboutPage and AppMenu interactive behavior', () => {
 
     const root = createRoot(container)
     await act(async () => {
-      root.render(createElement(AppMenu, { anchorRef, onClose, onOpenSettings, onSelectAbout }))
+      root.render(createElement(AppMenu, { themeMode: 'light', onToggleTheme: vi.fn(), anchorRef, onClose, onOpenSettings, onSelectAbout }))
     })
 
     expect(container.textContent).toContain('RoboHorse Studio')
     expect(container.textContent).toContain('设置')
     expect(container.textContent).toContain('关于 RoboHorse Studio')
 
-    const items = container.querySelectorAll<HTMLButtonElement>('.project-menu-item')
+    const items = container.querySelectorAll<HTMLButtonElement>('[role=menuitem]')
     expect(items.length).toBe(2)
     await act(async () => {
       items[0]?.click()
@@ -140,7 +140,7 @@ describe('AboutPage and AppMenu interactive behavior', () => {
 
     const root = createRoot(container)
     await act(async () => {
-      root.render(createElement(AppMenu, { anchorRef, onClose, onOpenSettings: vi.fn(), onSelectAbout: vi.fn() }))
+      root.render(createElement(AppMenu, { themeMode: 'light', onToggleTheme: vi.fn(), anchorRef, onClose, onOpenSettings: vi.fn(), onSelectAbout: vi.fn() }))
     })
 
     await act(async () => {
@@ -157,7 +157,7 @@ describe('AboutPage and AppMenu interactive behavior', () => {
 
     const root = createRoot(container)
     await act(async () => {
-      root.render(createElement(AppMenu, { anchorRef, onClose, onOpenSettings: vi.fn(), onSelectAbout: vi.fn() }))
+      root.render(createElement(AppMenu, { themeMode: 'light', onToggleTheme: vi.fn(), anchorRef, onClose, onOpenSettings: vi.fn(), onSelectAbout: vi.fn() }))
     })
 
     const outside = document.createElement('div')

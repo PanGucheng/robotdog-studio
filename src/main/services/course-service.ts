@@ -1,6 +1,7 @@
 import { readFile, stat } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { z } from 'zod'
+import { hardwarePublicationAllowed } from '../../shared/course-publication'
 import type { CourseDetail, CourseLectureAsset, CourseLectureResult, CourseLesson, CourseLessonSummary, CourseProgressSnapshot, CourseSummary, StudentLectureQuestionRequest } from '../../shared/types'
 import type { WorkspaceCreationSpec } from './workspace-service'
 import { CourseLectureParseError, parseCourseLecture, type ParsedCourseLecture } from './course-lecture-parser'
@@ -45,7 +46,8 @@ const lessonManifestSchema = z.object({
   prerequisites: z.array(idSchema),
   estimatedMinutes: z.number().int().min(5).max(480),
   hardware: z.enum(['none', 'optional', 'required']),
-  verification: z.enum(['not-required', 'pending-hardware-check', 'hardware-checked']),
+  verification: z.enum(['not-required', 'pending-hardware-check', 'hardware-checked', 'author-approved']),
+  releaseApproval: z.object({ source: z.literal('explicit-user-approval'), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), reason: z.string().trim().min(1).max(500) }).strict().optional(),
   expectedObservation: z.string().min(1).max(400),
   templateId: idSchema,
   editableGlobs: z.array(z.string().min(1).max(160)),
@@ -67,7 +69,7 @@ const lessonManifestSchema = z.object({
   reflectionQuestions: z.array(z.object({ questionId: idSchema, prompt: z.string().min(1).max(300) }).strict()),
   aiContext: z.object({ teachingFocus: z.string().min(1).max(500), hints: z.array(z.string().min(1).max(300)).max(8) }).strict(),
   status: z.enum(['draft', 'published'])
-}).strict()
+}).strict().refine(lesson => lesson.verification !== 'author-approved' || hardwarePublicationAllowed(lesson), 'Author approval record is required')
 
 type CourseManifest = z.infer<typeof courseManifestSchema>
 type LessonManifest = z.infer<typeof lessonManifestSchema>
@@ -242,7 +244,7 @@ export class CourseService {
       publicationStatus: lesson.status,
       hardwareRequirement: lesson.hardware,
       verificationStatus: lesson.verification,
-      hardwareWarning: lesson.verification === 'pending-hardware-check' ? '本课尚未通过真机检查，不得声称已观察到现象，不得给出确定接线或烧录结论。' : undefined,
+      hardwareWarning: ['pending-hardware-check', 'author-approved'].includes(lesson.verification) ? '本课尚未通过真机检查，不得声称已观察到现象，不得给出已实测的接线或烧录结论；实际现象必须由学生观察确认。' : undefined,
       currentStep: currentStep ? { stepId: currentStep.stepId, type: currentStep.type, title: currentStep.title, instruction: currentStep.instruction } : undefined,
       progress: progress ? { state: progress.state, completedSteps: progress.completedSteps, totalSteps: progress.totalSteps } : undefined
     }

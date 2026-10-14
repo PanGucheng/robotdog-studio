@@ -180,7 +180,7 @@ export interface WorkspaceSummary {
 
 export type CoursePublicationStatus = 'draft' | 'published'
 export type CourseHardwareRequirement = 'none' | 'optional' | 'required'
-export type CourseVerificationStatus = 'not-required' | 'pending-hardware-check' | 'hardware-checked'
+export type CourseVerificationStatus = 'not-required' | 'pending-hardware-check' | 'hardware-checked' | 'author-approved'
 
 export interface CourseLessonSummary {
   courseId: string
@@ -235,6 +235,7 @@ export interface CourseDetail extends CourseSummary {
 }
 
 export interface CourseLesson extends CourseLessonSummary {
+  releaseApproval?: import('./course-publication').CourseReleaseApproval
   objectives: string[]
   expectedObservation: string
   templateId: string

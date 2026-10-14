@@ -11,6 +11,8 @@ import { toStudentErrorMessage } from '../lib/student-errors'
 import { readMcuEditorViewState, saveMcuEditorViewState } from '../lib/mcu-monaco-session'
 import { flushPendingSaves, registerPendingSave } from '../lib/pending-saves'
 import { useAppUpdate } from './AppUpdateProvider'
+import { studioTheme } from '../../../shared/studio-theme'
+import { currentStudioTheme, THEME_EVENT } from '../lib/studio-theme'
 
 interface StudentCodeEditorProps {
   workspace?: WorkspaceSummary
@@ -42,23 +44,37 @@ interface StudentCodeEditorProps {
 
 export const MCU_AUTO_SAVE_DELAY_MS = 8_000
 
+const themedMonacoInstances = new WeakSet<object>()
 export const configureMonaco: BeforeMount = (monaco) => {
-  monaco.editor.defineTheme('robotdog-track', {
-    base: 'vs', inherit: true,
-    rules: [
-      { token: 'comment', foreground: '688896', fontStyle: 'italic' },
-      { token: 'keyword', foreground: '087F91' },
-      { token: 'number', foreground: 'B67200' },
-      { token: 'type', foreground: '2563A5' },
-      { token: 'string', foreground: '237A57' }
-    ],
-    colors: {
-      'editor.background': '#FFFFFF', 'editor.foreground': '#17384A', 'editorLineNumber.foreground': '#91A5AF',
-      'editorLineNumber.activeForeground': '#087F91', 'editor.selectionBackground': '#CDEEF2',
-      'editor.lineHighlightBackground': '#EEF8FA', 'editorCursor.foreground': '#0B91A3',
-      'editorIndentGuide.background1': '#E4ECEF', 'editorIndentGuide.activeBackground1': '#A9C9D0'
-    }
-  })
+  const update = (): void => {
+    const dark = currentStudioTheme() === 'dark'
+    const theme = studioTheme(currentStudioTheme())
+    monaco.editor.defineTheme('robotdog-track', {
+      base: dark ? 'vs-dark' : 'vs', inherit: true,
+      rules: [
+        { token: 'comment', foreground: dark ? '9AB0BC' : '688896', fontStyle: 'italic' },
+        { token: 'keyword', foreground: dark ? '72D5E2' : '087F91' },
+        { token: 'number', foreground: dark ? 'F1CA82' : 'B67200' },
+        { token: 'type', foreground: dark ? 'A8C9FF' : '2563A5' },
+        { token: 'string', foreground: dark ? '85D9AD' : '237A57' }
+      ],
+      colors: {
+        'editor.background': theme['surface-content'], 'editor.foreground': theme.navy,
+        'editorLineNumber.foreground': theme.muted, 'editorLineNumber.activeForeground': dark ? theme['sensor-ink'] : '#087F91',
+        'editor.selectionBackground': dark ? '#285567' : '#CDEEF2',
+        'editor.lineHighlightBackground': dark ? '#273B48' : '#EEF8FA',
+        'editorCursor.foreground': dark ? '#94E2EB' : '#0B91A3',
+        'editorIndentGuide.background1': dark ? '#344653' : '#E4ECEF',
+        'editorIndentGuide.activeBackground1': dark ? '#64808F' : '#A9C9D0'
+      }
+    })
+    monaco.editor.setTheme('robotdog-track')
+  }
+  update()
+  if (!themedMonacoInstances.has(monaco)) {
+    themedMonacoInstances.add(monaco)
+    window.addEventListener(THEME_EVENT, update)
+  }
 }
 
 export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChanged, onReadyForReview, onRejectCandidate, onExplainCode, diagnosticHelp: _diagnosticHelp, onRepairStudentCode: _onRepairStudentCode, explorerMode = false, focusRequest, onActiveFileChange, editorOverlay, overlayVisible = false, bottomPanel, workspaceAction, workspaceNotice, workspaceDiagnostics = [], railAction }: StudentCodeEditorProps): React.JSX.Element {

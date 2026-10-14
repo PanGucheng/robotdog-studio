@@ -4,11 +4,10 @@ import { App } from './App'
 import 'katex/dist/katex.min.css'
 import './fonts.css'
 import './styles.css'
-import { STUDIO_THEME } from '../../shared/studio-theme'
+import './dark-theme.css'
+import { applyStudioTheme, readStudioTheme } from './lib/studio-theme'
 
-for (const [name, value] of Object.entries(STUDIO_THEME)) {
-  document.documentElement.style.setProperty(`--${name}`, value)
-}
+applyStudioTheme(readStudioTheme())
 
 if (window.studioWindowChrome?.customTitleBar) {
   document.documentElement.style.setProperty('--window-chrome-height', `${window.studioWindowChrome.height}px`)

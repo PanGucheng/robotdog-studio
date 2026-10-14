@@ -13,6 +13,10 @@
 - [软件更新与发布操作说明 (App Update & Release)](development/app-updates.md)：GitCode 软件安装包发布、统一版本来源、下一版 Agent 操作清单、凭据检查、失败处理与独立 Live Test。
 - [自由工程文件编辑与构建](development/sandbox-projects.md)：沁恒/TI 基础 SDK 空工程与完整小马例程选择、文件与文件夹新建、完整工程副本、编译接入、课程权限边界和生成代码保留规则。
 - [浅色界面与应用内提示框验收](development/light-theme-verification.md)：公共主题、窗口标题栏、课程横幅、提示框与跨页面渲染检查。
+- [全软件浅色界面与底色职责规划](development/surface-system-plan.md)：统一导航、内容和页面留白，覆盖三个 Edition 的页面、交互状态与后续验收范围。
+- [全软件底色统一与视觉验收](development/surface-system-verification.md)：实际修改、共享颜色来源、跨页面与缩放检查、原始截图及测试边界。
+- [浅色底色微调](development/pale-surface-verification.md)：当前导航浅蓝灰、白色文件树与课程侧栏、设置顶部配色及复验记录。
+- [深色模式与主题切换](development/dark-theme-verification.md)：汉堡菜单切换、偏好恢复、原生标题栏与代码编辑器同步，以及跨页面验收。
 
 ---
 

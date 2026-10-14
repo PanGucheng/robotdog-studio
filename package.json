@@ -1,6 +1,6 @@
 {
   "name": "robotdog-studio",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "AI-assisted control and learning studio for the CH32V203 machine horse",
   "main": "./out/main/index.cjs",
   "author": "RoboHorse Studio contributors",

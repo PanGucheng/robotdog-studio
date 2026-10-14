@@ -79,7 +79,9 @@ status: draft
 verification: pending-hardware-check
 ```
 
-系统在 `scripts/validate-mcu-courses.ts` 中设有自动化硬门禁：**凡 `hardware === 'required'` 且 `status === 'published'` 的课次，必须具备 `verification === 'hardware-checked'`**，否则门禁直接报错中断发布。
+默认流程仍要求 `hardware-checked`。课程维护者明确要求免去本次实板验收并发布时，MCU 课程可以使用独立的 `author-approved` 状态，同时必须记录 `releaseApproval` 的明确授权来源、日期与原因。没有记录的作者批准、普通待验收课均不能通过发布校验；不把作者批准写成已完成真机验证。该例外不修改软件正式固件基线门禁，也不改变 TI 的发布条件。
+
+此状态从软件 1.2.0 开始支持，内容更新清单必须使用 `minAppVersion: "1.2.0"`，避免旧版解析器读取不支持的字段。AI 上下文保留尚无实板结果的事实约束，学生仍须实际烧录、观察并记录自己的结果。
 
 真机验证检查清单：
 
@@ -102,9 +104,9 @@ verification: pending-hardware-check
 - **发布分发**：正式纳入发布包并同步至 Gitee 远程分发仓库，学生端正常展现。
 
 ### 第二课：`gpio-output`（点亮第一盏灯：GPIO 输出与高低电平）
-- **状态**：`status: "draft"`, `verification: "pending-hardware-check"`
-- **当前阶段**：作者本地开发验证中。
-- **隔离机制**：仅在开发机开发模式可见（标有“作者验证”徽标），导出 Published Snapshot 时自动排除，不进入学生端远程更新包。
+- **状态**：2026-10-14 由课程维护者明确授权发布，课程内容 v17 使用 `status: "published"`, `verification: "author-approved"`。
+- **授权记录**：免去本次实板验收，包含第二课讲义、任务和独立模板；没有新增烧录或 LED 观察证据。此前软件检查见 [第二课软件验收](mcu-second-lesson-verification.md)。
+- **分发规则**：正式快照纳入第二课；学生端显示正常学习入口，内容包最低软件版本为 1.2.0。
 
 ## 6. 发布前命令
 

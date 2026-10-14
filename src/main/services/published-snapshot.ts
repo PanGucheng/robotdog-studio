@@ -1,3 +1,4 @@
+import { hardwarePublicationAllowed } from '../../shared/course-publication'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 
@@ -114,7 +115,7 @@ export function exportPublishedSnapshot(options: PublishedSnapshotOptions): Publ
           continue
         }
 
-        if (lesson.hardware === 'required' && lesson.verification !== 'hardware-checked') {
+        if (lesson.hardware === 'required' && !hardwarePublicationAllowed(lesson)) {
           throw new Error(`PUBLISHED_LESSON_HARDWARE_UNCHECKED:${lessonId}`)
         }
 

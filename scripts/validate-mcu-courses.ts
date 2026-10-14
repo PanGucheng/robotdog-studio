@@ -1,3 +1,4 @@
+import { hardwarePublicationAllowed } from '../src/shared/course-publication'
 import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
@@ -52,7 +53,7 @@ for (const entry of catalog.courses!) {
     requireValue(['draft', 'published'].includes(lesson.status), `课次状态无效：${lessonId}`)
     requireValue(['none', 'optional', 'required'].includes(lesson.hardware), `课次硬件要求无效：${lessonId}`)
     if (lesson.status === 'published' && lesson.hardware === 'required') {
-      requireValue(lesson.verification === 'hardware-checked', `需要硬件的正式课次必须通过真机验证：${lessonId}`)
+      requireValue(hardwarePublicationAllowed(lesson), `需要硬件的正式课次必须具备真机验证或明确的作者发布授权记录：${lessonId}`)
     }
     requireValue(!(lesson.status === 'published' && lesson.verification === 'pending-hardware-check'), `未通过硬件验证的课次不能发布：${lessonId}`)
     requireValue(Array.isArray(lesson.steps) && lesson.steps.length > 0, `课次没有实验步骤：${lessonId}`)

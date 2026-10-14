@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { cp, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { registerIpc } from './ipc/register-ipc'
 import { prepareWindowsForAppInstall } from './ipc/app-update-ipc'
 import { AppUpdateService } from './services/app-update-service'
@@ -38,8 +38,9 @@ import { McuRecentActivityStore } from './services/mcu-recent-activity-store'
 import { CourseLectureHistoryService } from './services/course-lecture-history-service'
 import { ProjectExplorerService } from './services/project-explorer-service'
 import { DEFAULT_EDITION_ID, getEditionProfile, isMcuEdition, parseEditionId } from '../shared/edition'
-import { WINDOW_TITLE_BAR_HEIGHT } from '../shared/window-chrome'
-import { STUDIO_THEME } from '../shared/studio-theme'
+import { WINDOW_THEME_CHANNEL, WINDOW_TITLE_BAR_HEIGHT } from '../shared/window-chrome'
+import { isStudioThemeMode, studioTheme } from '../shared/studio-theme'
+import { readThemePreference, saveThemePreference } from './services/studio-theme-preference'
 
 const robot = new MockRobotService()
 const edition = getEditionProfile(readEditionId())
@@ -52,21 +53,24 @@ let appUpdateScheduled = false
 
 function createWindow(): void {
   const smokeTest = process.env.ROBOTDOG_SMOKE_TEST === '1'
+  const themeMode = readThemePreference(join(app.getPath('userData'), 'studio-theme.json'))
+  const theme = studioTheme(themeMode)
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1080,
     minHeight: 700,
     show: false,
-    backgroundColor: '#f6f8fb',
+    backgroundColor: theme['surface-page'],
     icon: join(app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources'), 'brand', 'robohorse.ico'),
     title: edition.productName,
     autoHideMenuBar: true,
     ...(process.platform === 'win32' ? {
       titleBarStyle: 'hidden' as const,
-      titleBarOverlay: { color: STUDIO_THEME['nav-surface'], symbolColor: STUDIO_THEME.navy, height: WINDOW_TITLE_BAR_HEIGHT }
+      titleBarOverlay: { color: theme['surface-navigation'], symbolColor: theme.navy, height: WINDOW_TITLE_BAR_HEIGHT }
     } : {}),
     webPreferences: {
+      additionalArguments: [`--studio-theme=${themeMode}`],
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
@@ -466,6 +470,15 @@ app.whenReady().then(async () => {
     launchInstaller: path => shell.openPath(path), quit: () => app.quit()
   })
   disposeIpc = registerIpc(robot, edition, toolchain, firmwareBuild, workspaces, candidates, agents, runtime, agentHistory, baseline, diagnostics, courses, programmer, courseProgress, projectExplorer, lessonLearning, mcuRecentActivity, lectureHistory, baselineResolver, courseUpdateService, appUpdateService, app.getVersion())
+  ipcMain.handle(WINDOW_THEME_CHANNEL, (event, mode: unknown) => {
+    if (!isStudioThemeMode(mode)) throw new Error('INVALID_STUDIO_THEME')
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    if (!owner || owner.isDestroyed() || event.senderFrame !== event.sender.mainFrame) throw new Error('INVALID_THEME_WINDOW')
+    const theme = studioTheme(mode)
+    owner.setBackgroundColor(theme['surface-page'])
+    if (process.platform === 'win32') owner.setTitleBarOverlay({ color: theme['surface-navigation'], symbolColor: theme.navy, height: WINDOW_TITLE_BAR_HEIGHT })
+    saveThemePreference(join(app.getPath('userData'), 'studio-theme.json'), mode)
+  })
   createWindow()
   if (courseUpdateService && process.env.ROBOTDOG_SMOKE_TEST !== '1') {
     setTimeout(() => {

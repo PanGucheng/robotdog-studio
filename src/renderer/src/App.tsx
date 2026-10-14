@@ -7,6 +7,7 @@ import { ControlDock } from './components/ControlDock'
 import { Workbench } from './components/Workbench'
 import { getRobotApi } from './lib/browser-demo-api'
 import { applyUiScale, readUiScale, type UiScale } from './lib/ui-scale'
+import { applyStudioTheme, currentStudioTheme } from './lib/studio-theme'
 import { LearningCenter, type LearningDestination } from './components/LearningCenter'
 import { DisplaySettings } from './components/DisplaySettings'
 import { toStudentErrorMessage } from './lib/student-errors'
@@ -92,6 +93,7 @@ function StudioApp(): React.JSX.Element {
   const [candidateDiffError, setCandidateDiffError] = useState<string>()
   const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceHistoryEntry[]>([])
   const [uiScale, setUiScale] = useState<UiScale>(() => readUiScale())
+  const [themeMode, setThemeMode] = useState(currentStudioTheme)
   const [learningOpen, setLearningOpen] = useState(() => localStorage.getItem('robotdog.learning-intro-seen.v1') !== '1')
   const [learningDestination, setLearningDestination] = useState<LearningDestination>()
   const [courses, setCourses] = useState<CourseSummary[]>([])
@@ -697,6 +699,12 @@ function StudioApp(): React.JSX.Element {
             </button>
             {menuOpen && (
               <AppMenu
+                themeMode={themeMode}
+                onToggleTheme={() => {
+                  const next = themeMode === 'dark' ? 'light' : 'dark'
+                  applyStudioTheme(next)
+                  setThemeMode(next)
+                }}
                 anchorRef={menuAnchorRef}
                 onClose={() => setMenuOpen(false)}
                 onOpenSettings={() => {

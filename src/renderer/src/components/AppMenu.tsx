@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { HelpCircle, Info, Settings2 } from 'lucide-react'
+import { HelpCircle, Info, Moon, Settings2, Sun } from 'lucide-react'
+import type { StudioThemeMode } from '../../../shared/studio-theme'
 
 export interface AppMenuProps {
+  themeMode: StudioThemeMode
+  onToggleTheme(): void
   anchorRef: React.RefObject<HTMLElement | null>
   onClose(): void
   onOpenSettings(): void
@@ -9,7 +12,7 @@ export interface AppMenuProps {
   onOpenLearning?: () => void
 }
 
-export function AppMenu({ anchorRef, onClose, onOpenSettings, onSelectAbout, onOpenLearning }: AppMenuProps): React.JSX.Element {
+export function AppMenu({ themeMode, onToggleTheme, anchorRef, onClose, onOpenSettings, onSelectAbout, onOpenLearning }: AppMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -44,6 +47,12 @@ export function AppMenu({ anchorRef, onClose, onOpenSettings, onSelectAbout, onO
         <span className="project-menu-title">RoboHorse Studio</span>
       </div>
       <div className="project-menu-divider" role="separator" />
+      <button type="button" role="menuitemcheckbox" aria-checked={themeMode === 'dark'}
+        className="project-menu-item project-menu-theme" onClick={onToggleTheme}>
+        {themeMode === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
+        <span>深色模式</span>
+        <span className="theme-switch" aria-hidden="true"><i /></span>
+      </button>
       <button
         type="button"
         role="menuitem"
