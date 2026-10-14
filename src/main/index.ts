@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { cp, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { app, BrowserWindow, shell } from 'electron'
@@ -37,6 +38,8 @@ import { McuRecentActivityStore } from './services/mcu-recent-activity-store'
 import { CourseLectureHistoryService } from './services/course-lecture-history-service'
 import { ProjectExplorerService } from './services/project-explorer-service'
 import { DEFAULT_EDITION_ID, getEditionProfile, isMcuEdition, parseEditionId } from '../shared/edition'
+import { WINDOW_TITLE_BAR_HEIGHT } from '../shared/window-chrome'
+import { STUDIO_THEME } from '../shared/studio-theme'
 
 const robot = new MockRobotService()
 const edition = getEditionProfile(readEditionId())
@@ -59,6 +62,10 @@ function createWindow(): void {
     icon: join(app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources'), 'brand', 'robohorse.ico'),
     title: edition.productName,
     autoHideMenuBar: true,
+    ...(process.platform === 'win32' ? {
+      titleBarStyle: 'hidden' as const,
+      titleBarOverlay: { color: STUDIO_THEME['nav-surface'], symbolColor: STUDIO_THEME.navy, height: WINDOW_TITLE_BAR_HEIGHT }
+    } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -69,6 +76,15 @@ function createWindow(): void {
 
   if (smokeTest) {
     window.webContents.once('did-finish-load', async () => {
+      if (process.env.ROBOTDOG_VISUAL_ONLY === '1' && process.env.ROBOTDOG_VISUAL_REVIEW_DIR) {
+        try {
+          const { verifyStudioVisuals } = await import(pathToFileURL(join(app.getAppPath(), 'scripts/studio-visual-smoke.mjs')).href)
+          await verifyStudioVisuals(window, process.env.ROBOTDOG_VISUAL_REVIEW_DIR, process.env.ROBOTDOG_VISUAL_BEFORE_CSS)
+          console.log('ROBOTDOG_SMOKE_OK {"ok":true,"visualOnly":true}')
+          app.exit(0)
+        } catch (error) { console.error('ROBOTDOG_SMOKE_FAILED', String(error)); app.exit(1) }
+        return
+      }
       const result = await window.webContents.executeJavaScript(`(async () => {
         if (!window.robotDog) return { ok: false, reason: 'preload missing' }
         try {
@@ -80,7 +96,12 @@ function createWindow(): void {
           for (const scale of [1, 1.25, 1.5, 1.75]) {
             document.documentElement.style.setProperty('--ui-scale', String(scale))
             const bounds = shell.getBoundingClientRect()
-            if (Math.abs(bounds.width - innerWidth) > 2 || Math.abs(bounds.height - innerHeight) > 2) throw new Error('SMOKE_STUDIO_VIEWPORT_SIZE_MISMATCH: ' + JSON.stringify({ scale, width: bounds.width, height: bounds.height, innerWidth, innerHeight }))
+            const chromeHeight = window.studioWindowChrome?.customTitleBar ? window.studioWindowChrome.height : 0
+            if (Math.abs(bounds.width - innerWidth) > 2 || Math.abs(bounds.height - (innerHeight - chromeHeight)) > 2 || Math.abs(bounds.top - chromeHeight) > 2) throw new Error('SMOKE_STUDIO_VIEWPORT_SIZE_MISMATCH: ' + JSON.stringify({ scale, width: bounds.width, height: bounds.height, innerWidth, innerHeight, chromeHeight }))
+            if (chromeHeight) {
+              const titlebar = document.querySelector('.window-titlebar')
+              if (!titlebar || Math.abs(titlebar.getBoundingClientRect().height - chromeHeight) > 2 || getComputedStyle(titlebar).getPropertyValue('-webkit-app-region') !== 'drag') throw new Error('SMOKE_WINDOW_TITLEBAR_MISSING')
+            }
           }
         } finally {
           if (previousScale) document.documentElement.style.setProperty('--ui-scale', previousScale)
@@ -229,6 +250,12 @@ function createWindow(): void {
           return { ok: false, reason: String(error?.stack ?? error) }
         }
       })()`)
+      if (result.ok && process.env.ROBOTDOG_VISUAL_REVIEW_DIR) {
+        try {
+          const { verifyStudioVisuals } = await import(pathToFileURL(join(app.getAppPath(), 'scripts/studio-visual-smoke.mjs')).href)
+          await verifyStudioVisuals(window, process.env.ROBOTDOG_VISUAL_REVIEW_DIR, process.env.ROBOTDOG_VISUAL_BEFORE_CSS)
+        } catch (error) { result.ok = false; result.reason = String(error) }
+      }
       console.log(result.ok ? `ROBOTDOG_SMOKE_OK ${JSON.stringify(result)}` : `ROBOTDOG_SMOKE_FAILED ${JSON.stringify(result)}`)
       app.exit(result.ok ? 0 : 1)
     })

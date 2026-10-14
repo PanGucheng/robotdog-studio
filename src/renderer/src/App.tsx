@@ -17,6 +17,8 @@ import { AboutPage } from './components/AboutPage'
 import { AppMenu } from './components/AppMenu'
 import { AppUpdateProvider } from './components/AppUpdateProvider'
 import { BreadcrumbNav, type BreadcrumbItem } from './components/BreadcrumbNav'
+import { WindowTitleBar } from './components/WindowTitleBar'
+import { StudioDialog } from './components/StudioDialog'
 
 const initialStatus: RobotStatus = {
   connection: 'disconnected',
@@ -106,6 +108,7 @@ function StudioApp(): React.JSX.Element {
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string }>()
   const menuAnchorRef = useRef<HTMLDivElement>(null)
   const seenAgentEvents = useRef(new Set<string>())
   const turnWorkspaces = useRef(new Map<string, string>())
@@ -303,12 +306,7 @@ function StudioApp(): React.JSX.Element {
   }
   const renameWorkspace = (): void => {
     if (!activeWorkspace) return
-    const name = window.prompt('给这个项目起一个容易辨认的名字', activeWorkspace.name)?.trim()
-    if (!name || name === activeWorkspace.name) return
-    void run(async () => {
-      const updated = await api.renameWorkspace(activeWorkspace.id, name)
-      setWorkspaces((current) => current.map((workspace) => workspace.id === updated.id ? updated : workspace))
-    })
+    setRenameTarget({ id: activeWorkspace.id, name: activeWorkspace.name })
   }
   const currentWorkspaceId = edition.id !== 'fun-line-following' ? (mcuView.kind === 'workspace' ? mcuView.workspaceId : undefined) : activeWorkspaceId
   currentWorkspaceIdRef.current = currentWorkspaceId
@@ -681,6 +679,8 @@ function StudioApp(): React.JSX.Element {
     : (currentWorkspaceId && buildsByWorkspace[currentWorkspaceId] ? buildsByWorkspace[currentWorkspaceId] : initialBuild)
 
   return (
+    <>
+    <WindowTitleBar title={edition.productName} />
     <main className={`studio-shell ${edition.id !== 'fun-line-following' ? 'is-mcu' : ''}`}>
       <header className="topbar">
         <div className="brand-block">
@@ -887,6 +887,16 @@ function StudioApp(): React.JSX.Element {
         <AboutPage edition={edition} onClose={closeAboutModal} />
       )}
     </main>
+    {renameTarget && <StudioDialog title="修改项目名称" description="给这个项目起一个容易辨认的名字，方便下次继续练习。" confirmLabel="保存名称"
+      input={{ label: '项目名称', initialValue: renameTarget.name, maxLength: 48 }} onCancel={() => setRenameTarget(undefined)}
+      onConfirm={async (name) => {
+        if (name !== renameTarget.name) {
+          const updated = await api.renameWorkspace(renameTarget.id, name)
+          setWorkspaces((current) => current.map((workspace) => workspace.id === updated.id ? updated : workspace))
+        }
+        setRenameTarget(undefined)
+      }} />}
+    </>
   )
 }
 

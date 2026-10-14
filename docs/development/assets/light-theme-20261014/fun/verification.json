@@ -1,0 +1,86 @@
+{
+  "edition": "fun-line-following",
+  "capture": "hidden Electron webContents.capturePage, lossless PNG; native caption buttons excluded",
+  "screenshots": [
+    {
+      "name": "after-fun-workbench",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      }
+    },
+    {
+      "name": "after-rename-dialog",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      }
+    },
+    {
+      "name": "after-about",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      }
+    }
+  ],
+  "checks": [
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".window-titlebar",
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 36,
+          "right": 1440,
+          "bottom": 36
+        },
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1440,
+          "height": 85,
+          "right": 1440,
+          "bottom": 121
+        },
+        {
+          "selector": ".studio-shell",
+          "x": 0,
+          "y": 36,
+          "width": 1440,
+          "height": 863.9974365234375,
+          "right": 1440,
+          "bottom": 899.9974365234375
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".studio-dialog",
+          "x": 407.5,
+          "y": 257.97918701171875,
+          "width": 625,
+          "height": 384.04168701171875,
+          "right": 1032.5,
+          "bottom": 642.0208740234375
+        },
+        {
+          "selector": ".studio-dialog-actions",
+          "x": 408.16668701171875,
+          "y": 556.5208740234375,
+          "width": 623.6666870117188,
+          "height": 84.83333587646484,
+          "right": 1031.8333740234375,
+          "bottom": 641.3542098999023
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,359 @@
+{
+  "edition": "ti-mspm0-foundations",
+  "capture": "hidden Electron webContents.capturePage, lossless PNG; native caption buttons excluded",
+  "screenshots": [
+    {
+      "name": "after-home",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      }
+    },
+    {
+      "name": "after-course",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      }
+    },
+    {
+      "name": "after-course-narrow",
+      "size": {
+        "width": 1620,
+        "height": 1050
+      }
+    },
+    {
+      "name": "after-reader",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      }
+    },
+    {
+      "name": "after-workbench",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      }
+    },
+    {
+      "name": "after-about",
+      "size": {
+        "width": 2160,
+        "height": 1350
+      }
+    }
+  ],
+  "checks": [
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".window-titlebar",
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 36,
+          "right": 1440,
+          "bottom": 36
+        },
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1440,
+          "height": 68,
+          "right": 1440,
+          "bottom": 104
+        },
+        {
+          "selector": ".course-center-hero",
+          "x": 18,
+          "y": 176.6666717529297,
+          "width": 1404,
+          "height": 125.75,
+          "right": 1422,
+          "bottom": 302.4166717529297
+        },
+        {
+          "selector": ".course-center-layout",
+          "x": 18,
+          "y": 314.41668701171875,
+          "width": 1404,
+          "height": 521.25,
+          "right": 1422,
+          "bottom": 835.6666870117188
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".window-titlebar",
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 36,
+          "right": 1440,
+          "bottom": 36
+        },
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1440,
+          "height": 85,
+          "right": 1440,
+          "bottom": 121
+        },
+        {
+          "selector": ".course-center-hero",
+          "x": 22.5,
+          "y": 211.83334350585938,
+          "width": 1375.8333740234375,
+          "height": 157.1875,
+          "right": 1398.3333740234375,
+          "bottom": 369.0208435058594
+        },
+        {
+          "selector": ".course-center-layout",
+          "x": 22.5,
+          "y": 384.0208435058594,
+          "width": 1375.8333740234375,
+          "height": 651.5625,
+          "right": 1398.3333740234375,
+          "bottom": 1035.5833435058594
+        }
+      ]
+    },
+    {
+      "width": 1707,
+      "height": 984,
+      "nodes": [
+        {
+          "selector": ".window-titlebar",
+          "x": 0,
+          "y": 0,
+          "width": 1707.3333740234375,
+          "height": 36,
+          "right": 1707.3333740234375,
+          "bottom": 36
+        },
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1707.328125,
+          "height": 102,
+          "right": 1707.328125,
+          "bottom": 138
+        },
+        {
+          "selector": ".course-center-hero",
+          "x": 27,
+          "y": 247,
+          "width": 1630.328125,
+          "height": 188.625,
+          "right": 1657.328125,
+          "bottom": 435.625
+        },
+        {
+          "selector": ".course-center-layout",
+          "x": 27,
+          "y": 453.625,
+          "width": 1630.328125,
+          "height": 781.875,
+          "right": 1657.328125,
+          "bottom": 1235.5
+        }
+      ]
+    },
+    {
+      "width": 1080,
+      "height": 700,
+      "nodes": [
+        {
+          "selector": ".window-titlebar",
+          "x": 0,
+          "y": 0,
+          "width": 1080,
+          "height": 36,
+          "right": 1080,
+          "bottom": 36
+        },
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1080,
+          "height": 68,
+          "right": 1080,
+          "bottom": 104
+        },
+        {
+          "selector": ".course-center-hero",
+          "x": 18,
+          "y": 176.6666717529297,
+          "width": 1028.666748046875,
+          "height": 125.75,
+          "right": 1046.666748046875,
+          "bottom": 302.4166717529297
+        },
+        {
+          "selector": ".course-center-layout",
+          "x": 18,
+          "y": 314.41668701171875,
+          "width": 1028.666748046875,
+          "height": 521.25,
+          "right": 1046.666748046875,
+          "bottom": 835.6666870117188
+        }
+      ]
+    },
+    {
+      "width": 1080,
+      "height": 700,
+      "nodes": [
+        {
+          "selector": ".window-titlebar",
+          "x": 0,
+          "y": 0,
+          "width": 1080,
+          "height": 36,
+          "right": 1080,
+          "bottom": 36
+        },
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1079.984375,
+          "height": 102,
+          "right": 1079.984375,
+          "bottom": 138
+        },
+        {
+          "selector": ".course-center-hero",
+          "x": 18,
+          "y": 238,
+          "width": 1020.984375,
+          "height": 288.5,
+          "right": 1038.984375,
+          "bottom": 526.5
+        },
+        {
+          "selector": ".course-center-layout",
+          "x": 18,
+          "y": 544.5,
+          "width": 1020.984375,
+          "height": 956.875,
+          "right": 1038.984375,
+          "bottom": 1501.375
+        }
+      ]
+    },
+    {
+      "width": 1080,
+      "height": 700,
+      "nodes": [
+        {
+          "selector": ".window-titlebar",
+          "x": 0,
+          "y": 0,
+          "width": 1080,
+          "height": 36,
+          "right": 1080,
+          "bottom": 36
+        },
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1079.987060546875,
+          "height": 119,
+          "right": 1079.987060546875,
+          "bottom": 155
+        },
+        {
+          "selector": ".course-center-hero",
+          "x": 21,
+          "y": 271.66668701171875,
+          "width": 1011.1536865234375,
+          "height": 336.5833435058594,
+          "right": 1032.1536865234375,
+          "bottom": 608.2500305175781
+        },
+        {
+          "selector": ".course-center-layout",
+          "x": 21,
+          "y": 629.25,
+          "width": 1011.1536865234375,
+          "height": 1240.3125,
+          "right": 1032.1536865234375,
+          "bottom": 1869.5625
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1440,
+          "height": 85,
+          "right": 1440,
+          "bottom": 121
+        },
+        {
+          "selector": ".lesson-learn-page",
+          "x": 0,
+          "y": 121,
+          "width": 1440,
+          "height": 778.9974365234375,
+          "right": 1440,
+          "bottom": 899.9974365234375
+        },
+        {
+          "selector": ".lesson-learn-header",
+          "x": 0,
+          "y": 121,
+          "width": 1440,
+          "height": 80,
+          "right": 1440,
+          "bottom": 201
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "nodes": [
+        {
+          "selector": ".topbar",
+          "x": 0,
+          "y": 36,
+          "width": 1440,
+          "height": 85,
+          "right": 1440,
+          "bottom": 121
+        },
+        {
+          "selector": ".student-code-studio",
+          "x": 0,
+          "y": 121,
+          "width": 965,
+          "height": 778.9974365234375,
+          "right": 965,
+          "bottom": 899.9974365234375
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/channels'
+import { WINDOW_TITLE_BAR_HEIGHT } from '../shared/window-chrome'
 import type { AgentEvent, CourseUpdateStatus, CandidateSnapshot, CcdFrame, DeviceConnectionSnapshot, FirmwareBuildEvent, FirmwareUpdateEvent, LogEntry, RobotDogApi, RobotStatus, WchLinkFlashEvent, WorkspaceSummary } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
@@ -105,3 +106,4 @@ const api: RobotDogApi = {
 }
 
 contextBridge.exposeInMainWorld('robotDog', api)
+contextBridge.exposeInMainWorld('studioWindowChrome', { customTitleBar: process.platform === 'win32', height: WINDOW_TITLE_BAR_HEIGHT })

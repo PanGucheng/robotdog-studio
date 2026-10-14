@@ -1,5 +1,7 @@
 import { BookOpenCheck, ChevronRight, Clock3, Cpu, FlaskConical, GraduationCap, LockKeyhole } from 'lucide-react'
+import { useState } from 'react'
 import type { CourseDetail, CourseLesson, CourseLessonSummary, CourseSummary } from '../../../shared/types'
+import { StudioDialog } from './StudioDialog'
 
 interface CourseCenterProps {
   courses: CourseSummary[]
@@ -19,6 +21,7 @@ const hardwareLabels = {
 } as const
 
 export function CourseCenter({ courses, course, lesson, loading, error, completedLessonIds, onSelectLesson, onOpenLesson }: CourseCenterProps): React.JSX.Element {
+  const [prerequisitePrompt, setPrerequisitePrompt] = useState<{ lessonId: string; title: string; names: string[] }>()
   if (loading && !course) {
     return <div className="course-center-state"><Cpu className="spin" size={22} /><strong>正在读取课程目录</strong><span>课程内容保存在本机，可离线使用。</span></div>
   }
@@ -99,7 +102,10 @@ export function CourseCenter({ courses, course, lesson, loading, error, complete
               <div>
                 <button type="button" className="course-start-button" disabled={lesson.status !== 'draft' && lesson.verification === 'pending-hardware-check'} onClick={() => {
                   const incomplete = lesson.prerequisites.filter((lessonId) => !completedLessonIds.includes(lessonId))
-                  if (incomplete.length > 0 && !window.confirm('建议先完成前置课。是否仍要开始学习？')) return
+                  if (incomplete.length > 0) {
+                    setPrerequisitePrompt({ lessonId: lesson.lessonId, title: lesson.title, names: incomplete.map(id => course.lessons.find(item => item.lessonId === id)?.title ?? id) })
+                    return
+                  }
                   onOpenLesson(lesson.lessonId)
                 }}>{lesson.status === 'draft' ? '开始作者验证' : '开始学习'}</button>
               </div>
@@ -107,6 +113,9 @@ export function CourseCenter({ courses, course, lesson, loading, error, complete
           </> : <div className="course-center-state"><BookOpenCheck size={22} /><strong>选择一个课次</strong><span>查看目标、实验步骤和硬件要求。</span></div>}
         </section>
       </div>
+      {prerequisitePrompt && <StudioDialog title="建议先完成前置课" description={`你还没有完成「${prerequisitePrompt.names.join('」「')}」。先完成这些课程，有助于理解「${prerequisitePrompt.title}」。也可以继续进入本课。`}
+        confirmLabel="仍然开始学习" cancelLabel="返回课程" onCancel={() => setPrerequisitePrompt(undefined)}
+        onConfirm={() => { const lessonId = prerequisitePrompt.lessonId; setPrerequisitePrompt(undefined); onOpenLesson(lessonId) }} />}
     </div>
   )
 }
