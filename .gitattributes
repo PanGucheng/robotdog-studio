@@ -4,3 +4,10 @@ resources/courses/** text eol=lf
 *.png binary
 *.jpg binary
 *.jpeg binary
+# Firmware template integrity is byte-based; preserve the delivered source bytes.
+resources/workspace-templates/ti-mspm0g3507-foundations/** -text whitespace=cr-at-eol
+resources/workspace-templates/ti-mspm0g3507-sdk-empty/** -text whitespace=cr-at-eol
+resources/workspace-templates/ti-mspm0g3507-pony/** -text whitespace=cr-at-eol
+# SysConfig output retains generator-owned indentation and blank-line spacing.
+resources/workspace-templates/ti-mspm0g3507-sdk-empty/generated/** -whitespace
+resources/workspace-templates/ti-mspm0g3507-pony/generated/** -whitespace

@@ -79,7 +79,7 @@ status: draft
 verification: pending-hardware-check
 ```
 
-默认流程仍要求 `hardware-checked`。课程维护者明确要求免去本次实板验收并发布时，MCU 课程可以使用独立的 `author-approved` 状态，同时必须记录 `releaseApproval` 的明确授权来源、日期与原因。没有记录的作者批准、普通待验收课均不能通过发布校验；不把作者批准写成已完成真机验证。该例外不修改软件正式固件基线门禁，也不改变 TI 的发布条件。
+默认流程仍要求 `hardware-checked`。课程维护者明确批准课程分发时，MCU 和 TI 课程可以使用独立的 `author-approved` 状态，同时必须记录 `releaseApproval` 的明确授权来源、日期与原因。没有记录的作者批准、普通待验收课均不能通过发布校验；不把作者批准写成已完成真机验证。课程分发批准不修改软件正式固件基线门禁，也不授权手改 `releaseEligible` 来绕过门禁。
 
 此状态从软件 1.2.0 开始支持，内容更新清单必须使用 `minAppVersion: "1.2.0"`，避免旧版解析器读取不支持的字段。AI 上下文保留尚无实板结果的事实约束，学生仍须实际烧录、观察并记录自己的结果。
 
@@ -109,6 +109,8 @@ verification: pending-hardware-check
 - **分发规则**：正式快照纳入第二课；学生端显示正常学习入口，内容包最低软件版本为 1.2.0。
 
 ## 6. 发布前命令
+
+TI 第一课在 2026-10-17 由维护者明确批准纳入正式发布准备，内容 v7 使用 `published + author-approved`，保留既有截图。该状态仅表示课程分发授权，三套 TI 工程的正式固件门禁及实板记录另行判断，详见 [TI 正式发布准备记录](ti-release-preparation.md)。
 
 ```powershell
 # 1. 校验课程规范与硬件发布门禁

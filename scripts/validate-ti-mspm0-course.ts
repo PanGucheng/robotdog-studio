@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { CourseService } from '../src/main/services/course-service'
+import { hardwarePublicationAllowed } from '../src/shared/course-publication'
 
 const root = process.cwd()
 const courseRoot = resolve(root, 'resources/courses/ti-mspm0-foundations')
@@ -12,7 +13,7 @@ const detail = await service.getCourse(courses[0].courseId)
 if (detail.lessons.length !== 1) throw new Error('TI 入门课程应包含一个第一课')
 const lesson = await service.getLesson(detail.courseId, detail.lessons[0].lessonId)
 if (lesson.templateId !== 'ti-mspm0g3507-foundations' || lesson.hardware !== 'required') throw new Error('TI 第一课模板或硬件要求无效')
-if (lesson.status === 'published' && lesson.verification !== 'hardware-checked') throw new Error('TI 硬件课发布前必须完成真机验收')
+if (lesson.status === 'published' && !hardwarePublicationAllowed(lesson)) throw new Error('TI 硬件课发布前必须完成真机验收或记录维护者的明确发布授权')
 if (lesson.status === 'draft' && lesson.verification !== 'pending-hardware-check') throw new Error('TI 作者验证课必须明确待真机验收')
 for (const file of ['gpio_toggle_output.syscfg', 'src/main.c', 'gcc/device_linker.lds']) {
   if (!(await stat(resolve(root, 'resources/workspace-templates', lesson.templateId, file))).isFile()) throw new Error('TI 模板缺少 '+file)

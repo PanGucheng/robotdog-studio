@@ -143,7 +143,8 @@ describe('McuHome free practice filtering and Pony presentation', () => {
     expect(html).not.toContain('2026-09-23 16:00 小马自由练习')
     expect(html).toContain('基础 SDK 空工程')
     expect(html).toContain('完整小马例程')
-    expect(html).toContain('真机待验收')
+    expect(html).not.toContain('真机待验收')
+    expect(html).toContain('不含 CCD 巡线和 IAP')
   })
 
 })

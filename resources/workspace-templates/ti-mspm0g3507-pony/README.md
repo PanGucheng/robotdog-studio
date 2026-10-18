@@ -4,8 +4,8 @@ Studio 自由练习模板，移植版本 **0.2.5-ti.1**。入口 `src/main.c`，
 
 包含 UART 调试协议、舵机、OLED、按键、RGB、蜂鸣器、运动控制及安全逻辑。使用 SYSOSC 32 MHz 与 1 ms SysTick。SDK DriverLib/CMSIS 从固定的 MSPM0 SDK 2.11.00.07 引用，使用 SysConfig 1.28.1、Arm GCC 9.2.1。
 
-此模板来自独立工程 `mspm0g3507_pony`，Studio 提供构建入口，未附带其外部构建缓存或独立测试环境。`VALIDATION.md` 是来源工程的软件验收记录，不是 Studio 实板验收结果。
+此模板来自独立工程 `mspm0g3507_pony`，在 Studio 中直接编辑和编译即可，无需复用来源工程的构建缓存。来源与软件检查记录见 `VALIDATION.md`。
 
-尚未烧录或验证物理外设、机械动作。CCD 巡线与 IAP 暂不支持。改动时钟、SysTick、引脚或舵机参数后须复验；学生自行调整运行逻辑。
+首次运行前请核对板卡型号、外设接线与舵机参数，将小马架空并预留断电方式，再逐项确认实际外设与动作。CCD 巡线与 IAP 暂不支持。改动时钟、SysTick、引脚或舵机参数后，应重新检查并观察实际运行结果。
 
 SDK 生成文件与启动文件保留原版权声明，其他依赖见 `THIRD_PARTY_NOTICES.md` 和 `LICENSE`。

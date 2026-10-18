@@ -9,6 +9,7 @@ import { SourceFingerprintService } from './source-fingerprint-service'
 import { TiMspm0ToolchainService } from './ti-mspm0-toolchain-service'
 import { prepareSysconfigLaunch } from './ti-sysconfig-launcher'
 import { WorkspaceService } from './workspace-service'
+import type { FirmwareBaselineResolver } from './firmware-baseline-resolver'
 
 type Events = { event: [FirmwareBuildEvent] }
 
@@ -18,7 +19,8 @@ export class TiMspm0BuildService extends EventEmitter<Events> {
   private cancelled = false
   private readonly fingerprint = new SourceFingerprintService()
 
-  constructor(private readonly toolchain: TiMspm0ToolchainService, private readonly workspaces: WorkspaceService, private readonly outputBase: string) { super() }
+  constructor(private readonly toolchain: TiMspm0ToolchainService, private readonly workspaces: WorkspaceService, private readonly outputBase: string,
+    private readonly baselines?: FirmwareBaselineResolver) { super() }
 
   async initialize(): Promise<void> { await mkdir(this.outputBase, { recursive: true }) }
   getSnapshot(): FirmwareBuildSnapshot { return structuredClone(this.snapshot) }
@@ -143,13 +145,15 @@ export class TiMspm0BuildService extends EventEmitter<Events> {
       ])
       const completedAt = new Date().toISOString()
       const workspaceSourceHash = await this.fingerprint.calculate(projectRoot)
+      const baselineStatus = await this.baselines?.resolveForWorkspace(workspace).getStatus()
       const proof: FirmwareBuildProof = {
         schemaVersion: 1, inputHash: createHash('sha256').update(`${workspace.headCommit}:${workspaceSourceHash}`).digest('hex'),
         workspaceId, workspaceCommit: workspace.headCommit, workspaceSourceHash,
         firmwareBaselineId: workspace.firmwareBaselineId, baselineCommit: workspace.baselineCommit, baselineSourceHash: 'mspm0-sdk-2.11.00.07',
         toolchain: tools.gcc.version ?? tools.gcc.detail, board: workspace.templateId === 'ti-mspm0g3507-foundations' ? 'TI MSPM0G3507 机器马教学板' : 'MSPM0G3507', size,
         artifacts: artifacts.map(({ name, kind, bytes, sha256 }) => ({ name, kind, bytes: bytes ?? 0, sha256: sha256! })),
-        startedAt: this.snapshot.startedAt!, completedAt, releaseEligible: false
+        startedAt: this.snapshot.startedAt!, completedAt,
+        releaseEligible: baselineStatus?.status === 'release' && baselineStatus.releaseEligible && baselineStatus.expectedCommit === workspace.baselineCommit
       }
       this.snapshot = { ...this.snapshot, state: 'completed', currentFile: undefined, completedFiles: 5, artifacts, size, proof, completedAt }
       this.log('固件生成 · ELF/HEX/BIN 已完成哈希校验', 'success')

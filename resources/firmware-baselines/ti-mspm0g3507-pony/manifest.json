@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "ti-mspm0g3507-pony-v1",
   "label": "TI MSPM0G3507 完整小马例程 0.2.5-ti.1",
-  "status": "provisional",
-  "releaseEligible": false,
-  "replacementPolicy": "独立自由工程模板，软件构建验证不代表真机验收。",
+  "status": "release",
+  "releaseEligible": true,
+  "replacementPolicy": "维护者于 2026-10-17 确认本次 TI 固件已测试并批准发布，见 docs/firmware/ti-release-qualification.md；更新供新建工程使用，已有学生工程不自动覆盖。",
   "source": {
     "repository": "resources/workspace-templates/ti-mspm0g3507-pony",
     "developmentDefaultRoot": "resources/workspace-templates/ti-mspm0g3507-pony",
@@ -97,11 +97,11 @@
     },
     {
       "path": "README.md",
-      "sha256": "22e5417ddd3c75cc05eec4cdcbd494c47fa6db7296fc4c747647a1f339dca47f"
+      "sha256": "d1bec2697b26a34bb4e85618cce512615c5eec2244481fb76490bf767611ee55"
     },
     {
       "path": "robotdog.firmware.json",
-      "sha256": "ace8dca71b1f80126193bf08cf0033b17112da61a58dd65287001a3f36ad5622"
+      "sha256": "d63079e32e3e7d6c10d5600e6985f0d73113481b15d3801e55a714588abd4b44"
     },
     {
       "path": "scripts/stack-guard.lds",
@@ -277,7 +277,7 @@
     },
     {
       "path": "VALIDATION.md",
-      "sha256": "6cabd1bd4004f5e3883d0bdeddf23ab74eb124928684217b5503647006f6c2d7"
+      "sha256": "5591a42b90cd0d372a1063ec90bda6601580a9e391c20433516df1594c3ba284"
     }
   ]
 }

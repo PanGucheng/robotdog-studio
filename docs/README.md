@@ -27,6 +27,7 @@
 - [讲义受控 Markdown 语法规范 (Lecture Markdown)](courses/lecture-markdown.md)：章节 ID 锚点规则、白名单指令语法与数学公式规范；
 - [真实界面截图与清晰度验收](courses/course-screenshots.md)：操作截图的无损采集、局部裁切、实际显示尺寸检查和本次保留事项；
 - [TI 第一课制作与软件验收记录](courses/ti-first-lesson-verification.md)：课程内容、SysConfig 窗口修复、软件验证结果与剩余实板验收；
+- [TI 正式发布准备记录](courses/ti-release-preparation.md)：第一课与两套自由工程的发布范围、文案整理、保留截图及独立固件门禁；
 - [沁恒第一课截图与软件验收记录](courses/mcu-first-lesson-verification.md)：真实界面、AI 助教引导、参数修改与构建的软件验收；
 - [沁恒第二课截图与软件验收记录](courses/mcu-second-lesson-verification.md)：GPIO 操作、错误定位、概念配图与未发布课的软件验收；
 - [课次编写与硬件验证要求 (Hardware Validation)](courses/lesson-hardware-validation.md)：普通课与硬件实物课编写准则、真机运行验证门禁；
@@ -39,6 +40,7 @@
 - [固件基线目录总览 (Firmware Baselines Overview)](../firmware/README.md)：`firmware/` 下教学基线与机器马全功能基线的职责划分与对应关系；
 - [CH32V203 固件开发指南 (CH32V203 Guide)](firmware/ch32v203.md)：硬件引脚分配、两套基线结构、WCH-Link 烧录与串口监视；
 - [TI MSPM0 教学版开发与验证 (TI MSPM0 Guide)](firmware/ti-mspm0.md)：MSPM0G3507 硬件平台、SysConfig 集成与开发验证；
+- [TI 固件发布资格与热更新边界](firmware/ti-release-qualification.md)：维护者实板确认、三类固件晋升，以及源码更新与开发板烧录的区别；
 - [TI MSPM0 托管工具链规范 (Managed Toolchain)](firmware/ti-mspm0-managed-toolchain.md)：MSPM0 SDK、SysConfig、Arm GCC 与 OpenOCD 版本清单；
 - [TI MSPM0 净机安装验收清单 (Clean Windows Checklist)](firmware/ti-mspm0-clean-windows-checklist.md)：无开发环境的裸机 Windows 11 验收规范；
 - [下位机固件接口与安全修改要求 (Firmware Developer Requirements)](firmware/firmware-developer-requirements.md)：固件开发者接口约定、安全状态机与构建规范。

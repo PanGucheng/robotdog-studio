@@ -32,7 +32,7 @@ export function AdvancedSettings({
   const baselineReady = Boolean(baseline?.readyForTesting)
 
   const toolchainLabel = editionProfile?.id === 'ti-mspm0-foundations'
-    ? 'TI Arm Clang Toolchain'
+    ? 'Arm GCC Toolchain'
     : 'CH32 GCC Toolchain'
 
   const rawBaselineLabel = baseline?.label ?? ''

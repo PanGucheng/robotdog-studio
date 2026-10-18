@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "ti-mspm0g3507-sdk-empty-v1",
   "label": "TI MSPM0G3507 基础 SDK 空工程",
-  "status": "provisional",
-  "releaseEligible": false,
-  "replacementPolicy": "独立自由工程模板，软件构建验证不代表真机验收。",
+  "status": "release",
+  "releaseEligible": true,
+  "replacementPolicy": "维护者于 2026-10-17 确认本次 TI 固件已测试并批准发布，见 docs/firmware/ti-release-qualification.md；更新供新建工程使用，已有学生工程不自动覆盖。",
   "source": {
     "repository": "resources/workspace-templates/ti-mspm0g3507-sdk-empty",
     "developmentDefaultRoot": "resources/workspace-templates/ti-mspm0g3507-sdk-empty",

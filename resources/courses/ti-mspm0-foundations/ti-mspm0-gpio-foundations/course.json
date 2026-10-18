@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "courseId": "ti-mspm0-gpio-foundations",
-  "contentVersion": 6,
+  "contentVersion": 7,
   "title": "TI MSPM0 单片机入门",
   "summary": "从零认识单片机、开发板与 RoboHorse Studio，学会使用 SysConfig 图形化配置芯片外设，跑通代码修改、编译、烧录与实物观察的完整工程闭环。",
   "audience": "单片机零基础或刚入门的大学生",
@@ -20,6 +20,6 @@
   "sourceAttribution": [
     "RoboHorse Studio 单片机基础教程教学法与工程操作工作流",
     "TI MSPM0 SDK 2.11.00.07 DriverLib 与 SysConfig 1.28.1",
-    "TI 机器马板引脚参考：mspm0g3507_example 与 mspm0g3507_pony；本课 GPIO 实验待重新真机验证"
+    "TI 机器马板引脚参考：mspm0g3507_example 与 mspm0g3507_pony"
   ]
 }

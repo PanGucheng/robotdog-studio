@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "id": "ti-mspm0g3507-sdk-2.11.00.07",
-  "label": "TI 机器马板 LED 入门工程（作者验证）",
-  "status": "provisional",
-  "releaseEligible": false,
-  "replacementPolicy": "机器马板 GPIO 入门模板；新引脚与闪烁实验须重新真机验收，旧 LaunchPad 验证结论不继承。",
+  "label": "TI 机器马板 LED 入门工程",
+  "status": "release",
+  "releaseEligible": true,
+  "replacementPolicy": "维护者于 2026-10-17 确认本次 TI 固件已测试并批准发布，见 docs/firmware/ti-release-qualification.md；更新供新建工程使用，已有学生工程不自动覆盖。",
   "source": {
     "repository": "resources/workspace-templates/ti-mspm0g3507-foundations",
     "expectedCommit": "2110000700000000000000000000000000000000",

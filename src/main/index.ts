@@ -24,6 +24,7 @@ import { CandidateBuildService, PlatformCandidateBuildService } from './services
 import { TiMspm0CandidateBuildService } from './services/ti-mspm0-candidate-build-service'
 import { FirmwareBaselineResolver } from './services/firmware-baseline-resolver'
 import { FirmwareBaselineService } from './services/firmware-baseline-service'
+import { resolveSandboxTemplateResources } from './services/sandbox-template-resources'
 import { FirmwareBuildService } from './services/firmware-build-service'
 import { DiagnosticService } from './services/diagnostic-service'
 import { CourseService } from './services/course-service'
@@ -345,9 +346,10 @@ app.whenReady().then(async () => {
     for (const projectType of ['sdk-empty', 'pony'] as const) {
       if (edition.id === 'mcu-foundations' && projectType === 'pony') continue
       const directory = edition.platform === 'ti-mspm0' ? `ti-mspm0g3507-${projectType}` : 'ch32v203-sdk-empty'
-      const source = resolveStudentTemplateRoot(app.getAppPath(), staticRoot, `resources/workspace-templates/${directory}`, app.isPackaged)
+      const resources = resolveSandboxTemplateResources(staticRoot, resolvedTemplatesRoot, resolvedBaselinesRoot, directory)
+      const source = resources.templateRoot
       const service = new FirmwareBaselineService({
-        manifestPath: join(staticRoot, 'firmware-baselines', directory, 'active.json'),
+        manifestPath: resources.manifestPath,
         developmentSourceRoot: source
       })
       const manifest = await service.getManifest()
@@ -441,7 +443,7 @@ app.whenReady().then(async () => {
     return courses.buildAiContext(workspace.courseBinding.courseId, workspace.courseBinding.lessonId, taskKind, progress)
   } : undefined, courses ? { root: lessonAgentRoot, policyVersion: 'mcu-foundations-v1:1' } : undefined)
   const firmwareBuild = edition.platform === 'ti-mspm0'
-    ? new TiMspm0BuildService(toolchain as TiMspm0ToolchainService, workspaces, join(workspaceRoot, 'firmware-artifacts'))
+    ? new TiMspm0BuildService(toolchain as TiMspm0ToolchainService, workspaces, join(workspaceRoot, 'firmware-artifacts'), baselineResolver)
     : new FirmwareBuildService(toolchain as ToolchainService, { baseline: baselineResolver, workspaces, outputBase: join(workspaceRoot, 'firmware-artifacts') })
   await firmwareBuild.initialize()
   const programmer = edition.platform === 'ti-mspm0'

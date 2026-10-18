@@ -52,10 +52,11 @@ describe('independent sandbox project templates', () => {
       const tools = editionId === 'mcu-foundations' ? new ToolchainService(repo) : new TiMspm0ToolchainService()
       const status = await tools.getStatus()
       if (!status.gcc.ok) return // Structure tests remain portable without local compilers.
-      const build = tools instanceof TiMspm0ToolchainService ? new TiMspm0BuildService(tools, reopened, join(root, 'artifacts')) : new FirmwareBuildService(tools, { outputBase: join(root, 'artifacts'), baselineResolver: resolver, workspaces: reopened })
+      const build = tools instanceof TiMspm0ToolchainService ? new TiMspm0BuildService(tools, reopened, join(root, 'artifacts'), resolver) : new FirmwareBuildService(tools, { outputBase: join(root, 'artifacts'), baselineResolver: resolver, workspaces: reopened })
       await build.initialize()
       let result = await build.build({ workspaceId: workspace.id })
       expect(result.state, `${result.error}\n${result.logs.join('\n')}`).toBe('completed')
+      if (editionId === 'ti-mspm0-foundations') expect(result.proof?.releaseEligible).toBe(true)
       if (projectType === 'pony') {
         const project = await reopened.getProjectRootForMain(workspace.id)
         const config = await readFile(join(project, 'board.syscfg'), 'utf8')

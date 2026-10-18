@@ -1,6 +1,6 @@
 # TI MSPM0 教学版开发与验证
 
-更新日期：2026-09-01  
+更新日期：2026-10-17
 适用发行版：`ti-mspm0-foundations`  
 目标硬件：TI LP-MSPM0G3507、DAPLink / CMSIS-DAP、SWD  
 关联文档：[TI MSPM0 托管工具链](./ti-mspm0-managed-toolchain.md) · [TI MSPM0 净机验收清单](./ti-mspm0-clean-windows-checklist.md)
@@ -9,12 +9,15 @@
 
 TI MSPM0 教学版已经形成独立的开发闭环：创建课程工作区、用 SysConfig 配置芯片、编辑 `src/main.c`、重新生成配置代码、使用 Arm GCC 编译链接、生成 ELF/HEX/BIN/MAP，并通过 OpenOCD 完成烧录、校验和复位。
 
-当前实现属于开发验证阶段，不是可分发的正式安装版：
+当前发布准备同时包含 LED 第一课、基础 SDK 空工程和完整小马例程，状态如下：
 
-- 固件基线是 `provisional`，构建证明不可用于正式发布；
-- 工具链从开发电脑的固定路径读取，尚未随安装包分发；
-- 第一课仍是 `draft + pending-hardware-check`，在正式课程验收前不得改成已发布课次；
+- 维护者于 2026-10-17 确认三类 TI 固件已经测试并批准发布，基线已晋升 `release`；正式打包仍需通过完整性、构建和安装包来源校验，见 [资格记录](ti-release-qualification.md)；
+- 打包脚本已支持随安装包分发固定版本的 SDK、SysConfig、Arm GCC 和 OpenOCD，并检查打包工具链；开发环境默认路径见下文；
+- 第一课内容 v7 已由维护者批准分发，使用 `published + author-approved`，没有新增真机验收记录；
+- 两套自由工程均纳入发布范围，学生说明已整理，支持从当前统一内容包读取模板和对应基线；
 - 已完成一次真实 MSPM0G3507 构建、CMSIS-DAP 烧录、校验和复位验证，结果不能替代完整课程验收。
+
+本次准备进度与发布阻塞见 [TI 正式发布准备记录](../courses/ti-release-preparation.md)。不能仅通过删除说明或修改发布标志把尚未完成的硬件验收视为通过。
 
 ## 与其他发行版的关系
 
@@ -128,4 +131,4 @@ corepack pnpm smoke:ti-mspm0:flash
 
 ## 后续工作
 
-第一阶段之后按真实硬件验收逐课扩展 GPIO 输入、中断、定时器、PWM、UART 和 ADC。TI Windows 安装包、工具链再分发许可、驱动安装和离线环境需要单独设计与验收，不能沿用 CH32 安装包的结论。
+第一阶段之后按真实硬件验收逐课扩展 GPIO 输入、中断、定时器、PWM、UART 和 ADC。TI Windows 打包已实现工具链随包分发，但正式基线、驱动安装、离线环境及真实 NSIS 升级仍须分别验收，不能沿用 CH32 安装包的结论。

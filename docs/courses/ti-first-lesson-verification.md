@@ -1,6 +1,8 @@
 # TI 第一课制作与软件验收记录
 
-日期：2026-10-14。课程 `ti-mspm0-gpio-foundations`，课次 `gpio-sysconfig-toggle`，最终内容版本 4。用户明确本次没有连接实板，只验收软件。课次保持 `draft + pending-hardware-check`，固件基线保持 provisional，不可正式发布。
+历史软件验收日期：2026-10-14。课程 `ti-mspm0-gpio-foundations`，课次 `gpio-sysconfig-toggle`，当次内容版本 4。用户明确当次没有连接实板，只验收软件，当时课次为 `draft + pending-hardware-check`。
+
+2026-10-17 发布准备更新：维护者批准第一课、基础 SDK 空工程和完整小马例程一起纳入正式发布准备，保留既有截图。当前课程内容 v7 使用 `published + author-approved` 并记录批准来源，不声称新增实板验收结果；软件固件基线门禁仍单独生效。当前准备状态见 [TI 正式发布准备记录](ti-release-preparation.md)，以下保留原验收事实。
 
 ## 课程内容与来源
 

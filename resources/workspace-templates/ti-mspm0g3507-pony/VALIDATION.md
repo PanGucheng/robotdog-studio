@@ -1,5 +1,7 @@
 # 首阶段验证记录
 
+2026-10-17 更新：项目维护者确认本次三类 TI 固件已经测试，可以发布。当前模板据此标记 `hardwareValidated: true`；这是维护者提供的确认，未附原始实测日志，不表示下列来源工程的历史构建记录被重新执行或改写。Studio 发布资格记录见 `docs/firmware/ti-release-qualification.md`。以下保留 2026-10-02 的首阶段事实。
+
 日期：2026-10-02。目标 MSPM0G3507SPMR，内部 SYSOSC 32 MHz。
 
 ## 软件结果
@@ -21,7 +23,7 @@
 
 SysConfig 修改测试在隔离临时工程中执行，不改变交付配置。它将舵机分频 64 改为 32、周期计数 10000 改为 20000，并将 I2C 400 kHz 改为 100 kHz；重新生成的宏和完整链接均通过。I2C 单次事务有 5 ms 时间限制及循环次数上限，支持上述 100 kHz 配置。
 
-机器可读记录：`build/build-proof.json`、`build/tests/results.json`、`build/regeneration-results.json`。构建记录包含输入和产物 SHA-256；改变代码、配置或构建脚本后须重新构建。测试记录与实板验证分别保存，当前 manifest 和构建记录的 `hardwareValidated` 均为 false。
+来源工程当时的机器可读记录：`build/build-proof.json`、`build/tests/results.json`、`build/regeneration-results.json`。构建记录包含输入和产物 SHA-256；改变代码、配置或构建脚本后须重新构建。软件记录与实板确认分别保存，2026-10-02 时 manifest 和构建记录的 `hardwareValidated` 均为 false；该历史结论不覆盖上方新增的维护者发布确认。
 
 ## 实板验收顺序
 

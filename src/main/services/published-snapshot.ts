@@ -223,7 +223,7 @@ export function exportPublishedSnapshot(options: PublishedSnapshotOptions): Publ
       join(targetPonyDir, 'current', 'source')
     )
   } else if (editionId === 'ti-mspm0-foundations') {
-    // Only verified, published TI lessons contribute course templates.
+    // Only explicitly approved, published TI lessons contribute course templates.
     for (const templateId of publishedTemplateIds) {
       copyDirectoryFiltered(
         join(resolvedStudioRoot, 'resources', 'workspace-templates', templateId),
@@ -246,6 +246,16 @@ export function exportPublishedSnapshot(options: PublishedSnapshotOptions): Publ
       join(resolvedStudioRoot, 'resources', 'workspace-templates', 'ti-mspm0g3507-foundations'),
       join(targetTiBaselineDir, 'current', 'source')
     )
+
+    // Free-practice projects must travel with their own baselines, independently
+    // of lesson publication, so a downloaded content root remains complete.
+    for (const templateId of ['ti-mspm0g3507-sdk-empty', 'ti-mspm0g3507-pony']) {
+      const templateSource = join(resolvedStudioRoot, 'resources', 'workspace-templates', templateId)
+      copyDirectoryFiltered(templateSource, join(targetTemplatesDir, templateId))
+      const baselineTarget = join(targetBaselinesDir, templateId)
+      copyDirectoryFiltered(join(resolvedStudioRoot, 'resources', 'firmware-baselines', templateId), baselineTarget)
+      copyDirectoryFiltered(templateSource, join(baselineTarget, 'current', 'source'))
+    }
   }
 
   return {
