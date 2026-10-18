@@ -2,6 +2,8 @@
 
 日期：2026-10-17。范围由维护者明确指定：第一课 `gpio-sysconfig-toggle`、基础 SDK 空工程 `ti-mspm0g3507-sdk-empty`、完整小马例程 `ti-mspm0g3507-pony` 全部纳入。此次是本地发布准备，没有上传软件安装包或远程课程。
 
+2026-10-18：本批已正式上线 TI 软件 1.2.1 和教学内容 v3。以下保留 10 月 17 日的准备记录，最终状态见 [正式发布与验收记录](../releases/1.2.1-verification.md)。
+
 ## 已整理内容
 
 - 第一课内容版本从 v6 升为 v7，冻结 `compatibility/content-v7.json`，旧指纹保留。课次使用 `published + author-approved` 并保存批准来源、日期与原因，学生模式可读取讲义及创建独立工程。

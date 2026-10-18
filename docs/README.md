@@ -11,6 +11,7 @@
 - [测试与质量门禁 (Testing & Validation)](development/testing-and-validation.md)：`pnpm check` 验证命令、课程校验、TypeScript 类型检查与 Vitest 服务测试；
 - [Windows 打包与基线门禁 (Windows Packaging)](development/windows-packaging.md)：便携版 ZIP 与 NSIS 安装包打包命令、WCH-Link 驱动集成及正式发布门禁。
 - [软件更新与发布操作说明 (App Update & Release)](development/app-updates.md)：GitCode 软件安装包发布、统一版本来源、下一版 Agent 操作清单、凭据检查、失败处理与独立 Live Test。
+- [TI 1.2.1 与第一课发布记录](releases/1.2.1-verification.md)：正式安装包、三类固件与教学内容 v3 的来源、下载摘要和线上验收。
 - [MCU 1.2.0 与沁恒第二课发布记录](releases/1.2.0-verification.md)：已发布版本、源码来源、下载地址与摘要、Gitee 大包下载修复、线上检查及未完成人工验收。
 - [自由工程文件编辑与构建](development/sandbox-projects.md)：沁恒/TI 基础 SDK 空工程与完整小马例程选择、文件与文件夹新建、完整工程副本、编译接入、课程权限边界和生成代码保留规则。
 - [浅色界面与应用内提示框验收](development/light-theme-verification.md)：公共主题、窗口标题栏、课程横幅、提示框与跨页面渲染检查。
