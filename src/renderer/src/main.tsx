@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import './lib/monaco-bootstrap'
 import { App } from './App'
 import 'katex/dist/katex.min.css'
 import './fonts.css'

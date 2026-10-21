@@ -20,7 +20,7 @@ export class TiMspm0FlashService extends EventEmitter<Events> {
     this.snapshot = { platform: 'ti-mspm0', state: 'probing', progress: 10, message: '正在通过 SWD 检测 CMSIS-DAP 和 MSPM0G3507…', canCancel: true, logs: [], startedAt: new Date().toISOString() }
     this.emitEvent('snapshot')
     try {
-      const output = await this.openocd(['init', 'halt', 'flash banks', 'exit'])
+      const output = await this.openocd(['init', 'halt', 'flash banks', 'shutdown'])
       const probe = parseProbe(output)
       if (!probe.adapterName) throw new Error('没有发现 CMSIS-DAP / DAPLink。')
       if (!probe.targetExamined) throw new Error('发现了下载器，但 SWD 无法识别 MSPM0。')
@@ -41,13 +41,13 @@ export class TiMspm0FlashService extends EventEmitter<Events> {
     }
     this.emitEvent('snapshot')
     try {
-      const probeOutput = await this.openocd(['init', 'halt', 'flash banks', 'exit'])
+      const probeOutput = await this.openocd(['init', 'halt', 'flash banks', 'shutdown'])
       const probe = parseProbe(probeOutput)
       if (!probe.adapterName) throw new Error('没有发现 CMSIS-DAP / DAPLink。')
       if (!probe.targetExamined) throw new Error('SWD 连接失败，无法识别 MSPM0。')
       this.snapshot = { ...this.snapshot, state: 'flashing', progress: 30, message: `正在写入 ${artifact.name}…`, canCancel: false, probe }
       this.emitEvent('progress')
-      await this.openocd(['init', 'halt', `program {${artifact.path.replaceAll('\\', '/')}} verify`, 'reset run', 'exit'], 90_000)
+      await this.openocd(['init', 'halt', `program {${artifact.path.replaceAll('\\', '/')}} verify`, 'reset run', 'shutdown'], 90_000)
       this.snapshot = { ...this.snapshot, state: 'completed', progress: 100, message: '烧录完成，校验通过，MSPM0 已复位运行。', canCancel: false, completedAt: new Date().toISOString() }
       this.emitEvent('completed')
       return this.getSnapshot()
@@ -60,7 +60,9 @@ export class TiMspm0FlashService extends EventEmitter<Events> {
   }
 
   private openocd(commands: string[], timeoutMs = 15_000): Promise<string> {
-    const args = ['-s', this.toolchain.getOpenocdScriptsPath(), '-f', 'interface/cmsis-dap.cfg', '-c', 'transport select swd', '-c', 'adapter speed 4000', '-f', 'target/ti/mspm0.cfg', ...commands.flatMap((command) => ['-c', command])]
+    // The generic MSPM0 script defaults to 0x20000000. G3507 SRAM is at
+    // 0x20200000; running OpenOCD's CRC helper at the default address times out.
+    const args = ['-s', this.toolchain.getOpenocdScriptsPath(), '-f', 'interface/cmsis-dap.cfg', '-c', 'transport select swd', '-c', 'adapter speed 4000', '-c', 'set WORKAREABASE 0x20200000', '-f', 'target/ti/mspm0.cfg', ...commands.flatMap((command) => ['-c', command])]
     return new Promise((resolveOutput, reject) => {
       const child = spawn(this.toolchain.getOpenocdPath(), args, { windowsHide: true })
       this.process = child
@@ -85,4 +87,4 @@ export function parseProbe(output: string): WchLinkProbeInfo {
   }
 }
 
-function mapError(caught: unknown): string { const text = caught instanceof Error ? caught.message : String(caught); if (/unable to find|no device|libusb|cmsis-dap.*not found/i.test(text)) return '没有发现 CMSIS-DAP / DAPLink，请检查 USB 连接和驱动。'; if (/busy|open failed|unable to open/i.test(text)) return 'CMSIS-DAP 正被其他软件占用，请关闭 SysConfig 调试、CCS 或其他 OpenOCD。'; if (/verify/i.test(text)) return 'Flash 写入后的校验失败，请检查供电和 SWD 连线后重试。'; if (/examin|target|swd/i.test(text)) return 'SWD 连接失败，无法识别 MSPM0。请检查供电、GND、SWDIO、SWCLK 和 NRST。'; return text || 'MSPM0 烧录失败。' }
+function mapError(caught: unknown): string { const text = caught instanceof Error ? caught.message : String(caught); if (/unable to find|no device|libusb|cmsis-dap.*not found/i.test(text)) return '没有发现 CMSIS-DAP / DAPLink，请检查 USB 连接和驱动。'; if (/busy|open failed|unable to open/i.test(text)) return 'CMSIS-DAP 正被其他软件占用，请关闭 SysConfig 调试、CCS 或其他 OpenOCD。'; if (/error executing cortex_m crc algorithm/i.test(text)) return 'OpenOCD 的芯片端 CRC 校验程序运行失败，尚不能认定 Flash 数据写错。请检查 MSPM0G3507 的 SRAM 校验工作区配置，并保留前面的烧录日志。'; if (/verify/i.test(text)) return 'Flash 写入后的校验失败，请检查供电和 SWD 连线后重试。'; if (/examin|target|swd/i.test(text)) return 'SWD 连接失败，无法识别 MSPM0。请检查供电、GND、SWDIO、SWCLK 和 NRST。'; return text || 'MSPM0 烧录失败。' }

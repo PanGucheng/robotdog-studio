@@ -14,6 +14,7 @@
 - [TI 1.2.1 与第一课发布记录](releases/1.2.1-verification.md)：正式安装包、三类固件与教学内容 v3 的来源、下载摘要和线上验收。
 - [MCU 1.2.0 与沁恒第二课发布记录](releases/1.2.0-verification.md)：已发布版本、源码来源、下载地址与摘要、Gitee 大包下载修复、线上检查及未完成人工验收。
 - [自由工程文件编辑与构建](development/sandbox-projects.md)：沁恒/TI 基础 SDK 空工程与完整小马例程选择、文件与文件夹新建、完整工程副本、编译接入、课程权限边界和生成代码保留规则。
+- [代码编辑器 Loading 与离线加载修复](development/editor-offline-verification.md)：外部 CDN 依赖复现、本地 Monaco 与后台线程打包、断网编辑保存验收及学生端更新边界。
 - [浅色界面与应用内提示框验收](development/light-theme-verification.md)：公共主题、窗口标题栏、课程横幅、提示框与跨页面渲染检查。
 - [全软件浅色界面与底色职责规划](development/surface-system-plan.md)：统一导航、内容和页面留白，覆盖三个 Edition 的页面、交互状态与后续验收范围。
 - [全软件底色统一与视觉验收](development/surface-system-verification.md)：实际修改、共享颜色来源、跨页面与缩放检查、原始截图及测试边界。
@@ -42,6 +43,7 @@
 - [CH32V203 固件开发指南 (CH32V203 Guide)](firmware/ch32v203.md)：硬件引脚分配、两套基线结构、WCH-Link 烧录与串口监视；
 - [TI MSPM0 教学版开发与验证 (TI MSPM0 Guide)](firmware/ti-mspm0.md)：MSPM0G3507 硬件平台、SysConfig 集成与开发验证；
 - [TI 固件发布资格与热更新边界](firmware/ti-release-qualification.md)：维护者实板确认、三类固件晋升，以及源码更新与开发板烧录的区别；
+- [TI 烧录校验超时修复](firmware/ti-flash-verify-fix.md)：1.2.1 的 CRC 工作区地址问题、实板只读核验和带备份的本地修复脚本；
 - [TI MSPM0 托管工具链规范 (Managed Toolchain)](firmware/ti-mspm0-managed-toolchain.md)：MSPM0 SDK、SysConfig、Arm GCC 与 OpenOCD 版本清单；
 - [TI MSPM0 净机安装验收清单 (Clean Windows Checklist)](firmware/ti-mspm0-clean-windows-checklist.md)：无开发环境的裸机 Windows 11 验收规范；
 - [下位机固件接口与安全修改要求 (Firmware Developer Requirements)](firmware/firmware-developer-requirements.md)：固件开发者接口约定、安全状态机与构建规范。

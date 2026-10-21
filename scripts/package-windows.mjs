@@ -247,6 +247,11 @@ if (editionId === 'ti-mspm0-foundations') {
   }).then(({ stdout }) => console.log(stdout.trim()))
 } else await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
 
+// Verify the actual ASAR renderer offline, including its local Monaco workers.
+await execFileAsync(process.execPath, [join(root, 'scripts', 'smoke-editor-offline.cjs'), `--renderer-root=${join(packagedResourcesRoot, 'app.asar', 'out', 'renderer')}`], {
+  cwd: root, windowsHide: true, timeout: 120_000, maxBuffer: 4 * 1024 * 1024
+}).then(({ stdout }) => console.log(stdout.trim()))
+
 // Publish provenance only after all packaged-resource checks have passed.
 if (formal && target === 'nsis') {
   const expectedName = `${edition.artifactSlug}-${rootPackage.version}-Windows-x64.exe`

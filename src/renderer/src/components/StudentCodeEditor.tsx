@@ -450,6 +450,7 @@ export function StudentCodeEditor({ workspace, candidate, busy, onCandidateChang
         <div className="mcu-editor-stage">
         <div className={`student-monaco-shell ${editorWritable ? '' : 'is-readonly'} ${overlayVisible ? 'is-covered' : ''}`} aria-hidden={overlayVisible || undefined}>
           <Editor
+            loading="正在初始化代码编辑器…"
             beforeMount={configureMonaco}
             onMount={(editor, monaco) => {
               editorRef.current = editor

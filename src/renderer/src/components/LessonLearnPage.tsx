@@ -399,6 +399,7 @@ export function LessonLearnPage({ course, lesson, attempts, activeWorkspaceId, o
           {codePreview.error && <div className="lesson-code-preview-error">{codePreview.error}</div>}
           {codePreview.content !== undefined && <div className="lesson-code-preview-monaco">
             <Editor
+              loading="正在初始化代码预览…"
               beforeMount={configureMonaco}
               theme="robotdog-track"
               language={codePreview.path.endsWith('.h') || codePreview.path.endsWith('.c') ? 'c' : codePreview.path.endsWith('.json') ? 'json' : 'plaintext'}
