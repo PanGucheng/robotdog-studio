@@ -2,6 +2,8 @@
 
 App Update 更新软件安装本体。Content Update 继续独立更新课程、模板与 Firmware Baseline，两者不共享服务、版本号、缓存或清单。
 
+2026-10-21 维护者明确要求：以后发布直接上传并更新清单，不在发布端回下载安装包。默认流程只核对本地产物、确认上传登记并读回小型公开清单；整包下载 Live Test 仅在维护者另行要求时运行。学生端下载、缓存恢复和安装前的大小 / SHA-256 校验保持不变。
+
 新会话 Agent 从根 `AGENTS.md` 自动发现本说明；人类可从项目 README 或 `docs/README.md` 进入。本文和仓库脚本是后续发版依据，不需要上一轮聊天记录或 `release/` 中的临时文件。
 
 ## 下一版操作清单
@@ -86,19 +88,14 @@ dry-run 核对本地产物记录、真实大小和摘要、当前 HEAD 和干净
 1. 检查公开发布仓库 main，准备 README，读取现有清单。
 2. 创建/复用 `v<version>` Release，使用 `docs/releases/<version>.md` 作为更新说明；可显式传 `--notes-file=<路径>`。
 3. 获取临时签名上传地址，流式 PUT 上传，确认附件已登记。
-4. 不带 Token/Cookie 完整下载本批每个附件，核对大小及 SHA-256。
-5. 全部验证成功后检查 main 提交与清单 Blob SHA 未被并发修改，最后通过文件 API 提交 `update.json`。
-6. 匿名读取公开 raw 清单，核对实际内容。
+4. 全部上传登记成功后检查 main 提交与清单 Blob SHA 未被并发修改，最后通过文件 API 提交 `update.json`。
+5. 读取小型公开 raw 清单，核对实际内容。发布端不下载 EXE。
 
 未参与本批的 Edition 清单项会保留。客户端只选择自己的 Edition；不存在对应条目时显示尚未发布。签名上传 URL 不用于客户端，也不保存到清单。EXE 只放 Release 附件，不能提交源码仓库或发布仓库的 Git 历史。
 
-### 5. Live Test 和交接
+### 5. 交接与可选 Live Test
 
-```powershell
-pnpm test:app-update:live
-```
-
-此命令匿名读取真实清单并完整下载所有已发布 Edition，检查进度及可安装状态；下载到临时目录，不实际安装软件。最后报告新版本、源码提交、发布 Edition、Release/清单地址、安装包大小和 SHA-256、普通测试/打包/Live Test 结果及未完成人工验收。
+发布后报告新版本、源码提交、发布 Edition、Release/清单地址、安装包大小和 SHA-256、普通测试/打包结果及未完成人工验收。不要自动运行 `pnpm test:app-update:live`：此命令会完整下载已发布安装包，仅在维护者明确要求时运行；未运行如实记录。
 
 若需长期保存发布验收记录，应在项目受版本控制的文档中记录事实；`release/` 是忽略的本地构建输出，不能作为跨机器或新会话唯一依据。发布后新增验收文档提交会改变 HEAD，之后重复执行自动发布须重新构建以符合来源校验；查看或下载既有公开 Release 不需要重新构建。
 
@@ -109,12 +106,12 @@ pnpm test:app-update:live
 | `GITCODE_TOKEN_MISSING` 或 HTTP 401/403 | 检查 Token 是否配置、是否有目标仓库 Release/文件权限；不打印凭据。 |
 | `BUILD_PROVENANCE_INVALID` | 检查脏工作区、当前 HEAD、产物和记录；保留其他工作，从同一干净提交重新构建，不能改记录或绕过检查。 |
 | 正式固件门禁失败 | 停止对应 Edition 发布并报告实际失败；不使用测试包或手改 `releaseEligible` 替代。 |
-| HTTP 容量限制、上传/匿名下载失败或摘要不一致 | 停止本批清单提交，保留原清单，报告平台或网络错误；不自行拆包、换平台或覆盖同名附件。 |
-| 同名附件存在 | 脚本复用并完整匿名校验；相同内容可继续，不同内容失败。已有版本应保持不变，修正后使用更高版本，不能覆盖已发布包。 |
+| HTTP 容量限制或上传登记失败 | 停止本批清单提交，保留原清单，报告平台或网络错误；不自行拆包、换平台或覆盖同名附件。 |
+| 同名附件存在 | 脚本复用已登记附件，不回下载、不覆盖；已知来源或内容不符时停止并使用更高版本。已有版本应保持不变。 |
 | `RELEASE_METADATA_CHANGED_RETRY` | 检查发布仓库并发修改，确认新状态后重新执行；不要覆盖其他 Edition 的清单项。 |
 | 已提交清单但 raw 验证失败 | 报告发布和验证的实际状态，检查公开 raw 与附件；不要宣称全部验收通过。只有确认是暂时网络/缓存问题后才重试验证。 |
 
-发布失败后的重试仍须从符合构建记录的干净源码提交执行。脚本会复用已创建 Release 和同名附件，并重新校验，只有全部附件验证通过才继续发布清单。
+发布失败后的重试仍须从符合构建记录的干净源码提交执行。脚本会复用已创建 Release 和同名附件；核对本地产物后，只有全部附件登记成功才继续发布清单，不重复下载安装包。
 
 ## 首次上线记录与状态判断
 
@@ -164,14 +161,14 @@ pnpm dev:mcu
 
 ## Agent 自动发布
 
-发布端配置 `GITCODE_TOKEN`，允许操作目标仓库的 Release 和文件。Windows 支持进程环境变量或用户级环境变量。Token 仅用于发布 API；README 和最后的 update.json 使用文件 API 提交到 main，安装包通过平台提供的临时签名地址流式 PUT 上传。无需配置 GitCode SSH 或安装 CLI。客户端及匿名验证不携带凭据，签名地址和上传请求头不写入日志或清单。
+发布端配置 `GITCODE_TOKEN`，允许操作目标仓库的 Release 和文件。Windows 支持进程环境变量或用户级环境变量。Token 仅用于发布 API；README 和最后的 update.json 使用文件 API 提交到 main，安装包通过平台提供的临时签名地址流式 PUT 上传。无需配置 GitCode SSH 或安装 CLI。客户端及公开清单读回不携带凭据，签名地址和上传请求头不写入日志或清单。
 
 1. 修改根包版本，更新对应 `docs/releases/<version>.md`。
 2. 运行 `pnpm test`、`pnpm build` 和三个 Edition 的 Electron smoke test。
 3. 提交源码，保证工作区干净。由同一提交顺序执行 `pnpm package:win:mcu`、`pnpm package:win:ti`。正式门禁不能跳过。Fun 基线正式就绪后才构建 `pnpm package:win:fun`。
 4. 正式 NSIS 打包完成并通过资源自检后，生成安装包旁的 `.release.json`，记录 Edition、版本、大小、摘要及源码提交。没有该记录、工作区不干净或记录不匹配均不能发布。
 5. `pnpm release:app` 默认 dry-run，只核对本地正式包和发布信息。
-6. `pnpm release:app --publish` 创建/复用 `v<version>` Release，上传 MCU/TI 附件。完整匿名下载验证所有附件后，最后通过 API 提交 `update.json`，验证公开 raw 清单。
+6. `pnpm release:app --publish` 创建/复用 `v<version>` Release，上传并登记 MCU/TI 附件，最后通过 API 提交 `update.json` 并读回公开 raw 清单。不回下载安装包。
 
 ```powershell
 pnpm release:app --publish --editions=mcu-foundations,ti-mspm0-foundations
@@ -179,15 +176,15 @@ pnpm release:app --publish --editions=mcu-foundations,ti-mspm0-foundations
 pnpm release:app --publish --editions=fun-line-following
 ```
 
-脚本固定目标仓库，不修改源码仓库 origin。重复发布复用已有附件并再次校验；同名内容不同直接失败，不覆盖附件。提交清单前检查 main 提交和清单 Blob SHA，并发元数据变化时失败，重新执行即可。大包附件容量限制、匿名下载失败、Token 权限失败都会阻止新清单发布；不提交 exe 到 Git，不拆包或更换服务。
+脚本固定目标仓库，不修改源码仓库 origin。重复发布复用已登记附件，不覆盖同名文件；发现已知来源或内容不符时应换新版本。提交清单前检查 main 提交和清单 Blob SHA，并发元数据变化时失败，重新执行即可。大包附件容量限制、上传登记失败、Token 权限失败都会阻止新清单发布；不提交 exe 到 Git，不拆包或更换服务。
 
-手动备用流程：网页创建 `v<version>` Release，上传通过正式门禁的安装包，使用本地产物记录填写对应清单项，完整匿名下载核对大小和 SHA-256，最后才通过网页或 Git 提交清单。首次启用更新功能的 1.1.0 需要用户安装一次，旧版 1.0.0 没有远程软件更新能力。
+手动备用流程：网页创建 `v<version>` Release，上传通过正式门禁的安装包，确认附件登记，使用本地产物记录填写并提交对应清单项，读回小型清单确认。不回下载安装包。首次启用更新功能的 1.1.0 需要用户安装一次，旧版 1.0.0 没有远程软件更新能力。
 
-2026-10-01 实测：原 Gitee 账户单附件限制 100 MB，拒绝 MCU 安装包上传。经用户授权迁移至 GitCode；1,340,137,304 字节测试附件上传、匿名完整下载及 SHA-256 校验通过，随后删除测试附件。正式发布仍须逐包验证。
+2026-10-01 历史实测：原 Gitee 账户单附件限制 100 MB，拒绝 MCU 安装包上传。经用户授权迁移至 GitCode；1,340,137,304 字节测试附件上传、匿名完整下载及 SHA-256 校验通过，随后删除测试附件。该历史下载测试不代表当前发布要求；当前按维护者要求直接上传更新。
 
 ## 验证
 
-普通自动化测试使用本地 HTTP fixture 和 mock 发布 API，不访问 GitCode、不开安装器。独立 Live Test：
+普通自动化测试使用本地 HTTP fixture 和 mock 发布 API，不访问 GitCode、不开安装器。独立 Live Test 仅在维护者明确要求整包下载测试时执行：
 
 ```powershell
 pnpm test:app-update:live

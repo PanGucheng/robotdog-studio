@@ -52,7 +52,12 @@ export class GitcodeAppRelease {
     const repo = await this.api<{ private: boolean; default_branch: string }>('')
     if (repo.private || repo.default_branch !== 'main') throw new Error('RELEASE_REPOSITORY_MUST_BE_PUBLIC_MAIN')
     const readme = await this.file('README.md')
-    if (!readme || !readme.content.trim()) await this.writeFile('README.md', '# RoboHorse Studio Releases\n\nPublic Windows installers are distributed as Release attachments. update.json is published only after anonymous download verification.\n', readme?.sha)
+    if (!readme || !readme.content.trim()) await this.writeFile('README.md', '# RoboHorse Studio Releases\n\nPublic Windows installers are distributed as Release attachments. update.json is published after all requested installers are uploaded and registered. Clients verify installer size and SHA-256 before installation.\n', readme?.sha)
+    else if (readme.encoding === 'base64') {
+      const previous = Buffer.from(readme.content, 'base64').toString('utf8')
+      const updated = previous.replace('update.json is published only after anonymous download verification.', 'update.json is published after all requested installers are uploaded and registered. Clients verify installer size and SHA-256 before installation.')
+      if (updated !== previous) await this.writeFile('README.md', updated, readme.sha)
+    }
     this.head = await this.branchHead()
   }
   async readManifest(): Promise<AppUpdateManifest> {

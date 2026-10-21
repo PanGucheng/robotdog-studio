@@ -12,17 +12,16 @@ function dependencies(order: string[], failure?: string): PublicationDependencie
     ensureRepository: async () => { order.push('repository') },
     readManifest: async () => ({ schemaVersion: 1, editions: {} }),
     ensureRelease: async () => { order.push('release'); return 1 },
-    ensureAttachment: async (_id, item) => { order.push(`upload:${item.editionId}`); if (failure === 'upload') throw new Error('UPLOAD_FAILED'); return installerDownloadUrl(item.editionId, item.version) },
-    verifyAttachment: async item => { order.push(`verify:${item.editionId}`); if (failure === item.editionId) throw new Error('HASH_MISMATCH') },
+    ensureAttachment: async (_id, item) => { order.push(`upload:${item.editionId}`); if (failure === 'upload' || failure === item.editionId) throw new Error('UPLOAD_FAILED'); return installerDownloadUrl(item.editionId, item.version) },
     publishManifest: vi.fn(async () => { order.push('manifest') }),
     verifyManifest: async () => { order.push('public-manifest') }
   }
 }
 describe('release manifest publication gate', () => {
-  it('writes metadata only after every installer passes anonymous verification', async () => {
+  it('publishes after all uploads without downloading installers', async () => {
     const order: string[] = []
     const result = await publishAppRelease(artifacts, 'Notes', dependencies(order))
-    expect(order).toEqual(['repository', 'release', 'upload:mcu-foundations', 'verify:mcu-foundations', 'upload:ti-mspm0-foundations', 'verify:ti-mspm0-foundations', 'manifest', 'public-manifest'])
+    expect(order).toEqual(['repository', 'release', 'upload:mcu-foundations', 'upload:ti-mspm0-foundations', 'manifest', 'public-manifest'])
     expect(Object.keys(result.editions)).toHaveLength(2)
   })
   it.each(['upload', 'mcu-foundations', 'ti-mspm0-foundations'])('never publishes a manifest after %s failure', async failure => {

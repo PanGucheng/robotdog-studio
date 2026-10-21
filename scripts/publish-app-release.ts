@@ -8,7 +8,6 @@ import { promisify } from 'node:util'
 import { APP_RELEASE_REPOSITORY } from '../src/shared/app-update'
 import { parseEditionId } from '../src/shared/edition'
 import { installerFilename, isStableVersion } from '../src/main/services/app-update-manifest'
-import { fetchHttps } from '../src/main/services/app-update-service'
 import { publishAppRelease, type ReleaseArtifact } from './app-release-publication'
 import { GitcodeAppRelease } from './gitcode-app-release'
 
@@ -19,33 +18,6 @@ async function fileHash(path: string): Promise<string> {
   for await (const chunk of createReadStream(path)) hash.update(chunk)
   return hash.digest('hex')
 }
-export async function verifyAnonymousAttachment(artifact: Pick<ReleaseArtifact, 'size' | 'sha256'>, url: string, fetchFn: typeof fetch = fetch): Promise<void> {
-  const controller = new AbortController()
-  let timer = setTimeout(() => controller.abort(), 15_000)
-  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
-  try {
-    const response = await fetchHttps(fetchFn, url, { signal: controller.signal })
-    clearTimeout(timer)
-    if (!response.ok || !response.body) throw new Error(`ANONYMOUS_DOWNLOAD_HTTP_${response.status}`)
-    reader = response.body.getReader()
-    const hash = createHash('sha256')
-    let bytes = 0
-    for (;;) {
-      timer = setTimeout(() => controller.abort(), 60_000)
-      const item = await reader.read()
-      clearTimeout(timer)
-      if (item.done) break
-      bytes += item.value.length
-      if (bytes > artifact.size) throw new Error('REMOTE_ATTACHMENT_SIZE_MISMATCH')
-      hash.update(item.value)
-    }
-    if (bytes !== artifact.size || hash.digest('hex') !== artifact.sha256) throw new Error('REMOTE_ATTACHMENT_INTEGRITY_FAILED')
-  } finally {
-    clearTimeout(timer); controller.abort()
-    await reader?.cancel().catch(() => {})
-  }
-}
-
 async function main(args: string[]): Promise<void> {
   if (args.includes('--help')) {
     console.log('tsx scripts/publish-app-release.ts [--publish] [--editions=mcu-foundations,ti-mspm0-foundations] [--notes-file=path]')
@@ -87,10 +59,6 @@ async function main(args: string[]): Promise<void> {
     readManifest: () => publisher.readManifest(),
     ensureRelease: (version, body) => publisher.ensureRelease(version, body),
     ensureAttachment: (tag, artifact) => publisher.ensureAttachment(tag, artifact),
-    verifyAttachment: async (artifact, url) => {
-      console.log(`Verifying anonymous download: ${artifact.filename}`)
-      await verifyAnonymousAttachment(artifact, url)
-    },
     publishManifest: manifest => publisher.publishManifest(manifest),
     verifyManifest: manifest => publisher.verifyManifest(manifest)
   })

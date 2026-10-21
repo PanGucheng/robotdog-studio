@@ -14,6 +14,27 @@ afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { rec
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } })
 
 describe('GitCode release transport', () => {
+  it('updates only the known legacy download-verification sentence in README', async () => {
+    const legacy = '# Releases\nCustom introduction. update.json is published only after anonymous download verification.\n'
+    let updated = ''
+    const fetchFn = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input))
+      if (init?.method === 'PUT') {
+        expect(url.pathname).toMatch(/\/contents\/README.md$/)
+        const body = JSON.parse(init.body as string)
+        expect(body.sha).toBe(head)
+        updated = Buffer.from(body.content, 'base64').toString('utf8')
+        return json({})
+      }
+      if (url.pathname.endsWith('/README.md')) return json({ sha: head, encoding: 'base64', content: Buffer.from(legacy).toString('base64') })
+      if (url.pathname.endsWith('/branches/main')) return json({ commit: { id: head } })
+      return json({ private: false, default_branch: 'main' })
+    })
+    await new GitcodeAppRelease(token, fetchFn as typeof fetch).ensureRepository()
+    expect(updated).toContain('Custom introduction.')
+    expect(updated).toContain('uploaded and registered')
+    expect(updated).not.toContain('anonymous download verification')
+  })
   it('streams the installer to the signed PUT URL and returns an anonymous stable download URL', async () => {
     const root = await mkdtemp(join(tmpdir(), 'gitcode-release-test-')); roots.push(root)
     const path = join(root, 'fixture.exe'); await writeFile(path, 'MZ-fixture')
