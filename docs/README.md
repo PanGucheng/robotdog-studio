@@ -15,6 +15,7 @@
 - [MCU 1.2.0 与沁恒第二课发布记录](releases/1.2.0-verification.md)：已发布版本、源码来源、下载地址与摘要、Gitee 大包下载修复、线上检查及未完成人工验收。
 - [自由工程文件编辑与构建](development/sandbox-projects.md)：沁恒/TI 基础 SDK 空工程与完整小马例程选择、文件与文件夹新建、完整工程副本、编译接入、课程权限边界和生成代码保留规则。
 - [代码编辑器 Loading 与离线加载修复](development/editor-offline-verification.md)：外部 CDN 依赖复现、本地 Monaco 与后台线程打包、断网编辑保存验收及学生端更新边界。
+- [TI 安装包裁剪方案](development/ti-package-trimming-plan.md)：既有 Git 精简核对、TI 工具链体积明细、首轮裁剪范围与三类工程验收要求。
 - [浅色界面与应用内提示框验收](development/light-theme-verification.md)：公共主题、窗口标题栏、课程横幅、提示框与跨页面渲染检查。
 - [全软件浅色界面与底色职责规划](development/surface-system-plan.md)：统一导航、内容和页面留白，覆盖三个 Edition 的页面、交互状态与后续验收范围。
 - [全软件底色统一与视觉验收](development/surface-system-verification.md)：实际修改、共享颜色来源、跨页面与缩放检查、原始截图及测试边界。

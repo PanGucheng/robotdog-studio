@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { Arch, build, Platform } from 'electron-builder'
+import { tiResourceFilter, verifyTiPackageResources, measureTiResources } from './ti-package-resources.mjs'
 
 const execFileAsync = promisify(execFile)
 const root = process.cwd()
@@ -103,6 +104,9 @@ const tiSources = editionId === 'ti-mspm0-foundations' ? {
   openocd: resolve(process.env.ROBOTDOG_TI_OPENOCD_ROOT ?? join(tiSourceBase, 'openocd-d9b957f-i686-w64-mingw32'))
 } : undefined
 if (tiSources) await verifyTiToolchain(tiSources)
+const tiOriginalSize = tiSources ? await measureTiResources(tiSources) : undefined
+let tiPackedSize, tiStagingMs, tiPreflightMs, tiCompressionStarted
+const packageStarted = Date.now()
 const extraResources = [
   { from: join(root, 'resources', 'brand', 'robohorse.ico'), to: 'brand/robohorse.ico' },
   { from: resolve(root, selectedTemplate), to: selectedTemplate.replace(/^resources[\\/]/, '').replaceAll('\\', '/') },
@@ -119,8 +123,9 @@ const extraResources = [
   ...(wchLinkDriverRoot ? [{ from: wchLinkDriverRoot, to: 'toolchains/wch/drivers/WCHLinkDrv' }] : []),
   ...(tiSources ? [
     { from: join(root, 'resources', 'toolchains', 'ti-mspm0', 'manifest.json'), to: 'toolchains/ti-mspm0/manifest.json' },
-    { from: tiSources.sdk, to: 'toolchains/ti-mspm0/sdk' },
-    { from: tiSources.sysconfig, to: 'toolchains/ti-mspm0/sysconfig' },
+    { from: tiSources.sdk, to: 'toolchains/ti-mspm0/sdk', filter: tiResourceFilter('sdk') },
+    { from: tiSources.sysconfig, to: 'toolchains/ti-mspm0/sysconfig', filter: tiResourceFilter('sysconfig') },
+    { from: join(root, 'resources', 'toolchains', 'ti-mspm0', 'package-policy.json'), to: 'toolchains/ti-mspm0/package-policy.json' },
     { from: join(root, 'resources', 'toolchains', 'ti-mspm0', 'sysconfig-package.json'), to: 'toolchains/ti-mspm0/sysconfig/package.json' },
     { from: tiSources.gcc, to: 'toolchains/ti-mspm0/gcc' },
     { from: tiSources.openocd, to: 'toolchains/ti-mspm0/openocd' },
@@ -191,6 +196,18 @@ const artifacts = await build({
     directories: { output: packageOutputRoot },
     files: ['out/**/*', 'config/**/*', 'package.json'],
     extraResources,
+    ...(tiSources ? { afterPack: async context => {
+      tiStagingMs = Date.now() - packageStarted
+      const preflightStarted = Date.now()
+      const resources = join(context.appOutDir, 'resources')
+      const tools = join(resources, 'toolchains', 'ti-mspm0')
+      await verifyTiPackageResources(tools)
+      tiPackedSize = await measureTiResources(Object.fromEntries(['sdk', 'sysconfig', 'gcc', 'openocd'].map(tool => [tool, join(tools, tool)])))
+      await smokeTiPackaged(resources)
+      tiPreflightMs = Date.now() - preflightStarted
+      tiCompressionStarted = Date.now()
+      console.log(`TI_PACKAGE_PREFLIGHT_OK ${JSON.stringify({ before: tiOriginalSize, after: tiPackedSize, stagingMs: tiStagingMs, preflightMs: tiPreflightMs })}`)
+    } } : {}),
     win: {
       icon: join(root, 'resources', 'brand', 'robohorse.ico'),
       executableName: formal ? edition.executableName : `${edition.executableName}-Test`,
@@ -212,6 +229,7 @@ const artifacts = await build({
     publish: null
   }
 })
+const tiCompressionMs = tiCompressionStarted ? Date.now() - tiCompressionStarted : undefined
 console.log('Windows package artifacts:')
 for (const artifact of artifacts) {
   const destination = join(root, 'release', basename(artifact))
@@ -241,10 +259,8 @@ if (editionId === 'ti-mspm0-foundations') {
     gcc: join(packagedResourcesRoot, 'toolchains', 'ti-mspm0', 'gcc'),
     openocd: join(packagedResourcesRoot, 'toolchains', 'ti-mspm0', 'openocd')
   })
-  await execFileAsync(process.execPath, [join(root, 'node_modules', 'tsx', 'dist', 'cli.mjs'), join(root, 'scripts', 'smoke-ti-mspm0.ts'), '--resources-root', packagedResourcesRoot], {
-    cwd: root, windowsHide: true, timeout: 180_000, maxBuffer: 4 * 1024 * 1024,
-    env: { ...process.env, ROBOTDOG_TI_MSPM0_SDK_ROOT: 'Z:\\forbidden-development-sdk', ROBOTDOG_TI_SYSCONFIG_ROOT: 'Z:\\forbidden-development-sysconfig', ROBOTDOG_TI_GCC_ROOT: 'Z:\\forbidden-development-gcc', ROBOTDOG_TI_OPENOCD_ROOT: 'Z:\\forbidden-development-openocd' }
-  }).then(({ stdout }) => console.log(stdout.trim()))
+  await verifyTiPackageResources(join(packagedResourcesRoot, 'toolchains', 'ti-mspm0'))
+  await smokeTiPackaged(packagedResourcesRoot)
 } else await verifyPackagedWchLinkDriver(join(packagedResourcesRoot, 'toolchains', 'wch', 'drivers', 'WCHLinkDrv'))
 
 // Verify the actual ASAR renderer offline, including its local Monaco workers.
@@ -261,6 +277,15 @@ if (formal && target === 'nsis') {
   for await (const chunk of createReadStream(installerPath)) digest.update(chunk)
   await writeFile(`${installerPath}.release.json`, JSON.stringify({ schemaVersion: 1, editionId, version: rootPackage.version,
     filename: expectedName, size: (await stat(installerPath)).size, sha256: digest.digest('hex'), sourceCommit, sourceDirty }, null, 2))
+  if (tiSources) await writeFile(`${installerPath}.resources.json`, JSON.stringify({ schemaVersion: 1, sourceCommit, before: tiOriginalSize, after: tiPackedSize,
+    stagingMs: tiStagingMs, preflightMs: tiPreflightMs, nsisMs: tiCompressionMs, installerBytes: (await stat(installerPath)).size }, null, 2))
+}
+
+async function smokeTiPackaged(resources) {
+  await execFileAsync(process.execPath, [join(root, 'node_modules', 'tsx', 'dist', 'cli.mjs'), join(root, 'scripts', 'smoke-ti-mspm0.ts'), '--resources-root', resources], {
+    cwd: root, windowsHide: true, timeout: 240_000, maxBuffer: 4 * 1024 * 1024,
+    env: { ...process.env, ROBOTDOG_TI_MSPM0_SDK_ROOT: 'Z:\\forbidden-development-sdk', ROBOTDOG_TI_SYSCONFIG_ROOT: 'Z:\\forbidden-development-sysconfig', ROBOTDOG_TI_GCC_ROOT: 'Z:\\forbidden-development-gcc', ROBOTDOG_TI_OPENOCD_ROOT: 'Z:\\forbidden-development-openocd' }
+  }).then(({ stdout }) => console.log(stdout.trim()))
 }
 
 async function preparePackagedGitRuntime(sourceRoot, destinationRoot) {

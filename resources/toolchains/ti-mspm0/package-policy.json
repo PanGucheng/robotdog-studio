@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "excluded": {
+    "sdk": ["docs", "examples", "tools", "mspm0sdk_2_11_00_07.log", "uninstall.exe", "uninstall.dat"],
+    "sysconfig": ["tests", "install_logs", "TI sysconfig.lnk", "uninstall.exe", "uninstall.dat"]
+  },
+  "required": [
+    "sdk/.metadata/product.json",
+    "sdk/source/ti/driverlib/.meta/Common.js",
+    "sdk/source/ti/devices/msp/m0p/startup_system_files/gcc/startup_mspm0g350x_gcc.c",
+    "sdk/source/third_party/CMSIS/Core/Include/core_cm0plus.h",
+    "sdk/source/ti/driverlib/lib/gcc/m0p/mspm0g1x0x_g3x0x/driverlib.a",
+    "sdk/license_mspm0_sdk_2_11_00_07.txt",
+    "sdk/manifest_mspm0_sdk_2_11_00_07.html",
+    "sysconfig/sysconfig_cli.bat", "sysconfig/sysconfig_gui.bat",
+    "sysconfig/app/desktopServer.js", "sysconfig/dist/cli.js",
+    "sysconfig/dist/license.txt", "sysconfig/nodejs/node.exe", "sysconfig/nw/nw.exe",
+    "gcc/bin/arm-none-eabi-gcc.exe", "gcc/bin/arm-none-eabi-objcopy.exe",
+    "gcc/share/doc/gcc-arm-none-eabi/license.txt",
+    "openocd/bin/openocd.exe", "openocd/share/openocd/scripts/target/ti/mspm0.cfg"
+  ]
+}
